@@ -7,8 +7,12 @@ use Carbon\Carbon;
 
 class YearlyLeaveCredit
 {
-    public static function getScheduledCreditDate(Carbon $date, ?FinancialYear $financialYear, ?string $configuredDay): ?Carbon
-    {
+    public static function getScheduledCreditDate(
+        Carbon $date,
+        ?FinancialYear $financialYear,
+        ?string $configuredDay,
+        ?Carbon $joinDate = null,
+    ): ?Carbon {
         if ($financialYear?->start_date === null || $financialYear?->end_date === null || ! is_numeric($configuredDay)) {
             return null;
         }
@@ -18,32 +22,26 @@ class YearlyLeaveCredit
         $endDate = $financialYear->end_date->copy()->startOfDay();
         $day = (int) $configuredDay;
 
-        if ($day < 1 || $day > $startDate->daysInMonth || ! $checkDate->betweenIncluded($startDate, $endDate)) {
+        if ($day < 1 || $day > 31 || ! $checkDate->betweenIncluded($startDate, $endDate)) {
             return null;
         }
 
-        $scheduledDate = $startDate->copy()->day($day);
+        $scheduledDate = self::getFinancialYearCreditDate($startDate, $endDate, $day, $joinDate);
 
-        return $checkDate->gte($scheduledDate) && $scheduledDate->betweenIncluded($startDate, $endDate)
+        return $scheduledDate !== null && $checkDate->gte($scheduledDate)
             ? $scheduledDate
             : null;
     }
 
-    public static function isCreditDate(Carbon $date, ?FinancialYear $financialYear, ?string $configuredDay): bool
-    {
-        $scheduledDate = self::getScheduledCreditDate($date, $financialYear, $configuredDay);
+    public static function isCreditDate(
+        Carbon $date,
+        ?FinancialYear $financialYear,
+        ?string $configuredDay,
+        ?Carbon $joinDate = null,
+    ): bool {
+        $scheduledDate = self::getScheduledCreditDate($date, $financialYear, $configuredDay, $joinDate);
 
         return $scheduledDate !== null && $date->isSameDay($scheduledDate);
-    }
-
-    public static function shouldCreateCreditMuster(?Carbon $scheduledDate, bool $alreadyExists): bool
-    {
-        return $scheduledDate !== null && ! $alreadyExists;
-    }
-
-    public static function getNextScheduledDate(?Carbon $lastCheckDate): ?Carbon
-    {
-        return $lastCheckDate?->copy()->addYear();
     }
 
     public static function getInitialMusterDate(
@@ -52,16 +50,68 @@ class YearlyLeaveCredit
         ?string $configuredDay,
         ?Carbon $joinDate,
         bool $hasYearlyCreditRule,
+        bool $hasMonthlyCreditRule = false,
     ): ?Carbon {
         if ($hasYearlyCreditRule) {
-            $scheduledDate = self::getScheduledCreditDate($today, $financialYear, $configuredDay);
-            if ($scheduledDate !== null
-                && ($joinDate === null || ! $joinDate->copy()->startOfDay()->gt($scheduledDate))) {
-                return $scheduledDate;
+            if ($financialYear?->start_date !== null
+                && $financialYear->end_date !== null
+                && is_numeric($configuredDay)
+                && (int) $configuredDay >= 1
+                && (int) $configuredDay <= 31) {
+                $scheduledDate = self::getFinancialYearCreditDate(
+                    $financialYear->start_date->copy()->startOfDay(),
+                    $financialYear->end_date->copy()->startOfDay(),
+                    (int) $configuredDay,
+                    $joinDate,
+                );
+
+                if ($scheduledDate !== null) {
+                    $today = $today->copy()->startOfDay();
+                    $joinDate = $joinDate?->copy()->startOfDay();
+                    $isNewJoinerInCurrentFinancialYear = $joinDate !== null
+                        && $joinDate->betweenIncluded(
+                            $financialYear->start_date->copy()->startOfDay(),
+                            $financialYear->end_date->copy()->startOfDay(),
+                        );
+
+                    if (! $hasMonthlyCreditRule
+                        || (! $isNewJoinerInCurrentFinancialYear && $scheduledDate->lte($today))) {
+                        return $scheduledDate;
+                    }
+                }
             }
         }
 
         return $joinDate?->copy();
+    }
+
+    private static function getFinancialYearCreditDate(
+        Carbon $financialYearStart,
+        Carbon $financialYearEnd,
+        int $configuredDay,
+        ?Carbon $joinDate,
+    ): ?Carbon {
+        $joinDate = $joinDate?->copy()->startOfDay();
+        $isNewJoiner = $joinDate !== null
+            && $joinDate->betweenIncluded($financialYearStart, $financialYearEnd);
+
+        if (! $isNewJoiner) {
+            $scheduledDate = self::getConfiguredDateInMonth($financialYearStart, $configuredDay);
+        } else {
+            $sameMonthDate = self::getConfiguredDateInMonth($joinDate, $configuredDay);
+            $scheduledDate = $joinDate->day <= $sameMonthDate->day
+                ? $sameMonthDate
+                : self::getConfiguredDateInMonth($joinDate->copy()->addMonthNoOverflow()->startOfMonth(), $configuredDay);
+        }
+
+        return $scheduledDate;
+    }
+
+    private static function getConfiguredDateInMonth(Carbon $date, int $configuredDay): Carbon
+    {
+        $monthStart = $date->copy()->startOfMonth();
+
+        return $monthStart->day(min($configuredDay, $monthStart->daysInMonth));
     }
 
     public static function shouldCorrectInitialMusterDate(
@@ -89,7 +139,9 @@ class YearlyLeaveCredit
             return round($annualQuota, 2);
         }
 
-        if ($newJoinerBasedOnCredit !== 'day_based' || $joinDate === null || $joinDate->gt($checkDate)) {
+        if (! in_array($newJoinerBasedOnCredit, ['day_based', 'monthly_based'], true)
+            || $joinDate === null
+            || $joinDate->gt($checkDate)) {
             return null;
         }
 
@@ -100,6 +152,31 @@ class YearlyLeaveCredit
 
         if ($joinDate->copy()->addYear()->lte($checkDate)) {
             return round($annualQuota, 2);
+        }
+
+        if ($newJoinerBasedOnCredit === 'monthly_based') {
+            if ($joinDate->lt($financialYearStart)) {
+                return round($annualQuota, 2);
+            }
+
+            if ($joinDate->gt($financialYearEnd)) {
+                return null;
+            }
+
+            $totalMonths = (($financialYearEnd->year - $financialYearStart->year) * 12)
+                + $financialYearEnd->month
+                - $financialYearStart->month
+                + 1;
+            $remainingMonths = (($financialYearEnd->year - $joinDate->year) * 12)
+                + $financialYearEnd->month
+                - $joinDate->month
+                + 1;
+
+            if ($totalMonths <= 0 || $remainingMonths <= 0) {
+                return null;
+            }
+
+            return round(($annualQuota / $totalMonths) * $remainingMonths, 2);
         }
 
         $periodDays = $financialYearStart->diffInDays($financialYearEnd) + 1;

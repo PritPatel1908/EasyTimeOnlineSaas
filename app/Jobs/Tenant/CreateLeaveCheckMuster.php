@@ -2,8 +2,8 @@
 
 namespace App\Jobs\Tenant;
 
-use App\Models\Tenant\GeneralConfiguration;
 use App\Models\Tenant\FinancialYear;
+use App\Models\Tenant\GeneralConfiguration;
 use App\Models\Tenant\LeaveCheckMuster;
 use App\Models\Tenant\User;
 use App\Support\LeaveRuleCadence;
@@ -98,12 +98,19 @@ class CreateLeaveCheckMuster implements ShouldBeUnique, ShouldQueue
                     $hasYearlyCreditRule = $gradeWiseLeave !== null
                         && (! $gradeWiseLeave->is_monthly
                             || LeaveRuleCadence::hasYearlyRules($gradeWiseLeave->grade_wise_monthly_leave_details));
+                    $monthlyRules = $gradeWiseLeave?->is_monthly
+                        ? $gradeWiseLeave->grade_wise_monthly_leave_details
+                        : collect();
+                    $hasMonthlyCreditRules = LeaveRuleCadence::hasMonthlyRules($monthlyRules);
+                    $yearlyCheckDateConfig = GeneralConfiguration::where('key', 'yearly_leave_check_date')->value('value');
+                    $currentFinancialYear = FinancialYear::forDate(Carbon::today());
                     $initialCheckDate = YearlyLeaveCredit::getInitialMusterDate(
                         Carbon::today(),
-                        FinancialYear::forDate(Carbon::today()),
-                        GeneralConfiguration::where('key', 'yearly_leave_check_date')->value('value'),
+                        $currentFinancialYear,
+                        $yearlyCheckDateConfig,
                         $user->join_date,
                         $hasYearlyCreditRule,
+                        $hasMonthlyCreditRules,
                     );
 
                     if ($hasYearlyCreditRule && YearlyLeaveCredit::shouldCorrectInitialMusterDate(
@@ -119,23 +126,6 @@ class CreateLeaveCheckMuster implements ShouldBeUnique, ShouldQueue
                         );
                     }
 
-                    $monthlyRules = $gradeWiseLeave?->is_monthly
-                        ? $gradeWiseLeave->grade_wise_monthly_leave_details
-                        : collect();
-                    $hasMonthlyCreditRules = LeaveRuleCadence::hasMonthlyRules($monthlyRules);
-                    if ($hasYearlyCreditRule && ! $hasMonthlyCreditRules && $user->last_check_date !== null) {
-                        $nextYearlyCheckDate = YearlyLeaveCredit::getNextScheduledDate($user->last_check_date);
-                        if ($nextYearlyCheckDate !== null
-                            && $pendingMuster->check_date?->format('Y-m-d') !== $nextYearlyCheckDate->format('Y-m-d')
-                            && $pendingMuster->check_date?->gt($user->last_check_date)) {
-                            $pendingMuster->check_date = $nextYearlyCheckDate;
-                            $pendingMuster->save();
-                            Log::channel('attprocess')->debug(
-                                'Corrected pending yearly leave muster date for | '.$user->name.'('.$user->code.') to '
-                                .$nextYearlyCheckDate->format('Y-m-d')
-                            );
-                        }
-                    }
                 }
 
                 if ($pendingMuster === null) {
@@ -147,47 +137,12 @@ class CreateLeaveCheckMuster implements ShouldBeUnique, ShouldQueue
                         if ($user_leave_check_muster) {
                             $monthlyRules = $user->grade_wise_leave->grade_wise_monthly_leave_details;
                             $hasMonthlyRules = LeaveRuleCadence::hasMonthlyRules($monthlyRules);
-                            $hasYearlyRules = LeaveRuleCadence::hasYearlyRules($monthlyRules);
                             $today = Carbon::today();
                             $monthlyCheckDateConfig = GeneralConfiguration::where('key', 'monthly_leave_check_date')->value('value');
-                            $yearlyCheckDate = GeneralConfiguration::where('key', 'yearly_leave_check_date')->value('value');
-                            $financialYear = FinancialYear::forDate($today);
                             $monthlyCheckDate = $hasMonthlyRules
                                 ? MonthlyLeaveCheckDate::getScheduledDate($today, $monthlyCheckDateConfig)
                                 : null;
-                            $yearlyCheckDate = $hasYearlyRules
-                                ? YearlyLeaveCredit::getScheduledCreditDate(
-                                    $today,
-                                    $financialYear,
-                                    $yearlyCheckDate,
-                                )
-                                : null;
-
-                            $yearlyMusterExists = $yearlyCheckDate !== null
-                                && LeaveCheckMuster::where('user_id', $user->id)
-                                    ->whereDate('check_date', $yearlyCheckDate->format('Y-m-d'))
-                                    ->exists();
-                            if (YearlyLeaveCredit::shouldCreateCreditMuster($yearlyCheckDate, $yearlyMusterExists)) {
-                                LeaveCheckMuster::create([
-                                    'user_id' => $user->id,
-                                    'check_date' => $yearlyCheckDate->format('Y-m-d'),
-                                ]);
-                                Log::channel('attprocess')->debug('Create yearly leave muster for | '.$user->name.'('.$user->code.')');
-                            } elseif ($hasYearlyRules && ! $hasMonthlyRules && $yearlyMusterExists) {
-                                $nextYearlyCheckDate = YearlyLeaveCredit::getNextScheduledDate($user->last_check_date);
-                                if ($nextYearlyCheckDate !== null
-                                    && ! LeaveCheckMuster::where('user_id', $user->id)
-                                        ->whereDate('check_date', $nextYearlyCheckDate->format('Y-m-d'))
-                                        ->exists()) {
-                                    LeaveCheckMuster::create([
-                                        'user_id' => $user->id,
-                                        'check_date' => $nextYearlyCheckDate->format('Y-m-d'),
-                                    ]);
-                                    Log::channel('attprocess')->debug(
-                                        'Create next yearly leave muster for | '.$user->name.'('.$user->code.')'
-                                    );
-                                }
-                            } elseif ($monthlyCheckDate !== null
+                            if ($monthlyCheckDate !== null
                                 && ($user_leave_check_muster->check_date === null
                                     || $monthlyCheckDate->gt($user_leave_check_muster->check_date->copy()->startOfDay()))) {
                                 LeaveCheckMuster::create([
@@ -207,39 +162,7 @@ class CreateLeaveCheckMuster implements ShouldBeUnique, ShouldQueue
                     } else {
                         if ($user_leave_check_muster) {
                             $yearlyCheckDateConfig = GeneralConfiguration::where('key', 'yearly_leave_check_date')->value('value');
-                            if ($yearlyCheckDateConfig !== null) {
-                                $yearlyCheckDate = YearlyLeaveCredit::getScheduledCreditDate(
-                                    Carbon::today(),
-                                    FinancialYear::forDate(Carbon::today()),
-                                    $yearlyCheckDateConfig,
-                                );
-                                $yearlyMusterExists = $yearlyCheckDate !== null
-                                    && LeaveCheckMuster::where('user_id', $user->id)
-                                        ->whereDate('check_date', $yearlyCheckDate->format('Y-m-d'))
-                                        ->exists();
-
-                                if (YearlyLeaveCredit::shouldCreateCreditMuster($yearlyCheckDate, $yearlyMusterExists)) {
-                                    LeaveCheckMuster::create([
-                                        'user_id' => $user->id,
-                                        'check_date' => $yearlyCheckDate->format('Y-m-d'),
-                                    ]);
-                                    Log::channel('attprocess')->debug('Create yearly leave muster for | '.$user->name.'('.$user->code.')');
-                                } elseif ($yearlyMusterExists) {
-                                    $nextYearlyCheckDate = YearlyLeaveCredit::getNextScheduledDate($user->last_check_date);
-                                    if ($nextYearlyCheckDate !== null
-                                        && ! LeaveCheckMuster::where('user_id', $user->id)
-                                            ->whereDate('check_date', $nextYearlyCheckDate->format('Y-m-d'))
-                                            ->exists()) {
-                                        LeaveCheckMuster::create([
-                                            'user_id' => $user->id,
-                                            'check_date' => $nextYearlyCheckDate->format('Y-m-d'),
-                                        ]);
-                                        Log::channel('attprocess')->debug(
-                                            'Create next yearly leave muster for | '.$user->name.'('.$user->code.')'
-                                        );
-                                    }
-                                }
-                            } else {
+                            if ($yearlyCheckDateConfig === null) {
                                 $new_check_date = $user_leave_check_muster->check_date->modify('+1 year')->format('Y-m-d');
                                 LeaveCheckMuster::create([
                                     'user_id' => $user?->id,
@@ -255,6 +178,10 @@ class CreateLeaveCheckMuster implements ShouldBeUnique, ShouldQueue
                 $hasYearlyCreditRule = $gradeWiseLeave !== null
                     && (! $gradeWiseLeave->is_monthly
                         || LeaveRuleCadence::hasYearlyRules($gradeWiseLeave->grade_wise_monthly_leave_details));
+                $monthlyRules = $gradeWiseLeave?->is_monthly
+                    ? $gradeWiseLeave->grade_wise_monthly_leave_details
+                    : collect();
+                $hasMonthlyCreditRules = LeaveRuleCadence::hasMonthlyRules($monthlyRules);
                 $yearlyCheckDate = GeneralConfiguration::where('key', 'yearly_leave_check_date')->value('value');
                 $initialCheckDate = YearlyLeaveCredit::getInitialMusterDate(
                     Carbon::today(),
@@ -262,6 +189,7 @@ class CreateLeaveCheckMuster implements ShouldBeUnique, ShouldQueue
                     $yearlyCheckDate,
                     $user->join_date,
                     $hasYearlyCreditRule,
+                    $hasMonthlyCreditRules,
                 );
                 $pendingMuster = LeaveCheckMuster::where('user_id', $user->id)
                     ->where('is_checked', false)
@@ -285,10 +213,14 @@ class CreateLeaveCheckMuster implements ShouldBeUnique, ShouldQueue
                     .$user->name.'('.$user->code.') on '.$initialCheckDate?->format('Y-m-d')
                 );
             }
+
             DB::commit();
         } catch (Throwable $e) {
             DB::rollBack();
-            Log::channel('attprocess')->error('Error creating leave muster for user '.$user->id.'. '.Str::limit($e->getMessage(), 200));
+            Log::channel('attprocess')->error(
+                'Error creating leave muster for user '.$user->id.'. '.Str::limit($e->getMessage(), 200),
+                ['exception' => $e],
+            );
             throw $e;
         }
     }

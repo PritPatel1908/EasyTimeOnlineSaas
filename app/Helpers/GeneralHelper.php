@@ -166,16 +166,23 @@ class GeneralHelper
             $transaction->lapse = $lapse_count;
             $transaction->save();
 
-            LeaveLapse::updateOrCreate(
-                [
-                    'date' => Carbon::parse($trx_datetime)->toDateString(),
+            $lapseDate = Carbon::parse($trx_datetime)->toDateString();
+            $leaveLapse = LeaveLapse::query()
+                ->whereDate('date', $lapseDate)
+                ->where('user_id', $authable_id)
+                ->where('leave_type_id', $leave_type_id)
+                ->first();
+
+            if ($leaveLapse === null) {
+                LeaveLapse::query()->create([
+                    'date' => $lapseDate,
                     'user_id' => $authable_id,
                     'leave_type_id' => $leave_type_id,
-                ],
-                [
                     'lapse_count' => $lapse_count,
-                ]
-            );
+                ]);
+            } else {
+                $leaveLapse->update(['lapse_count' => $lapse_count]);
+            }
         }
 
         // Calculate the new balance

@@ -33,6 +33,7 @@ class ProcessFinancialYearLeaveBalancesTest extends TestCase
             $table->date('start_date');
             $table->date('end_date');
             $table->softDeletes();
+            $table->timestamps();
         });
         Schema::create('grade_wise_leaves', function (Blueprint $table): void {
             $table->id();
@@ -126,6 +127,8 @@ class ProcessFinancialYearLeaveBalancesTest extends TestCase
             'id' => 2,
             'start_date' => '2027-04-01',
             'end_date' => '2028-03-31',
+            'created_at' => '2027-04-25 14:30:33',
+            'updated_at' => '2027-04-25 14:30:33',
         ]);
         DB::table('grade_wise_leaves')->insert([
             ['id' => 1, 'is_monthly' => false],
@@ -168,7 +171,7 @@ class ProcessFinancialYearLeaveBalancesTest extends TestCase
             'referenceable_id' => 7,
             'authable_type' => User::class,
             'authable_id' => 10,
-            'trx_datetime' => '2027-06-30 12:00:00',
+            'trx_datetime' => '2027-04-04 12:00:00',
             'trx_user_id' => 10,
             'leave_type_id' => 4,
             'opening_balance' => 0,
@@ -188,7 +191,7 @@ class ProcessFinancialYearLeaveBalancesTest extends TestCase
             'referenceable_id' => 8,
             'authable_type' => User::class,
             'authable_id' => 11,
-            'trx_datetime' => '2027-06-30 12:00:00',
+            'trx_datetime' => '2027-04-04 12:00:00',
             'trx_user_id' => 11,
             'leave_type_id' => 5,
             'opening_balance' => 0,
@@ -208,14 +211,20 @@ class ProcessFinancialYearLeaveBalancesTest extends TestCase
 
         $yearlyCloseTransaction = DB::table('transactions2027')
             ->where('authable_id', 10)
-            ->where('trx_datetime', '2028-03-31 23:59:59')
+            ->where('trx_datetime', '2027-04-25 14:30:33')
             ->first();
         $monthlyCloseTransaction = DB::table('transactions2027')
             ->where('authable_id', 11)
-            ->where('trx_datetime', '2028-03-31 23:59:59')
+            ->where('trx_datetime', '2027-04-25 14:30:33')
             ->first();
-        $yearlyNextYearTransaction = DB::table('transactions2028')->where('authable_id', 10)->first();
-        $monthlyNextYearTransaction = DB::table('transactions2028')->where('authable_id', 11)->first();
+        $yearlyNextYearTransaction = DB::table('transactions2027')
+            ->where('authable_id', 10)
+            ->where('trx_datetime', '2027-04-25 14:30:34')
+            ->first();
+        $monthlyNextYearTransaction = DB::table('transactions2027')
+            ->where('authable_id', 11)
+            ->where('trx_datetime', '2027-04-25 14:30:34')
+            ->first();
 
         $this->assertSame(0.0, (float) $yearlyCloseTransaction->balance);
         $this->assertSame(15.0, (float) $yearlyCloseTransaction->debit);
@@ -229,7 +238,7 @@ class ProcessFinancialYearLeaveBalancesTest extends TestCase
         $this->assertSame(3.0, (float) $monthlyNextYearTransaction->balance);
         $this->assertSame(2, DB::table('leave_lapses')->count());
         $this->assertSame(10.0, (float) DB::table('leave_lapses')->sum('lapse_count'));
-        $this->assertSame(4, DB::table('transactions2027')->count());
-        $this->assertSame(2, DB::table('transactions2028')->count());
+        $this->assertSame(6, DB::table('transactions2027')->count());
+        $this->assertSame(0, DB::table('transactions2028')->count());
     }
 }

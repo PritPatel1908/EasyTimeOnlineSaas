@@ -35,9 +35,11 @@ class ProcessFinancialYearLeaveBalances implements ShouldQueue
     public function handle(): void
     {
         $financialYear = FinancialYear::query()->findOrFail($this->financialYearId);
-        $closeDate = Carbon::parse($financialYear->end_date)->endOfDay();
-        $nextYearCreditDate = $closeDate->copy()->addDay()->startOfDay()->addSecond();
-        $closingTransactionYear = Carbon::parse($financialYear->start_date)->format('Y');
+        $closeDate = Carbon::parse($financialYear->end_date)->setTime(23, 59, 59);
+        $activityDate = $financialYear->updated_at?->copy() ?? Carbon::now();
+        $nextYearCreditDate = $activityDate->copy()->addSecond();
+        $transactionYear = $activityDate->format('Y');
+        $settlementRemarkPrefix = 'Financial year close #'.$financialYear->id.': ';
 
         User::query()
             ->where('id', '!=', 1)
@@ -47,7 +49,13 @@ class ProcessFinancialYearLeaveBalances implements ShouldQueue
                 'grade_wise_leave.grade_wise_monthly_leave_details',
                 'grade_wise_leave.grade_wise_yearly_leave_details',
             ])
-            ->chunkById(100, function ($users) use ($closeDate, $nextYearCreditDate, $closingTransactionYear): void {
+            ->chunkById(100, function ($users) use (
+                $closeDate,
+                $activityDate,
+                $nextYearCreditDate,
+                $transactionYear,
+                $settlementRemarkPrefix,
+            ): void {
                 foreach ($users as $user) {
                     $leaveGroup = $user->grade_wise_leave;
                     if ($leaveGroup === null) {
@@ -61,7 +69,15 @@ class ProcessFinancialYearLeaveBalances implements ShouldQueue
                         continue;
                     }
 
-                    DB::transaction(function () use ($user, $leaveRules, $closeDate, $nextYearCreditDate, $closingTransactionYear): void {
+                    DB::transaction(function () use (
+                        $user,
+                        $leaveRules,
+                        $closeDate,
+                        $activityDate,
+                        $nextYearCreditDate,
+                        $transactionYear,
+                        $settlementRemarkPrefix,
+                    ): void {
                         $account = LeaveAccount::query()->firstOrCreate(['user_id' => $user->id]);
 
                         foreach ($leaveRules->unique('leave_type_id') as $leaveRule) {
@@ -74,6 +90,8 @@ class ProcessFinancialYearLeaveBalances implements ShouldQueue
                                 (int) $leaveRule->leave_type_id,
                                 (int) $user->id,
                                 $closeDate,
+                                $transactionYear,
+                                $settlementRemarkPrefix,
                             );
                             if ($balance <= 0) {
                                 continue;
@@ -94,7 +112,7 @@ class ProcessFinancialYearLeaveBalances implements ShouldQueue
 
                             if ($debit > 0) {
                                 GeneralHelper::createOrUpdateTransaction(
-                                    $closingTransactionYear,
+                                    $transactionYear,
                                     LeaveAccount::class,
                                     (int) $account->id,
                                     $leaveRule::class,
@@ -102,11 +120,11 @@ class ProcessFinancialYearLeaveBalances implements ShouldQueue
                                     (int) $leaveRule->leave_type_id,
                                     User::class,
                                     (int) $user->id,
-                                    $closeDate,
+                                    $activityDate,
                                     (int) $user->id,
                                     0,
                                     $debit,
-                                    'Financial year close: leave balance settled.',
+                                    $settlementRemarkPrefix.'leave balance settled.',
                                     $this->authUserId,
                                     $this->authUserId,
                                     $lapse > 0,
@@ -116,7 +134,7 @@ class ProcessFinancialYearLeaveBalances implements ShouldQueue
 
                             if ($carryForward > 0) {
                                 GeneralHelper::createOrUpdateTransaction(
-                                    $nextYearCreditDate->format('Y'),
+                                    $transactionYear,
                                     LeaveAccount::class,
                                     (int) $account->id,
                                     $leaveRule::class,
@@ -128,7 +146,7 @@ class ProcessFinancialYearLeaveBalances implements ShouldQueue
                                     (int) $user->id,
                                     $carryForward,
                                     0,
-                                    'Financial year close: carried forward leave balance.',
+                                    $settlementRemarkPrefix.'carried forward leave balance.',
                                     $this->authUserId,
                                     $this->authUserId,
                                     false,
@@ -140,9 +158,21 @@ class ProcessFinancialYearLeaveBalances implements ShouldQueue
             });
     }
 
-    private function balanceAtDate(LeaveAccount $account, int $leaveTypeId, int $userId, Carbon $date): float
+    private function balanceAtDate(
+        LeaveAccount $account,
+        int $leaveTypeId,
+        int $userId,
+        Carbon $date,
+        string $transactionYear,
+        string $settlementRemarkPrefix,
+    ): float
     {
-        foreach ([(int) $date->format('Y'), (int) $date->format('Y') - 1] as $year) {
+        $settlementRemarks = [
+            $settlementRemarkPrefix.'leave balance settled.',
+            $settlementRemarkPrefix.'carried forward leave balance.',
+        ];
+
+        foreach (array_unique([(int) $date->format('Y'), (int) $date->format('Y') - 1, (int) $transactionYear]) as $year) {
             if (! Schema::hasTable('transactions'.$year)) {
                 continue;
             }
@@ -154,6 +184,10 @@ class ProcessFinancialYearLeaveBalances implements ShouldQueue
                 ->where('authable_type', User::class)
                 ->where('authable_id', $userId)
                 ->where('trx_datetime', '<=', $date)
+                ->where(static function ($query) use ($settlementRemarks): void {
+                    $query->whereNull('remarks')
+                        ->orWhereNotIn('remarks', $settlementRemarks);
+                })
                 ->orderByDesc('trx_datetime')
                 ->orderByDesc('id')
                 ->first();

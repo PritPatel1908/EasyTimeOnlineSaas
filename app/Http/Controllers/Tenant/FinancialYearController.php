@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Tenant;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tenant\StoreFinancialYearRequest;
 use App\Http\Requests\Tenant\UpdateFinancialYearRequest;
+use App\Jobs\Tenant\CreateLeaveCheckMusterBatch;
 use App\Jobs\Tenant\GenerateFinancialYearExport;
 use App\Jobs\Tenant\ProcessFinancialYearLeaveBalances;
 use App\Jobs\Tenant\ProcessFinancialYearImport;
@@ -171,11 +172,22 @@ class FinancialYearController extends Controller
             'is_closed' => $isClosed,
         ]);
 
+        if ($isStarted) {
+            CreateLeaveCheckMusterBatch::dispatch((int) $financialYear->getKey())
+                ->onConnection('database_tenant')
+                ->onQueue('processing');
+        }
+
         if ($isClosed) {
             $this->dispatchLeaveBalanceSettlement($financialYear);
         }
 
-        return redirect(url(self::INDEX_URL))->with('success', 'Financial Year actions updated successfully.');
+        return redirect(url(self::INDEX_URL))->with(
+            'success',
+            $isStarted
+                ? 'Financial Year started successfully. Leave check muster creation has been queued.'
+                : 'Financial Year actions updated successfully.',
+        );
     }
 
     public function destroy(Request $request): RedirectResponse

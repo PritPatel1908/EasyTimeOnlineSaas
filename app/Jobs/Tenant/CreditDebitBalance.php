@@ -2,18 +2,19 @@
 
 namespace App\Jobs\Tenant;
 
-use App\Support\ActivityLogger;
 use App\Enums\BasedOnEnumn;
 use App\Enums\YesNoEnumn;
 use App\Helpers\GeneralHelper;
+use App\Models\Tenant\FinancialYear;
+use App\Models\Tenant\GeneralConfiguration;
 use App\Models\Tenant\LeaveAccount;
 use App\Models\Tenant\LeaveAccountDetail;
 use App\Models\Tenant\LeaveCheckMuster;
-use App\Models\Tenant\GeneralConfiguration;
-use App\Models\Tenant\FinancialYear;
 use App\Models\Tenant\StatusMaster;
 use App\Models\Tenant\StatusMuster;
 use App\Models\Tenant\User;
+use App\Support\ActivityLogger;
+use App\Support\LeaveRuleCadence;
 use App\Support\YearlyLeaveCredit;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
@@ -25,8 +26,8 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Throwable;
 use Jenssegers\Agent\Agent;
+use Throwable;
 
 class CreditDebitBalance implements ShouldBeUnique, ShouldQueue
 {
@@ -80,30 +81,26 @@ class CreditDebitBalance implements ShouldBeUnique, ShouldQueue
         try {
             // $userLeaveAccount = $this->user?->leave_account()->create(['user_id' => $this->user?->id]);
             $userLeaveAccount = LeaveAccount::firstOrCreate(['user_id' => $this->user?->id]);
-            $user_leave_check_muster = LeaveCheckMuster::where('user_id', $this->user?->id)
+            $today = Carbon::today();
+            $pendingMusters = LeaveCheckMuster::where('user_id', $this->user?->id)
                 ->where('is_checked', false)
-                ->orderBy('check_date', 'desc')
+                ->whereDate('check_date', '<=', $today->toDateString());
+            $user_leave_check_muster = $pendingMusters
+                ->orderBy('check_date')
+                ->orderBy('id')
                 ->first();
-
-            if ($user_leave_check_muster?->check_date?->isAfter(Carbon::today())) {
-                Log::channel('attprocess')->debug(
-                    'Leave balance check is not due yet for | '.$this->user->name.'('.$this->user->code.') on '
-                    .$user_leave_check_muster->check_date->format('Y-m-d')
-                );
-                DB::commit();
-
-                return;
-            }
 
             $year = $user_leave_check_muster?->check_date?->format('Y');
 
             if ($user_leave_check_muster !== null) {
+                Log::channel('attprocess')->info(
+                    'Processing leave balance muster for | '.$this->user->name.'('.$this->user->code.') on '
+                    .$user_leave_check_muster->check_date->format('Y-m-d')
+                );
+
                 if ($this->user?->grade_wise_leave?->is_monthly) {
                     if ($this->user?->grade_wise_leave?->grade_wise_monthly_leave_details != null && count($this->user?->grade_wise_leave?->grade_wise_monthly_leave_details) > 0) {
                         $checkDate = Carbon::parse($user_leave_check_muster->check_date);
-                        $financialYear = FinancialYear::forDate($checkDate);
-                        $yearlyCheckDate = GeneralConfiguration::where('key', 'yearly_leave_check_date')->value('value');
-                        $isYearlyCreditDate = YearlyLeaveCredit::isCreditDate($checkDate, $financialYear, $yearlyCheckDate);
 
                         foreach ($this->user?->grade_wise_leave?->grade_wise_monthly_leave_details as $grade_wise_detail) {
                             $leaveCreditType = $grade_wise_detail->leave_credit_type ?? 'monthly';
@@ -113,84 +110,6 @@ class CreditDebitBalance implements ShouldBeUnique, ShouldQueue
                             }
 
                             if ($leaveCreditType === 'yearly') {
-                                if (! $isYearlyCreditDate || $financialYear === null) {
-                                    continue;
-                                }
-
-                                if ($grade_wise_detail->new_joiner_based_on_credit !== null
-                                    && $grade_wise_detail->new_joiner_based_on_credit !== 'day_based') {
-                                    Log::channel('attprocess')->warning(
-                                        'Unsupported yearly leave credit mode '.$grade_wise_detail->new_joiner_based_on_credit
-                                        .' for user '.$this->user?->id.' and leave rule '.$grade_wise_detail->id
-                                    );
-                                    continue;
-                                }
-
-                                $joinDate = $this->user?->join_date
-                                    ? Carbon::parse($this->user->join_date)->startOfDay()
-                                    : null;
-                                $annualCredit = YearlyLeaveCredit::calculateCredit(
-                                    (float) ($grade_wise_detail->annual_quota ?? 0),
-                                    $grade_wise_detail->new_joiner_based_on_credit,
-                                    $joinDate,
-                                    $checkDate->copy()->startOfDay(),
-                                    $financialYear->start_date->copy()->startOfDay(),
-                                    $financialYear->end_date->copy()->startOfDay(),
-                                    (int) ($grade_wise_detail->credit_after_days ?? 0),
-                                );
-
-                                if ($annualCredit === null) {
-                                    continue;
-                                }
-
-                                $transactionDate = $checkDate->copy()->setTime(0, 0, 4);
-                                GeneralHelper::createOrUpdateTransaction(
-                                    $checkDate->format('Y'),
-                                    get_class($userLeaveAccount),
-                                    $userLeaveAccount->id,
-                                    get_class($grade_wise_detail),
-                                    $grade_wise_detail->id,
-                                    $grade_wise_detail->leave_type_id,
-                                    get_class($this->user),
-                                    $this->user->id,
-                                    $transactionDate,
-                                    $this->user->id,
-                                    $annualCredit,
-                                    0,
-                                    'Annual Credit #'.$grade_wise_detail->leave_type?->code.' '.$transactionDate,
-                                    $this->user->id,
-                                    $this->user->id,
-                                    false
-                                );
-
-                                if ($grade_wise_detail->max_accumulation > 0) {
-                                    $leaveAccountDetail = LeaveAccountDetail::where('leave_account_id', $userLeaveAccount->id)
-                                        ->where('leave_type_id', $grade_wise_detail->leave_type_id)
-                                        ->first();
-
-                                    if ($leaveAccountDetail !== null && $leaveAccountDetail->balance > $grade_wise_detail->max_accumulation) {
-                                        $debitDate = $transactionDate->copy()->setTime(0, 0, 5);
-                                        GeneralHelper::createOrUpdateTransaction(
-                                            $checkDate->format('Y'),
-                                            get_class($userLeaveAccount),
-                                            $userLeaveAccount->id,
-                                            get_class($grade_wise_detail),
-                                            $grade_wise_detail->id,
-                                            $grade_wise_detail->leave_type_id,
-                                            get_class($this->user),
-                                            $this->user->id,
-                                            $debitDate,
-                                            $this->user->id,
-                                            0,
-                                            $leaveAccountDetail->balance - $grade_wise_detail->max_accumulation,
-                                            'Debit #'.$grade_wise_detail->leave_type?->code.' '.$debitDate,
-                                            $this->user->id,
-                                            $this->user->id,
-                                            false
-                                        );
-                                    }
-                                }
-
                                 continue;
                             }
 
@@ -237,7 +156,7 @@ class CreditDebitBalance implements ShouldBeUnique, ShouldQueue
                                     $this->user?->id,
                                     $total_leave_balance,
                                     0,
-                                    'Credit #' . $grade_wise_detail->leave_type->code . ' ' . $user_leave_check_muster?->check_date?->copy()->setTime(00, 00, 02, 000000),
+                                    'Credit #'.$grade_wise_detail->leave_type->code.' '.$user_leave_check_muster?->check_date?->copy()->setTime(00, 00, 02, 000000),
                                     $this->user?->id,
                                     $this->user?->id,
                                     false
@@ -257,7 +176,7 @@ class CreditDebitBalance implements ShouldBeUnique, ShouldQueue
                                         $this->user?->id,
                                         0,
                                         LeaveAccountDetail::where('leave_type_id', $grade_wise_detail->leave_type_id)?->first()->balance - $grade_wise_detail->max_accumulation,
-                                        'Debit #' . $grade_wise_detail->leave_type->code . ' ' . $user_leave_check_muster?->check_date?->copy()->setTime(00, 00, 03, 000000),
+                                        'Debit #'.$grade_wise_detail->leave_type->code.' '.$user_leave_check_muster?->check_date?->copy()->setTime(00, 00, 03, 000000),
                                         $this->user?->id,
                                         $this->user?->id,
                                         false
@@ -278,6 +197,7 @@ class CreditDebitBalance implements ShouldBeUnique, ShouldQueue
                                     'No financial year covers leave check date '.$checkDate->format('Y-m-d')
                                     .' for user '.$this->user->id
                                 );
+
                                 continue;
                             }
 
@@ -326,7 +246,7 @@ class CreditDebitBalance implements ShouldBeUnique, ShouldQueue
                                     $this->user?->id,
                                     $total_leave_balance,
                                     0,
-                                    'Credit #' . $grade_wise_detail->leave_type->code . ' ' . $user_leave_check_muster?->check_date?->copy()->setTime(00, 00, 02, 000000),
+                                    'Credit #'.$grade_wise_detail->leave_type->code.' '.$user_leave_check_muster?->check_date?->copy()->setTime(00, 00, 02, 000000),
                                     $this->user?->id,
                                     $this->user?->id,
                                     false
@@ -346,7 +266,7 @@ class CreditDebitBalance implements ShouldBeUnique, ShouldQueue
                                         $this->user?->id,
                                         0,
                                         LeaveAccountDetail::where('leave_type_id', $grade_wise_detail->leave_type_id)?->first()->balance - $grade_wise_detail->max_accumulation,
-                                        'Debit #' . $grade_wise_detail->leave_type->code . ' ' . $user_leave_check_muster?->check_date?->copy()->setTime(00, 00, 03, 000000),
+                                        'Debit #'.$grade_wise_detail->leave_type->code.' '.$user_leave_check_muster?->check_date?->copy()->setTime(00, 00, 03, 000000),
                                         $this->user?->id,
                                         $this->user?->id,
                                         false
@@ -369,26 +289,180 @@ class CreditDebitBalance implements ShouldBeUnique, ShouldQueue
 
                 $old_record = [];
                 $agent = new Agent;
-                $browser = $agent->browser() . ' ' . $agent->version($agent->browser());
+                $browser = $agent->browser().' '.$agent->version($agent->browser());
                 $os = $agent->platform();
 
                 $new_record = [
                     'ip' => request()->ip(),
-                    'browser' => $os . ' > ' . $browser,
-                    'user' => $userLeaveAccount->name . '(' . $userLeaveAccount->code . ')',
+                    'browser' => $os.' > '.$browser,
+                    'user' => $userLeaveAccount->name.'('.$userLeaveAccount->code.')',
                     'date' => $user_leave_check_muster?->check_date?->copy()->format('Y-m-d'),
                 ];
 
                 $authUser = User::where('id', '1')->first();
                 ActivityLogger::log($authUser, $userLeaveAccount, $old_record, $new_record, 'updated');
             } else {
-                Log::channel('attprocess')->debug('Not have any leave check muster record for | ' . $this->user?->name . '(' . $this->user?->code . ')');
+                $nextMuster = LeaveCheckMuster::where('user_id', $this->user->id)
+                    ->where('is_checked', false)
+                    ->orderBy('check_date')
+                    ->first();
+
+                if ($nextMuster !== null) {
+                    Log::channel('attprocess')->debug(
+                        'No due leave muster for | '.$this->user->name.'('.$this->user->code
+                        .'); next pending muster is '.$nextMuster->check_date?->format('Y-m-d')
+                    );
+                } else {
+                    Log::channel('attprocess')->debug(
+                        'No pending leave muster for | '.$this->user->name.'('.$this->user->code.')'
+                    );
+                }
             }
+
+            $this->processDueYearlyLeaveCredits($userLeaveAccount, $today);
+
             DB::commit();
         } catch (Throwable $e) {
             DB::rollBack();
-            Log::channel('attprocess')->error('Error crediting leave balance for user '.$this->user->id.'. '.Str::limit($e->getMessage(), 200));
+            Log::channel('attprocess')->error(
+                'Error crediting leave balance for user '.$this->user->id.'. '.Str::limit($e->getMessage(), 200),
+                ['exception' => $e],
+            );
             throw $e;
+        }
+    }
+
+    private function processDueYearlyLeaveCredits(LeaveAccount $userLeaveAccount, Carbon $today): void
+    {
+        $gradeWiseLeave = $this->user->grade_wise_leave;
+        if ($gradeWiseLeave === null || ! $gradeWiseLeave->is_monthly) {
+            return;
+        }
+
+        $monthlyRules = $gradeWiseLeave->grade_wise_monthly_leave_details;
+        if (! LeaveRuleCadence::hasYearlyRules($monthlyRules)) {
+            return;
+        }
+
+        $yearlyCheckDate = YearlyLeaveCredit::getScheduledCreditDate(
+            $today,
+            FinancialYear::forDate($today),
+            GeneralConfiguration::where('key', 'yearly_leave_check_date')->value('value'),
+            $this->user->join_date
+                ? Carbon::parse($this->user->join_date)->startOfDay()
+                : null,
+        );
+        if ($yearlyCheckDate === null) {
+            return;
+        }
+
+        $financialYear = FinancialYear::forDate($yearlyCheckDate);
+        if ($financialYear === null) {
+            Log::channel('attprocess')->warning(
+                'Yearly leave credit skipped: no financial year for user '.$this->user->id
+                .' on '.$yearlyCheckDate->format('Y-m-d')
+            );
+
+            return;
+        }
+
+        $joinDate = $this->user->join_date
+            ? Carbon::parse($this->user->join_date)->startOfDay()
+            : null;
+
+        foreach ($monthlyRules as $gradeWiseDetail) {
+            if (($gradeWiseDetail->leave_credit_type ?? 'monthly') !== 'yearly') {
+                continue;
+            }
+
+            if ($gradeWiseDetail->new_joiner_based_on_credit !== null
+                && ! in_array($gradeWiseDetail->new_joiner_based_on_credit, ['day_based', 'monthly_based'], true)) {
+                Log::channel('attprocess')->warning(
+                    'Unsupported yearly leave credit mode '.$gradeWiseDetail->new_joiner_based_on_credit
+                    .' for user '.$this->user->id.' and leave rule '.$gradeWiseDetail->id
+                );
+
+                continue;
+            }
+
+            $annualCredit = YearlyLeaveCredit::calculateCredit(
+                (float) ($gradeWiseDetail->annual_quota ?? 0),
+                $gradeWiseDetail->new_joiner_based_on_credit,
+                $joinDate,
+                $yearlyCheckDate->copy()->startOfDay(),
+                $financialYear->start_date->copy()->startOfDay(),
+                $financialYear->end_date->copy()->startOfDay(),
+                (int) ($gradeWiseDetail->credit_after_days ?? 0),
+            );
+
+            if ($annualCredit === null) {
+                Log::channel('attprocess')->info(
+                    'Yearly leave credit deferred by eligibility for user '.$this->user->id
+                    .' on '.$yearlyCheckDate->format('Y-m-d')
+                    .' (join date: '.$joinDate?->format('Y-m-d')
+                    .', credit after days: '.$gradeWiseDetail->credit_after_days
+                    .', mode: '.($gradeWiseDetail->new_joiner_based_on_credit ?? 'full_quota').')'
+                );
+
+                continue;
+            }
+
+            $transactionDate = $yearlyCheckDate->copy()->setTime(0, 0, 4);
+            GeneralHelper::createOrUpdateTransaction(
+                $yearlyCheckDate->format('Y'),
+                get_class($userLeaveAccount),
+                $userLeaveAccount->id,
+                get_class($gradeWiseDetail),
+                $gradeWiseDetail->id,
+                $gradeWiseDetail->leave_type_id,
+                get_class($this->user),
+                $this->user->id,
+                $transactionDate,
+                $this->user->id,
+                $annualCredit,
+                0,
+                'Annual Credit #'.$gradeWiseDetail->leave_type?->code.' '.$transactionDate,
+                $this->user->id,
+                $this->user->id,
+                false
+            );
+            Log::channel('attprocess')->info(
+                'Yearly leave credit transaction created/updated for user '.$this->user->id
+                .' and leave rule '.$gradeWiseDetail->id.' on '.$transactionDate->format('Y-m-d')
+                .' (credit: '.$annualCredit.')'
+            );
+
+            if ($gradeWiseDetail->max_accumulation <= 0) {
+                continue;
+            }
+
+            $leaveAccountDetail = LeaveAccountDetail::where('leave_account_id', $userLeaveAccount->id)
+                ->where('leave_type_id', $gradeWiseDetail->leave_type_id)
+                ->first();
+
+            if ($leaveAccountDetail === null || $leaveAccountDetail->balance <= $gradeWiseDetail->max_accumulation) {
+                continue;
+            }
+
+            $debitDate = $transactionDate->copy()->setTime(0, 0, 5);
+            GeneralHelper::createOrUpdateTransaction(
+                $yearlyCheckDate->format('Y'),
+                get_class($userLeaveAccount),
+                $userLeaveAccount->id,
+                get_class($gradeWiseDetail),
+                $gradeWiseDetail->id,
+                $gradeWiseDetail->leave_type_id,
+                get_class($this->user),
+                $this->user->id,
+                $debitDate,
+                $this->user->id,
+                0,
+                $leaveAccountDetail->balance - $gradeWiseDetail->max_accumulation,
+                'Debit #'.$gradeWiseDetail->leave_type?->code.' '.$debitDate,
+                $this->user->id,
+                $this->user->id,
+                false
+            );
         }
     }
 }

@@ -44,7 +44,7 @@ class YearlyLeaveCreditTest extends TestCase
         ));
     }
 
-    public function test_missing_yearly_credit_muster_is_created_even_if_a_later_date_was_already_checked(): void
+    public function test_existing_employee_yearly_credit_uses_financial_year_start_month(): void
     {
         $scheduledDate = YearlyLeaveCredit::getScheduledCreditDate(
             Carbon::parse('2026-11-04'),
@@ -56,8 +56,6 @@ class YearlyLeaveCreditTest extends TestCase
         );
 
         $this->assertSame('2026-04-04', $scheduledDate?->format('Y-m-d'));
-        $this->assertTrue(YearlyLeaveCredit::shouldCreateCreditMuster($scheduledDate, false));
-        $this->assertFalse(YearlyLeaveCredit::shouldCreateCreditMuster($scheduledDate, true));
     }
 
     public function test_initial_muster_uses_due_yearly_credit_date_instead_of_join_date(): void
@@ -76,7 +74,7 @@ class YearlyLeaveCreditTest extends TestCase
         $this->assertSame('2026-04-04', $initialDate?->format('Y-m-d'));
     }
 
-    public function test_initial_muster_keeps_join_date_when_yearly_credit_date_is_not_due(): void
+    public function test_initial_muster_uses_financial_year_credit_date_for_existing_employees(): void
     {
         $initialDate = YearlyLeaveCredit::getInitialMusterDate(
             Carbon::parse('2026-04-02'),
@@ -89,10 +87,10 @@ class YearlyLeaveCreditTest extends TestCase
             true,
         );
 
-        $this->assertSame('2022-06-01', $initialDate?->format('Y-m-d'));
+        $this->assertSame('2026-04-04', $initialDate?->format('Y-m-d'));
     }
 
-    public function test_initial_muster_does_not_use_yearly_date_before_employee_join_date(): void
+    public function test_initial_muster_uses_join_month_or_next_month_configured_date_for_new_joiners(): void
     {
         $initialDate = YearlyLeaveCredit::getInitialMusterDate(
             Carbon::parse('2026-04-04'),
@@ -102,6 +100,23 @@ class YearlyLeaveCreditTest extends TestCase
             ]),
             '4',
             Carbon::parse('2026-10-22'),
+            true,
+        );
+
+        $this->assertSame('2026-11-04', $initialDate?->format('Y-m-d'));
+    }
+
+    public function test_initial_muster_keeps_join_date_for_mixed_monthly_and_yearly_rules(): void
+    {
+        $initialDate = YearlyLeaveCredit::getInitialMusterDate(
+            Carbon::parse('2026-04-04'),
+            new FinancialYear([
+                'start_date' => '2026-04-01',
+                'end_date' => '2027-03-31',
+            ]),
+            '4',
+            Carbon::parse('2026-10-22'),
+            true,
             true,
         );
 
@@ -130,12 +145,77 @@ class YearlyLeaveCreditTest extends TestCase
         ));
     }
 
-    public function test_next_yearly_check_date_is_one_year_after_last_checked_date(): void
+    public function test_new_joiner_check_date_uses_joining_month_when_configured_day_is_upcoming(): void
     {
-        $nextDate = YearlyLeaveCredit::getNextScheduledDate(Carbon::parse('2026-04-04'));
+        $financialYear = new FinancialYear([
+            'start_date' => '2026-04-01',
+            'end_date' => '2027-03-31',
+        ]);
+        $joinDate = Carbon::parse('2026-06-04');
 
-        $this->assertSame('2027-04-04', $nextDate?->format('Y-m-d'));
-        $this->assertNull(YearlyLeaveCredit::getNextScheduledDate(null));
+        $this->assertTrue(YearlyLeaveCredit::isCreditDate(
+            Carbon::parse('2026-06-05'),
+            $financialYear,
+            '5',
+            $joinDate,
+        ));
+    }
+
+    public function test_new_joiner_check_date_moves_to_next_month_when_joining_after_configured_day(): void
+    {
+        $financialYear = new FinancialYear([
+            'start_date' => '2026-04-01',
+            'end_date' => '2027-03-31',
+        ]);
+        $joinDate = Carbon::parse('2026-06-25');
+
+        $this->assertFalse(YearlyLeaveCredit::isCreditDate(
+            Carbon::parse('2026-06-05'),
+            $financialYear,
+            '5',
+            $joinDate,
+        ));
+        $this->assertTrue(YearlyLeaveCredit::isCreditDate(
+            Carbon::parse('2026-07-05'),
+            $financialYear,
+            '5',
+            $joinDate,
+        ));
+    }
+
+    public function test_new_joiner_joining_on_june_fourth_is_eligible_for_the_june_twenty_fifth_credit(): void
+    {
+        $financialYear = new FinancialYear([
+            'start_date' => '2026-04-01',
+            'end_date' => '2027-03-31',
+        ]);
+        $joinDate = Carbon::parse('2026-06-04');
+        $checkDate = Carbon::parse('2026-06-25');
+
+        $this->assertFalse(YearlyLeaveCredit::isCreditDate(
+            Carbon::parse('2026-06-04'),
+            $financialYear,
+            '25',
+            $joinDate,
+        ));
+        $this->assertTrue(YearlyLeaveCredit::isCreditDate(
+            $checkDate,
+            $financialYear,
+            '25',
+            $joinDate,
+        ));
+        $this->assertSame(
+            20.0,
+            YearlyLeaveCredit::calculateCredit(
+                24,
+                'monthly_based',
+                $joinDate,
+                $checkDate,
+                $financialYear->start_date->copy(),
+                $financialYear->end_date->copy(),
+                0,
+            ),
+        );
     }
 
     public function test_null_new_joiner_mode_credits_the_full_annual_quota(): void
@@ -181,6 +261,51 @@ class YearlyLeaveCreditTest extends TestCase
         );
 
         $this->assertNull($credit);
+    }
+
+    public function test_monthly_based_new_joiner_receives_credit_for_joining_month_through_financial_year_end(): void
+    {
+        $credit = YearlyLeaveCredit::calculateCredit(
+            24,
+            'monthly_based',
+            Carbon::parse('2026-06-15'),
+            Carbon::parse('2026-06-25'),
+            Carbon::parse('2026-04-01'),
+            Carbon::parse('2027-03-31'),
+            0,
+        );
+
+        $this->assertSame(20.0, $credit);
+    }
+
+    public function test_monthly_based_new_joiner_respects_credit_after_days(): void
+    {
+        $credit = YearlyLeaveCredit::calculateCredit(
+            24,
+            'monthly_based',
+            Carbon::parse('2026-06-15'),
+            Carbon::parse('2026-06-25'),
+            Carbon::parse('2026-04-01'),
+            Carbon::parse('2027-03-31'),
+            10,
+        );
+
+        $this->assertNull($credit);
+    }
+
+    public function test_monthly_based_new_joiner_before_financial_year_receives_full_quota(): void
+    {
+        $credit = YearlyLeaveCredit::calculateCredit(
+            24,
+            'monthly_based',
+            Carbon::parse('2026-03-31'),
+            Carbon::parse('2026-04-04'),
+            Carbon::parse('2026-04-01'),
+            Carbon::parse('2027-03-31'),
+            0,
+        );
+
+        $this->assertSame(24.0, $credit);
     }
 
     public function test_employee_past_first_anniversary_receives_full_quota(): void

@@ -3,8 +3,11 @@
 namespace App\Console\Commands;
 
 use App\Jobs\Tenant\CreateLeaveCheckMusterBatch;
+use App\Jobs\Tenant\CreditDebitBalanceBatch;
+use App\Models\Tenant\FinancialYear;
 use App\Models\Tenant\User;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Log;
 
 class CreateLeaveMuster extends Command
@@ -35,11 +38,21 @@ class CreateLeaveMuster extends Command
             ->exists();
 
         if ($hasEligibleUsers) {
-            CreateLeaveCheckMusterBatch::dispatch()
-                ->onConnection('database_tenant')
-                ->onQueue('processing');
+            $startedFinancialYearId = FinancialYear::query()
+                ->where('is_started', true)
+                ->value('id');
 
-            $this->info('Dispatched one leave-muster batch job to database_tenant:processing.');
+            Bus::chain([
+                new CreateLeaveCheckMusterBatch(
+                    $startedFinancialYearId === null ? null : (int) $startedFinancialYearId,
+                ),
+                new CreditDebitBalanceBatch,
+            ])
+                ->onConnection('database_tenant')
+                ->onQueue('processing')
+                ->dispatch();
+
+            $this->info('Dispatched the leave-muster and balance batches in sequence to database_tenant:processing.');
         } else {
             $this->warn('No eligible employees found; no leave-muster jobs were dispatched.');
             Log::channel('attprocess')->debug('No user found');

@@ -6,6 +6,7 @@ namespace Tests\Feature;
 
 use App\Http\Controllers\Tenant\FinancialYearController;
 use App\Http\Requests\Tenant\UpdateFinancialYearRequest;
+use App\Jobs\Tenant\CreateLeaveCheckMusterBatch;
 use App\Jobs\Tenant\GenerateFinancialYearExport;
 use App\Models\Tenant\FinancialYear;
 use Illuminate\Support\Facades\Auth;
@@ -111,6 +112,7 @@ class TenantFinancialYearImportExportTest extends TestCase
         $blockedStart = $this->updateFinancialYearFlags(2, 1, 0);
         $this->assertSame(302, $blockedStart->getStatusCode());
         $this->assertDatabaseHas('financial_years', ['id' => 2, 'is_started' => false]);
+        Bus::assertNotDispatched(CreateLeaveCheckMusterBatch::class);
 
         $stop = $this->updateFinancialYearFlags(1, 0, 1);
         $this->assertSame(302, $stop->getStatusCode());
@@ -131,6 +133,14 @@ class TenantFinancialYearImportExportTest extends TestCase
         $startNext = $this->updateFinancialYearFlags(2, 1, 0);
         $this->assertSame(302, $startNext->getStatusCode());
         $this->assertDatabaseHas('financial_years', ['id' => 2, 'is_started' => true, 'is_closed' => false]);
+        $this->assertSame(
+            'Financial Year started successfully. Leave check muster creation has been queued.',
+            $startNext->getSession()->get('success'),
+        );
+        Bus::assertDispatchedTimes(CreateLeaveCheckMusterBatch::class, 1);
+        Bus::assertDispatched(CreateLeaveCheckMusterBatch::class, fn (CreateLeaveCheckMusterBatch $job): bool => $job->financialYearId === 2
+            && $job->connection === 'database_tenant'
+            && $job->queue === 'processing');
         Bus::assertDispatched(\App\Jobs\Tenant\ProcessFinancialYearLeaveBalances::class, 2);
     }
 
