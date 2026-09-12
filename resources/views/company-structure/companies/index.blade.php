@@ -37,12 +37,16 @@
 
         {{-- Flash messages --}}
         @if (session('success'))
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <div class="alert alert-success alert-dismissible fade show auto-dismiss-alert d-flex align-items-center" role="alert">
                 <i class="ti ti-circle-check me-2"></i>{{ session('success') }}
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
         @endif
-        <div id="company-status-alert" class="alert d-none" role="alert"></div>
+        <div id="company-status-alert" class="alert alert-dismissible d-none align-items-center" role="alert">
+            <i class="ti ti-circle-check me-2 alert-icon"></i>
+            <span class="alert-message"></span>
+            <button type="button" class="btn-close" aria-label="Close"></button>
+        </div>
 
         {{-- Company List --}}
         <div class="card">
@@ -142,6 +146,68 @@
 
 @push('scripts')
 <script>
+    function showStatusAlert(alert, type, message) {
+        alert.className = 'alert alert-' + type + ' alert-dismissible d-flex align-items-center';
+        alert.querySelector('.alert-icon').className = type === 'success'
+            ? 'ti ti-circle-check me-2 alert-icon'
+            : 'ti ti-alert-circle me-2 alert-icon';
+        alert.querySelector('.alert-message').textContent = message;
+        alert.classList.remove('d-none');
+    }
+
+    function startAutoDismissAlert(alert) {
+        if (alert.autoDismissTimer) {
+            window.clearTimeout(alert.autoDismissTimer);
+        }
+
+        var remaining = 5000;
+        var timer;
+        var startedAt;
+
+        function dismiss() {
+            if (alert.id === 'company-status-alert') {
+                alert.classList.add('d-none');
+            } else {
+                alert.remove();
+            }
+        }
+
+        function startTimer() {
+            startedAt = Date.now();
+            timer = window.setTimeout(dismiss, remaining);
+            alert.autoDismissTimer = timer;
+        }
+
+        alert.addEventListener('mouseenter', function () {
+            if (timer) {
+                window.clearTimeout(timer);
+                remaining = Math.max(0, remaining - (Date.now() - startedAt));
+                timer = null;
+            }
+        });
+
+        alert.addEventListener('mouseleave', function () {
+            if (!timer && remaining > 0) {
+                startTimer();
+            }
+        });
+
+        startTimer();
+    }
+
+    document.querySelector('#company-status-alert .btn-close').addEventListener('click', function () {
+        var alert = this.closest('.alert');
+
+        if (alert.autoDismissTimer) {
+            window.clearTimeout(alert.autoDismissTimer);
+            alert.autoDismissTimer = null;
+        }
+
+        alert.classList.add('d-none');
+    });
+
+    document.querySelectorAll('.auto-dismiss-alert').forEach(startAutoDismissAlert);
+
     // Wire up the delete modal with the correct company id and name
     document.querySelectorAll('.delete-company-btn').forEach(function (btn) {
         btn.addEventListener('click', function () {
@@ -216,12 +282,12 @@
                     pages.innerHTML = '';
                 }
 
-                alert.className = 'alert alert-success';
-                alert.textContent = 'Company status filter applied successfully.';
+                showStatusAlert(alert, 'success', 'Company status filter applied successfully.');
+                startAutoDismissAlert(alert);
             })
             .catch(function (error) {
-                alert.className = 'alert alert-danger';
-                alert.textContent = error.message;
+                showStatusAlert(alert, 'danger', error.message);
+                startAutoDismissAlert(alert);
             })
             .finally(function () {
                 filterButton.disabled = false;
@@ -265,12 +331,12 @@
                     statusButton.classList.toggle('badge-success', data.status === 1);
                     statusButton.classList.toggle('badge-danger', data.status !== 1);
                     statusButton.querySelector('.company-status-label').textContent = data.statusLabel;
-                    alert.className = 'alert alert-success';
-                    alert.textContent = data.message;
+                    showStatusAlert(alert, 'success', data.message);
+                    startAutoDismissAlert(alert);
                 })
                 .catch(function (error) {
-                    alert.className = 'alert alert-danger';
-                    alert.textContent = error.message;
+                    showStatusAlert(alert, 'danger', error.message);
+                    startAutoDismissAlert(alert);
                 })
                 .finally(function () {
                     statusButton.disabled = false;
