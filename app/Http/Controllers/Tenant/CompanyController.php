@@ -10,7 +10,9 @@ use App\Http\Requests\Tenant\UpdateCompanyRequest;
 use App\Models\Tenant\Company;
 use App\Models\Tenant\Location;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 
 class CompanyController extends Controller
 {
@@ -30,6 +32,30 @@ class CompanyController extends Controller
         ]);
     }
 
+    public function filterStatus(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'status' => ['nullable', 'in:all,1,0'],
+        ]);
+
+        $query = Company::query()
+            ->with('location')
+            ->latest('id');
+
+        if (($validated['status'] ?? 'all') !== 'all') {
+            $query->where('status', (int) $validated['status']);
+        }
+
+        $companies = $query->get();
+
+        return response()->json([
+            'html' => view('company-structure.companies.partials.rows', [
+                'companies' => $companies,
+            ])->render(),
+            'count' => $companies->count(),
+        ]);
+    }
+
     public function store(StoreCompanyRequest $request): RedirectResponse
     {
         Company::query()->create($request->validated());
@@ -38,27 +64,43 @@ class CompanyController extends Controller
             ->with('success', 'Company created successfully.');
     }
 
-    public function edit(Company $company): View
+    public function edit(Request $request): View
     {
         $locations = Location::query()->where('status', 1)->orderBy('name')->get();
 
         return view('company-structure.companies.edit', [
-            'company' => $company,
+            'company' => Company::query()->findOrFail($request->route('company')),
             'locations' => $locations,
         ]);
     }
 
-    public function update(UpdateCompanyRequest $request, Company $company): RedirectResponse
+    public function update(UpdateCompanyRequest $request): RedirectResponse
     {
-        $company->update($request->validated());
+        Company::query()->findOrFail($request->route('company'))->update($request->validated());
 
         return redirect(url('company-structure/companies'))
             ->with('success', 'Company updated successfully.');
     }
 
-    public function destroy(Company $company): RedirectResponse
+    public function updateStatus(Request $request): JsonResponse
     {
-        $company->delete();
+        $validated = $request->validate([
+            'status' => ['required', 'integer', 'in:1,0'],
+        ]);
+
+        $companyRecord = Company::query()->findOrFail($request->route('company'));
+        $companyRecord->update(['status' => $validated['status']]);
+
+        return response()->json([
+            'message' => 'Company status updated successfully.',
+            'status' => $companyRecord->status,
+            'statusLabel' => $companyRecord->status === 1 ? 'Active' : 'Inactive',
+        ]);
+    }
+
+    public function destroy(Request $request): RedirectResponse
+    {
+        Company::query()->findOrFail($request->route('company'))->delete();
 
         return redirect(url('company-structure/companies'))
             ->with('success', 'Company deleted successfully.');

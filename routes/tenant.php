@@ -44,6 +44,10 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
         Route::post('/license', [LicenseController::class, 'update'])->name('tenant.license.update');
 
         Route::prefix('company-structure')->name('tenant.company-structure.')->group(function (): void {
+            Route::post('companies/filter', [CompanyController::class, 'filterStatus'])
+                ->name('companies.filter');
+            Route::post('companies/{company}/status', [CompanyController::class, 'updateStatus'])
+                ->name('companies.status');
             Route::resource('companies', CompanyController::class)
                 ->except(['create', 'show'])
                 ->names('companies');

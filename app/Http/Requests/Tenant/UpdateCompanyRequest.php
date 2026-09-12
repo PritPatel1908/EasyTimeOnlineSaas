@@ -18,7 +18,7 @@ class UpdateCompanyRequest extends FormRequest
      */
     public function rules(): array
     {
-        $companyId = $this->route('company')?->id;
+        $companyId = $this->route('company');
 
         return [
             'name' => ['required', 'string', 'max:255'],

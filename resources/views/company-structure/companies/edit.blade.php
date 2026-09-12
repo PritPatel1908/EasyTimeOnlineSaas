@@ -33,7 +33,7 @@
         {{-- /Breadcrumb --}}
 
         <div class="row">
-            <div class="col-xl-8 col-lg-10 col-12 mx-auto">
+            <div class="col-12">
                 <div class="card">
                     <div class="card-header">
                         <h5 class="mb-0">

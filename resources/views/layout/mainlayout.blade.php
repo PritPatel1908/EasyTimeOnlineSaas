@@ -88,6 +88,8 @@
 	@component('components.modal-popup')
 	@endcomponent
 
+	@stack('scripts')
+
 	@if (request()->attributes->get('tenantLicenseRequired', false))
 		@include('tenant.partials.license-modal')
 	@endif

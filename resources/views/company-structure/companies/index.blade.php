@@ -42,6 +42,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
         @endif
+        <div id="company-status-alert" class="alert d-none" role="alert"></div>
 
         {{-- Company List --}}
         <div class="card">
@@ -56,16 +57,16 @@
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end p-3">
                             <li>
-                                <a href="{{ url('company-structure/companies') }}"
-                                    class="dropdown-item rounded-1">All</a>
+                                <button type="button" class="dropdown-item rounded-1 company-status-filter"
+                                    data-status="all">All</button>
                             </li>
                             <li>
-                                <a href="{{ url('company-structure/companies') }}?status=1"
-                                    class="dropdown-item rounded-1">Active</a>
+                                <button type="button" class="dropdown-item rounded-1 company-status-filter"
+                                    data-status="1">Active</button>
                             </li>
                             <li>
-                                <a href="{{ url('company-structure/companies') }}?status=0"
-                                    class="dropdown-item rounded-1">Inactive</a>
+                                <button type="button" class="dropdown-item rounded-1 company-status-filter"
+                                    data-status="0">Inactive</button>
                             </li>
                         </ul>
                     </div>
@@ -90,56 +91,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @forelse ($companies as $company)
-                                <tr>
-                                    <td>
-                                        <div class="form-check form-check-md">
-                                            <input class="form-check-input" type="checkbox">
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <h6 class="fw-medium fs-14">{{ $company->name }}</h6>
-                                    </td>
-                                    <td>{{ $company->code }}</td>
-                                    <td>{{ $company->email ?? '—' }}</td>
-                                    <td>{{ $company->location?->name ?? '—' }}</td>
-                                    <td>
-                                        @if ($company->status === 1)
-                                            <span class="badge badge-success d-inline-flex align-items-center badge-xs">
-                                                <i class="ti ti-point-filled me-1"></i>Active
-                                            </span>
-                                        @else
-                                            <span class="badge badge-danger d-inline-flex align-items-center badge-xs">
-                                                <i class="ti ti-point-filled me-1"></i>Inactive
-                                            </span>
-                                        @endif
-                                    </td>
-                                    <td>
-                                        <div class="action-icon d-inline-flex">
-                                            <a href="{{ url('company-structure/companies/'.$company->id.'/edit') }}"
-                                                class="me-2" title="Edit">
-                                                <i class="ti ti-edit"></i>
-                                            </a>
-                                            <a href="javascript:void(0);"
-                                                class="text-danger delete-company-btn"
-                                                data-id="{{ $company->id }}"
-                                                data-name="{{ $company->name }}"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#delete_company_modal"
-                                                title="Delete">
-                                                <i class="ti ti-trash"></i>
-                                            </a>
-                                        </div>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="7" class="text-center py-4 text-muted">
-                                        <i class="ti ti-building-off fs-24 d-block mb-2"></i>
-                                        No companies found.
-                                    </td>
-                                </tr>
-                            @endforelse
+                            @include('company-structure.companies.partials.rows', ['companies' => $companies])
                         </tbody>
                     </table>
                 </div>
@@ -235,6 +187,129 @@
                 'Are you sure you want to delete "' + name + '"? This action cannot be undone.';
         });
     });
+
+    document.addEventListener('click', function (event) {
+        var filterButton = event.target.closest('.company-status-filter');
+
+        if (!filterButton || filterButton.disabled) {
+            return;
+        }
+
+        event.preventDefault();
+
+        var alert = document.getElementById('company-status-alert');
+        filterButton.disabled = true;
+
+        fetch('{{ url('company-structure/companies/filter') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({ status: filterButton.dataset.status })
+        })
+            .then(function (response) {
+                return response.json().then(function (data) {
+                    if (!response.ok) {
+                        throw new Error(data.message || 'Unable to filter companies.');
+                    }
+
+                    return data;
+                });
+            })
+            .then(function (data) {
+                var table = document.querySelector('table.datatable');
+                var sourceBody = table.querySelector('tbody');
+                var rowContainer = document.createElement('tbody');
+                var visibleBody = document.querySelector('.gridjs-tbody');
+
+                rowContainer.innerHTML = data.html;
+                sourceBody.innerHTML = data.html;
+
+                if (visibleBody) {
+                    visibleBody.innerHTML = '';
+                    rowContainer.querySelectorAll('tr').forEach(function (row) {
+                        row.classList.add('gridjs-tr');
+                        row.querySelectorAll('td').forEach(function (cell) {
+                            cell.classList.add('gridjs-td');
+                        });
+                        visibleBody.appendChild(row);
+                    });
+                }
+
+                var summary = document.querySelector('.gridjs-summary');
+                if (summary) {
+                    summary.textContent = data.count === 0
+                        ? 'No records to show'
+                        : 'Showing 1-' + data.count + ' of ' + data.count + ' entries';
+                }
+
+                var pages = document.querySelector('.gridjs-pages');
+                if (pages) {
+                    pages.innerHTML = '';
+                }
+
+                alert.className = 'alert alert-success';
+                alert.textContent = 'Company status filter applied successfully.';
+            })
+            .catch(function (error) {
+                alert.className = 'alert alert-danger';
+                alert.textContent = error.message;
+            })
+            .finally(function () {
+                filterButton.disabled = false;
+            });
+    }, true);
+
+    document.addEventListener('click', function (event) {
+        var statusButton = event.target.closest('.company-status-toggle');
+
+        if (!statusButton || statusButton.disabled) {
+            return;
+        }
+
+        event.preventDefault();
+
+            var alert = document.getElementById('company-status-alert');
+            var nextStatus = statusButton.dataset.status === '1' ? 0 : 1;
+
+            statusButton.disabled = true;
+
+            fetch('{{ url('company-structure/companies') }}/' + statusButton.dataset.id + '/status', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({ status: nextStatus })
+            })
+                .then(function (response) {
+                    return response.json().then(function (data) {
+                        if (!response.ok) {
+                            throw new Error(data.message || 'Unable to update company status.');
+                        }
+
+                        return data;
+                    });
+                })
+                .then(function (data) {
+                    statusButton.dataset.status = String(data.status);
+                    statusButton.classList.toggle('badge-success', data.status === 1);
+                    statusButton.classList.toggle('badge-danger', data.status !== 1);
+                    statusButton.querySelector('.company-status-label').textContent = data.statusLabel;
+                    alert.className = 'alert alert-success';
+                    alert.textContent = data.message;
+                })
+                .catch(function (error) {
+                    alert.className = 'alert alert-danger';
+                    alert.textContent = error.message;
+                })
+                .finally(function () {
+                    statusButton.disabled = false;
+                });
+    }, true);
 </script>
 @endpush
 
