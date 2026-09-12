@@ -30,6 +30,7 @@
                 <a href="javascript:void(0);"
                     class="text-danger delete-company-btn"
                     data-id="{{ $company->id }}"
+                    data-url="{{ url('company-structure/companies/'.$company->id) }}"
                     data-name="{{ $company->name }}"
                     data-bs-toggle="modal"
                     data-bs-target="#delete_company_modal"

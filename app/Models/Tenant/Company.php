@@ -6,6 +6,7 @@
 
 namespace App\Models\Tenant;
 
+use App\Helpers\DatabaseReferenceChecker;
 use App\Models\Tenant\Scopes\DataPolicyFilter;
 use App\Traits\CUDby;
 use Carbon\Carbon;
@@ -97,5 +98,10 @@ class Company extends Model
     public function users()
     {
         return $this->hasMany(User::class);
+    }
+
+    public function hasRelatedRecords(): bool
+    {
+        return DatabaseReferenceChecker::hasReferences('companies', $this->getKey(), ['company_id']);
     }
 }

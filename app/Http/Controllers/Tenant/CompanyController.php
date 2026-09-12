@@ -109,7 +109,14 @@ class CompanyController extends Controller
 
     public function destroy(Request $request): RedirectResponse
     {
-        Company::query()->findOrFail($request->route('company'))->delete();
+        $company = Company::query()->findOrFail($request->route('company'));
+
+        if ($company->hasRelatedRecords()) {
+            return redirect(url('company-structure/companies'))
+                ->with('error', 'This company cannot be deleted because it is used in other records.');
+        }
+
+        $company->delete();
 
         return redirect(url('company-structure/companies'))
             ->with('success', 'Company deleted successfully.');
