@@ -29,7 +29,7 @@
 						<i class="ti ti-sparkles"></i>
 					</a>
 					<a href="#"
-						class="nav-link {{ Request::is('company-structure/companies', 'company-structure/locations', 'company-structure/departments', 'company-structure/sub-departments', 'company-structure/units', 'company-structure/teams', 'company-structure/facilities') ? 'active' : '' }}"
+						class="nav-link {{ Request::is('company-structure/*') ? 'active' : '' }}"
 						title="Company Structure" data-bs-toggle="tab" data-bs-target="#company-structure">
 						<i class="ti ti-building-estate"></i>
 					</a>
@@ -241,12 +241,12 @@
 									class="{{ Request::is('ai-configuration') ? 'active' : '' }}">AI Settings</a></li>
 						</ul>
 					</div>
-					<div class="tab-pane fade {{ Request::is('company-structure/companies', 'company-structure/locations', 'company-structure/departments', 'company-structure/sub-departments', 'company-structure/units', 'company-structure/teams', 'company-structure/facilities') ? ' show active' : '' }}"
+					<div class="tab-pane fade {{ Request::is('company-structure/*') ? ' show active' : '' }}"
 						id="company-structure">
 						<ul>
 							<li class="menu-title"><span>COMPANY STRUCTURE</span></li>
 							<li><a href="{{url('company-structure/companies')}}"
-									class="{{ Request::is('company-structure/companies') ? 'active' : '' }}">Companies</a></li>
+									class="{{ Request::is('company-structure/companies*') ? 'active' : '' }}">Companies</a></li>
 							<li><a href="{{url('company-structure/locations')}}"
 									class="{{ Request::is('company-structure/locations') ? 'active' : '' }}">Locations</a></li>
 							<li><a href="{{url('company-structure/departments')}}"

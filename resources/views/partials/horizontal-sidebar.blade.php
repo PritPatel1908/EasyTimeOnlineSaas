@@ -156,13 +156,13 @@
 				</li>
 				<li class="submenu">
 					<a href="javascript:void(0);"
-						class="{{ Request::is('company-structure/companies', 'company-structure/locations', 'company-structure/departments', 'company-structure/sub-departments', 'company-structure/units', 'company-structure/teams', 'company-structure/facilities') ? 'active subdrop' : '' }}">
+						class="{{ Request::is('company-structure/*') ? 'active subdrop' : '' }}">
 						<i class="ti ti-building-estate"></i><span>Company Structure</span>
 						<span class="menu-arrow"></span>
 					</a>
 					<ul>
 						<li><a href="{{url('company-structure/companies')}}"
-								class="{{ Request::is('company-structure/companies') ? 'active' : '' }}">Companies</a></li>
+								class="{{ Request::is('company-structure/companies*') ? 'active' : '' }}">Companies</a></li>
 						<li><a href="{{url('company-structure/locations')}}"
 								class="{{ Request::is('company-structure/locations') ? 'active' : '' }}">Locations</a></li>
 						<li><a href="{{url('company-structure/departments')}}"

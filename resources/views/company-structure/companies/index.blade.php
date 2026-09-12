@@ -20,7 +20,7 @@
             </div>
             <div class="d-flex my-xl-auto right-content align-items-center flex-wrap">
                 <div class="mb-2">
-                    <a href="#" data-bs-toggle="modal" data-bs-target="#add_company_modal"
+                    <a href="{{ url('company-structure/companies/create') }}"
                         class="btn btn-primary d-flex align-items-center">
                         <i class="ti ti-circle-plus me-2"></i>Add Company
                     </a>
@@ -112,34 +112,6 @@
     @include('partials.footer')
 </div>
 
-{{-- Add Company Modal --}}
-<div class="modal fade" id="add_company_modal">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h4 class="modal-title">Add Company</h4>
-                <button type="button" class="btn-close custom-btn-close" data-bs-dismiss="modal" aria-label="Close">
-                    <i class="ti ti-x"></i>
-                </button>
-            </div>
-            <form action="{{ url('company-structure/companies') }}" method="POST">
-                @csrf
-                <input type="hidden" name="_form" value="add">
-                <div class="modal-body">
-                    @include('company-structure.companies.partials.form-fields', ['company' => null])
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-light me-2" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="ti ti-circle-plus me-1"></i>Add Company
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-{{-- /Add Company Modal --}}
-
 {{-- Delete Confirmation Modal --}}
 <div class="modal fade" id="delete_company_modal">
     <div class="modal-dialog modal-dialog-centered">
@@ -170,12 +142,6 @@
 
 @push('scripts')
 <script>
-    // Reopen add modal with errors if validation failed on store
-    @if ($errors->any() && old('_form') === 'add')
-        var addModal = new bootstrap.Modal(document.getElementById('add_company_modal'));
-        addModal.show();
-    @endif
-
     // Wire up the delete modal with the correct company id and name
     document.querySelectorAll('.delete-company-btn').forEach(function (btn) {
         btn.addEventListener('click', function () {

@@ -91,7 +91,7 @@
                             </div>
                             <div class="col-6">
                                 <a href="#menu-company-structure" role="tab"
-                                    class="nav-link {{ Request::is('company-structure/companies', 'company-structure/locations', 'company-structure/departments', 'company-structure/sub-departments', 'company-structure/units', 'company-structure/teams', 'company-structure/facilities') ? 'active' : '' }}"
+                                    class="nav-link {{ Request::is('company-structure/*') ? 'active' : '' }}"
                                     title="Company Structure" data-bs-toggle="tab" data-bs-target="#menu-company-structure"
                                     aria-selected="false">
                                     <span><i class="ti ti-building-estate"></i></span>
@@ -333,11 +333,11 @@
                                 </li>
                             </ul>
                         </div>
-                        <div class="tab-pane fade {{ Request::is('company-structure/companies', 'company-structure/locations', 'company-structure/departments', 'company-structure/sub-departments', 'company-structure/units', 'company-structure/teams', 'company-structure/facilities') ? ' show active' : '' }}"
+                        <div class="tab-pane fade {{ Request::is('company-structure/*') ? ' show active' : '' }}"
                             id="menu-company-structure">
                             <ul class="stack-submenu">
                                 <li><a href="{{url('company-structure/companies')}}"
-                                        class="{{ Request::is('company-structure/companies') ? 'active' : '' }}">Companies</a></li>
+                                        class="{{ Request::is('company-structure/companies*') ? 'active' : '' }}">Companies</a></li>
                                 <li><a href="{{url('company-structure/locations')}}"
                                         class="{{ Request::is('company-structure/locations') ? 'active' : '' }}">Locations</a></li>
                                 <li><a href="{{url('company-structure/departments')}}"

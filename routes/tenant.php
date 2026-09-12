@@ -48,6 +48,8 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                 ->name('companies.filter');
             Route::post('companies/{company}/status', [CompanyController::class, 'updateStatus'])
                 ->name('companies.status');
+            Route::get('companies/create', [CompanyController::class, 'create'])
+                ->name('companies.create');
             Route::resource('companies', CompanyController::class)
                 ->except(['create', 'show'])
                 ->names('companies');

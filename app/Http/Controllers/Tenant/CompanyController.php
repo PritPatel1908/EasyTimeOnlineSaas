@@ -64,6 +64,15 @@ class CompanyController extends Controller
             ->with('success', 'Company created successfully.');
     }
 
+    public function create(): View
+    {
+        $locations = Location::query()->where('status', 1)->orderBy('name')->get();
+
+        return view('company-structure.companies.add', [
+            'locations' => $locations,
+        ]);
+    }
+
     public function edit(Request $request): View
     {
         $locations = Location::query()->where('status', 1)->orderBy('name')->get();
