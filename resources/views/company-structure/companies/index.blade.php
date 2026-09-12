@@ -56,15 +56,15 @@
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end p-3">
                             <li>
-                                <a href="{{ route('tenant.company-structure.companies.index') }}"
+                                <a href="{{ url('company-structure/companies') }}"
                                     class="dropdown-item rounded-1">All</a>
                             </li>
                             <li>
-                                <a href="{{ route('tenant.company-structure.companies.index', ['status' => 1]) }}"
+                                <a href="{{ url('company-structure/companies') }}?status=1"
                                     class="dropdown-item rounded-1">Active</a>
                             </li>
                             <li>
-                                <a href="{{ route('tenant.company-structure.companies.index', ['status' => 0]) }}"
+                                <a href="{{ url('company-structure/companies') }}?status=0"
                                     class="dropdown-item rounded-1">Inactive</a>
                             </li>
                         </ul>
@@ -116,7 +116,7 @@
                                     </td>
                                     <td>
                                         <div class="action-icon d-inline-flex">
-                                            <a href="{{ route('tenant.company-structure.companies.edit', $company) }}"
+                                            <a href="{{ url('company-structure/companies/'.$company->id.'/edit') }}"
                                                 class="me-2" title="Edit">
                                                 <i class="ti ti-edit"></i>
                                             </a>
@@ -170,7 +170,7 @@
                     <i class="ti ti-x"></i>
                 </button>
             </div>
-            <form action="{{ route('tenant.company-structure.companies.store') }}" method="POST">
+            <form action="{{ url('company-structure/companies') }}" method="POST">
                 @csrf
                 <input type="hidden" name="_form" value="add">
                 <div class="modal-body">

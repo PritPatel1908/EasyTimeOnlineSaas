@@ -15,7 +15,7 @@
                         </li>
                         <li class="breadcrumb-item">Company Structure</li>
                         <li class="breadcrumb-item">
-                            <a href="{{ route('tenant.company-structure.companies.index') }}">Companies</a>
+                            <a href="{{ url('company-structure/companies') }}">Companies</a>
                         </li>
                         <li class="breadcrumb-item active" aria-current="page">Edit Company</li>
                     </ol>
@@ -43,7 +43,7 @@
                     </div>
                     <div class="card-body">
                         <form
-                            action="{{ route('tenant.company-structure.companies.update', $company) }}"
+                            action="{{ url('company-structure/companies/'.$company->id) }}"
                             method="POST">
                             @csrf
                             @method('PUT')
@@ -54,7 +54,7 @@
                             ])
 
                             <div class="d-flex align-items-center justify-content-end mt-3 pt-2 border-top">
-                                <a href="{{ route('tenant.company-structure.companies.index') }}"
+                                <a href="{{ url('company-structure/companies') }}"
                                     class="btn btn-light me-2">
                                     <i class="ti ti-arrow-left me-1"></i>Cancel
                                 </a>

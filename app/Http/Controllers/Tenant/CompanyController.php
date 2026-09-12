@@ -34,8 +34,7 @@ class CompanyController extends Controller
     {
         Company::query()->create($request->validated());
 
-        return redirect()
-            ->route('tenant.company-structure.companies.index')
+        return redirect(url('company-structure/companies'))
             ->with('success', 'Company created successfully.');
     }
 
@@ -53,8 +52,7 @@ class CompanyController extends Controller
     {
         $company->update($request->validated());
 
-        return redirect()
-            ->route('tenant.company-structure.companies.index')
+        return redirect(url('company-structure/companies'))
             ->with('success', 'Company updated successfully.');
     }
 
@@ -62,8 +60,7 @@ class CompanyController extends Controller
     {
         $company->delete();
 
-        return redirect()
-            ->route('tenant.company-structure.companies.index')
+        return redirect(url('company-structure/companies'))
             ->with('success', 'Company deleted successfully.');
     }
 }
