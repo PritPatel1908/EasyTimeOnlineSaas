@@ -1,0 +1,9 @@
+.sidebar .sidebar-menu li > div {
+	height: auto;
+}
+
+.sidebar .sidebar-menu > li > div {
+	position: fixed;
+	left: var(--sidebar-submenu-left, 140px);
+	top: var(--sidebar-submenu-top, 0px);
+}

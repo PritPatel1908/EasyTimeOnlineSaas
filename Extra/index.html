@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="en">
+    <!-- START: Head-->
+    
+<!-- Mirrored from html.designstream.co.in/pollo/ltr/index.html by HTTrack Website Copier/3.x [XR&CO'2014], Fri, 21 Aug 2026 10:02:58 GMT -->
+<head>
+        <meta charset="UTF-8">
+        <title>Pollo Admin</title>
+        <link rel="shortcut icon" href="dist/images/favicon.ico" />
+        <meta name="viewport" content="width=device-width,initial-scale=1"> 
+
+        <!-- START: Template CSS-->
+        <link rel="stylesheet" href="dist/vendors/bootstrap/css/bootstrap.min.css">
+        <link rel="stylesheet" href="dist/vendors/jquery-ui/jquery-ui.min.css">
+        <link rel="stylesheet" href="dist/vendors/jquery-ui/jquery-ui.theme.min.css">
+        <link rel="stylesheet" href="dist/vendors/simple-line-icons/css/simple-line-icons.css">        
+        <link rel="stylesheet" href="dist/vendors/flags-icon/css/flag-icon.min.css"> 
+        <link rel="stylesheet" href="dist/vendors/flag-select/css/flags.css">
+        <!-- END Template CSS-->
+
+        <!-- START: Page CSS-->   
+        <link rel="stylesheet" href="dist/vendors/morris/morris.css"> 
+        <link rel="stylesheet" href="dist/vendors/weather-icons/css/pe-icon-set-weather.min.css"> 
+        <link rel="stylesheet" href="dist/vendors/chartjs/Chart.min.css"> 
+        <link rel="stylesheet" href="dist/vendors/starrr/starrr.css"> 
+        <link href="dist/vendors/bootstrap-tour/css/bootstrap-tour-standalone.min.css" rel="stylesheet"> 
+        <link rel="stylesheet" href="dist/vendors/fontawesome/css/all.min.css">
+        <link rel="stylesheet" href="dist/vendors/ionicons/css/ionicons.min.css"> 
+        <!-- END: Page CSS-->
+
+        <!-- START: Custom CSS-->
+        <link rel="stylesheet" href="dist/css/main.css">
+        <!-- END: Custom CSS-->
+    </head>
+    <!-- END Head-->
+
+    <!-- START: Body-->
+    <body id="main-container" class="default">
+        <!-- START: Pre Loader-->
+        <div class="se-pre-con">
+            <img src="dist/images/logo.png" alt="logo" width="23" class="img-fluid"/>
+        </div>
+        <!-- END: Pre Loader-->
+
+        <!-- START: Header-->
+        <div id="header-fix" class="header fixed-top">
+            <nav class="navbar navbar-expand-lg  p-0">
+                <div class="navbar-header h4 mb-0 align-self-center d-flex">  
+                    <a href="index.html" class="horizontal-logo align-self-center d-flex d-lg-none">
+                        <img src="dist/images/logo.png" alt="logo" width="23" class="img-fluid"/> <span class="h5 align-self-center mb-0 ">POLLO</span>              
+                    </a>
+                    <a href="#" class="sidebarCollapse ml-2" id="collapse"><i class="icon-menu body-color"></i></a>
+                </div>
+                <div class="d-inline-block position-relative">
+                    <button id="tourfirst" data-toggle="dropdown" aria-expanded="false" class="btn btn-primary p-2 rounded mx-3 h4 mb-0 line-height-1 d-none d-lg-block">
+                        <span class="text-white font-weight-bold h4">+</span></button>
+                    <div class="dropdown-menu left p-0">
+                        <a href="#" class="dropdown-item px-2">Create Page</a>
+                        <a href="#" class="dropdown-item px-2">Add New User</a>
+                        <a href="#" class="dropdown-item px-2">New Campain</a>
+                        <div class="dropdown-divider"></div>
+                        <a href="#" class="dropdown-item px-2 text-danger">Generate Reports</a>
+                    </div>
+                </div>
+
+                <form class="float-left d-none d-lg-block search-form">
+                    <div class="form-group mb-0 position-relative">
+                        <input type="text" class="form-control border-0 rounded bg-search pl-5" placeholder="Search anything...">
+                        <div class="btn-search position-absolute top-0">
+                            <a href="#"><i class="h5 icon-magnifier body-color"></i></a>
+                        </div>
+                        <a href="#" class="position-absolute close-button mobilesearch d-lg-none" data-toggle="dropdown" aria-expanded="false"><i class="icon-close h5"></i>                               
+                        </a>
+
+                    </div>
+                </form>
+                <div class="navbar-right ml-auto">
+                    <ul class="ml-auto p-0 m-0 list-unstyled d-flex">
+                        <li class="mr-1 d-inline-block my-auto d-block d-lg-none">
+                            <a href="#" class="nav-link px-2 mobilesearch" data-toggle="dropdown" aria-expanded="false"><i class="icon-magnifier h4"></i>                               
+                            </a>
+                        </li>                        
+                        <li class="mr-1 d-inline-block my-auto">
+                            <div id="options" data-input-name="country2"  data-selected-country="US"></div>
+                        </li>
+                        <li class="dropdown align-self-center mr-1">
+                            <a href="#" class="nav-link px-2" data-toggle="dropdown" aria-expanded="false"><i class="icon-reload h4"></i>
+                                <span class="badge badge-default"> <span class="ring">
+                                    </span><span class="ring-point">
+                                    </span> </span>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-right border  py-0">
+                                <li>
+                                    <a class="dropdown-item px-2 py-2 border border-top-0 border-left-0 border-right-0" href="#">
+                                        <div class="media">
+                                            <img src="dist/images/author.jpg" alt="" class="d-flex mr-3 img-fluid rounded-circle">
+                                            <div class="media-body">
+                                                <h6 class="mb-0">john</h6>
+                                                <span class="text-warning">New user registered.</span>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item px-2 py-2 border border-top-0 border-left-0 border-right-0" href="#">
+                                        <div class="media">
+                                            <img src="dist/images/author2.jpg" alt="" class="d-flex mr-3 img-fluid rounded-circle">
+                                            <div class="media-body">
+                                                <h6 class="mb-0">Peter</h6>
+                                                <span class="text-success">Server #12 overloaded.</span>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item px-2 py-2 border border-top-0 border-left-0 border-right-0" href="#">
+                                        <div class="media">
+                                            <img src="dist/images/author3.jpg" alt="" class="d-flex mr-3 img-fluid rounded-circle">
+                                            <div class="media-body">
+                                                <h6 class="mb-0">Bill</h6>
+                                                <span class="text-danger">Application error.</span>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </li>
+
+                                <li><a class="dropdown-item text-center py-2" href="#"> <strong>See All Tasks <i class="icon-arrow-right pl-2 small"></i></strong></a></li>
+                            </ul>
+
+                        </li>
+                        <li class="dropdown align-self-center mr-1 d-inline-block">
+                            <a href="#" class="nav-link px-2" data-toggle="dropdown" aria-expanded="false"><i class="icon-bell h4"></i>
+                                <span class="badge badge-default"> <span class="ring">
+                                    </span><span class="ring-point">
+                                    </span> </span>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-right border   py-0">
+                                <li>
+                                    <a class="dropdown-item px-2 py-2 border border-top-0 border-left-0 border-right-0" href="#">
+                                        <div class="media">
+                                            <img src="dist/images/author.jpg" alt="" class="d-flex mr-3 img-fluid rounded-circle w-50">
+                                            <div class="media-body">
+                                                <h6 class="mb-0 text-success">john send a message</h6>
+                                                12 min ago
+                                            </div>
+                                        </div>
+                                    </a>
+                                </li>
+                                <li >
+                                    <a class="dropdown-item px-2 py-2 border border-top-0 border-left-0 border-right-0" href="#">
+                                        <div class="media">
+                                            <img src="dist/images/author2.jpg" alt="" class="d-flex mr-3 img-fluid rounded-circle">
+                                            <div class="media-body">
+                                                <h6 class="mb-0 text-danger">Peter send a message</h6>
+                                                15 min ago
+                                            </div>
+                                        </div>
+                                    </a>
+                                </li>
+                                <li >
+                                    <a class="dropdown-item px-2 py-2 border border-top-0 border-left-0 border-right-0" href="#">
+                                        <div class="media">
+                                            <img src="dist/images/author3.jpg" alt="" class="d-flex mr-3 img-fluid rounded-circle">
+                                            <div class="media-body">
+                                                <h6 class="mb-0 text-warning">Bill send a message</h6>
+                                                5 min ago
+                                            </div>
+                                        </div>
+                                    </a>
+                                </li>
+
+                                <li><a class="dropdown-item text-center py-2" href="#"> <strong>Read All Message <i class="icon-arrow-right pl-2 small"></i></strong></a></li>
+                            </ul>
+                        </li>
+                        <li class="dropdown user-profile d-inline-block py-1 mr-2">
+                            <a href="#" class="nav-link px-2 py-0" data-toggle="dropdown" aria-expanded="false"> 
+                                <div class="media">
+                                    <div class="media-body align-self-center d-none d-sm-block mr-2">
+                                        <p class="mb-0 text-uppercase line-height-1"><b>John Deo</b><br/><span> Admin </span></p>
+
+                                    </div>
+                                    <img src="dist/images/author.jpg" alt="" class="d-flex img-fluid rounded-circle" width="45">
+
+                                </div>
+                            </a>
+
+                            <div class="dropdown-menu  dropdown-menu-right p-0">
+                                <a href="#" class="dropdown-item px-2 align-self-center d-flex">
+                                    <span class="icon-pencil mr-2 h6 mb-0"></span> Edit Profile</a>
+                                <a href="#" class="dropdown-item px-2 align-self-center d-flex">
+                                    <span class="icon-user mr-2 h6 mb-0"></span> View Profile</a>
+                                <div class="dropdown-divider"></div>
+                                <a href="#" class="dropdown-item px-2 align-self-center d-flex">
+                                    <span class="icon-support mr-2 h6  mb-0"></span> Help Center</a>
+                                <a href="#" class="dropdown-item px-2 align-self-center d-flex">
+                                    <span class="icon-globe mr-2 h6 mb-0"></span> Forum</a>
+                                <a href="#" class="dropdown-item px-2 align-self-center d-flex">
+                                    <span class="icon-settings mr-2 h6 mb-0"></span> Account Settings</a>
+                                <div class="dropdown-divider"></div>
+                                <a href="#" class="dropdown-item px-2 text-danger align-self-center d-flex">
+                                    <span class="icon-logout mr-2 h6  mb-0"></span> Sign Out</a>
+                            </div>
+
+                        </li>
+
+                    </ul>
+                </div>
+            </nav>
+        </div>
+        <!-- END: Header-->
+
+        <!-- START: Main Menu-->
+        <div class="sidebar">
+            <a href="#" class="sidebarCollapse float-right h6 dropdown-menu-right mr-2 mt-2 position-absolute d-block d-lg-none">
+                <i class="icon-close"></i>
+            </a>
+            <!-- START: Logo-->
+            <a href="index.html" class="sidebar-logo d-flex">
+                <img src="dist/images/logo.png" alt="logo" width="25" class="img-fluid mr-2"/>
+                <span class="h5 align-self-center mb-0">POLLO</span>        
+            </a>
+            <!-- END: Logo-->
+
+            <!-- START: Menu-->
+            <ul id="side-menu" class="sidebar-menu">
+                <li class="dropdown active"><a href="#"><i class="icon-speedometer"></i>Dashboard</a> 
+                    <div>
+                        <ul>
+                            <li class="active"><a href="index.html"><i class="icon-rocket"></i> eCommerce</a></li>
+                            <li><a href="index-cryptocurrency.html"><i class="icon-shuffle"></i> Cryptocurrency</a></li>
+                            <li><a href="index-analytic.html"><i class="icon-chart"></i> Analytic</a></li>
+                        </ul>
+                    </div>
+                </li>
+                <li class="dropdown"><a href="#" class="text-danger"><i class="icon-cursor-move"></i>New<span class="ml-2 badge badge-danger">New</span></a>
+                    <div>
+                        <ul>
+                            <li><a href="app-timeline.html"><i class="icon-calendar"></i> Time LIne</a></li>
+                            <li><a href="app-task-board.html"><i class="icon-speech"></i> Todo</a></li>
+                            <li><a href="app-tickets.html"><i class="icon-support"></i> Tickets</a></li>   
+                            <li><a href="app-multi-input.html"><i class="icon-support"></i> Multi Input</a></li>   
+                        </ul>
+                    </div>
+                </li>
+                <li class="dropdown"><a href="#"><i class="icon-support"></i>Apps</a>
+                    <div>
+                        <ul>
+                            <li><a href="app-calendar.html"><i class="icon-calendar"></i> Calendar</a></li>
+                            <li><a href="app-chat.html"><i class="icon-speech"></i> Chats</a></li>
+                            <li><a href="app-to-do.html"><i class="icon-support"></i> Todo</a></li>                        
+                        </ul>
+                    </div>
+                </li>
+                <li class="dropdown"><a href="#"><i class="icon-chart"></i>Charts</a>
+                    <div> 
+                        <ul>
+                            <li class="dropdown"><a href="#" class="d-flex align-items-center"><i class="icon-chart"></i> amCharts Charts <small class="float-right ml-auto d-block icon-arrow-right"></small></a>
+                                <div> 
+                                    <ul>
+                                        <li><a href="amcharts-bar.html"><i class="icon-energy"></i> Column & Bar</a></li>
+                                        <li><a href="amcharts-line.html"><i class="icon-disc"></i> Line & Area</a></li>
+                                        <li><a href="amcharts-pie.html"><i class="icon-frame"></i> Pie & Donut</a></li>
+                                        <li><a href="amcharts-xy-bubble.html"><i class="icon-fire"></i> XY & Bubble</a></li>
+                                        <li><a href="amcharts-stock.html"><i class="icon-shuffle"></i> Stock</a></li> 
+                                        <li><a href="amcharts-timeline.html"><i class="icon-graph"></i> TimeLine</a></li> 
+                                        <li><a href="amcharts-radar.html"><i class="icon-pie-chart"></i> Radar & Polar</a></li> 
+                                        <li><a href="amcharts-treemap.html"><i class="icon-drawer"></i> Treemap</a></li> 
+                                        <li><a href="amcharts-funnel.html"><i class="icon-energy"></i> Funnel & Pyramid</a></li> 
+                                    </ul>
+                                </div>
+                            </li>
+                            <li><a href="chart-morris.html"><i class="icon-energy"></i> Morris Chart</a></li>
+                            <li><a href="chart-chartist.html"><i class="icon-disc"></i> Chartist js</a></li>
+                            <li><a href="chart-echart.html"><i class="icon-frame"></i> eCharts</a></li>
+                            <li><a href="chart-flot.html"><i class="icon-fire"></i> Flot Chart</a></li>
+                            <li><a href="chart-knob.html"><i class="icon-shuffle"></i> Knob Chart</a></li>
+                            <li class="dropdown"><a href="#" class="d-flex align-items-center"><i class="icon-control-pause"></i> Charts js <small class="float-right ml-auto d-block icon-arrow-right"></small></a>
+                                <div> 
+                                    <ul>
+                                        <li><a href="chartjs-bar.html"><i class="icon-energy"></i> Bar charts</a></li>
+                                        <li><a href="chartjs-line.html"><i class="icon-disc"></i> Line charts</a></li>
+                                        <li><a href="chartjs-area.html"><i class="icon-frame"></i> Area charts</a></li>
+                                        <li><a href="chartjs-other.html"><i class="icon-fire"></i> Doughnut, Pie, Polar charts</a></li>
+                                        <li><a href="chartjs-linear.html"><i class="icon-shuffle"></i> Linear scale</a></li>                                                                        
+                                    </ul>
+                                </div>
+                            </li>
+                            <li><a href="chart-sparkline.html"><i class="icon-graph"></i> Sparkline Chart</a></li>                            
+                            <li><a href="chart-peity.html"><i class="icon-pie-chart"></i> Peity Chart</a></li>   
+                            <li><a href="chart-google.html"><i class="icon-drawer"></i> Google Charts</a></li>
+                            <li><a href="chart-apex.html"><i class="icon-magnet"></i> Apex Charts</a></li>
+                            <li><a href="chart-c3.html"><i class="icon-hourglass"></i> C3 Charts</a></li>
+                        </ul>
+                    </div>
+                </li>
+                <li class="dropdown"><a href="#"><i class="icon-envelope"></i>Mailbox</a>
+                    <div> 
+                        <ul>
+                            <li><a href="app-mail.html"><i class="icon-envelope"></i> Inbox</a></li>
+                            <li><a href="app-view-email.html"><i class="icon-eye"></i> View Email</a></li>
+                            <li><a href="app-mail-compose.html"><i class="icon-compass"></i> Compose Email</a></li>                        
+                        </ul> 
+                    </div>
+
+                </li>
+
+                <li class="dropdown"><a href="#"><i class="icon-film"></i>Form</a>
+                    <div> 
+                        <ul>
+                            <li><a href="form-basic.html"><i class="icon-disc"></i> Basic Form</a></li>
+                            <li><a href="form-layout.html"><i class="icon-cursor-move"></i> Form Layout</a></li>
+                            <li><a href="form-validation.html"><i class="icon-star"></i> Form Validation</a></li>
+                            <li class="dropdown"><a href="#" class="d-flex align-items-center"><i class="icon-film"></i> Form Elements <small class="float-right ml-auto d-block icon-arrow-right"></small></a>
+                                <div> 
+                                    <ul>
+                                        <li><a href="form-elements-switch.html"><i class="icon-energy"></i> Switch</a></li>
+                                        <li><a href="form-elements-checkbox.html"><i class="icon-disc"></i> Checkbox</a></li>
+                                        <li><a href="form-elements-radiobutton.html"><i class="icon-frame"></i> Radio</a></li>
+                                        <li><a href="form-elements-input.html"><i class="icon-fire"></i> Input</a></li>                                       
+                                    </ul>
+                                </div>
+                            </li>
+                            <li><a href="form-float-input.html"><i class="icon-symbol-male"></i> Float Input</a></li>
+                            <li><a href="form-wizard.html"><i class="icon-loop"></i> Form Wizards</a></li>
+                            <li><a href="form-upload.html"><i class="icon-pin"></i> Form Uploads</a></li>
+                            <li><a href="form-mask.html"><i class="icon-check"></i> Form Mask</a></li>                            
+                            <li><a href="form-dropzone.html"><i class="icon-present"></i> Form Dropzone</a></li>
+                            <li><a href="form-icheck.html"><i class="icon-briefcase"></i> Icheck Controls</a></li>
+                            <li><a href="form-cropper.html"><i class="icon-hourglass"></i> Image Cropper</a></li>
+                            <li><a href="form-htmleditor.html"><i class="icon-graduation"></i> HTML5 Editor</a></li>
+                            <li><a href="form-typehead.html"><i class="icon-puzzle"></i> Form Typehead</a></li>                            
+                            <li><a href="form-xeditable.html"><i class="icon-cloud-upload"></i> Xeditable</a></li>
+                            <li><a href="form-summernote.html"><i class="icon-ghost"></i> Summernote</a></li>
+                        </ul> 
+                    </div>
+
+                </li>
+                <li class="dropdown"><a href="#"><i class="icon-menu"></i>Tables</a>
+                    <div> 
+                        <ul>
+                            <li><a href="table-basic.html"><i class="icon-grid"></i> Table Basic</a></li>
+                            <li><a href="table-layout.html"><i class="icon-layers"></i> Table Layout</a></li>
+                            <li><a href="table-datatable.html"><i class="icon-docs"></i> Datatable</a></li>
+                            <li><a href="table-footable.html"><i class="icon-wallet"></i> Footable</a></li>
+                            <li><a href="table-jsgrid.html"><i class="icon-folder"></i> Jsgrid</a></li>
+                            <li><a href="table-responsive.html"><i class="icon-control-pause"></i> Table Responsive</a></li>                            
+                            <li><a href="table-editable.html"><i class="icon-pencil"></i> Editable Table</a></li>
+                        </ul> 
+                    </div>
+
+                </li>
+                <li class="dropdown"><a href="#"><i class="icon-screen-desktop"></i>UI</a>
+                    <div> 
+                        <ul>
+                            <li><a href="ui-alert.html"><i class="icon-bell"></i> Alerts</a></li>
+                            <li><a href="ui-badges.html"><i class="icon-badge"></i> Badges</a></li>
+                            <li><a href="ui-buttons.html"><i class="icon-control-play"></i> Buttons</a></li>
+                            <li><a href="ui-cards.html"><i class="icon-layers"></i> Cards</a></li>
+                            <li><a href="ui-carousel.html"><i class="icon-picture"></i> Carousel</a></li>                           
+                            <li><a href="ui-collapse.html"><i class="icon-arrow-up"></i> Collapse</a></li>
+                            <li><a href="ui-dropdowns.html"><i class="icon-arrow-down"></i> Dropdowns</a></li>                          
+                            <li><a href="ui-jumbotron.html"><i class="icon-screen-desktop"></i> Jumbotron</a></li>
+                            <li><a href="ui-modals.html"><i class="icon-frame"></i> Modal</a></li> 
+                            <li><a href="ui-pagination.html"><i class="icon-docs"></i> Pagination</a></li>  
+                            <li><a href="ui-popoverandtooltip.html"><i class="icon-pin"></i> Popover &amp; Tooltip</a></li>
+                            <li><a href="ui-progress.html"><i class="icon-graph"></i> Progress</a></li>
+                            <li><a href="ui-scrollspy.html"><i class="icon-shuffle"></i> Scrollspy</a></li>
+                            <li><a href="ui-select2.html"><i class="icon-wallet"></i> Select2</a></li>
+                            <li><a href="ui-sweetalert.html"><i class="icon-fire"></i> Sweet Alert</a></li>
+                            <li><a href="ui-timeline.html"><i class="icon-graduation"></i> Timeline</a></li>
+                            <li><a href="ui-toastr.html"><i class="icon-layers"></i> Toastr</a></li>
+                        </ul>
+                    </div>
+                </li> 
+                <li class="dropdown"><a href="#"><i class="icon-book-open"></i>Pages</a>
+                    <div> 
+                        <ul>
+                            <li><a href="page-lockscreen.html"><i class="icon-lock"></i> Lockscreen</a></li>
+                            <li><a href="page-login.html"><i class="icon-login"></i> login</a></li>
+                            <li><a href="page-register.html"><i class="icon-direction"></i> Register</a></li>
+                            <li><a href="page-404.html"><i class="icon-crop"></i> 404 Page</a></li>
+                            <li><a href="page-404-menu.html"><i class="icon-layers"></i> 404 Page With Menu</a></li>
+                            <li><a href="page-blank.html"><i class="icon-frame"></i> Blank Page</a></li>
+                            <li><a href="page-gallery.html"><i class="icon-layers"></i> Gallery</a></li>
+                            <li><a href="page-pricing.html"><i class="icon-wallet"></i> Pricing</a></li>
+                            <li><a href="page-contact-us.html"><i class="icon-wrench"></i> Contact us</a></li>
+                        </ul>
+                    </div>
+                </li>     
+                
+                <li class="dropdown"><a href="#"><i class="icon-badge"></i>Icons</a>
+                    <div> 
+                        <ul>
+                            <li><a href="icon-materialdesign.html"><i class="icon-star"></i> Material Icon</a></li>
+                            <li><a href="icon-font-awesome.html"><i class="icon-screen-tablet"></i> Font-awesome</a></li>
+                            <li><a href="icon-themify.html"><i class="icon-plane"></i> Themify Icon</a></li>
+                            <li><a href="icon-weather.html"><i class="icon-drawer"></i> Weather Icon</a></li>
+                            <li><a href="icon-simple-line.html"><i class="icon-map"></i> Simple Line Icon</a></li>
+                            <li><a href="icon-flag.html"><i class="icon-flag"></i> Flag Icon</a></li>
+                            <li><a href="icon-ionicons.html"><i class="icon-rocket"></i> Ionicons Icon</a></li>
+                            <li><a href="icon-icofont.html"><i class="icon-fire"></i> Icofont Icon</a></li>    
+                            <li><a href="icon-linearicons.html"><i class="icon-list"></i> Linear</a></li>
+                            <li><a href="icon-crypto.html"><i class="icon-diamond"></i> Crypto</a></li>
+                        </ul> 
+                    </div>
+
+                </li>
+                <li class="dropdown"><a href="#"><i class="icon-user"></i>Profile</a>
+                    <div> 
+                        <ul>
+                            <li><a href="user-contact-list.html"><i class="icon-people"></i> Contact List</a></li>
+                            <li><a href="user-contact-grid.html"><i class="icon-cursor-move"></i> Contact Grid</a></li>
+                            <li><a href="user-profile.html"><i class="icon-user"></i> User Profile</a></li>
+
+                        </ul>
+                    </div>
+                </li>
+
+                <li class="dropdown"><a href="#"><i class="icon-map"></i>Map</a>
+                    <div> 
+                        <ul>
+                            <li><a href="map-google.html"><i class="icon-map"></i> Google Map</a></li>
+                            <li><a href="map-vector.html"><i class="icon-vector"></i> Vector Map</a></li>
+
+                        </ul>
+                    </div>
+                </li>
+
+                <li class="dropdown"><a href="#"><i class="icon-pencil"></i>Blog</a>
+                    <div> 
+                        <ul>
+                            <li><a href="blog-list.html"><i class="icon-plus"></i> Blog List</a></li>
+                            <li><a href="blog-single.html"><i class="icon-tag"></i> Blog Post</a></li>                            
+                        </ul>
+                    </div>
+                </li>                
+
+                <li><a href="calendar.html"><i class="icon-calendar"></i>Calendar</a></li>
+                <li class="dropdown"><a href="#"><i class="icon-bag"></i>Ecommerce</a>
+                    <div> 
+                        <ul>
+                            <li><a href="ecommerce-product-list.html"><i class="icon-grid"></i> Products List</a></li>
+                            <li><a href="ecommerce-product-detail.html"><i class="icon-plus"></i> Product Detail</a></li>
+                            <li><a href="ecommerce-cart.html"><i class="icon-badge"></i> Cart</a></li>
+                            <li><a href="ecommerce-checkout.html"><i class="icon-plus"></i> Checkout</a></li>
+                            <li><a href="ecommerce-orders.html"><i class="icon-basket"></i> Orders</a></li>
+                            <li><a href="ecommerce-order-view.html"><i class="icon-equalizer"></i> Order View</a></li>                           
+                            <li><a href="ecommerce-order-invoice.html"><i class="icon-notebook"></i> Invoice</a></li>                            
+                        </ul>
+                    </div>
+                </li>
+                
+
+            </ul>
+            <!-- END: Menu-->
+        </div>
+        <!-- END: Main Menu-->
+
+        <!-- START: Main Content-->
+        <main>
+            <div class="container-fluid">
+                <!-- START: Breadcrumbs-->
+                <div class="row">
+                    <div class="col-12  align-self-center">
+                        <div class="sub-header mt-3 py-3 px-3 align-self-center d-sm-flex w-100 rounded">
+                            <div class="w-sm-100 mr-auto"><h4 class="mb-0">Dashboard</h4> <b>Welcome to redial admin panel</b></div>
+
+                            <ol class="breadcrumb bg-transparent align-self-center m-0 p-0">
+                                <li class="breadcrumb-item"><a href="#">Home</a></li>
+                                <li class="breadcrumb-item active">Dashboard</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+                <!-- END: Breadcrumbs-->
+
+                <!-- START: Card Data-->
+                <div class="row">
+                    <div class="col-12 col-sm-6 col-xl-3 mt-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <img src="dist/images/traffic.png" alt="traffic" class="float-right" />
+                                <h6 class="card-title font-weight-bold">Site Traffic</h6>
+                                <h6 class="card-subtitle mb-2 text-muted">Today</h6>
+                                <h2>26,476</h2>
+                                <span class="text-success"><i class="ion ion-android-arrow-dropup"></i> 15% higher</span> than last day
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-sm-6 col-xl-3 mt-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <img src="dist/images/cart.png" alt="cart" class="float-right" />
+                                <h6 class="card-title font-weight-bold">New Orders</h6>
+                                <h6 class="card-subtitle mb-2 text-muted">This Week</h6>
+                                <h2>14,957</h2>
+                                <span class="text-danger"><i class="ion ion-android-arrow-dropdown"></i> 4% Down</span> than last week
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-sm-6 col-xl-3 mt-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <img src="dist/images/money.png" alt="money" class="float-right" />
+                                <h6 class="card-title font-weight-bold">Total Sale</h6>
+                                <h6 class="card-subtitle mb-2 text-muted">Last Months</h6>
+                                <h2>$38,524</h2>
+                                <span class="text-success"><i class="ion ion-android-arrow-dropup"></i> 8% higher</span> than last week
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-sm-6 col-xl-3 mt-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <img src="dist/images/wallet.png" alt="wallet" class="float-right" />
+                                <h6 class="card-title font-weight-bold">Total Profit</h6>
+                                <h6 class="card-subtitle mb-2 text-muted">In February-2019</h6>
+                                <h2>$78,245 </h2>
+                                <span class="text-success"><i class="ion ion-android-arrow-dropdown"></i> 18% higher</span> than last month
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12  col-lg-7 col-xl-8 mt-3">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">                               
+                                <h4 class="card-title">Statistics</h4>
+                                <ul class="nav nav-pills" id="pills-tab" role="tablist">
+                                    <li class="nav-item">
+                                        <a class="nav-link active" id="pills-week-tab" data-toggle="pill" href="#pills-week" role="tab" aria-controls="pills-week" aria-selected="true">Week</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" id="pills-month-tab" data-toggle="pill" href="#pills-month" role="tab" aria-controls="pills-month" aria-selected="false">Month</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" id="pills-year-tab" data-toggle="pill" href="#pills-year" role="tab" aria-controls="pills-year" aria-selected="false">Year</a>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <div class="card-content">
+                                <div class="card-body pt-0">
+                                    <div class="row">
+                                        <div class="col-12 col-md-4 border border border-top-0 border-left-0 p-3 "><span class="text-muted">Revenue today</span>
+                                            <h3 class="d-flex  align-items-center">$43,23.45 <span class="h6 ml-3 bg-success text-white p-1 rounded line-height-1">+30</span></h3>
+                                        </div>
+                                        <div class="col-12 col-md-4 border border-top-0 border-left-0 p-3"><span class="text-muted">Revenue yesterday</span>
+                                            <h3 class="d-flex  align-items-center">$33,23.45 </h3>
+                                        </div>
+                                        <div class="col-12 col-md-4 border border-top-0 border-left-0 border-right-0 p-3"><span class="text-muted">Revenue this month</span>
+                                            <h3 class="d-flex  align-items-center">$143,23.45 </h3>
+                                        </div>      
+                                        <div class="col-12">
+                                            <div class="tab-content" id="pills-tabContent">
+                                                <div class="tab-pane fade show active" id="pills-week" role="tabpanel" aria-labelledby="pills-week-tab">
+                                                    <div  id="week_statistics"></div>                                                        
+                                                </div>
+                                                <div class="tab-pane fade" id="pills-month" role="tabpanel" aria-labelledby="pills-month-tab">
+                                                    <div  id="month_statistics"></div>   
+                                                </div>
+                                                <div class="tab-pane fade" id="pills-year" role="tabpanel" aria-labelledby="pills-year-tab">
+                                                    <div  id="year_statistics"></div>   
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12  col-lg-5 col-xl-4 mt-3">
+                        <div class="twitter-gradient p-5 text-center">
+                            <div id="demo" class="carousel slide" data-ride="carousel">
+                                <!-- The slideshow -->
+                                <div class="carousel-inner">
+                                    <div class="carousel-item py-3 active">
+                                        <i class="icon-social-twitter p-3 border-white border rounded-circle h1 mb-4 mx-auto d-table"></i>
+                                        In enim justo, rhoncus ut, imperdiet a, venenatis vitae, justo. Nullam dictum felis eu pede mollis pretium.
+                                        <br/><small>24 January, 2018</small><br/><br/>
+                                        <div class="love px-2 py-1 d-inline-block"><i class="ion ion-heart"></i> 200   <i class="ml-3 ion ion-chatboxes"></i> 192</div>
+                                    </div>
+                                    <div class="carousel-item py-3">
+                                        <i class="icon-social-twitter p-3 border-white border rounded-circle h1 mb-4 mx-auto d-table"></i>
+                                        In enim justo, rhoncus ut, imperdiet a, venenatis vitae, justo. Nullam dictum felis eu pede mollis pretium.
+                                        <br/><small>24 January, 2018</small><br/><br/>
+                                        <div class="love px-2 py-1 d-inline-block"><i class="ion ion-heart"></i> 200   <i class="ml-3 ion ion-chatboxes"></i> 192</div>
+                                    </div>
+                                    <div class="carousel-item py-3">
+                                        <i class="icon-social-twitter p-3 border-white border rounded-circle h1 mb-4 mx-auto d-table"></i>
+                                        In enim justo, rhoncus ut, imperdiet a, venenatis vitae, justo. Nullam dictum felis eu pede mollis pretium.
+                                        <br/><small>24 January, 2018</small><br/><br/>
+                                        <div class="love px-2 py-1 d-inline-block"><i class="ion ion-heart"></i> 200   <i class="ml-3 ion ion-chatboxes"></i> 192</div>
+                                    </div>
+
+                                </div>
+                                <!-- Indicators -->
+                                <ul class="carousel-indicators position-relative mb-0">
+                                    <li data-target="#demo" data-slide-to="0" class="active"></li>
+                                    <li data-target="#demo" data-slide-to="1"></li>
+                                    <li data-target="#demo" data-slide-to="2"></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12  col-lg-6 mt-3">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">                               
+                                <h4 class="card-title">Tasks List</h4>
+                                <ul class="nav nav-tabs" id="tabs-tab" role="tablist">
+                                    <li class="nav-item">
+                                        <a class="nav-link active font-weight-bold" id="tabs-day-tab" data-toggle="tab" href="#tabs-day" role="tab" aria-controls="tabs-day" aria-selected="true">Day</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link font-weight-bold" id="tabs-week-tab" data-toggle="tab" href="#tabs-week" role="tab" aria-controls="tabs-week" aria-selected="false">Week</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link font-weight-bold" id="tabs-month-tab" data-toggle="tab" href="#tabs-month" role="tab" aria-controls="tabs-month" aria-selected="false">Month</a>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="card-content">
+                                <div class="card-body pt-0">
+                                    <div class="row">                                           
+                                        <div class="col-12">
+                                            <div class="tab-content">
+                                                <div class="tab-pane fade show active" id="tabs-day" role="tabpanel" aria-labelledby="tabs-day-tab">
+                                                    <ul class="tasks mt-3">
+                                                        <li class="task d-flex py-3 px-2 border-left border-primary">
+                                                            <label class="chkbox"><b>Aenean ligula porttitor consequat vitae eleifend enim.</b>  <br/><span class="text-muted">by : John</span>
+                                                                <input type="checkbox" checked="checked">
+                                                                <span class="checkmark mt-2"></span>
+                                                            </label>
+                                                            <div class="ml-auto d-flex"><a href="#"><i class="ion ion-edit"></i></a> <a href="#" class="ml-2"><i class="ion ion-trash-a"></i></a></div>
+                                                        </li>
+
+                                                        <li class="task py-3 px-2 d-flex border-left border-secondary">
+                                                            <label class="chkbox"><b>In enim justo, rhoncus ut imperdiet a, venenatis vitae justo.</b>  <br/><span class="text-muted">by : John</span>
+                                                                <input type="checkbox" >
+                                                                <span class="checkmark mt-2"></span>
+                                                            </label>
+                                                            <div class="ml-auto d-flex"><a href="#"><i class="ion ion-edit"></i></a> <a href="#" class="ml-2"><i class="ion ion-trash-a"></i></a></div>
+                                                        </li>
+                                                        <li class="task py-3 d-flex px-2 border-left border-success">
+                                                            <label class="chkbox"><b>Cras dapibus vivamus elementum semper nisi.</b>  <br/><span class="text-muted">by : John</span>
+                                                                <input type="checkbox" checked="checked">
+                                                                <span class="checkmark mt-2"></span>
+                                                            </label>
+                                                            <div class="ml-auto d-flex"><a href="#"><i class="ion ion-edit"></i></a> <a href="#" class="ml-2"><i class="ion ion-trash-a"></i></a></div>
+                                                        </li>
+
+                                                        <li class="task py-3 px-2 d-flex border-left border-danger">
+                                                            <label class="chkbox"><b>Donec quam felis ultricies nec, pellentesque eu pretium quis.</b>  <br/><span class="text-muted">by : John</span>
+                                                                <input type="checkbox" >
+                                                                <span class="checkmark mt-2"></span>
+                                                            </label>
+                                                            <div class="ml-auto d-flex"><a href="#"><i class="ion ion-edit"></i></a> <a href="#" class="ml-2"><i class="ion ion-trash-a"></i></a></div>
+                                                        </li>
+                                                        <li class="task py-3 px-2 d-flex border-left border-warning">
+                                                            <label class="chkbox"><b>Aenean leo ligula porttitor eu consequat vitae, eleifend ac enis.</b>  <br/><span class="text-muted">by : John</span>
+                                                                <input type="checkbox" checked="checked">
+                                                                <span class="checkmark mt-2"></span>
+                                                            </label>
+                                                            <div class="ml-auto d-flex"><a href="#"><i class="ion ion-edit"></i></a> <a href="#" class="ml-2"><i class="ion ion-trash-a"></i></a></div>
+                                                        </li>                                                        
+                                                        <li class="task py-3 px-2 d-flex border-left border-info">
+                                                            <label class="chkbox"><b>Curabitur ullamcorper ultricies nisi nam eget dui.</b>  <br/><span class="text-muted">by : John</span>
+                                                                <input type="checkbox" >
+                                                                <span class="checkmark mt-2"></span>
+                                                            </label>
+                                                            <div class="ml-auto d-flex"><a href="#"><i class="ion ion-edit"></i></a> <a href="#" class="ml-2"><i class="ion ion-trash-a"></i></a></div>
+                                                        </li>
+
+                                                    </ul>                                                     
+                                                </div>
+                                                <div class="tab-pane fade" id="tabs-week" role="tabpanel" aria-labelledby="tabs-week-tab">
+                                                    <ul class="tasks mt-3">
+                                                        <li class="task py-3 d-flex px-2 d-flex border-left border-primary">
+                                                            <label class="chkbox"><b>Aenean ligula porttitor consequat vitae eleifend enim.</b>  <br/><span class="text-muted">by : John</span>
+                                                                <input type="checkbox" checked="checked">
+                                                                <span class="checkmark mt-2"></span>
+                                                            </label>
+                                                            <div class="ml-auto d-flex"><a href="#"><i class="ion ion-edit"></i></a> <a href="#" class="ml-2"><i class="ion ion-trash-a"></i></a></div>
+                                                        </li>
+
+                                                        <li class="task py-3 d-flex px-2 border-left border-secondary">
+                                                            <label class="chkbox"><b>In enim justo, rhoncus ut imperdiet a, venenatis vitae justo.</b>  <br/><span class="text-muted">by : John</span>
+                                                                <input type="checkbox" checked="checked">
+                                                                <span class="checkmark mt-2"></span>
+                                                            </label>
+                                                            <div class="ml-auto d-flex"><a href="#"><i class="ion ion-edit"></i></a> <a href="#" class="ml-2"><i class="ion ion-trash-a"></i></a></div>
+                                                        </li>
+                                                        <li class="task py-3 d-flex px-2 border-left border-success">
+                                                            <label class="chkbox"><b>Cras dapibus vivamus elementum semper nisi.</b>  <br/><span class="text-muted">by : John</span>
+                                                                <input type="checkbox" checked="checked">
+                                                                <span class="checkmark mt-2"></span>
+                                                            </label>
+                                                            <div class="ml-auto d-flex"><a href="#"><i class="ion ion-edit"></i></a> <a href="#" class="ml-2"><i class="ion ion-trash-a"></i></a></div>
+                                                        </li>
+
+                                                        <li class="task py-3 d-flex px-2 border-left border-danger">
+                                                            <label class="chkbox"><b>Donec quam felis ultricies nec, pellentesque eu pretium quis.</b>  <br/><span class="text-muted">by : John</span>
+                                                                <input type="checkbox" checked="checked">
+                                                                <span class="checkmark mt-2"></span>
+                                                            </label>
+                                                            <div class="ml-auto d-flex"><a href="#"><i class="ion ion-edit"></i></a> <a href="#" class="ml-2"><i class="ion ion-trash-a"></i></a></div>
+                                                        </li>
+                                                        <li class="task py-3 d-flex px-2 border-left border-warning">
+                                                            <label class="chkbox"><b>Aenean leo ligula porttitor eu consequat vitae, eleifend ac enis.</b>  <br/><span class="text-muted">by : John</span>
+                                                                <input type="checkbox" checked="checked">
+                                                                <span class="checkmark mt-2"></span>
+                                                            </label>
+                                                            <div class="ml-auto d-flex"><a href="#"><i class="ion ion-edit"></i></a> <a href="#" class="ml-2"><i class="ion ion-trash-a"></i></a></div>
+                                                        </li>                                                        
+                                                        <li class="task py-3 px-2 border-left border-info">
+                                                            <label class="chkbox"><b>Curabitur ullamcorper ultricies nisi nam eget dui.</b>  <br/><span class="text-muted">by : John</span>
+                                                                <input type="checkbox" checked="checked">
+                                                                <span class="checkmark mt-2"></span>
+                                                            </label>
+                                                            <div class="ml-auto d-flex"><a href="#"><i class="ion ion-edit"></i></a> <a href="#" class="ml-2"><i class="ion ion-trash-a"></i></a></div>
+                                                        </li>
+                                                        <li class="task py-3 d-flex px-2 border-left border-info">
+                                                            <label class="chkbox"><b>Curabitur ullamcorper ultricies nisi nam eget dui.</b>  <br/><span class="text-muted">by : John</span>
+                                                                <input type="checkbox" checked="checked">
+                                                                <span class="checkmark mt-2"></span>
+                                                            </label>
+                                                            <div class="ml-auto d-flex"><a href="#"><i class="ion ion-edit"></i></a> <a href="#" class="ml-2"><i class="ion ion-trash-a"></i></a></div>
+                                                        </li>
+                                                    </ul> 
+                                                </div>
+                                                <div class="tab-pane fade" id="tabs-month" role="tabpanel" aria-labelledby="tabs-month-tab">
+                                                    <ul class="tasks mt-3">
+                                                        <li class="task py-3 d-flex px-2 border-left border-primary">
+                                                            <label class="chkbox"><b>Aenean ligula porttitor consequat vitae eleifend enim.</b>  <br/><span class="text-muted">by : John</span>
+                                                                <input type="checkbox">
+                                                                <span class="checkmark mt-2"></span>
+                                                            </label>
+                                                            <div class="ml-auto d-flex"><a href="#"><i class="ion ion-edit"></i></a> <a href="#" class="ml-2"><i class="ion ion-trash-a"></i></a></div>
+                                                        </li>
+
+                                                        <li class="task py-3 d-flex px-2 border-left border-secondary">
+                                                            <label class="chkbox"><b>In enim justo, rhoncus ut imperdiet a, venenatis vitae justo.</b>  <br/><span class="text-muted">by : John</span>
+                                                                <input type="checkbox" >
+                                                                <span class="checkmark mt-2"></span>
+                                                            </label>
+                                                            <div class="ml-auto d-flex"><a href="#"><i class="ion ion-edit"></i></a> <a href="#" class="ml-2"><i class="ion ion-trash-a"></i></a></div>
+                                                        </li>
+                                                        <li class="task py-3 d-flex px-2 border-left border-success">
+                                                            <label class="chkbox"><b>Cras dapibus vivamus elementum semper nisi.</b>  <br/><span class="text-muted">by : John</span>
+                                                                <input type="checkbox" >
+                                                                <span class="checkmark mt-2"></span>
+                                                            </label>
+                                                            <div class="ml-auto d-flex"><a href="#"><i class="ion ion-edit"></i></a> <a href="#" class="ml-2"><i class="ion ion-trash-a"></i></a></div>
+                                                        </li>
+
+                                                        <li class="task py-3 d-flex px-2 border-left border-danger">
+                                                            <label class="chkbox"><b>Donec quam felis ultricies nec, pellentesque eu pretium quis.</b>  <br/><span class="text-muted">by : John</span>
+                                                                <input type="checkbox" >
+                                                                <span class="checkmark mt-2"></span>
+                                                            </label>
+                                                            <div class="ml-auto d-flex"><a href="#"><i class="ion ion-edit"></i></a> <a href="#" class="ml-2"><i class="ion ion-trash-a"></i></a></div>
+                                                        </li>
+                                                        <li class="task py-3 d-flex px-2 border-left border-warning">
+                                                            <label class="chkbox"><b>Aenean leo ligula porttitor eu consequat vitae, eleifend ac enis.</b>  <br/><span class="text-muted">by : John</span>
+                                                                <input type="checkbox">
+                                                                <span class="checkmark mt-2"></span>
+                                                            </label>
+                                                            <div class="ml-auto d-flex"><a href="#"><i class="ion ion-edit"></i></a> <a href="#" class="ml-2"><i class="ion ion-trash-a"></i></a></div>
+                                                        </li>                                                        
+                                                        <li class="task py-3 d-flex px-2 border-left border-info">
+                                                            <label class="chkbox"><b>Curabitur ullamcorper ultricies nisi nam eget dui.</b>  <br/><span class="text-muted">by : John</span>
+                                                                <input type="checkbox" >
+                                                                <span class="checkmark mt-2"></span>
+                                                            </label>
+                                                            <div class="ml-auto d-flex"><a href="#"><i class="ion ion-edit"></i></a> <a href="#" class="ml-2"><i class="ion ion-trash-a"></i></a></div>
+                                                        </li>
+                                                        <li class="task py-3 d-flex px-2 border-left border-info">
+                                                            <label class="chkbox"><b>Curabitur ullamcorper ultricies nisi nam eget dui.</b>  <br/><span class="text-muted">by : John</span>
+                                                                <input type="checkbox" >
+                                                                <span class="checkmark mt-2"></span>
+                                                            </label>
+                                                            <div class="ml-auto d-flex"><a href="#"><i class="ion ion-edit"></i></a> <a href="#" class="ml-2"><i class="ion ion-trash-a"></i></a></div>
+                                                        </li>
+                                                    </ul> 
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12  col-lg-6 mt-3">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">                               
+                                <h4 class="card-title">Recent Activities</h4>
+
+                            </div>
+                            <div class="card-content">
+                                <div class="card-body pt-0">
+                                    <div class="row">                                           
+                                        <div class="col-12">
+                                            <ul class="activities mt-4 mb-2">
+                                                <li class="activity py-2 px-2 border-left">
+                                                    <label class="bg-primary"></label>
+                                                    <span>11:30 PM</span><br/>
+                                                    <p class="mt-3"> <b>Add New User</b><br/>Orci eget eros faucibus tincidunt. Sed fringilla mauris sit amet nibh. Donec sodales
+                                                        sagittis magna sed consequat leo eget bibendum sodales, augue.</p>
+                                                </li>
+                                                <li class="activity py-2 px-2 border-left">
+                                                    <label class="bg-success"></label>
+                                                    <span>12:15 PM</span><br/>
+                                                    <p class="mt-3"> <b>Write Comment</b><br/>Donec quam felis, ultricies nec, pellentesque eu, pretium quis, sem.</p>
+                                                </li>
+                                                <li class="activity py-2 px-2 border-left">
+                                                    <label class="bg-danger"></label>
+                                                    <span>13:30 PM</span><br/>
+                                                    <p class="mt-3"> <b>Add New User</b><br/>Nullam quis ante. Etiam sit amet orci eget eros faucibus tincidunt. Sed fringilla
+                                                        mauris sit amet nibh. Donec sodales sagittis magna. Sed consequat, leo eget bibendum sodales, augue velit cursus nunc.</p>
+                                                </li>
+                                                <li class="activity py-2 px-2 border-left">
+                                                    <label class="bg-warning"></label>
+                                                    <span>14:30 PM</span><br/>
+                                                    <p class="mt-3"> <b>Write Comment</b><br/>Aenean massa. Cum sociis natoque penatibus et magnis dis parturient montes,
+                                                        nascetur ridiculus mus. Nulla consequat massa quis enim.</p>
+                                                </li>
+                                            </ul> 
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-lg-6  col-xl-4 mt-3">
+                        <div class="card h-100">                      
+                            <div class="card-content h-100">
+                                <div class="card-body h-100 p-0">
+                                    <div class="info-card h-100">
+                                        <div class="background-image-maker"></div>
+                                        <div class="holder-image">
+                                            <img src="dist/images/chip.jpg" alt="" class="img-fluid">                                        
+                                        </div>
+                                        <div class="date  text-white">22<span>JAN</span></div>
+                                        <div class="like"><i class="ion ion-heart"></i> 200   <i class="ml-3 ion ion-chatboxes"></i> 192</div>
+                                        <div class="title px-4 text-white mb-3">
+                                            <h3 class="text-white">Donec posuere vulputate arcu. Phasellus accumsan cursus velit.</h3>
+                                            <img src="dist/images/author.jpg" alt="" class="border ml-2 img-fluid rounded-circle" width="35"> By John
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-lg-6 col-xl-4 mt-3">
+                        <div class="card">                      
+                            <div class="card-content">
+                                <div class="card-body">
+                                    <div class="weather-info">
+                                        <h3>California, USA </h3>
+                                        <b>Monday, 23rd December 2019 <br/>Partly Cloudy</b>
+                                        <div class="row mt-4">                                           
+                                            <div class="col-12 col-lg-6 text-center">
+                                                <span class="pe-is-w-partly-cloudy-1-f large color-primary display-1" ></span><br/>
+                                                <span class="display-4 font-weight-bold color-primary">23.1<sup class="h1">&#8451;</sup></span>
+                                            </div>
+                                            <div class="col-12 col-lg-6">
+                                                <table class="table table-borderless table-responsive">
+
+                                                    <tbody>
+                                                        <tr>
+                                                            <td  class="py-1 text-right">Precipitation:   </td>
+                                                            <td class="py-1"><b>20%</b></td>
+
+                                                        </tr>
+                                                        <tr>
+                                                            <td class="py-1  text-right">Humidity:</td>
+                                                            <td class="py-1"><b>28%</b></td>
+
+                                                        </tr>
+                                                        <tr>
+                                                            <td class="py-1  text-right">Wind:</td>
+                                                            <td class="py-1 pr-0"><b>23 km/h</b></td>
+
+                                                        </tr>
+                                                        <tr>
+                                                            <td class="py-1  text-right">Visibility:</td>
+                                                            <td class="py-1"><b>16km</b></td>
+
+                                                        </tr>
+
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                        <canvas id="js-chart-weather"  height="42" class="my-2" ></canvas>
+                                        <div class="row mt-3">                                           
+                                            <div class="col text-center">
+                                                <span class="h6"> 5 PM<br/>TUE</span><br/>
+                                                <span class="pe-is-w-partly-cloudy-1-f large color-primary h2" ></span><br/>
+                                                23.9<sup>&#8451;</sup>
+                                            </div>
+                                            <div class="col text-center">
+                                                <span class="h6"> 5 PM<br/>WED</span><br/>
+                                                <span class="pe-is-w-heavy-rain-1-f large color-primary h2" ></span><br/>
+                                                23.8<sup>&#8451;</sup>
+                                            </div>
+                                            <div class="col text-center">
+                                                <span class="h6"> 12 AM<br/>THU</span><br/>
+                                                <span class="pe-is-w-thunderstorm-f large color-primary h2" ></span><br/>
+                                                24.5<sup>&#8451;</sup>
+                                            </div>
+                                            <div class="col text-center">
+                                                <span class="h6"> 3 AM<br/>FRI</span><br/>
+                                                <span class="pe-is-w-partly-cloudy-3-f large color-primary h2" ></span><br/>
+                                                24.9<sup>&#8451;</sup>
+                                            </div>
+                                            <div class="col text-center">
+                                                <span class="h6"> 6 AM<br/>SAT</span><br/>
+                                                <span class="pe-is-w-sun-1-f large color-primary h2" ></span><br/>
+                                                26.3<sup>&#8451;</sup>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-lg-6 col-xl-4 mt-3">
+                        <div class="card">                      
+                            <div class="card-content">
+
+
+                                <div class="card-image business-card">
+                                    <div class="background-image-maker"></div>
+                                    <div class="holder-image">
+                                        <img src="dist/images/ceif.jpg" alt="" class="img-fluid">                                        
+                                    </div>  
+                                    <div class="like"><i class="ion ion-clock"></i> 10:30am  to  11:00pm</div>
+                                    <div class="rating-block">
+                                        <div class='starrr'></div>
+                                        <h6 class="text-warning">3.5<small>(85 Ratings)</small></h6>
+                                    </div>
+                                </div>
+                                <div class="card-body">  
+                                    <h5 class="card-title mb-3 mt-2">Vintage Italian Restaurant</h5>
+                                    <p class="card-text">Phasellus ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia. Phasellus ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia.</p>
+                                    <div class="row mt-4 mb-3">
+                                        <div class="col-6">
+                                            <b><i class="ion ion-android-call"></i> Phone</b><br/>
+                                            +88 123 123 1234 
+                                        </div>
+                                        <div class="col-6">
+                                            <b><i class="ion ion-android-pin"></i> Location</b><br/> 
+                                            Akron, OH 44308
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-lg-6 col-xl-4 mt-3">
+                        <div class="card">                      
+                            <div class="card-content">
+                                <div class="card-header d-flex justify-content-between align-items-center">                               
+                                    <h4 class="card-title">Advertisement</h4>
+                                    <div class="float-right">
+
+                                        <a href="#"  class="py-1 px-2 rounded  line-height-1 border body-color"><i class="ion ion-gear-a"></i> Settings</a>
+                                    </div>
+                                </div>
+                                <div class="card-body">  
+                                    <div class="table-responsive">
+                                        <div class="text-center float-right"><h3 class="line-height-1 mb-0">45%</h3>
+                                            <h6>Advance</h6></div>
+                                    </div>
+                                </div> 
+                                <div id="social-chart"></div>
+                                <div class="card-body">
+                                    <table class="table mb-0">
+                                        <tbody>
+                                            <tr>
+                                                <td class="border-top-0"><span class="social-dot google"></span><b>Google ads</b></td>
+                                                <td class="border-top-0">3,24,859</td>
+                                                <td class="text-success border-top-0">25.8% <i class="ion ion-arrow-graph-up-right"></i></td>
+                                            </tr>
+                                            <tr>
+                                                <td><span class="social-dot facebook"></span><b>Facebook</b></td>
+                                                <td>3,35,957</td>
+                                                <td class="text-success">16.4% <i class="ion ion-arrow-graph-up-right"></i></td>
+                                            </tr>
+                                            <tr>
+                                                <td><span class="social-dot twitter"></span><b>Twitter</b></td>
+                                                <td>1,65,594</td>
+                                                <td class="text-warning">19.2% <i class="ion ion-arrow-graph-down-right"></i></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-lg-12 col-xl-8 mt-3">
+                        <div class="card">                      
+                            <div class="card-content">
+                                <div class="card-header d-flex justify-content-between align-items-center">                               
+                                    <h4 class="card-title">Project Progress</h4>
+                                    <div class="float-right">
+                                        <div class="d-inline-block position-relative">
+                                            <a href="#" data-toggle="dropdown" aria-expanded="false" class="bg-primary py-1 px-2 rounded text-white"><i class="ion ion-plus-round text-white"></i> Add New</a>
+                                            <div class="dropdown-menu left p-0">
+                                                <a href="#" class="dropdown-item px-2">Create Page</a>
+                                                <a href="#" class="dropdown-item px-2">Add New User</a>
+                                                <a href="#" class="dropdown-item px-2">New Campain</a>
+                                                <div class="dropdown-divider"></div>
+                                                <a href="#" class="dropdown-item px-2 text-danger">Generate Reports</a>
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                </div>
+                                <div class="card-body">  
+                                    <div class="table-responsive">
+                                        <table class="table mb-0 text-nowrap">
+                                            <thead>
+                                                <tr>
+                                                    <th class="border-top-0" scope="col">Project/Work</th>
+                                                    <th class="border-top-0" scope="col">Manager</th>
+                                                    <th class="border-top-0" scope="col">Date</th>
+                                                    <th class="border-top-0" scope="col">Status</th>
+                                                    <th class="border-top-0" scope="col">Progress</th>
+                                                    <th class="border-top-0" scope="col"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <th scope="row">Project Development<br/><small class="text-muted">Wordpress, HTML, PHP</small></th>
+                                                    <td>Bernice Maxim <br/><small class="text-muted">WP Developer</small></td>
+                                                    <td>24-1-2018</td>
+                                                    <td>Running</td>
+                                                    <td><div class="progress">
+                                                            <div class="progress-bar w-75" role="progressbar" aria-valuenow="75" aria-valuemin="0" aria-valuemax="100"></div>
+                                                        </div></td>
+                                                    <td> <div class="float-right d-flex"><a href="#"><i class="ion ion-edit"></i></a> <a href="#" class="ml-2"><i class="ion ion-trash-a"></i></a></div></td>
+                                                </tr>
+                                                <tr>
+                                                    <th scope="row">Logo Design<br/><small class="text-muted">Photoshop, illastrator</small></th>
+                                                    <td>Edwin Blakely <br/><small class="text-muted">Desinger</small></td>
+                                                    <td>28-1-2018</td>
+                                                    <td>Complete</td>
+                                                    <td><div class="progress">
+                                                            <div class="progress-bar w-100" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
+                                                        </div></td>
+                                                    <td> <div class="float-right d-flex"><a href="#"><i class="ion ion-edit"></i></a> <a href="#" class="ml-2"><i class="ion ion-trash-a"></i></a></div></td>
+                                                </tr>
+                                                <tr>
+                                                    <th scope="row">Social Marketing<br/><small class="text-muted">Facebook, Google</small></th>
+                                                    <td>Sandra Fears <br/><small class="text-muted">SEO Expert</small></td>
+                                                    <td>28-11-2017</td>
+                                                    <td>Panding</td>
+                                                    <td><div class="progress">
+                                                            <div class="progress-bar w-50" role="progressbar" aria-valuenow="50" aria-valuemin="0" aria-valuemax="100"></div>
+                                                        </div></td>
+                                                    <td> <div class="float-right d-flex"><a href="#"><i class="ion ion-edit"></i></a> <a href="#" class="ml-2"><i class="ion ion-trash-a"></i></a></div></td>
+                                                </tr>
+                                                <tr>
+                                                    <th scope="row">PSD to HTML<br/><small class="text-muted">CSS, HTML, PHP</small></th>
+                                                    <td>Alvin Faulkner <br/><small class="text-muted">Developer</small></td>
+                                                    <td>24-1-2018</td>
+                                                    <td>Running</td>
+                                                    <td><div class="progress">
+                                                            <div class="progress-bar w-75" role="progressbar" aria-valuenow="75" aria-valuemin="0" aria-valuemax="100"></div>
+                                                        </div></td>
+                                                    <td> <div class="float-right d-flex"><a href="#"><i class="ion ion-edit"></i></a> <a href="#" class="ml-2"><i class="ion ion-trash-a"></i></a></div></td>
+                                                </tr>
+                                                <tr>
+                                                    <th scope="row">Php Developer<br/><small class="text-muted">CSS, HTML, PHP</small></th>
+                                                    <td>John Faulkner <br/><small class="text-muted">Developer</small></td>
+                                                    <td>24-1-2018</td>
+                                                    <td>Running</td>
+                                                    <td><div class="progress">
+                                                            <div class="progress-bar w-50" role="progressbar" aria-valuenow="50" aria-valuemin="0" aria-valuemax="100"></div>
+                                                        </div></td>
+                                                    <td> <div class="float-right d-flex"><a href="#"><i class="ion ion-edit"></i></a> <a href="#" class="ml-2"><i class="ion ion-trash-a"></i></a></div></td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- END: Card DATA-->
+            </div>
+        </main>
+        <!-- END: Content-->
+
+        <!-- START: Footer-->
+        <footer class="site-footer">© 2020 Pollo.</footer>
+        <!-- END: Footer-->
+
+        <!-- START: Back to top-->
+        <a href="#" class="scrollup text-center"> 
+            <i class="icon-arrow-up"></i>
+        </a>
+        <!-- END: Back to top-->
+
+        <!-- START: Chat Button-->
+        <a href="#" class="chatbutton text-center"> 
+            <i class="icon-speech"></i>
+        </a>
+        <div class="card border h-50 chatwindow mx-3">
+            <div class="card-body p-0">                          
+                <ul class="nav flex-column chat-menu" id="myTab3" role="tablist">
+                    <li class="nav-item active px-3">                                               
+                        <div class="media d-block d-flex text-left py-3">
+                            <img class="img-fluid  mr-3 rounded-circle" src="dist/images/author2.jpg" alt="">
+                            <div class="media-body align-self-center mt-0  d-flex">
+                                <div class="message-content"> <h6 class="mb-1 font-weight-bold d-flex">Harry Jones</h6>
+                                    typing ... 
+                                    <br>
+                                </div>
+                                <div class="call-button ml-auto">
+                                    <a href="#" class="call h4" data-toggle="modal" data-target="#call1"><i class="icon-phone"></i></a>
+                                    <a href="#" class="video-call h4" data-toggle="modal" data-target="#call1"><i class="icon-camrecorder"></i></a>
+                                </div>
+                            </div>
+                        </div>                                               
+                    </li>
+                </ul>
+
+                <div class="popupchat p-3">                                            
+                    <div class="media d-flex  mb-4">
+                        <div class="p-3 ml-auto speech-bubble">
+                            Hello John, how can I help you today ?
+                        </div>
+                        <div class="ml-4"><a href="#"><img src="dist/images/author2.jpg" alt="" class="img-fluid rounded-circle" /></a></div>
+                    </div>
+                    <div class="media d-flex mb-4">
+                        <div class="mr-4 thumb-img"><a href="#"><img src="dist/images/author3.jpg" alt="" class="img-fluid rounded-circle" /></a></div>
+                        <div class="p-3 mr-auto speech-bubble alt">
+                            Hi, I want to buy a new shoes.
+                        </div>
+                    </div>
+                    <div class="media d-flex mb-4">
+                        <div class="p-3 ml-auto speech-bubble">
+                            Shipment is free. You'll get your shoes tomorrow!<br/>
+
+                        </div>
+                        <div class="ml-4"><a href="#"><img src="dist/images/author2.jpg" alt="" class="img-fluid rounded-circle" /></a></div>
+                    </div> 
+                </div>
+                <div class="border-top theme-border px-2 py-3 d-flex">
+                    <input type="text" class="form-control mr-2" placeholder="Type message here ..." />
+                    <a href="#" class="ml-auto rounded  p-2 m-0 my-auto bg-success text-white"><i class="icon-link"></i></a> 
+                    <a href="#" class="p-2 ml-2 rounded line-height-21 bg-primary text-white"><i class="icon-cursor align-middle"></i></a>
+                </div>
+            </div>
+        </div>
+        <!-- END: Chat Button-->
+
+        <!-- START: Buy Now Button-->
+        <a href="https://themeforest.net/item/pollo-clean-minimal-bootstrap-admin-dashboard-template/25444445" class="buynowbutton btn btn-primary  text-center"> 
+            Buy Now
+        </a>         
+        <!-- END: Buy Now Button-->
+
+        <!-- START: Template JS-->
+        <script src="dist/vendors/jquery/jquery-3.3.1.min.js"></script>
+        <script src="dist/vendors/jquery-ui/jquery-ui.min.js"></script>
+        <script src="dist/vendors/moment/moment.js"></script>
+        <script src="dist/vendors/bootstrap/js/bootstrap.bundle.min.js"></script>    
+        <script src="dist/vendors/slimscroll/jquery.slimscroll.min.js"></script>
+        <script src="dist/vendors/flag-select/js/jquery.flagstrap.min.js"></script> 
+        <!-- END: Template JS-->
+        
+        <!-- START: APP JS-->
+        <script src="dist/js/app.js"></script>
+        <!-- END: APP JS-->
+
+        <!-- START: Page Vendor JS-->
+        <script src="dist/vendors/raphael/raphael.min.js"></script>
+        <script src="dist/vendors/morris/morris.min.js"></script>
+        <script src="dist/vendors/chartjs/Chart.min.js"></script>
+        <script src="dist/vendors/starrr/starrr.js"></script>
+        <script src="dist/vendors/jquery-flot/jquery.canvaswrapper.js"></script>
+        <script src="dist/vendors/jquery-flot/jquery.colorhelpers.js"></script>
+        <script src="dist/vendors/jquery-flot/jquery.flot.js"></script>
+        <script src="dist/vendors/jquery-flot/jquery.flot.saturated.js"></script>
+        <script src="dist/vendors/jquery-flot/jquery.flot.browser.js"></script>
+        <script src="dist/vendors/jquery-flot/jquery.flot.drawSeries.js"></script>
+        <script src="dist/vendors/jquery-flot/jquery.flot.uiConstants.js"></script>
+        <script src="dist/vendors/jquery-flot/jquery.flot.legend.js"></script>
+        <script src="dist/vendors/jquery-flot/jquery.flot.pie.js"></script>
+        <script src="dist/vendors/bootstrap-tour/js/bootstrap-tour-standalone.min.js"></script>
+        <!-- END: Page Vendor JS-->
+
+        <!-- START: Page JS-->
+        <script src="dist/js/home.script.js"></script>
+        <!-- END: Page JS-->
+    </body>
+    <!-- END: Body-->
+
+<!-- Mirrored from html.designstream.co.in/pollo/ltr/index.html by HTTrack Website Copier/3.x [XR&CO'2014], Fri, 21 Aug 2026 10:03:04 GMT -->
+</html>

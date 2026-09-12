@@ -1,0 +1,40 @@
+<?php
+
+namespace App\Events;
+
+use Illuminate\Broadcasting\Channel;
+use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Foundation\Events\Dispatchable;
+use Illuminate\Queue\SerializesModels;
+
+class DailyReportGenerated implements ShouldBroadcast
+{
+    use Dispatchable, InteractsWithSockets, SerializesModels;
+
+    public int $id;
+
+    public function __construct(int $id)
+    {
+        $this->id = $id;
+    }
+
+    public function broadcastWith()
+    {
+        return [
+            'id' => $this->id,
+        ];
+    }
+
+    /**
+     * Get the channels the event should broadcast on.
+     *
+     * @return array<int, Channel>
+     */
+    public function broadcastOn(): array
+    {
+        return [
+            new Channel('App.Models.Tenant.DailyReport.'.$this->id),
+        ];
+    }
+}
