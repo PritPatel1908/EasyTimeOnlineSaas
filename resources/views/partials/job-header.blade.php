@@ -2,10 +2,10 @@
     <div class="container">
         <div class="d-flex align-items-center justify-content-between">
             <div>
-                <a href="{{url('index')}}" class="logo">
+                <a href="{{url('dashboard')}}" class="logo">
                     <img src="{{URL::asset('build/img/logo.svg')}}" alt="Logo">
                 </a>
-                <a href="{{url('index')}}" class="dark-logo">
+                <a href="{{url('dashboard')}}" class="dark-logo">
                     <img src="{{URL::asset('build/img/logo-white.svg')}}" alt="Logo">
                 </a>
             </div>

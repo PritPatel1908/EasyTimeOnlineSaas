@@ -2,7 +2,7 @@
 <div class="stacked-sidebar" id="stacked-sidebar">
     <div class="sidebar sidebar-stacked" style="display: flex !important;">
         <div class="stacked-mini">
-            <a href="{{url('index')}}" class="logo-small">
+            <a href="{{url('dashboard')}}" class="logo-small">
                 <img src="{{URL::asset('build/img/logo-small.svg')}}" alt="Logo">
             </a>
             <div class="sidebar-left slimscroll">

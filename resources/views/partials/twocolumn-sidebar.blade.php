@@ -2,7 +2,7 @@
 <div class="two-col-sidebar" id="two-col-sidebar">
 	<div class="sidebar sidebar-twocol">
 		<div class="twocol-mini">
-			<a href="{{url('index')}}" class="logo-small">
+			<a href="{{url('dashboard')}}" class="logo-small">
 				<img src="{{URL::asset('build/img/logo-small.svg')}}" alt="Logo">
 			</a>
 			<div class="sidebar-left slimscroll">
@@ -91,10 +91,10 @@
 		</div>
 		<div class="sidebar-right">
 			<div class="sidebar-logo mb-4">
-				<a href="{{url('index')}}" class="logo logo-normal">
+				<a href="{{url('dashboard')}}" class="logo logo-normal">
 					<img src="{{URL::asset('build/img/logo.svg')}}" alt="Logo">
 				</a>
-				<a href="{{url('index')}}" class="dark-logo">
+				<a href="{{url('dashboard')}}" class="dark-logo">
 					<img src="{{URL::asset('build/img/logo-white.svg')}}" alt="Logo">
 				</a>
 			</div>

@@ -14,6 +14,7 @@ class FilamentPanelServiceProvider extends PanelProvider
         return $panel
             ->default()
             ->id('admin')
-            ->path('filament');
+            ->path('filament')
+            ->authGuard('tenant');
     }
 }

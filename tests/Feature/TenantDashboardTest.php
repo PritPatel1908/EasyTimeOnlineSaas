@@ -34,7 +34,7 @@ class TenantDashboardTest extends TestCase
 
         $response = app(DashboardController::class)->index();
 
-        $this->assertSame('dashboard', $response->name());
+        $this->assertSame('index', $response->name());
         $this->assertArrayHasKey('tenantId', $response->getData());
         $this->assertArrayHasKey('domain', $response->getData());
         $this->assertArrayHasKey('recentUsers', $response->getData());

@@ -2,13 +2,13 @@
 <div class="sidebar" id="sidebar">
 	<!-- Logo -->
 	<div class="sidebar-logo">
-		<a href="{{url('index')}}" class="logo logo-normal">
+		<a href="{{url('dashboard')}}" class="logo logo-normal">
 			<img src="{{URL::asset('build/img/logo.svg')}}" alt="Logo">
 		</a>
-		<a href="{{url('index')}}" class="logo-small">
+		<a href="{{url('dashboard')}}" class="logo-small">
 			<img src="{{URL::asset('build/img/logo-small.svg')}}" alt="Logo">
 		</a>
-		<a href="{{url('index')}}" class="dark-logo">
+		<a href="{{url('dashboard')}}" class="dark-logo">
 			<img src="{{URL::asset('build/img/logo-white.svg')}}" alt="Logo">
 		</a>
 	</div>
@@ -79,6 +79,45 @@
 	<div class="sidebar-inner slimscroll">
 		<div id="sidebar-menu" class="sidebar-menu">
 			<ul>
+				<li class="menu-title"><span>MAIN MENU</span></li>
+				<li>
+					<ul>
+						<li class="{{ Request::is('dashboard') ? 'active' : '' }}">
+							<a href="{{url('dashboard')}}">
+								<i class="ti ti-smart-home"></i><span>Dashboard</span>
+							</a>
+						</li>
+					</ul>
+				</li>
+				<li class="menu-title"><span>COMPANY STRUCTURE</span></li>
+				<li>
+					<ul>
+						<li class="submenu">
+							<a href="javascript:void(0);"
+								class="{{ Request::is('company-structure/companies', 'company-structure/locations', 'company-structure/departments', 'company-structure/sub-departments', 'company-structure/units', 'company-structure/teams', 'company-structure/facilities') ? 'active subdrop' : '' }}">
+								<i class="ti ti-building-estate"></i><span>Company Structure</span>
+								<span class="menu-arrow"></span>
+							</a>
+							<ul>
+								<li><a href="{{url('company-structure/companies')}}"
+										class="{{ Request::is('company-structure/companies') ? 'active' : '' }}">Companies</a></li>
+								<li><a href="{{url('company-structure/locations')}}"
+										class="{{ Request::is('company-structure/locations') ? 'active' : '' }}">Locations</a></li>
+								<li><a href="{{url('company-structure/departments')}}"
+										class="{{ Request::is('company-structure/departments') ? 'active' : '' }}">Departments</a></li>
+								<li><a href="{{url('company-structure/sub-departments')}}"
+										class="{{ Request::is('company-structure/sub-departments') ? 'active' : '' }}">Sub Departments</a></li>
+								<li><a href="{{url('company-structure/units')}}"
+										class="{{ Request::is('company-structure/units') ? 'active' : '' }}">Unit (Mill)</a></li>
+								<li><a href="{{url('company-structure/teams')}}"
+										class="{{ Request::is('company-structure/teams') ? 'active' : '' }}">Team</a></li>
+								<li><a href="{{url('company-structure/facilities')}}"
+										class="{{ Request::is('company-structure/facilities') ? 'active' : '' }}">Company Facility</a></li>
+							</ul>
+						</li>
+					</ul>
+				</li>
+				@if (false)
 				<li class="menu-title"><span>MAIN MENU</span></li>
 				<li>
 					<ul>
@@ -1529,6 +1568,7 @@
 						</li>
 					</ul>
 				</li>
+				@endif
 			</ul>
 		</div>
 	</div>
