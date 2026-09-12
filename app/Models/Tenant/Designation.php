@@ -8,6 +8,7 @@ namespace App\Models\Tenant;
 
 use App\Models\Tenant\Scopes\DataPolicyFilter;
 use App\Traits\CUDby;
+use App\Traits\HasRelatedRecords;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -37,6 +38,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Designation extends Model
 {
     use CUDby;
+    use HasRelatedRecords;
     use SoftDeletes;
 
     protected $table = 'designations';

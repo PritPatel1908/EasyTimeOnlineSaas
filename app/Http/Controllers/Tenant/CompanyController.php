@@ -113,7 +113,7 @@ class CompanyController extends Controller
 
         if ($company->hasRelatedRecords()) {
             return redirect(url('company-structure/companies'))
-                ->with('error', 'This company cannot be deleted because it is used in other records.');
+                ->with('error', $company->getRelatedRecordsMessage('Company'));
         }
 
         $company->delete();

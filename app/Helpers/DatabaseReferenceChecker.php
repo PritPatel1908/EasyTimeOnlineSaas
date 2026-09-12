@@ -54,6 +54,56 @@ class DatabaseReferenceChecker
     }
 
     /**
+     * Returns every table+column pair that references the given record.
+     * Unlike findReferences(), this does not stop at the first match.
+     *
+     * @param  array<int, string>|null  $referenceColumns
+     * @return array<int, array{table: string, column: string}>
+     */
+    public static function findAllReferences(
+        string $referencedTable,
+        int|string $referencedId,
+        ?array $referenceColumns = null,
+        ?string $connectionName = null,
+    ): array {
+        $connection = DB::connection($connectionName);
+        $schema     = $connection->getSchemaBuilder();
+        $targetColumns = array_map(
+            'strtolower',
+            $referenceColumns ?? [Str::singular($referencedTable).'_id'],
+        );
+
+        $found = [];
+
+        foreach ($schema->getTables() as $tableDefinition) {
+            $table = self::metadataName($tableDefinition);
+
+            if ($table === null
+                || strcasecmp($table, $referencedTable) === 0
+                || strcasecmp($table, 'migrations') === 0
+            ) {
+                continue;
+            }
+
+            foreach ($schema->getColumns($table) as $columnDefinition) {
+                $column = self::metadataName($columnDefinition);
+
+                if ($column === null || ! in_array(strtolower($column), $targetColumns, true)) {
+                    continue;
+                }
+
+                if (self::columnContainsId($connection, $table, $column, $referencedId)) {
+                    $found[] = ['table' => $table, 'column' => $column];
+                    // One match per table is enough; move on to the next table.
+                    break;
+                }
+            }
+        }
+
+        return $found;
+    }
+
+    /**
      * @param array<int, string>|null $referenceColumns
      */
     public static function hasReferences(
