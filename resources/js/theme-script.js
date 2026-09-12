@@ -38,8 +38,8 @@ let themesettings = `
                                     <input type="radio" name="LayoutTheme" id="defaultLayout" value="default" checked>
                                     <label for="defaultLayout">
                                         <span class="d-block mb-2 layout-img">
-                                            <img src="build/img/theme/default.svg" alt="img">
-                                        </span>                                     
+                                            <img src="/build/img/theme/default.svg" alt="img">
+                                        </span>
                                         <span class="layout-type">Default</span>
                                     </label>
                                 </div>
@@ -49,8 +49,8 @@ let themesettings = `
                                     <input type="radio" name="LayoutTheme" id="miniLayout" value="mini" >
                                     <label for="miniLayout">
                                         <span class="d-block mb-2 layout-img">
-                                            <img src="build/img/theme/mini.svg" alt="img">
-                                        </span>                                    
+                                            <img src="/build/img/theme/mini.svg" alt="img">
+                                        </span>
                                         <span class="layout-type">Mini</span>
                                     </label>
                                 </div>
@@ -60,8 +60,8 @@ let themesettings = `
                                     <input type="radio" name="LayoutTheme" id="horizontalLayout" value="horizontal" >
                                     <label for="horizontalLayout">
                                         <span class="d-block mb-2 layout-img">
-                                            <img src="build/img/theme/horizontal.svg" alt="img">
-                                        </span>                                    
+                                            <img src="/build/img/theme/horizontal.svg" alt="img">
+                                        </span>
                                         <span class="layout-type">Horizontal</span>
                                     </label>
                                 </div>
@@ -71,8 +71,8 @@ let themesettings = `
                                     <input type="radio" name="LayoutTheme" id="horizontal-singleLayout" value="horizontal-single" >
                                     <label for="horizontal-singleLayout">
                                         <span class="d-block mb-2 layout-img">
-                                            <img src="build/img/theme/horizontal-single.svg" alt="img">
-                                        </span>                                    
+                                            <img src="/build/img/theme/horizontal-single.svg" alt="img">
+                                        </span>
                                         <span class="layout-type">Horizontal Single</span>
                                     </label>
                                 </div>
@@ -82,8 +82,8 @@ let themesettings = `
                                     <input type="radio" name="LayoutTheme" id="detachedLayout" value="detached" >
                                     <label for="detachedLayout">
                                         <span class="d-block mb-2 layout-img">
-                                            <img src="build/img/theme/horizontal-single.svg" alt="img">
-                                        </span>                                    
+                                            <img src="/build/img/theme/horizontal-single.svg" alt="img">
+                                        </span>
                                         <span class="layout-type">Detached</span>
                                     </label>
                                 </div>
@@ -93,8 +93,8 @@ let themesettings = `
                                     <input type="radio" name="LayoutTheme" id="twocolumnLayout" value="twocolumn" >
                                     <label for="twocolumnLayout">
                                         <span class="d-block mb-2 layout-img">
-                                            <img src="build/img/theme/two-column.svg" alt="img">
-                                        </span>                                    
+                                            <img src="/build/img/theme/two-column.svg" alt="img">
+                                        </span>
                                         <span class="layout-type">Two Column</span>
                                     </label>
                                 </div>
@@ -104,8 +104,8 @@ let themesettings = `
                                     <input type="radio" name="LayoutTheme" id="without-headerLayout" value="without-header" >
                                     <label for="without-headerLayout">
                                         <span class="d-block mb-2 layout-img">
-                                            <img src="build/img/theme/without-header.svg" alt="img">
-                                        </span>                                    
+                                            <img src="/build/img/theme/without-header.svg" alt="img">
+                                        </span>
                                         <span class="layout-type">Without Header</span>
                                     </label>
                                 </div>
@@ -115,8 +115,8 @@ let themesettings = `
                                     <input type="radio" name="LayoutTheme" id="horizontal-overlayLayout" value="horizontal-overlay" >
                                     <label for="horizontal-overlayLayout">
                                         <span class="d-block mb-2 layout-img">
-                                            <img src="build/img/theme/overlay.svg" alt="img">
-                                        </span>                                    
+                                            <img src="/build/img/theme/overlay.svg" alt="img">
+                                        </span>
                                         <span class="layout-type">Overlay</span>
                                     </label>
                                 </div>
@@ -126,8 +126,8 @@ let themesettings = `
                                     <input type="radio" name="LayoutTheme" id="horizontal-sidemenuLayout" value="horizontal-sidemenu" >
                                     <label for="horizontal-sidemenuLayout">
                                         <span class="d-block mb-2 layout-img">
-                                            <img src="build/img/theme/menu-aside.svg" alt="img">
-                                        </span>                                    
+                                            <img src="/build/img/theme/menu-aside.svg" alt="img">
+                                        </span>
                                         <span class="layout-type">Menu Aside</span>
                                     </label>
                                 </div>
@@ -137,8 +137,8 @@ let themesettings = `
                                     <input type="radio" name="LayoutTheme" id="stackedLayout" value="stacked" >
                                     <label for="stackedLayout">
                                         <span class="d-block mb-2 layout-img">
-                                            <img src="build/img/theme/stacked.svg" alt="img">
-                                        </span>                                    
+                                            <img src="/build/img/theme/stacked.svg" alt="img">
+                                        </span>
                                         <span class="layout-type">Menu Stacked</span>
                                     </label>
                                 </div>
@@ -148,8 +148,8 @@ let themesettings = `
                                     <input type="radio" name="LayoutTheme" id="modernLayout" value="modern" >
                                     <label for="modernLayout">
                                         <span class="d-block mb-2 layout-img">
-                                            <img src="build/img/theme/modern.svg" alt="img">
-                                        </span>                                    
+                                            <img src="/build/img/theme/modern.svg" alt="img">
+                                        </span>
                                         <span class="layout-type">Modern</span>
                                     </label>
                                 </div>
@@ -159,8 +159,8 @@ let themesettings = `
                                     <input type="radio" name="LayoutTheme" id="transparentLayout" value="transparent" >
                                     <label for="transparentLayout">
                                         <span class="d-block mb-2 layout-img">
-                                            <img src="build/img/theme/transparent.svg" alt="img">
-                                        </span>                                    
+                                            <img src="/build/img/theme/transparent.svg" alt="img">
+                                        </span>
                                         <span class="layout-type">Transparent</span>
                                     </label>
                                 </div>
@@ -168,15 +168,15 @@ let themesettings = `
                             <div class="col-4">
                                 <a href="layout-rtl" class="theme-layout mb-3">
                                     <span class="d-block mb-2 layout-img">
-                                        <img src="build/img/theme/rtl.svg" alt="img">
-                                    </span>                                    
+                                        <img src="/build/img/theme/rtl.svg" alt="img">
+                                    </span>
                                     <span class="layout-type">RTL</span>
                                 </a>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div> 
+            </div>
             <div class="accordion-item">
                 <h2 class="accordion-header">
                     <button class="accordion-button text-dark fs-16" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarsetting" aria-expanded="true">
@@ -197,7 +197,7 @@ let themesettings = `
                                 <label for="boxWidth" class="d-block rounded fs-12">Boxed Layout
                                 </label>
                             </div>
-                        </div>  
+                        </div>
                     </div>
                 </div>
             </div>
@@ -215,8 +215,8 @@ let themesettings = `
                                     <input type="radio" name="card" id="borderedCard" value="bordered" checked>
                                     <label for="borderedCard">
                                         <span class="d-block mb-2 layout-img">
-                                            <img src="build/img/theme/bordered.svg" alt="img">
-                                        </span>                                     
+                                            <img src="/build/img/theme/bordered.svg" alt="img">
+                                        </span>
                                         <span class="layout-type">Bordered</span>
                                     </label>
                                 </div>
@@ -226,8 +226,8 @@ let themesettings = `
                                     <input type="radio" name="card" id="borderlessCard" value="borderless" >
                                     <label for="borderlessCard">
                                         <span class="d-block mb-2 layout-img">
-                                            <img src="build/img/theme/borderless.svg" alt="img">
-                                        </span>                                    
+                                            <img src="/build/img/theme/borderless.svg" alt="img">
+                                        </span>
                                         <span class="layout-type">Borderless</span>
                                     </label>
                                 </div>
@@ -237,8 +237,8 @@ let themesettings = `
                                     <input type="radio" name="card" id="shadowCard" value="shadow" >
                                     <label for="shadowCard">
                                         <span class="d-block mb-2 layout-img">
-                                            <img src="build/img/theme/shadow.svg" alt="img">
-                                        </span>                                    
+                                            <img src="/build/img/theme/shadow.svg" alt="img">
+                                        </span>
                                         <span class="layout-type">Only Shadow</span>
                                     </label>
                                 </div>
@@ -289,7 +289,7 @@ let themesettings = `
                         </div>
                     </div>
                 </div>
-            </div>    
+            </div>
             <div class="accordion-item">
                 <h2 class="accordion-header">
                     <button class="accordion-button text-dark fs-16" type="button" data-bs-toggle="collapse" data-bs-target="#modesetting" aria-expanded="true">
@@ -302,7 +302,7 @@ let themesettings = `
                             <div class="col-6">
                                 <div class="theme-mode">
                                     <input type="radio" name="theme" id="lightTheme" value="light" checked>
-                                    <label for="lightTheme" class="p-2 rounded fw-medium w-100">                            
+                                    <label for="lightTheme" class="p-2 rounded fw-medium w-100">
                                         <span class="avatar avatar-md d-inline-flex rounded me-2"><i class="ti ti-sun-filled"></i></span>Light Mode
                                     </label>
                                 </div>
@@ -310,7 +310,7 @@ let themesettings = `
                             <div class="col-6">
                                 <div class="theme-mode">
                                     <input type="radio" name="theme" id="darkTheme" value="dark" >
-                                    <label for="darkTheme" class="p-2 rounded fw-medium w-100">                         
+                                    <label for="darkTheme" class="p-2 rounded fw-medium w-100">
                                         <span class="avatar avatar-md d-inline-flex rounded me-2"><i class="ti ti-moon-filled"></i></span>Dark Mode
                                     </label>
                                 </div>
@@ -318,7 +318,7 @@ let themesettings = `
                         </div>
                     </div>
                 </div>
-            </div>            
+            </div>
             <div class="accordion-item">
                 <h2 class="accordion-header">
                     <button class="accordion-button text-dark fs-16" type="button" data-bs-toggle="collapse" data-bs-target="#sizesetting" aria-expanded="true" aria-controls="collapsecustomicon1One">
@@ -333,8 +333,8 @@ let themesettings = `
                                     <input type="radio" name="size" id="defaultSize" value="default" checked>
                                     <label for="defaultSize">
                                         <span class="d-block mb-2 layout-img">
-                                            <img src="build/img/theme/default.svg" alt="img">
-                                        </span>                                     
+                                            <img src="/build/img/theme/default.svg" alt="img">
+                                        </span>
                                         <span class="layout-type">Default</span>
                                     </label>
                                 </div>
@@ -344,8 +344,8 @@ let themesettings = `
                                     <input type="radio" name="size" id="compactSize" value="compact" >
                                     <label for="compactSize">
                                         <span class="d-block mb-2 layout-img">
-                                            <img src="build/img/theme/compact.svg" alt="img">
-                                        </span>                                    
+                                            <img src="/build/img/theme/compact.svg" alt="img">
+                                        </span>
                                         <span class="layout-type">Compact</span>
                                     </label>
                                 </div>
@@ -355,8 +355,8 @@ let themesettings = `
                                     <input type="radio" name="size" id="hoverviewSize" value="hoverview" >
                                     <label for="hoverviewSize">
                                         <span class="d-block mb-2 layout-img">
-                                            <img src="build/img/theme/hoverview.svg" alt="img">
-                                        </span>                                    
+                                            <img src="/build/img/theme/hoverview.svg" alt="img">
+                                        </span>
                                         <span class="layout-type">Hover View</span>
                                     </label>
                                 </div>
@@ -393,19 +393,19 @@ let themesettings = `
                             <div class="theme-colorselect">
                                 <input type="radio" name="topbar" id="bluehazeTopbar" value="bluehaze">
                                 <label for="bluehazeTopbar" class="bluehaze-topbar"></label>
-                            </div>                   
+                            </div>
                             <div class="theme-colorselect">
                                 <input type="radio" name="topbar" id="orangeGradientTopbar" value="orangegradient">
                                 <label for="orangeGradientTopbar" class="orange-gradient-topbar"></label>
-                            </div>                   
+                            </div>
                             <div class="theme-colorselect">
                                 <input type="radio" name="topbar" id="purpleGradientTopbar" value="purplegradient">
                                 <label for="purpleGradientTopbar" class="purple-gradient-topbar"></label>
-                            </div>                   
+                            </div>
                             <div class="theme-colorselect">
                                 <input type="radio" name="topbar" id="blueGradientTopbar" value="bluegradient">
                                 <label for="blueGradientTopbar" class="blue-gradient-topbar"></label>
-                            </div>                   
+                            </div>
                             <div class="theme-colorselect">
                                 <input type="radio" name="topbar" id="maroonGradientTopbar" value="maroongradient">
                                 <label for="maroonGradientTopbar" class="maroon-gradient-topbar"></label>
@@ -413,7 +413,7 @@ let themesettings = `
                         </div>
                     </div>
                 </div>
-            </div>  			    
+            </div>
             <div class="accordion-item">
                 <h2 class="accordion-header">
                     <button class="accordion-button text-dark fs-16" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarcolor" aria-expanded="true">
@@ -446,7 +446,7 @@ let themesettings = `
                             <div class="theme-colorsset">
                                 <input type="radio" name="color" id="chromeyellowColor" value="chromeyellow">
                                 <label for="chromeyellowColor" class="chromeyellow-clr"></label>
-                            </div>  
+                            </div>
                             <div class="theme-colorsset">
                                 <input type="radio" name="color" id="lavaredColor" value="lavared">
                                 <label for="lavaredColor" class="lavared-clr"></label>
@@ -454,7 +454,7 @@ let themesettings = `
                         </div>
                     </div>
                 </div>
-            </div> 
+            </div>
             <div class="accordion-item d-none">
                 <h2 class="accordion-header">
                     <button class="accordion-button text-dark fs-16" type="button" data-bs-toggle="collapse" data-bs-target="#loadersetting" aria-expanded="true">
@@ -474,11 +474,11 @@ let themesettings = `
                                 <label for="disableLoader" class="d-block rounded fs-12">Without Preloader
                                 </label>
                             </div>
-                        </div>  
+                        </div>
                     </div>
                 </div>
-            </div> 
-        </div> 
+            </div>
+        </div>
     </div>
         <div class="p-3 pt-0">
             <div class="row gx-3">
@@ -489,7 +489,7 @@ let themesettings = `
                     <a href="#" class="btn btn-primary w-100" data-bs-dismiss="offcanvas"><i class="ti ti-shopping-cart-plus me-1"></i>Buy Product</a>
                 </div>
             </div>
-        </div>    
+        </div>
     </div>
             `
 
