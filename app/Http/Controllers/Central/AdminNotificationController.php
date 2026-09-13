@@ -31,6 +31,9 @@ class AdminNotificationController extends Controller
                 'title' => data_get($notification->data, 'title', 'Notification'),
                 'message' => data_get($notification->data, 'message', ''),
                 'url' => data_get($notification->data, 'url', '#'),
+                'detail_url' => request()->routeIs('tenant.notifications.*')
+                    ? url('/notifications/' . $notification->id)
+                    : data_get($notification->data, 'url', '#'),
                 'download_url' => data_get($notification->data, 'download_url'),
                 'type' => data_get($notification->data, 'type'),
             ])->values()->all(),

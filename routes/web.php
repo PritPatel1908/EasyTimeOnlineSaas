@@ -56,6 +56,10 @@ $authRoutes = function (): void {
 };
 
 foreach ($centralDomains as $centralDomain) {
-    Route::domain($centralDomain)->group($authRoutes);
-    Route::domain($centralDomain)->group($adminRoutes);
+    $centralRouteNamePrefix = $centralDomain === $centralDomains[0]
+        ? ''
+        : 'central.' . str_replace(['.', '-'], '_', $centralDomain) . '.';
+
+    Route::domain($centralDomain)->name($centralRouteNamePrefix)->group($authRoutes);
+    Route::domain($centralDomain)->name($centralRouteNamePrefix)->group($adminRoutes);
 }

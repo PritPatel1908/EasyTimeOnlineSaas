@@ -60,7 +60,7 @@ function renderNotificationList(items) {
 	const rows = items.map((item) => {
 		const title = item.title || 'Notification';
 		const message = item.message || '';
-		const url = item.url || '#';
+		const url = item.detail_url || item.url || '#';
 		const downloadUrl = item.download_url || '';
 		const downloadButton = downloadUrl
 			? `<a href="${downloadUrl}" class="btn btn-sm btn-primary mt-2">Download</a>`
