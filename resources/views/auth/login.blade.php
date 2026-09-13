@@ -17,8 +17,7 @@
             <div class="card-body p-4 p-md-5">
                 <h1 class="h3 mb-2">Central administration</h1>
                 <p class="text-muted mb-4">Sign in with your account to continue.</p>
-                @if (session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
-                @if ($errors->any())<div class="alert alert-danger">{{ $errors->first() }}</div>@endif
+                @include('partials.flash-alerts')
                 <form method="POST" action="{{ route('login', absolute: false) }}">
                     @csrf
                     <div class="form-group"><label for="email">Email address</label><input id="email" name="email" type="email" class="form-control" value="{{ old('email') }}" required autofocus></div>
@@ -28,5 +27,6 @@
             </div>
         </div>
     </main>
+    @stack('scripts')
 </body>
 </html>

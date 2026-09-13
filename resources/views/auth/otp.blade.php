@@ -17,8 +17,7 @@
             <div class="card-body p-4 p-md-5">
                 <h1 class="h3 mb-2">Check your email</h1>
                 <p class="text-muted mb-4">Enter the 6-digit code sent to {{ $email }}.</p>
-                @if (session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
-                @if ($errors->any())<div class="alert alert-danger">{{ $errors->first() }}</div>@endif
+                @include('partials.flash-alerts')
                 <form method="POST" action="{{ route('auth.otp.verify', absolute: false) }}">
                     @csrf
                     <div class="form-group"><label for="otp">Verification code</label><input id="otp" name="otp" type="text" inputmode="numeric" autocomplete="one-time-code" class="form-control text-center" maxlength="6" required autofocus></div>
@@ -29,5 +28,6 @@
             </div>
         </div>
     </main>
+    @stack('scripts')
 </body>
 </html>

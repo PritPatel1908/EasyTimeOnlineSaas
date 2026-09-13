@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Tenant\AuthController;
 use App\Http\Controllers\Tenant\CompanyController;
+use App\Http\Controllers\Tenant\DataPolicyController;
 use App\Http\Controllers\Tenant\LocationController;
 use App\Http\Controllers\Tenant\NotificationController;
 use App\Http\Controllers\Tenant\DashboardController;
@@ -61,6 +62,14 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                 Route::get('/dashboard', [DashboardController::class, 'index'])->name('tenant.dashboard');
                 Route::get('/notifications/poll', [\App\Http\Controllers\Central\AdminNotificationController::class, 'poll'])->name('tenant.notifications.poll');
                 Route::get('/notifications/{notification}', [NotificationController::class, 'show'])->name('tenant.notifications.show');
+                Route::get('data-policy', [DataPolicyController::class, 'index'])
+                    ->name('tenant.data-policy');
+                Route::get('data-policy/create', [DataPolicyController::class, 'create'])
+                    ->name('tenant.data-policy.create');
+                Route::resource('data-policy', DataPolicyController::class)
+                    ->except(['index', 'create', 'show'])
+                    ->parameters(['data-policy' => 'dataPolicy'])
+                    ->names('tenant.data-policy');
 
                 Route::prefix('roles')->name('tenant.roles.')->group(function (): void {
                     Route::get('/', [RolePermissionController::class, 'index'])->name('index');
@@ -108,6 +117,9 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                     Route::resource('locations', LocationController::class)
                         ->except(['create', 'show'])
                         ->names('locations');
+                    Route::get('data-policies', function () {
+                        return redirect('data-policy');
+                    })->name('data-policies.legacy');
                 });
 
                 Route::post('/logout', [AuthController::class, 'logout'])->name('tenant.logout');

@@ -7,6 +7,7 @@
 
     <div class="page-wrapper">
         <div class="content">
+            @include('partials.flash-alerts')
             <div class="d-md-flex d-block align-items-center justify-content-between page-breadcrumb mb-3">
                 <div class="my-auto mb-2">
                     <h2 class="mb-1">Permission matrix</h2>
@@ -25,13 +26,6 @@
                     </div>
                 </div>
             </div>
-
-            @if (session('success'))
-                <div class="alert alert-success alert-dismissible fade show auto-dismiss-alert d-flex align-items-center" role="alert">
-                    <i class="ti ti-circle-check me-2"></i>{{ session('success') }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            @endif
 
             <div class="card">
                 <div class="card-header d-flex align-items-center justify-content-between flex-wrap row-gap-2">

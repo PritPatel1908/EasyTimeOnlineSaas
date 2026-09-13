@@ -24607,7 +24607,8 @@ body.layout-mode-rtl .nav-list::before {
 }
 .ts-wrapper.form-control {
   padding: 0 !important;
-  height: 40px !important;
+  min-height: 40px !important;
+  height: auto !important;
   background: transparent !important;
   box-shadow: none !important;
 }

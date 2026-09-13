@@ -1,19 +1,8 @@
 @extends('layout.mainlayout')
 @section('content')
 <div class="page-wrapper"><div class="content">
+    @include('partials.flash-alerts')
     <div class="d-md-flex d-block align-items-center justify-content-between page-breadcrumb mb-3"><div class="my-auto mb-2"><h2 class="mb-1">Locations</h2><nav><ol class="breadcrumb mb-0"><li class="breadcrumb-item"><a href="{{ url('index') }}"><i class="ti ti-smart-home"></i></a></li><li class="breadcrumb-item">Company Structure</li><li class="breadcrumb-item active">Locations</li></ol></nav></div><div class="d-flex my-xl-auto right-content align-items-center flex-wrap"><div class="mb-2 me-2"><a href="{{ url('company-structure/locations/export') }}" class="btn btn-light d-flex align-items-center"><i class="ti ti-file-export me-2"></i>Export</a></div><div class="mb-2 me-2"><button type="button" class="btn btn-light d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#import_location_modal"><i class="ti ti-file-import me-2"></i>Import</button></div><div class="mb-2"><a href="{{ url('company-structure/locations/create') }}" class="btn btn-primary d-flex align-items-center"><i class="ti ti-circle-plus me-2"></i>Add Location</a></div></div></div>
-    @if (session('success'))
-        <div class="alert alert-success alert-dismissible fade show auto-dismiss-alert d-flex align-items-center" role="alert">
-            <i class="ti ti-circle-check me-2"></i>{{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    @endif
-    @if (session('error'))
-        <div class="alert alert-danger alert-dismissible fade show auto-dismiss-alert d-flex align-items-center" role="alert">
-            <i class="ti ti-alert-circle me-2"></i>{{ session('error') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    @endif
     <div id="location-status-alert" class="alert alert-dismissible d-none align-items-center" role="alert">
         <i class="ti ti-circle-check me-2 alert-icon"></i>
         <span class="alert-message"></span>

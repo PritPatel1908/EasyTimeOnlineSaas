@@ -4,6 +4,7 @@
 @php(\Illuminate\Support\Facades\URL::defaults(['tenant' => $tenant]))
 <div class="page-wrapper">
     <div class="content">
+        @include('partials.flash-alerts')
         <div class="d-md-flex d-block align-items-center justify-content-between page-breadcrumb mb-3">
             <div class="my-auto mb-2">
                 <h2 class="mb-1">Roles & Permissions</h2>
@@ -20,16 +21,6 @@
                 <div class="head-icons ms-2"><a href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-original-title="Collapse" id="collapse-header"><i class="ti ti-chevrons-up"></i></a></div>
             </div>
         </div>
-
-        @if (session('success'))
-            <div class="alert alert-success alert-dismissible fade show auto-dismiss-alert d-flex align-items-center" role="alert"><i class="ti ti-circle-check me-2"></i>{{ session('success') }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>
-        @endif
-        @if (session('error'))
-            <div class="alert alert-danger alert-dismissible fade show auto-dismiss-alert d-flex align-items-center" role="alert"><i class="ti ti-alert-circle me-2"></i>{{ session('error') }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>
-        @endif
-        @if ($errors->any())
-            <div class="alert alert-danger" role="alert">{{ $errors->first() }}</div>
-        @endif
 
         <div class="row g-3 mb-3">
             <div class="col-md-4"><div class="card mb-0"><div class="card-body d-flex align-items-center"><span class="avatar avatar-lg bg-primary-transparent text-primary me-3"><i class="ti ti-shield-check fs-24"></i></span><div><p class="text-muted mb-1">Total roles</p><h4 class="mb-0">{{ $roles->total() }}</h4></div></div></div></div>
