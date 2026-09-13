@@ -13,6 +13,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 
 class ProcessCompanyImport implements ShouldQueue
@@ -40,6 +41,9 @@ class ProcessCompanyImport implements ShouldQueue
         if ($user === null) {
             return;
         }
+
+        Auth::shouldUse('tenant');
+        Auth::guard('tenant')->setUser($user);
 
         $filePath = $this->filePath;
 

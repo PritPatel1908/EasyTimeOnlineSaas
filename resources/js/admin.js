@@ -101,6 +101,23 @@ function refreshNotifications() {
 		.then((payload) => {
 			const count = Number(payload.count || 0);
 			const countNode = document.querySelector('[data-notification-count]');
+			const completedImport = (payload.items || []).find((item) => {
+				const notificationPath = new URL(item.url || '', window.location.origin).pathname;
+
+				return item.type === 'import'
+					&& /^\/company-structure\/(locations|companies)\/?$/.test(notificationPath)
+					&& notificationPath === window.location.pathname;
+			});
+
+			if (completedImport?.id) {
+				const refreshKey = `import-refresh-${completedImport.id}`;
+
+				if (!sessionStorage.getItem(refreshKey)) {
+					sessionStorage.setItem(refreshKey, '1');
+					window.location.reload();
+					return;
+				}
+			}
 
 			if (countNode) {
 				countNode.textContent = String(count);

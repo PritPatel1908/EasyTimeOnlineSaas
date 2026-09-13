@@ -7,12 +7,14 @@
 namespace App\Models\Tenant;
 
 use App\Models\Tenant\Scopes\DataPolicyFilter;
+use App\Jobs\Tenant\ActivityLog;
 use App\Traits\CUDby;
 use App\Traits\HasRelatedRecords;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * Class Location
@@ -55,11 +57,42 @@ class Location extends Model
     use HasRelatedRecords;
     use SoftDeletes;
 
+    protected array $auditLogOldSnapshot = [];
+
+    public const IMPORT_EXPORT_COLUMNS = [
+        'name',
+        'code',
+        'email',
+        'latitude',
+        'longitude',
+        'status',
+    ];
+
     protected $table = 'locations';
 
     protected static function booted(): void
     {
         static::addGlobalScope(new DataPolicyFilter);
+
+        static::created(function (Location $location): void {
+            $location->dispatchAuditLog([], $location->auditSnapshot($location->getAttributes()), 'created');
+        });
+
+        static::updating(function (Location $location): void {
+            $location->auditLogOldSnapshot = $location->auditSnapshot($location->getOriginal());
+        });
+
+        static::updated(function (Location $location): void {
+            $location->dispatchAuditLog($location->auditLogOldSnapshot, $location->auditSnapshot($location->getAttributes()), 'updated');
+        });
+
+        static::deleting(function (Location $location): void {
+            $location->auditLogOldSnapshot = $location->auditSnapshot($location->getAttributes());
+        });
+
+        static::deleted(function (Location $location): void {
+            $location->dispatchAuditLog($location->auditLogOldSnapshot, $location->auditSnapshot($location->getAttributes()), 'deleted');
+        });
     }
 
     protected $casts = [
@@ -175,5 +208,60 @@ class Location extends Model
     public function areas()
     {
         return $this->hasMany(Area::class);
+    }
+
+    public static function getImportUniqueFields(): array
+    {
+        return ['code', 'name'];
+    }
+
+    private function dispatchAuditLog(array $old, array $new, string $event): void
+    {
+        ActivityLog::dispatch(Auth::user(), $this, $old, $new, $event)->onQueue('processing');
+    }
+
+    private function auditSnapshot(array $attributes): array
+    {
+        return array_merge($attributes, [
+            'relations' => [
+                'data_policies' => $this->relatedRecords(DataPolicy::class, $this->relationIds('data_policies')),
+                'created_by' => $this->actorRecord($attributes['created_by'] ?? null),
+                'updated_by' => $this->actorRecord($attributes['updated_by'] ?? null),
+                'deleted_by' => $this->actorRecord($attributes['deleted_by'] ?? null),
+            ],
+        ]);
+    }
+
+    private function relationIds(string $relation): array
+    {
+        $relationQuery = $this->{$relation}();
+        $relatedModel = $relationQuery->getRelated();
+
+        return $relationQuery->pluck($relatedModel->qualifyColumn($relatedModel->getKeyName()))->all();
+    }
+
+    private function relatedRecords(string $model, array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        return $model::query()
+            ->whereIn('id', $ids)
+            ->get(['id', 'name', 'code'])
+            ->map(static fn(Model $record): array => $record->only(['id', 'name', 'code']))
+            ->values()
+            ->all();
+    }
+
+    private function actorRecord(mixed $id): ?array
+    {
+        if ($id === null || $id === '') {
+            return null;
+        }
+
+        $actor = User::query()->find($id);
+
+        return $actor?->only(['id', 'name', 'email']);
     }
 }

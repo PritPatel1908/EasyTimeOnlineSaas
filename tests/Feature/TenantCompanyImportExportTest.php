@@ -7,8 +7,10 @@ use App\Jobs\Tenant\GenerateCompanyExport;
 use App\Jobs\Tenant\ProcessCompanyImport;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Storage;
+use Mockery;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Tests\TestCase;
@@ -64,6 +66,11 @@ class TenantCompanyImportExportTest extends TestCase
     {
         Bus::fake();
         Storage::fake('local');
+        $user = Mockery::mock(\App\Models\Tenant\User::class);
+        $guard = Mockery::mock(\Illuminate\Contracts\Auth\Guard::class);
+        $guard->shouldReceive('user')->andReturn($user);
+        $guard->shouldReceive('id')->andReturn(17);
+        Auth::shouldReceive('guard')->with('tenant')->andReturn($guard);
 
         $file = UploadedFile::fake()->createWithContent(
             'companies.csv',
@@ -80,7 +87,7 @@ class TenantCompanyImportExportTest extends TestCase
 
         $this->assertTrue(str_contains($response->getSession()->get('success', ''), 'Company import has started'));
         Bus::assertDispatched(ProcessCompanyImport::class, function (ProcessCompanyImport $job): bool {
-            return $job->userId === null
+            return $job->userId === 17
                 && $job->updateDuplicateRecords === true
                 && str_contains($job->filePath, 'company-imports/');
         });

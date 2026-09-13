@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Tenant\AuthController;
 use App\Http\Controllers\Tenant\CompanyController;
+use App\Http\Controllers\Tenant\LocationController;
 use App\Http\Controllers\Tenant\DashboardController;
 use App\Http\Controllers\Tenant\LicenseController;
 use App\Http\Middleware\EnsureActiveDomain;
@@ -74,6 +75,21 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                 Route::resource('companies', CompanyController::class)
                     ->except(['create', 'show'])
                     ->names('companies');
+                Route::get('locations/export', [LocationController::class, 'export'])
+                    ->name('locations.export');
+                Route::get('locations/import/sample', [LocationController::class, 'downloadImportSample'])
+                    ->name('locations.import-sample');
+                Route::get('locations/export/download/{file}', [LocationController::class, 'downloadExport'])
+                    ->name('locations.download-export');
+                Route::post('locations/import', [LocationController::class, 'import'])
+                    ->name('locations.import');
+                Route::post('locations/filter', [LocationController::class, 'filterStatus'])
+                    ->name('locations.filter');
+                Route::get('locations/create', [LocationController::class, 'create'])
+                    ->name('locations.create');
+                Route::resource('locations', LocationController::class)
+                    ->except(['create', 'show'])
+                    ->names('locations');
             });
 
             Route::post('/logout', [AuthController::class, 'logout'])->name('tenant.logout');

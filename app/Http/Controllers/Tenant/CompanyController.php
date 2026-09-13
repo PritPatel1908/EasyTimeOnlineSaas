@@ -11,6 +11,7 @@ use App\Jobs\Tenant\GenerateCompanyExport;
 use App\Jobs\Tenant\ProcessCompanyImport;
 use App\Models\Tenant\Company;
 use App\Models\Tenant\Location;
+use App\Models\Tenant\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -150,6 +151,9 @@ class CompanyController extends Controller
 
     public function import(Request $request): RedirectResponse
     {
+        $user = Auth::guard('tenant')->user();
+        abort_unless($user instanceof User, 403);
+
         $validated = $request->validate([
             'file' => ['required', 'file', 'mimes:csv,txt', 'max:2048'],
             'update_duplicate_records' => ['nullable', 'boolean'],

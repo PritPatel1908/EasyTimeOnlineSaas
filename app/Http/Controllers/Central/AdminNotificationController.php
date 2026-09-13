@@ -27,10 +27,12 @@ class AdminNotificationController extends Controller
         return response()->json([
             'count' => $notifications->count(),
             'items' => $notifications->map(fn($notification) => [
+                'id' => $notification->id,
                 'title' => data_get($notification->data, 'title', 'Notification'),
                 'message' => data_get($notification->data, 'message', ''),
                 'url' => data_get($notification->data, 'url', '#'),
                 'download_url' => data_get($notification->data, 'download_url'),
+                'type' => data_get($notification->data, 'type'),
             ])->values()->all(),
         ]);
     }
