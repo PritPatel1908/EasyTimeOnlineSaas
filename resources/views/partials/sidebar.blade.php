@@ -89,6 +89,24 @@
 						</li>
 					</ul>
 				</li>
+				<li class="menu-title"><span>ROLE &amp; POLICY</span></li>
+				<li>
+					<ul>
+						<li class="submenu">
+							<a href="javascript:void(0);"
+								class="{{ Request::is('roles', 'roles/*', 'data-policy', 'data-policy/*') ? 'active subdrop' : '' }}">
+								<i class="ti ti-shield-lock"></i><span>Role &amp; Policy</span>
+								<span class="menu-arrow"></span>
+							</a>
+							<ul>
+								<li><a href="{{ url('roles') }}"
+										class="{{ Request::is('roles', 'roles/*') ? 'active' : '' }}">Role &amp; Permission</a></li>
+								<li><a href="{{ url('data-policy') }}"
+										class="{{ Request::is('data-policy', 'data-policy/*') ? 'active' : '' }}">Data Policy</a></li>
+							</ul>
+						</li>
+					</ul>
+				</li>
 				<li class="menu-title"><span>COMPANY STRUCTURE</span></li>
 				<li>
 					<ul>
@@ -779,19 +797,6 @@
 										class="{{ Request::is('knowledgebase', 'knowledgebase-details', 'knowledgebase-view') ? 'active' : '' }}">Knowledge
 										Base</a></li>
 								<li><a href="{{url('activity')}}">Activities</a></li>
-							</ul>
-						</li>
-						<li class="submenu">
-							<a href="javascript:void(0);"
-								class="{{ Request::is('users', 'roles-permissions', 'permission') ? 'active subdrop' : '' }}">
-								<i class="ti ti-user-star"></i><span>User Management</span>
-								<span class="menu-arrow"></span>
-							</a>
-							<ul>
-								<li><a href="{{url('users')}}">Users</a></li>
-								<li><a href="{{url('roles-permissions')}}"
-										class="{{ Request::is('roles-permissions', 'permission') ? 'active' : '' }}">Roles
-										& Permissions</a></li>
 							</ul>
 						</li>
 						<li class="submenu">

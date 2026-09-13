@@ -6,6 +6,7 @@
 
 namespace App\Models\Tenant;
 
+use BackedEnum;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
@@ -110,8 +111,9 @@ class Permission extends Model implements PermissionContract
      *
      * @throws PermissionDoesNotExist
      */
-    public static function findByName(string $name, ?string $guardName = null): PermissionContract
+    public static function findByName(BackedEnum|string $name, ?string $guardName = null): PermissionContract
     {
+        $name = enum_value($name);
         $guardName = $guardName ?? Guard::getDefaultName(static::class);
         $permission = static::getPermission(['name' => $name, 'guard_name' => $guardName]);
         if (! $permission) {
@@ -145,8 +147,9 @@ class Permission extends Model implements PermissionContract
      *
      * @return PermissionContract|Permission
      */
-    public static function findOrCreate(string $name, ?string $guardName = null): PermissionContract
+    public static function findOrCreate(BackedEnum|string $name, ?string $guardName = null): PermissionContract
     {
+        $name = enum_value($name);
         $guardName = $guardName ?? Guard::getDefaultName(static::class);
         $permission = static::getPermission(['name' => $name, 'guard_name' => $guardName]);
 

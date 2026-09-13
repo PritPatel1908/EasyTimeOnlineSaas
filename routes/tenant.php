@@ -8,6 +8,7 @@ use App\Http\Controllers\Tenant\LocationController;
 use App\Http\Controllers\Tenant\NotificationController;
 use App\Http\Controllers\Tenant\DashboardController;
 use App\Http\Controllers\Tenant\LicenseController;
+use App\Http\Controllers\Tenant\RolePermissionController;
 use App\Http\Middleware\EnsureActiveDomain;
 use App\Http\Middleware\EnsureValidTenantLicense;
 use Illuminate\Support\Facades\Route;
@@ -60,6 +61,15 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                 Route::get('/dashboard', [DashboardController::class, 'index'])->name('tenant.dashboard');
                 Route::get('/notifications/poll', [\App\Http\Controllers\Central\AdminNotificationController::class, 'poll'])->name('tenant.notifications.poll');
                 Route::get('/notifications/{notification}', [NotificationController::class, 'show'])->name('tenant.notifications.show');
+
+                Route::prefix('roles')->name('tenant.roles.')->group(function (): void {
+                    Route::get('/', [RolePermissionController::class, 'index'])->name('index');
+                    Route::post('/', [RolePermissionController::class, 'store'])->name('store');
+                    Route::put('/{role}', [RolePermissionController::class, 'update'])->name('update');
+                    Route::delete('/{role}', [RolePermissionController::class, 'destroy'])->name('destroy');
+                    Route::get('/{role}/permissions', [RolePermissionController::class, 'permissions'])->name('permissions');
+                    Route::put('/{role}/permissions', [RolePermissionController::class, 'updatePermissions'])->name('permissions.update');
+                });
 
                 // Redirect legacy/malformed URLs that have a space instead of a hyphen
                 // e.g. /company structure/... → /company-structure/...

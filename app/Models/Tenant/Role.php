@@ -6,6 +6,7 @@
 
 namespace App\Models\Tenant;
 
+use BackedEnum;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
@@ -114,8 +115,9 @@ class Role extends Model implements RoleContract
      *
      * @throws RoleDoesNotExist
      */
-    public static function findByName(string $name, ?string $guardName = null): RoleContract
+    public static function findByName(BackedEnum|string $name, ?string $guardName = null): RoleContract
     {
+        $name = enum_value($name);
         $guardName = $guardName ?? Guard::getDefaultName(static::class);
 
         $role = static::findByParam(['name' => $name, 'guard_name' => $guardName]);
@@ -150,8 +152,9 @@ class Role extends Model implements RoleContract
      *
      * @return RoleContract|Role
      */
-    public static function findOrCreate(string $name, ?string $guardName = null): RoleContract
+    public static function findOrCreate(BackedEnum|string $name, ?string $guardName = null): RoleContract
     {
+        $name = enum_value($name);
         $guardName = $guardName ?? Guard::getDefaultName(static::class);
 
         $role = static::findByParam(['name' => $name, 'guard_name' => $guardName]);
@@ -175,8 +178,9 @@ class Role extends Model implements RoleContract
         if (app(PermissionRegistrar::class)->teams) {
             $teamsKey = app(PermissionRegistrar::class)->teamsKey;
 
-            $query->where(fn ($q) => $q->whereNull($teamsKey)
-                ->orWhere($teamsKey, $params[$teamsKey] ?? getPermissionsTeamId())
+            $query->where(
+                fn($q) => $q->whereNull($teamsKey)
+                    ->orWhere($teamsKey, $params[$teamsKey] ?? getPermissionsTeamId())
             );
             unset($params[$teamsKey]);
         }
