@@ -1619,11 +1619,15 @@
                         <a href="#" class="btn btn-menubar position-relative me-1" id="notification_popup"
                             data-bs-toggle="dropdown">
                             <i class="ti ti-bell"></i>
-                            <span class="notification-status-dot"></span>
+                            @if ($adminNotifications->isNotEmpty())
+                                <span class="notification-status-dot" data-notification-count>{{ $adminNotifications->count() }}</span>
+                            @else
+                                <span class="notification-status-dot" data-notification-count hidden>0</span>
+                            @endif
                         </a>
-                        <div class="dropdown-menu dropdown-menu-end notification-dropdown p-4">
+                        <div class="dropdown-menu dropdown-menu-end notification-dropdown p-4" data-notification-panel data-notification-poll-url="{{ url('/notifications/poll') }}" data-refresh-interval="15000">
                             <div class="d-flex align-items-center justify-content-between border-bottom p-0 pb-3 mb-3">
-                                <h4 class="notification-title">Notifications (2)</h4>
+                                <h4 class="notification-title">Notifications</h4>
                                 <div class="d-flex align-items-center">
                                     <a href="#" class="text-primary fs-15 me-3 lh-1">Mark all as read</a>
                                     <div class="dropdown">
@@ -1652,75 +1656,31 @@
                                 </div>
                             </div>
                             <div class="noti-content">
-                                <div class="d-flex flex-column">
-                                    <div class="border-bottom mb-3 pb-3">
-                                        <a href="{{url('activity')}}">
+                                <ul class="d-flex flex-column list-unstyled mb-0" data-notification-list>
+                                    @forelse ($adminNotifications as $notification)
+                                        <li class="border-bottom mb-3 pb-3">
                                             <div class="d-flex">
-                                                <span class="avatar avatar-lg me-2 flex-shrink-0">
-                                                    <img src="{{URL::asset('build/img/profiles/avatar-27.jpg')}}"
-                                                        alt="Profile">
-                                                </span>
-                                                <div class="flex-grow-1">
-                                                    <p class="mb-1"><span class="text-dark fw-semibold">Shawn</span>
-                                                        performance in Math is below the threshold.</p>
-                                                    <span>Just Now</span>
-                                                </div>
-                                            </div>
-                                        </a>
-                                    </div>
-                                    <div class="border-bottom mb-3 pb-3">
-                                        <a href="{{url('activity')}}" class="pb-0">
-                                            <div class="d-flex">
-                                                <span class="avatar avatar-lg me-2 flex-shrink-0">
-                                                    <img src="{{URL::asset('build/img/profiles/avatar-23.jpg')}}"
-                                                        alt="Profile">
-                                                </span>
-                                                <div class="flex-grow-1">
-                                                    <p class="mb-1"><span class="text-dark fw-semibold">Sylvia</span>
-                                                        added
-                                                        appointment on 02:00 PM</p>
-                                                    <span>10 mins ago</span>
-                                                    <div class="d-flex justify-content-start align-items-center mt-1">
-                                                        <span class="btn btn-light btn-sm me-2">Deny</span>
-                                                        <span class="btn btn-primary btn-sm">Approve</span>
+                                                <a href="{{ data_get($notification->data, 'url', '#') }}" class="flex-grow-1">
+                                                    <div class="d-flex">
+                                                        <span class="avatar avatar-lg me-2 flex-shrink-0">
+                                                            <img src="{{URL::asset('build/img/profiles/avatar-01.jpg')}}"
+                                                                alt="Profile">
+                                                        </span>
+                                                        <div class="flex-grow-1">
+                                                            <p class="mb-1"><span class="text-dark fw-semibold">{{ data_get($notification->data, 'title', 'Notification') }}</span></p>
+                                                            <span>{{ data_get($notification->data, 'message') }}</span>
+                                                        </div>
                                                     </div>
-                                                </div>
+                                                </a>
+                                                @if (data_get($notification->data, 'download_url'))
+                                                    <a href="{{ data_get($notification->data, 'download_url') }}" class="btn btn-primary btn-sm ms-3 align-self-center">Download</a>
+                                                @endif
                                             </div>
-                                        </a>
-                                    </div>
-                                    <div class="border-bottom mb-3 pb-3">
-                                        <a href="{{url('activity')}}">
-                                            <div class="d-flex">
-                                                <span class="avatar avatar-lg me-2 flex-shrink-0">
-                                                    <img src="{{URL::asset('build/img/profiles/avatar-25.jpg')}}"
-                                                        alt="Profile">
-                                                </span>
-                                                <div class="flex-grow-1">
-                                                    <p class="mb-1">New student record <span
-                                                            class="text-dark fw-semibold"> George</span> is
-                                                        created by <span class="text-dark fw-semibold">Teressa</span>
-                                                    </p>
-                                                    <span>2 hrs ago</span>
-                                                </div>
-                                            </div>
-                                        </a>
-                                    </div>
-                                    <div class="border-0 mb-3 pb-0">
-                                        <a href="{{url('activity')}}">
-                                            <div class="d-flex">
-                                                <span class="avatar avatar-lg me-2 flex-shrink-0">
-                                                    <img src="{{URL::asset('build/img/profiles/avatar-01.jpg')}}"
-                                                        alt="Profile">
-                                                </span>
-                                                <div class="flex-grow-1">
-                                                    <p class="mb-1">A new teacher record for <span
-                                                            class="text-dark fw-semibold">Elisa</span> </p>
-                                                    <span>09:45 AM</span>
-                                                </div>
-                                            </div>
-                                        </a>
-                                    </div>
-                                </div>
+                                        </li>
+                                    @empty
+                                        <li><span class="dropdown-item px-2 py-2 text-muted">No new notifications</span></li>
+                                    @endforelse
+                                </ul>
                             </div>
                             <div class="d-flex p-0">
                                 <a href="#" class="btn btn-light w-100 me-2">Cancel</a>

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Tenant\AuthController;
 use App\Http\Controllers\Tenant\CompanyController;
 use App\Http\Controllers\Tenant\DashboardController;
 use App\Http\Controllers\Tenant\LicenseController;
@@ -29,34 +30,57 @@ $tenantBaseDomains = array_values(array_unique(array_filter([
 ])));
 
 foreach ($tenantBaseDomains as $tenantBaseDomain) {
-    Route::domain('{tenant}.'.trim((string) $tenantBaseDomain, '.'))->middleware([
+    Route::domain('{tenant}.' . trim((string) $tenantBaseDomain, '.'))->middleware([
         'web',
         InitializeTenancyByDomain::class,
         PreventAccessFromCentralDomains::class,
         EnsureActiveDomain::class,
         EnsureValidTenantLicense::class,
     ])->group(function () {
-        Route::get('/', function () {
-            return redirect('/dashboard');
-        });
-
-        Route::get('/dashboard', [DashboardController::class, 'index'])->name('tenant.dashboard');
         Route::post('/license', [LicenseController::class, 'update'])->name('tenant.license.update');
 
-        Route::prefix('company-structure')->name('tenant.company-structure.')->group(function (): void {
-            Route::post('companies/filter', [CompanyController::class, 'filterStatus'])
-                ->name('companies.filter');
-            Route::post('companies/{company}/status', [CompanyController::class, 'updateStatus'])
-                ->name('companies.status');
-            Route::get('companies/create', [CompanyController::class, 'create'])
-                ->name('companies.create');
-            Route::resource('companies', CompanyController::class)
-                ->except(['create', 'show'])
-                ->names('companies');
+        Route::middleware('guest:tenant')->group(function (): void {
+            Route::get('/login', [AuthController::class, 'showLogin'])->name('tenant.login');
+            Route::post('/login', [AuthController::class, 'login'])->name('tenant.login.submit');
+        });
+
+        Route::middleware('auth:tenant')->group(function () {
+            Route::get('/', function () {
+                return redirect('/dashboard');
+            });
+
+            Route::get('/dashboard', [DashboardController::class, 'index'])->name('tenant.dashboard');
+            Route::get('/notifications/poll', [\App\Http\Controllers\Central\AdminNotificationController::class, 'poll'])->name('tenant.notifications.poll');
+
+            // Redirect legacy/malformed URLs that have a space instead of a hyphen
+            // e.g. /company structure/... → /company-structure/...
+            Route::get('company structure/{any}', function (string $any) {
+                return redirect('company-structure/' . $any, 301);
+            })->where('any', '.*');
+
+            Route::prefix('company-structure')->name('tenant.company-structure.')->group(function (): void {
+                Route::get('companies/export', [CompanyController::class, 'export'])
+                    ->name('companies.export');
+                Route::get('companies/import/sample', [CompanyController::class, 'downloadImportSample'])
+                    ->name('companies.import-sample');
+                Route::get('companies/export/download/{file}', [CompanyController::class, 'downloadExport'])
+                    ->name('companies.download-export');
+                Route::post('companies/import', [CompanyController::class, 'import'])
+                    ->name('companies.import');
+                Route::post('companies/filter', [CompanyController::class, 'filterStatus'])
+                    ->name('companies.filter');
+                Route::get('companies/create', [CompanyController::class, 'create'])
+                    ->name('companies.create');
+                Route::resource('companies', CompanyController::class)
+                    ->except(['create', 'show'])
+                    ->names('companies');
+            });
+
+            Route::post('/logout', [AuthController::class, 'logout'])->name('tenant.logout');
         });
 
         Route::get('/tenant', function () {
-            return 'This is your multi-tenant application. The id of the current tenant is '.tenant('id');
+            return 'This is your multi-tenant application. The id of the current tenant is ' . tenant('id');
         });
     });
 }

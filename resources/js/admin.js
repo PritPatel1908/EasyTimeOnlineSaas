@@ -61,8 +61,12 @@ function renderNotificationList(items) {
 		const title = item.title || 'Notification';
 		const message = item.message || '';
 		const url = item.url || '#';
+		const downloadUrl = item.download_url || '';
+		const downloadButton = downloadUrl
+			? `<a href="${downloadUrl}" class="btn btn-sm btn-primary mt-2">Download</a>`
+			: '';
 
-		return `<li><a class="dropdown-item px-2 py-2" href="${url}"><strong>${title}</strong><br><span class="text-muted">${message}</span></a></li>`;
+		return `<li><div class="dropdown-item px-2 py-2"><a href="${url}" class="d-block"><strong>${title}</strong><br><span class="text-muted">${message}</span></a>${downloadButton}</div></li>`;
 	}).join('');
 
 	list.innerHTML = '<li><span class="dropdown-item px-2 py-2"><strong>Notifications</strong></span></li>' + rows;

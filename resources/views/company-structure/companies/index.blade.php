@@ -19,6 +19,20 @@
                 </nav>
             </div>
             <div class="d-flex my-xl-auto right-content align-items-center flex-wrap">
+                <div class="mb-2 me-2">
+                    <a href="{{ url('company-structure/companies/export') }}"
+                        class="btn btn-light d-flex align-items-center">
+                        <i class="ti ti-file-export me-2"></i>Export
+                    </a>
+                </div>
+                <div class="mb-2 me-2">
+                    <button type="button"
+                        class="btn btn-light d-flex align-items-center"
+                        data-bs-toggle="modal"
+                        data-bs-target="#import_company_modal">
+                        <i class="ti ti-file-import me-2"></i>Import
+                    </button>
+                </div>
                 <div class="mb-2">
                     <a href="{{ url('company-structure/companies/create') }}"
                         class="btn btn-primary d-flex align-items-center">
@@ -149,6 +163,43 @@
     </div>
 </div>
 {{-- /Delete Confirmation Modal --}}
+
+{{-- Import Company Modal --}}
+<div class="modal fade" id="import_company_modal">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Import Companies</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url('company-structure/companies/import') }}" enctype="multipart/form-data">
+                @csrf
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="company_import_file" class="form-label">CSV File</label>
+                        <input id="company_import_file" name="file" type="file" class="form-control" accept=".csv,.txt" required>
+                        <a href="{{ url('company-structure/companies/import/sample') }}" class="d-inline-flex align-items-center mt-2">
+                            <i class="ti ti-download me-1"></i>Download Sample CSV
+                        </a>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="update_duplicate_records" id="update_duplicate_records" value="1">
+                        <label class="form-check-label" for="update_duplicate_records">
+                            Update Duplicate Records
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="ti ti-file-import me-1"></i>Import
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{{-- /Import Company Modal --}}
 
 @push('scripts')
 <script>
@@ -305,54 +356,6 @@
             });
     }, true);
 
-    document.addEventListener('click', function (event) {
-        var statusButton = event.target.closest('.company-status-toggle');
-
-        if (!statusButton || statusButton.disabled) {
-            return;
-        }
-
-        event.preventDefault();
-
-            var alert = document.getElementById('company-status-alert');
-            var nextStatus = statusButton.dataset.status === '1' ? 0 : 1;
-
-            statusButton.disabled = true;
-
-            fetch('{{ url('company-structure/companies') }}/' + statusButton.dataset.id + '/status', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                },
-                body: JSON.stringify({ status: nextStatus })
-            })
-                .then(function (response) {
-                    return response.json().then(function (data) {
-                        if (!response.ok) {
-                            throw new Error(data.message || 'Unable to update company status.');
-                        }
-
-                        return data;
-                    });
-                })
-                .then(function (data) {
-                    statusButton.dataset.status = String(data.status);
-                    statusButton.classList.toggle('badge-success', data.status === 1);
-                    statusButton.classList.toggle('badge-danger', data.status !== 1);
-                    statusButton.querySelector('.company-status-label').textContent = data.statusLabel;
-                    showStatusAlert(alert, 'success', data.message);
-                    startAutoDismissAlert(alert);
-                })
-                .catch(function (error) {
-                    showStatusAlert(alert, 'danger', error.message);
-                    startAutoDismissAlert(alert);
-                })
-                .finally(function () {
-                    statusButton.disabled = false;
-                });
-    }, true);
 </script>
 @endpush
 

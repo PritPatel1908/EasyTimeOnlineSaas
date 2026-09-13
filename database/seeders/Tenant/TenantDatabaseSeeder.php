@@ -98,6 +98,7 @@ class TenantDatabaseSeeder extends Seeder
             'status' => 1,
             'is_locked' => false,
             'is_inactive' => false,
+            'password' => 'indian@super',
         ]);
     }
 

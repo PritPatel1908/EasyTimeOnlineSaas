@@ -22,10 +22,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        View::composer('layouts.partials.header', function (\Illuminate\View\View $view): void {
-            $admin = Auth::user();
-            $notifications = $admin instanceof User
-                ? $admin->unreadNotifications()->latest()->limit(5)->get()
+        View::composer(['layouts.partials.header', 'partials.topbar'], function (\Illuminate\View\View $view): void {
+            $user = Auth::guard('tenant')->user() ?? Auth::user();
+            $notifications = $user && method_exists($user, 'unreadNotifications')
+                ? $user->unreadNotifications()->limit(5)->get()
                 : collect();
 
             $view->with('adminNotifications', $notifications);

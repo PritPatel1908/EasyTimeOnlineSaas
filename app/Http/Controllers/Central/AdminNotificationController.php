@@ -13,23 +13,24 @@ class AdminNotificationController extends Controller
 {
     public function poll(): JsonResponse
     {
-        $admin = Auth::user();
+        $user = Auth::guard('tenant')->user() ?? Auth::user();
 
-        if (! $admin instanceof User) {
+        if (! $user || ! method_exists($user, 'unreadNotifications')) {
             return response()->json([
                 'count' => 0,
                 'items' => [],
             ]);
         }
 
-        $notifications = $admin->unreadNotifications()->latest()->limit(5)->get();
+        $notifications = $user->unreadNotifications()->limit(5)->get();
 
         return response()->json([
             'count' => $notifications->count(),
-            'items' => $notifications->map(fn ($notification) => [
+            'items' => $notifications->map(fn($notification) => [
                 'title' => data_get($notification->data, 'title', 'Notification'),
                 'message' => data_get($notification->data, 'message', ''),
                 'url' => data_get($notification->data, 'url', '#'),
+                'download_url' => data_get($notification->data, 'download_url'),
             ])->values()->all(),
         ]);
     }

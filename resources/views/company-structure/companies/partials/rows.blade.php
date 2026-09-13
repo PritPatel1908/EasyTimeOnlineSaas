@@ -10,16 +10,12 @@
         </td>
         <td>{{ $company->code }}</td>
         <td>{{ $company->email ?? '—' }}</td>
-        <td>{{ $company->location?->name ?? '—' }}</td>
+        <td>{{ $company->locations->pluck('name')->join(', ') ?: '—' }}</td>
         <td>
-            <button type="button"
-                class="badge border-0 company-status-toggle {{ $company->status === 1 ? 'badge-success' : 'badge-danger' }} d-inline-flex align-items-center badge-xs"
-                data-id="{{ $company->id }}"
-                data-status="{{ $company->status }}"
-                title="Change company status">
+            <span class="badge {{ $company->status === 1 ? 'badge-success' : 'badge-danger' }} d-inline-flex align-items-center badge-xs">
                 <i class="ti ti-point-filled me-1"></i>
                 <span class="company-status-label">{{ $company->status === 1 ? 'Active' : 'Inactive' }}</span>
-            </button>
+            </span>
         </td>
         <td>
             <div class="action-icon d-inline-flex">

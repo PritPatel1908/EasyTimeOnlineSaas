@@ -7,6 +7,8 @@
 
 @php
     $isEdit = $company !== null;
+    $selectedLocationIds = old('location_id', $company?->location_id ?? []);
+    $selectedLocationIds = is_array($selectedLocationIds) ? $selectedLocationIds : [$selectedLocationIds];
 @endphp
 
 {{-- Validation errors --}}
@@ -75,20 +77,21 @@
         @enderror
     </div>
 
-    {{-- Location --}}
+    {{-- Locations --}}
     <div class="col-md-6 mb-3">
         <label class="form-label" for="{{ $isEdit ? 'edit_location_id' : 'add_location_id' }}">
-            Location
+            Locations
         </label>
         <select
             id="{{ $isEdit ? 'edit_location_id' : 'add_location_id' }}"
-            name="location_id"
-            class="form-control select @error('location_id') is-invalid @enderror">
-            <option value="">-- Select Location --</option>
+            name="location_id[]"
+            class="form-control select2 js-example-placeholder-multiple js-states @error('location_id') is-invalid @enderror"
+            placeholder="Select"
+            multiple>
             @foreach ($locations as $location)
                 <option
                     value="{{ $location->id }}"
-                    @selected(old('location_id', $company?->location_id) == $location->id)>
+                    @selected(in_array($location->id, $selectedLocationIds))>
                     {{ $location->name }}
                 </option>
             @endforeach

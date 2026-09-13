@@ -37,7 +37,14 @@
                     <ul class="dropdown-menu dropdown-menu-right border py-0" data-notification-list>
                         <li><span class="dropdown-item px-2 py-2"><strong>Notifications</strong></span></li>
                         @forelse ($adminNotifications as $notification)
-                            <li><a class="dropdown-item px-2 py-2" href="{{ data_get($notification->data, 'url', '#') }}"><strong>{{ data_get($notification->data, 'title', 'Notification') }}</strong><br><span class="text-muted">{{ data_get($notification->data, 'message') }}</span></a></li>
+                            <li>
+                                <div class="dropdown-item px-2 py-2">
+                                    <a href="{{ data_get($notification->data, 'url', '#') }}" class="d-block"><strong>{{ data_get($notification->data, 'title', 'Notification') }}</strong><br><span class="text-muted">{{ data_get($notification->data, 'message') }}</span></a>
+                                    @if (data_get($notification->data, 'download_url'))
+                                        <a href="{{ data_get($notification->data, 'download_url') }}" class="btn btn-sm btn-primary mt-2">Download</a>
+                                    @endif
+                                </div>
+                            </li>
                         @empty
                             <li><span class="dropdown-item px-2 py-2 text-muted">No new notifications</span></li>
                         @endforelse

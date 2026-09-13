@@ -176,7 +176,7 @@
     <script src="{{URL::asset('build/js/forms-pickers.js')}}"></script>
 @endif
 
-@if (Route::is(['form-select', 'form-select2']))
+@if (Route::is(['form-select', 'form-select2', 'tenant.company-structure.companies.create', 'tenant.company-structure.companies.edit']))
     <!-- Custom JS -->
     <script src="{{URL::asset('build/js/custom-tom-select.js')}}"></script>
 @endif

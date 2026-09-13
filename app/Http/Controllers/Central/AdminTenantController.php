@@ -46,7 +46,7 @@ class AdminTenantController extends Controller
             ->latest('tenants.created_at')
             ->paginate($perPage, ['*'], 'page', $request->integer('page', 1))
             ->withQueryString();
-        $tenants->getCollection()->transform(fn (object $tenant): object => $this->present($tenant));
+        $tenants->getCollection()->transform(fn(object $tenant): object => $this->present($tenant));
 
         return $tenants;
     }
@@ -176,7 +176,7 @@ class AdminTenantController extends Controller
             Bus::chain([
                 new MigrateTenantDatabase($tenant),
                 new DispatchTenantReadyNotification($tenant, (string) $adminEmail),
-            ])->onConnection(config('queue.default'))->dispatch();
+            ])->onConnection('database')->dispatch();
 
             $message = ['success', 'Tenant database provisioning has started. You will receive a notification when it is ready.'];
         }
@@ -225,7 +225,7 @@ class AdminTenantController extends Controller
 
     private function databaseStatus(string $tenantId): string
     {
-        $connectionName = 'tenant_status_'.$tenantId;
+        $connectionName = 'tenant_status_' . $tenantId;
 
         try {
             $tenantRecord = Tenant::query()->where('id', $tenantId)->firstOrFail();
@@ -237,7 +237,7 @@ class AdminTenantController extends Controller
                 return 'database_pending';
             }
 
-            config(['database.connections.'.$connectionName => $connectionConfig]);
+            config(['database.connections.' . $connectionName => $connectionConfig]);
             DB::purge($connectionName);
             $hasMigrationsTable = Schema::connection($connectionName)->hasTable(
                 (string) config('database.migrations.table', 'migrations'),
@@ -262,7 +262,7 @@ class AdminTenantController extends Controller
 
         if ($driver === 'sqlsrv') {
             $connectionConfig['database'] = 'master';
-            config(['database.connections.'.$connectionName => $connectionConfig]);
+            config(['database.connections.' . $connectionName => $connectionConfig]);
             DB::purge($connectionName);
 
             $exists = DB::connection($connectionName)->selectOne(
@@ -271,7 +271,7 @@ class AdminTenantController extends Controller
             ) !== null;
         } elseif ($driver === 'mysql' || $driver === 'mariadb') {
             $connectionConfig['database'] = null;
-            config(['database.connections.'.$connectionName => $connectionConfig]);
+            config(['database.connections.' . $connectionName => $connectionConfig]);
             DB::purge($connectionName);
 
             $exists = DB::connection($connectionName)->selectOne(
@@ -280,7 +280,7 @@ class AdminTenantController extends Controller
             ) !== null;
         } elseif ($driver === 'pgsql') {
             $connectionConfig['database'] = 'postgres';
-            config(['database.connections.'.$connectionName => $connectionConfig]);
+            config(['database.connections.' . $connectionName => $connectionConfig]);
             DB::purge($connectionName);
 
             $exists = DB::connection($connectionName)->selectOne(
@@ -298,7 +298,7 @@ class AdminTenantController extends Controller
     {
         $environment = $environmentKey === 'TENANT_BASE_DOMAIN_LOCAL' ? 'local' : 'prod';
 
-        return $slug.'.'.trim((string) config('tenancy.base_domains.'.$environment), '.');
+        return $slug . '.' . trim((string) config('tenancy.base_domains.' . $environment), '.');
     }
 
     /**

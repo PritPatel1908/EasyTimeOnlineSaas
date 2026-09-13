@@ -14,6 +14,14 @@ class AdminCompanyLicenseTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_tenant_license_update_route_is_not_guarded_by_auth_middleware(): void
+    {
+        $route = app('router')->getRoutes()->getByName('tenant.license.update');
+
+        $this->assertNotNull($route);
+        $this->assertNotContains('auth:tenant', $route->gatherMiddleware());
+    }
+
     public function test_company_licences_are_created_and_previous_licence_is_shown(): void
     {
         $this->actingAs(User::factory()->create());
