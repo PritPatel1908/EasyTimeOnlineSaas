@@ -6,10 +6,12 @@
 
 namespace App\Models\Tenant;
 
+use App\Jobs\Tenant\ActivityLog;
 use BackedEnum;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Spatie\Permission\Contracts\Role as RoleContract;
 use Spatie\Permission\Exceptions\GuardDoesNotMatch;
@@ -36,11 +38,41 @@ class Role extends Model implements RoleContract
     use HasPermissions;
     use RefreshesPermissionCache;
 
+    protected array $auditLogOldSnapshot = [];
+
     protected $table = 'roles';
+
+    protected static function booted(): void
+    {
+        static::created(function (Role $role): void {
+            $role->dispatchAuditLog([], $role->auditSnapshot($role->getAttributes()), 'created');
+        });
+
+        static::updating(function (Role $role): void {
+            $role->auditLogOldSnapshot = $role->auditSnapshot($role->getOriginal());
+        });
+
+        static::updated(function (Role $role): void {
+            $role->dispatchAuditLog($role->auditLogOldSnapshot, $role->auditSnapshot($role->getAttributes()), 'updated');
+        });
+
+        static::deleting(function (Role $role): void {
+            $role->auditLogOldSnapshot = $role->auditSnapshot($role->getAttributes());
+        });
+
+        static::deleted(function (Role $role): void {
+            $role->dispatchAuditLog($role->auditLogOldSnapshot, $role->auditSnapshot($role->getAttributes()), 'deleted');
+        });
+    }
 
     protected $fillable = [
         'name',
         'guard_name',
+        'status',
+    ];
+
+    protected $casts = [
+        'status' => 'boolean',
     ];
 
     protected $guarded = [];
@@ -217,5 +249,15 @@ class Role extends Model implements RoleContract
     public function model_has_roles()
     {
         return $this->hasMany(ModelHasRole::class);
+    }
+
+    private function dispatchAuditLog(array $old, array $new, string $event): void
+    {
+        ActivityLog::dispatch(Auth::user(), $this, $old, $new, $event)->onQueue('processing');
+    }
+
+    private function auditSnapshot(array $attributes): array
+    {
+        return $attributes;
     }
 }

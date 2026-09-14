@@ -6,11 +6,13 @@
 
 namespace App\Models\Tenant;
 
+use App\Jobs\Tenant\ActivityLog;
 use App\Traits\CUDby;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * Class DataPolicy
@@ -45,7 +47,32 @@ class DataPolicy extends Model
     use CUDby;
     use SoftDeletes;
 
+    protected array $auditLogOldSnapshot = [];
+
     protected $table = 'data_policies';
+
+    protected static function booted(): void
+    {
+        static::created(function (DataPolicy $dataPolicy): void {
+            $dataPolicy->dispatchAuditLog([], $dataPolicy->auditSnapshot($dataPolicy->getAttributes()), 'created');
+        });
+
+        static::updating(function (DataPolicy $dataPolicy): void {
+            $dataPolicy->auditLogOldSnapshot = $dataPolicy->auditSnapshot($dataPolicy->getOriginal());
+        });
+
+        static::updated(function (DataPolicy $dataPolicy): void {
+            $dataPolicy->dispatchAuditLog($dataPolicy->auditLogOldSnapshot, $dataPolicy->auditSnapshot($dataPolicy->getAttributes()), 'updated');
+        });
+
+        static::deleting(function (DataPolicy $dataPolicy): void {
+            $dataPolicy->auditLogOldSnapshot = $dataPolicy->auditSnapshot($dataPolicy->getAttributes());
+        });
+
+        static::deleted(function (DataPolicy $dataPolicy): void {
+            $dataPolicy->dispatchAuditLog($dataPolicy->auditLogOldSnapshot, $dataPolicy->auditSnapshot($dataPolicy->getAttributes()), 'deleted');
+        });
+    }
 
     protected $casts = [
         'created_by' => 'int',
@@ -88,11 +115,6 @@ class DataPolicy extends Model
         'all_areas',
         'all_machines',
     ];
-
-    // public function user()
-    // {
-    // 	return $this->belongsTo(User::class);
-    // }
 
     public function categories()
     {
@@ -181,5 +203,18 @@ class DataPolicy extends Model
         return $this->belongsToMany(Machine::class, 'data_policy_machine')
             // ->withPivot('id')
             ->withTimestamps();
+    }
+
+    private function dispatchAuditLog(array $old, array $new, string $event): void
+    {
+        ActivityLog::dispatch(Auth::guard('tenant')->user(), $this, $old, $new, $event)
+            ->afterCommit()
+            ->onConnection('database_tenant')
+            ->onQueue('processing');
+    }
+
+    private function auditSnapshot(array $attributes): array
+    {
+        return $attributes;
     }
 }

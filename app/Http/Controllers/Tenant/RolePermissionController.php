@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\Tenant\ActivityLog;
 use App\Models\Tenant\Permission;
 use App\Models\Tenant\Role;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
 class RolePermissionController extends Controller
@@ -109,6 +111,7 @@ class RolePermissionController extends Controller
                 'max:100',
                 Rule::unique('roles', 'name')->where(fn($query) => $query->where('guard_name', 'tenant')),
             ],
+            'status' => ['required', 'boolean'],
             'permissions' => ['array'],
             'permissions.*' => ['string', 'max:150'],
         ]);
@@ -116,6 +119,7 @@ class RolePermissionController extends Controller
         $role = Role::create([
             'name' => $validated['name'],
             'guard_name' => 'tenant',
+            'status' => $validated['status'],
         ]);
         $this->syncPermissions($role, $validated['permissions'] ?? []);
 
@@ -133,12 +137,19 @@ class RolePermissionController extends Controller
                 'max:100',
                 Rule::unique('roles', 'name')->ignore($role->id)->where(fn($query) => $query->where('guard_name', 'tenant')),
             ],
+            'status' => ['required', 'boolean'],
             'permissions' => ['array'],
             'permissions.*' => ['string', 'max:150'],
         ]);
 
-        $role->update(['name' => $validated['name']]);
-        $this->syncPermissions($role, $validated['permissions'] ?? []);
+        $role->update([
+            'name' => $validated['name'],
+            'status' => $validated['status'],
+        ]);
+
+        if (array_key_exists('permissions', $validated)) {
+            $this->syncPermissions($role, $validated['permissions']);
+        }
 
         return redirect()->route('tenant.roles.index', ['tenant' => $tenant])->with('success', 'Role updated successfully.');
     }
@@ -182,6 +193,7 @@ class RolePermissionController extends Controller
 
     private function syncPermissions(Role $role, array $permissionNames): void
     {
+        $oldPermissions = $role->permissions()->pluck('name')->sort()->values()->all();
         $permissionNames = collect($permissionNames)
             ->filter(fn($permission) => preg_match('/^[a-z0-9-]+\.[a-z]+$/', (string) $permission) === 1)
             ->unique()
@@ -195,6 +207,17 @@ class RolePermissionController extends Controller
         });
 
         $role->syncPermissions($permissions);
+
+        $newPermissions = $permissionNames->all();
+        if ($oldPermissions !== $newPermissions) {
+            ActivityLog::dispatch(
+                Auth::user(),
+                $role,
+                ['permissions' => $oldPermissions],
+                ['permissions' => $newPermissions],
+                'permissions_updated'
+            )->onQueue('processing');
+        }
     }
 
     private function ensureTenantRole(Role $role): void

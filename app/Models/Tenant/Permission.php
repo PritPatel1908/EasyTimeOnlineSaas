@@ -6,11 +6,13 @@
 
 namespace App\Models\Tenant;
 
+use App\Jobs\Tenant\ActivityLog;
 use BackedEnum;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Facades\Auth;
 use Spatie\Permission\Contracts\Permission as PermissionContract;
 use Spatie\Permission\Exceptions\PermissionAlreadyExists;
 use Spatie\Permission\Exceptions\PermissionDoesNotExist;
@@ -32,7 +34,32 @@ use Spatie\Permission\Traits\RefreshesPermissionCache;
  */
 class Permission extends Model implements PermissionContract
 {
+    protected array $auditLogOldSnapshot = [];
+
     protected $table = 'permissions';
+
+    protected static function booted(): void
+    {
+        static::created(function (Permission $permission): void {
+            $permission->dispatchAuditLog([], $permission->getAttributes(), 'created');
+        });
+
+        static::updating(function (Permission $permission): void {
+            $permission->auditLogOldSnapshot = $permission->getOriginal();
+        });
+
+        static::updated(function (Permission $permission): void {
+            $permission->dispatchAuditLog($permission->auditLogOldSnapshot, $permission->getAttributes(), 'updated');
+        });
+
+        static::deleting(function (Permission $permission): void {
+            $permission->auditLogOldSnapshot = $permission->getAttributes();
+        });
+
+        static::deleted(function (Permission $permission): void {
+            $permission->dispatchAuditLog($permission->auditLogOldSnapshot, $permission->getAttributes(), 'deleted');
+        });
+    }
 
     protected $fillable = [
         'name',
@@ -102,6 +129,11 @@ class Permission extends Model implements PermissionContract
             app(PermissionRegistrar::class)->pivotPermission,
             config('permission.column_names.model_morph_key')
         );
+    }
+
+    private function dispatchAuditLog(array $old, array $new, string $event): void
+    {
+        ActivityLog::dispatch(Auth::user(), $this, $old, $new, $event)->onQueue('processing');
     }
 
     /**

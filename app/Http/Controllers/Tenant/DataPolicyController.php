@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Tenant;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tenant\StoreDataPolicyRequest;
 use App\Http\Requests\Tenant\UpdateDataPolicyRequest;
+use App\Jobs\Tenant\ActivityLog;
 use App\Models\Tenant\Area;
 use App\Models\Tenant\BusRoute;
 use App\Models\Tenant\Category;
@@ -79,8 +80,20 @@ class DataPolicyController extends Controller
     public function update(string $tenant, UpdateDataPolicyRequest $request, DataPolicy $dataPolicy): RedirectResponse
     {
         DB::transaction(function () use ($request, $dataPolicy): void {
+            $oldRelations = $this->relationSnapshot($dataPolicy);
             $dataPolicy->update($this->attributes($request->validated()));
             $this->syncRelations($dataPolicy, $request->validated());
+            $newRelations = $this->relationSnapshot($dataPolicy);
+
+            if ($oldRelations !== $newRelations) {
+                ActivityLog::dispatch(
+                    auth('tenant')->user(),
+                    $dataPolicy,
+                    ['relations' => $oldRelations],
+                    ['relations' => $newRelations],
+                    'relations_updated'
+                )->afterCommit()->onConnection('database_tenant')->onQueue('processing');
+            }
         });
 
         return redirect(url(self::INDEX_URL))->with('success', 'Data policy updated successfully.');
@@ -153,5 +166,16 @@ class DataPolicyController extends Controller
         foreach (array_keys(self::RELATIONS) as $relation) {
             $dataPolicy->{$relation}()->sync($validated[$relation] ?? []);
         }
+    }
+
+    private function relationSnapshot(DataPolicy $dataPolicy): array
+    {
+        $snapshot = [];
+
+        foreach (array_keys(self::RELATIONS) as $relation) {
+            $snapshot[$relation] = $dataPolicy->{$relation}()->pluck($dataPolicy->{$relation}()->getRelated()->getTable() . '.id')->sort()->values()->all();
+        }
+
+        return $snapshot;
     }
 }
