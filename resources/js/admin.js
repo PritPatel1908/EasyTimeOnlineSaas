@@ -52,8 +52,10 @@ function renderNotificationList(items) {
 		return;
 	}
 
+	const viewAllLink = '<li><a href="/notifications" class="dropdown-item px-2 py-2 text-primary fw-medium">View all notifications</a></li>';
+
 	if (!Array.isArray(items) || items.length === 0) {
-		list.innerHTML = '<li><span class="dropdown-item px-2 py-2"><strong>Notifications</strong></span></li><li><span class="dropdown-item px-2 py-2 text-muted">No new notifications</span></li>';
+		list.innerHTML = '<li><span class="dropdown-item px-2 py-2"><strong>Notifications</strong></span></li><li><span class="dropdown-item px-2 py-2 text-muted">No new notifications</span></li>' + viewAllLink;
 		return;
 	}
 
@@ -69,7 +71,7 @@ function renderNotificationList(items) {
 		return `<li><div class="dropdown-item px-2 py-2"><a href="${url}" class="d-block"><strong>${title}</strong><br><span class="text-muted">${message}</span></a>${downloadButton}</div></li>`;
 	}).join('');
 
-	list.innerHTML = '<li><span class="dropdown-item px-2 py-2"><strong>Notifications</strong></span></li>' + rows;
+	list.innerHTML = '<li><span class="dropdown-item px-2 py-2"><strong>Notifications</strong></span></li>' + rows + viewAllLink;
 }
 
 function refreshNotifications() {

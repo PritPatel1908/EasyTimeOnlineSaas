@@ -17,7 +17,7 @@ class NotificationController extends Controller
         $user = Auth::guard('tenant')->user();
         abort_unless($user !== null && method_exists($user, 'notifications'), 403);
 
-        $notifications = $user->notifications()->latest()->paginate(15);
+        $notifications = $user->notifications()->paginate(15);
 
         return view('notifications.index', compact('notifications'));
     }

@@ -48,6 +48,11 @@
                         @empty
                             <li><span class="dropdown-item px-2 py-2 text-muted">No new notifications</span></li>
                         @endforelse
+                        <li>
+                            <a href="{{ url('/notifications') }}" class="dropdown-item px-2 py-2 text-primary fw-medium">
+                                View all notifications
+                            </a>
+                        </li>
                     </ul>
                 </li>
                 <li class="dropdown user-profile d-inline-block py-1 mr-2">

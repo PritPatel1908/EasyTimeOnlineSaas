@@ -49,4 +49,16 @@ class AdminNotificationLiveUpdateTest extends TestCase
             ->assertJsonPath('count', 1)
             ->assertJsonPath('items.0.title', 'Tenant ready');
     }
+
+    public function test_notification_queries_order_by_a_unique_secondary_column(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'admin2@example.com',
+        ]);
+
+        $orders = $user->notifications()->toBase()->orders;
+
+        $this->assertNotEmpty($orders);
+        $this->assertSame(['created_at', 'id'], array_column($orders, 'column'));
+    }
 }

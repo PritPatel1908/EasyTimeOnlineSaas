@@ -9,7 +9,7 @@
                 <nav>
                     <ol class="breadcrumb mb-0">
                         <li class="breadcrumb-item"><a href="{{ url('dashboard') }}"><i class="ti ti-smart-home"></i></a></li>
-                        <li class="breadcrumb-item"><a href="{{ data_get($data, 'url', url('dashboard')) }}">Notifications</a></li>
+                        <li class="breadcrumb-item"><a href="{{ url('/notifications') }}">Notifications</a></li>
                         <li class="breadcrumb-item active">Details</li>
                     </ol>
                 </nav>
@@ -18,7 +18,7 @@
                 @if (data_get($data, 'download_url'))
                     <a href="{{ data_get($data, 'download_url') }}" class="btn btn-primary"><i class="ti ti-download me-2"></i>Download</a>
                 @endif
-                <a href="{{ data_get($data, 'url', url('dashboard')) }}" class="btn btn-light"><i class="ti ti-arrow-left me-2"></i>Back</a>
+                <a href="{{ url('/notifications') }}" class="btn btn-light"><i class="ti ti-arrow-left me-2"></i>Back</a>
             </div>
         </div>
 
