@@ -13,6 +13,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 
 class GenerateLocationExport implements ShouldQueue
@@ -23,8 +24,18 @@ class GenerateLocationExport implements ShouldQueue
 
     public function handle(): void
     {
-        $user = $this->userId !== null ? User::query()->find($this->userId) : null;
-        $locations = Location::query()->withoutGlobalScope(DataPolicyFilter::class)->orderBy('name')->get();
+        $user = $this->userId !== null
+            ? User::query()->withoutGlobalScope(DataPolicyFilter::class)->find($this->userId)
+            : null;
+
+        if ($user === null) {
+            return;
+        }
+
+        Auth::shouldUse('tenant');
+        Auth::setUser($user);
+
+        $locations = Location::query()->orderBy('name')->get();
         $handle = fopen('php://temp', 'w+');
 
         if ($handle === false) {

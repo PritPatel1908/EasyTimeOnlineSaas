@@ -13,6 +13,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 
 class GenerateCompanyExport implements ShouldQueue
@@ -29,15 +30,18 @@ class GenerateCompanyExport implements ShouldQueue
 
     public function handle(): void
     {
-        $user = $this->userId !== null ? User::query()->find($this->userId) : null;
+        $user = $this->userId !== null
+            ? User::query()->withoutGlobalScope(DataPolicyFilter::class)->find($this->userId)
+            : null;
 
-        // withoutGlobalScope ensures all companies are exported regardless of
-        // the dispatching user's data policy. There is no auth context in a
-        // queued job so DataPolicyFilter would otherwise return no results.
-        $companies = Company::query()
-            ->withoutGlobalScope(DataPolicyFilter::class)
-            ->orderBy('name')
-            ->get();
+        if ($user === null) {
+            return;
+        }
+
+        Auth::shouldUse('tenant');
+        Auth::setUser($user);
+
+        $companies = Company::query()->orderBy('name')->get();
 
         $headers = Company::IMPORT_EXPORT_COLUMNS;
 
