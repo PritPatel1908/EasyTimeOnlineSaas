@@ -63,7 +63,7 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                 Route::get('/notifications/poll', [\App\Http\Controllers\Central\AdminNotificationController::class, 'poll'])->name('tenant.notifications.poll');
                 Route::get('/notifications', [NotificationController::class, 'index'])->name('tenant.notifications.index');
                 Route::get('/notifications/{notification}', [NotificationController::class, 'show'])->name('tenant.notifications.show');
-                    Route::get('data-policy', [DataPolicyController::class, 'index'])
+                Route::get('data-policy', [DataPolicyController::class, 'index'])
                     ->middleware('tenant.permission:DataPolicy,read')
                     ->name('tenant.data-policy');
                 Route::get('data-policy/create', [DataPolicyController::class, 'create'])
@@ -71,12 +71,12 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                     ->name('tenant.data-policy.create');
                 Route::resource('data-policy', DataPolicyController::class)
                     ->except(['index', 'create', 'show'])
-                        ->middleware([
-                            'store' => 'tenant.permission:DataPolicy,create',
-                            'edit' => 'tenant.permission:DataPolicy,write',
-                            'update' => 'tenant.permission:DataPolicy,write',
-                            'destroy' => 'tenant.permission:DataPolicy,delete',
-                        ])
+                    ->middleware([
+                        'store' => 'tenant.permission:DataPolicy,create',
+                        'edit' => 'tenant.permission:DataPolicy,write',
+                        'update' => 'tenant.permission:DataPolicy,write',
+                        'destroy' => 'tenant.permission:DataPolicy,delete',
+                    ])
                     ->parameters(['data-policy' => 'dataPolicy'])
                     ->names('tenant.data-policy');
 
