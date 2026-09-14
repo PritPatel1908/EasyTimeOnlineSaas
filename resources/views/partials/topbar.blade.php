@@ -1729,10 +1729,13 @@
                                     </a>
                                 </div>
                                 <div class="card-footer">
-                                    <a class="dropdown-item d-inline-flex align-items-center p-0 py-2"
-                                        href="{{url('login')}}">
-                                        <i class="ti ti-login me-2"></i>Logout
-                                    </a>
+                                    <form method="POST" action="{{ url('/logout') }}">
+                                        @csrf
+                                        <button type="submit"
+                                            class="dropdown-item d-inline-flex align-items-center p-0 py-2">
+                                            <i class="ti ti-login me-2"></i>Logout
+                                        </button>
+                                    </form>
                                 </div>
                             </div>
                         </div>
@@ -1748,7 +1751,10 @@
             <div class="dropdown-menu dropdown-menu-end">
                 <a class="dropdown-item" href="{{url('profile')}}">My Profile</a>
                 <a class="dropdown-item" href="{{url('profile-settings')}}">Settings</a>
-                <a class="dropdown-item" href="{{url('login')}}">Logout</a>
+                <form method="POST" action="{{ url('/logout') }}">
+                    @csrf
+                    <button type="submit" class="dropdown-item">Logout</button>
+                </form>
             </div>
         </div>
         <!-- /Mobile Menu -->

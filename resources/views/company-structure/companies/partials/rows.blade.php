@@ -19,10 +19,13 @@
         </td>
         <td>
             <div class="action-icon d-inline-flex">
+                @if (\App\Support\TenantPermissions::userCan('Company', 'write'))
                 <a href="{{ url('company-structure/companies/'.$company->id.'/edit') }}"
                     class="me-2" title="Edit">
                     <i class="ti ti-edit"></i>
                 </a>
+                @endif
+                @if (\App\Support\TenantPermissions::userCan('Company', 'delete'))
                 <a href="javascript:void(0);"
                     class="text-danger delete-company-btn"
                     data-id="{{ $company->id }}"
@@ -33,6 +36,7 @@
                     title="Delete">
                     <i class="ti ti-trash"></i>
                 </a>
+                @endif
             </div>
         </td>
     </tr>

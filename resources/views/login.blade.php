@@ -49,7 +49,7 @@
 											<p class="mb-0">Please enter your details to sign in</p>
 										</div>
 										<div class="mb-3">
-											<label class="form-label">Email Address / Username</label>
+											<label class="form-label">Email Address / User Code</label>
 											<div class="input-group">
 												<input type="text" name="email" value="{{ old('email') }}" class="form-control border-end-0" required autofocus>
 												<span class="input-group-text border-start-0">

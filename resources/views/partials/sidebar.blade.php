@@ -99,8 +99,9 @@
 								<span class="menu-arrow"></span>
 							</a>
 							<ul>
-								<li><a href="{{ url('roles') }}"
+								@if (\App\Support\TenantPermissions::userCan('Role', 'read'))<li><a href="{{ url('roles') }}"
 										class="{{ Request::is('roles', 'roles/*') ? 'active' : '' }}">Role &amp; Permission</a></li>
+								@endif
 								<li><a href="{{ url('data-policy') }}"
 										class="{{ Request::is('data-policy', 'data-policy/*') ? 'active' : '' }}">Data Policy</a></li>
 							</ul>
@@ -117,10 +118,12 @@
 								<span class="menu-arrow"></span>
 							</a>
 							<ul>
-								<li><a href="{{url('company-structure/companies')}}"
+								@if (\App\Support\TenantPermissions::userCan('Company', 'read'))<li><a href="{{url('company-structure/companies')}}"
 										class="{{ Request::is('company-structure/companies*') ? 'active' : '' }}">Companies</a></li>
-								<li><a href="{{url('company-structure/locations')}}"
+								@endif
+								@if (\App\Support\TenantPermissions::userCan('Location', 'read'))<li><a href="{{url('company-structure/locations')}}"
 										class="{{ Request::is('company-structure/locations') ? 'active' : '' }}">Locations</a></li>
+								@endif
 								<li><a href="{{url('company-structure/departments')}}"
 										class="{{ Request::is('company-structure/departments') ? 'active' : '' }}">Departments</a></li>
 								<li><a href="{{url('company-structure/sub-departments')}}"

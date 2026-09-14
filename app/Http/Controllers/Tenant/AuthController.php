@@ -40,10 +40,10 @@ class AuthController extends Controller
             ->first();
 
         if ($user === null || ! Auth::guard('tenant')->attempt([
-            'email' => $user->email,
+            'id' => $user->getKey(),
             'password' => (string) $request->input('password'),
         ], $request->boolean('remember'))) {
-            return back()->withErrors(['email' => 'Invalid email/username or password.'])->withInput();
+            return back()->withErrors(['email' => 'Invalid email/user code or password.'])->withInput();
         }
 
         $request->session()->regenerate();

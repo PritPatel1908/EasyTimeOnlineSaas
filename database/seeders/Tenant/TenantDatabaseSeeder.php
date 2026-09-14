@@ -100,6 +100,20 @@ class TenantDatabaseSeeder extends Seeder
             'is_inactive' => false,
             'password' => 'indian@super',
         ]);
+
+        User::query()->withoutGlobalScopes()->updateOrCreate(
+            ['code' => '1067'],
+            [
+                'name' => 'Prit Patel',
+                'fname' => 'Prit',
+                'lname' => 'Patel',
+                'user_type' => 'employee',
+                'status' => 1,
+                'is_locked' => false,
+                'is_inactive' => false,
+                'password' => 'Prit1908@04',
+            ],
+        );
     }
 
     private function logCreatedActivity(Model $model, User $user): void

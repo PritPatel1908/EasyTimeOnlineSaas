@@ -1,5 +1,10 @@
 @extends('layout.mainlayout')
 @section('content')
+@php
+    $canCreateCompany = \App\Support\TenantPermissions::userCan('Company', 'create');
+    $canImportCompany = \App\Support\TenantPermissions::userCan('Company', 'import');
+    $canExportCompany = \App\Support\TenantPermissions::userCan('Company', 'export');
+@endphp
 
 <div class="page-wrapper">
     <div class="content">
@@ -20,26 +25,26 @@
                 </nav>
             </div>
             <div class="d-flex my-xl-auto right-content align-items-center flex-wrap">
-                <div class="mb-2 me-2">
+                @if ($canExportCompany)<div class="mb-2 me-2">
                     <a href="{{ url('company-structure/companies/export') }}"
                         class="btn btn-light d-flex align-items-center">
                         <i class="ti ti-file-export me-2"></i>Export
                     </a>
-                </div>
-                <div class="mb-2 me-2">
+                </div>@endif
+                @if ($canImportCompany)<div class="mb-2 me-2">
                     <button type="button"
                         class="btn btn-light d-flex align-items-center"
                         data-bs-toggle="modal"
                         data-bs-target="#import_company_modal">
                         <i class="ti ti-file-import me-2"></i>Import
                     </button>
-                </div>
-                <div class="mb-2">
+                </div>@endif
+                @if ($canCreateCompany)<div class="mb-2">
                     <a href="{{ url('company-structure/companies/create') }}"
                         class="btn btn-primary d-flex align-items-center">
                         <i class="ti ti-circle-plus me-2"></i>Add Company
                     </a>
-                </div>
+                </div>@endif
                 <div class="head-icons ms-2">
                     <a href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top"
                         data-bs-original-title="Collapse" id="collapse-header">
@@ -153,7 +158,7 @@
 {{-- /Delete Confirmation Modal --}}
 
 {{-- Import Company Modal --}}
-<div class="modal fade" id="import_company_modal">
+@if ($canImportCompany)<div class="modal fade" id="import_company_modal">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
@@ -187,6 +192,7 @@
         </div>
     </div>
 </div>
+@endif
 {{-- /Import Company Modal --}}
 
 @push('scripts')

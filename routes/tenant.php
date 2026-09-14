@@ -62,22 +62,30 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                 Route::get('/dashboard', [DashboardController::class, 'index'])->name('tenant.dashboard');
                 Route::get('/notifications/poll', [\App\Http\Controllers\Central\AdminNotificationController::class, 'poll'])->name('tenant.notifications.poll');
                 Route::get('/notifications/{notification}', [NotificationController::class, 'show'])->name('tenant.notifications.show');
-                Route::get('data-policy', [DataPolicyController::class, 'index'])
+                    Route::get('data-policy', [DataPolicyController::class, 'index'])
+                    ->middleware('tenant.permission:DataPolicy,read')
                     ->name('tenant.data-policy');
                 Route::get('data-policy/create', [DataPolicyController::class, 'create'])
+                    ->middleware('tenant.permission:DataPolicy,create')
                     ->name('tenant.data-policy.create');
                 Route::resource('data-policy', DataPolicyController::class)
                     ->except(['index', 'create', 'show'])
+                        ->middleware([
+                            'store' => 'tenant.permission:DataPolicy,create',
+                            'edit' => 'tenant.permission:DataPolicy,write',
+                            'update' => 'tenant.permission:DataPolicy,write',
+                            'destroy' => 'tenant.permission:DataPolicy,delete',
+                        ])
                     ->parameters(['data-policy' => 'dataPolicy'])
                     ->names('tenant.data-policy');
 
                 Route::prefix('roles')->name('tenant.roles.')->group(function (): void {
-                    Route::get('/', [RolePermissionController::class, 'index'])->name('index');
-                    Route::post('/', [RolePermissionController::class, 'store'])->name('store');
-                    Route::put('/{role}', [RolePermissionController::class, 'update'])->name('update');
-                    Route::delete('/{role}', [RolePermissionController::class, 'destroy'])->name('destroy');
-                    Route::get('/{role}/permissions', [RolePermissionController::class, 'permissions'])->name('permissions');
-                    Route::put('/{role}/permissions', [RolePermissionController::class, 'updatePermissions'])->name('permissions.update');
+                    Route::get('/', [RolePermissionController::class, 'index'])->middleware('tenant.permission:Role,read')->name('index');
+                    Route::post('/', [RolePermissionController::class, 'store'])->middleware('tenant.permission:Role,create')->name('store');
+                    Route::put('/{role}', [RolePermissionController::class, 'update'])->middleware('tenant.permission:Role,write')->name('update');
+                    Route::delete('/{role}', [RolePermissionController::class, 'destroy'])->middleware('tenant.permission:Role,delete')->name('destroy');
+                    Route::get('/{role}/permissions', [RolePermissionController::class, 'permissions'])->middleware('tenant.permission:Role,read')->name('permissions');
+                    Route::put('/{role}/permissions', [RolePermissionController::class, 'updatePermissions'])->middleware('tenant.permission:Role,write')->name('permissions.update');
                 });
 
                 // Redirect legacy/malformed URLs that have a space instead of a hyphen
@@ -88,34 +96,60 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
 
                 Route::prefix('company-structure')->name('tenant.company-structure.')->group(function (): void {
                     Route::get('companies/export', [CompanyController::class, 'export'])
+                        ->middleware('tenant.permission:Company,export')
                         ->name('companies.export');
                     Route::get('companies/import/sample', [CompanyController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:Company,import')
                         ->name('companies.import-sample');
                     Route::get('companies/export/download/{file}', [CompanyController::class, 'downloadExport'])
+                        ->middleware('tenant.permission:Company,export')
                         ->name('companies.download-export');
                     Route::post('companies/import', [CompanyController::class, 'import'])
+                        ->middleware('tenant.permission:Company,import')
                         ->name('companies.import');
                     Route::post('companies/filter', [CompanyController::class, 'filterStatus'])
+                        ->middleware('tenant.permission:Company,read')
                         ->name('companies.filter');
                     Route::get('companies/create', [CompanyController::class, 'create'])
+                        ->middleware('tenant.permission:Company,create')
                         ->name('companies.create');
                     Route::resource('companies', CompanyController::class)
                         ->except(['create', 'show'])
+                        ->middleware([
+                            'index' => 'tenant.permission:Company,read',
+                            'store' => 'tenant.permission:Company,create',
+                            'edit' => 'tenant.permission:Company,write',
+                            'update' => 'tenant.permission:Company,write',
+                            'destroy' => 'tenant.permission:Company,delete',
+                        ])
                         ->names('companies');
                     Route::get('locations/export', [LocationController::class, 'export'])
+                        ->middleware('tenant.permission:Location,export')
                         ->name('locations.export');
                     Route::get('locations/import/sample', [LocationController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:Location,import')
                         ->name('locations.import-sample');
                     Route::get('locations/export/download/{file}', [LocationController::class, 'downloadExport'])
+                        ->middleware('tenant.permission:Location,export')
                         ->name('locations.download-export');
                     Route::post('locations/import', [LocationController::class, 'import'])
+                        ->middleware('tenant.permission:Location,import')
                         ->name('locations.import');
                     Route::post('locations/filter', [LocationController::class, 'filterStatus'])
+                        ->middleware('tenant.permission:Location,read')
                         ->name('locations.filter');
                     Route::get('locations/create', [LocationController::class, 'create'])
+                        ->middleware('tenant.permission:Location,create')
                         ->name('locations.create');
                     Route::resource('locations', LocationController::class)
                         ->except(['create', 'show'])
+                        ->middleware([
+                            'index' => 'tenant.permission:Location,read',
+                            'store' => 'tenant.permission:Location,create',
+                            'edit' => 'tenant.permission:Location,write',
+                            'update' => 'tenant.permission:Location,write',
+                            'destroy' => 'tenant.permission:Location,delete',
+                        ])
                         ->names('locations');
                     Route::get('data-policies', function () {
                         return redirect('data-policy');
