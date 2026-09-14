@@ -2,6 +2,7 @@
 
 namespace App\Models\Tenant\Scopes;
 
+use App\Models\Tenant\Setting;
 use App\Models\Tenant\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -50,7 +51,7 @@ class DataPolicyFilter implements Scope
                     if (! $data_policy->{'all_'.$table}) {
                         $builder->where(function (Builder $query) use ($table, $ids) {
                             $query->whereIn($table.'.id', $ids);
-                            // $query->orWhere($table . ".created_by", '=', Auth::id());
+                            $this->addSelfCreatedRecordAccess($query, $table);
                         });
                     }
                 } elseif ($table == 'users') {
@@ -58,7 +59,6 @@ class DataPolicyFilter implements Scope
                         $query->where(function (Builder $query) use ($table) {
                             if ($table == 'users' && Auth::user()) {
                                 $query->where($table.'.id', '=', Auth::user()->id);
-                                // $query->orWhere($table . ".created_by", '=', Auth::id());
                             }
                         })->orWhere(function (Builder $query) use ($table, $data_policy) {
                             $query->with('areas');
@@ -77,7 +77,7 @@ class DataPolicyFilter implements Scope
                             } else {
                                 $query->where($table.'.location_id', '!=', null);
                             }
-                            if ($data_policy->all_companies == false && setting('companies') == 1) {
+                            if ($data_policy->all_companies == false && $this->settingEnabled('companies')) {
                                 // $query->whereIn($table . ".company_id", $data_policy->companies()->withoutGlobalScopes([DataPolicyFilter::class])->pluck('companies.id'));
                                 $companyIds = $data_policy->companies()->withoutGlobalScopes([DataPolicyFilter::class])->pluck('companies.id')->toArray();
                                 $query->where(function ($q) use ($table, $companyIds) {
@@ -91,7 +91,7 @@ class DataPolicyFilter implements Scope
                                     }
                                 });
                             }
-                            if ($data_policy->all_departments == false && setting('departments') == 1) {
+                            if ($data_policy->all_departments == false && $this->settingEnabled('departments')) {
                                 // $query->whereIn($table . ".department_id", $data_policy->departments()->withoutGlobalScopes([DataPolicyFilter::class])->pluck('departments.id'));
                                 $departmentIds = $data_policy->departments()->withoutGlobalScopes([DataPolicyFilter::class])->pluck('departments.id')->toArray();
                                 $query->where(function ($q) use ($table, $departmentIds) {
@@ -105,7 +105,7 @@ class DataPolicyFilter implements Scope
                                     }
                                 });
                             }
-                            if ($data_policy->all_sub_departments == false && setting('sub_departments') == 1) {
+                            if ($data_policy->all_sub_departments == false && $this->settingEnabled('sub_departments')) {
                                 // $query->whereIn($table . ".sub_department_id", $data_policy->sub_departments()->withoutGlobalScopes([DataPolicyFilter::class])->pluck('sub_departments.id'));
                                 $subDepartmentIds = $data_policy->sub_departments()->withoutGlobalScopes([DataPolicyFilter::class])->pluck('sub_departments.id')->toArray();
                                 $query->where(function ($q) use ($table, $subDepartmentIds) {
@@ -119,7 +119,7 @@ class DataPolicyFilter implements Scope
                                     }
                                 });
                             }
-                            if ($data_policy->all_categories == false && setting('categories') == 1) {
+                            if ($data_policy->all_categories == false && $this->settingEnabled('categories')) {
                                 // $query->whereIn($table . ".category_id", $data_policy->categories()->withoutGlobalScopes([DataPolicyFilter::class])->pluck('categories.id'));
                                 $categoryIds = $data_policy->categories()->withoutGlobalScopes([DataPolicyFilter::class])->pluck('categories.id')->toArray();
                                 $query->where(function ($q) use ($table, $categoryIds) {
@@ -133,7 +133,7 @@ class DataPolicyFilter implements Scope
                                     }
                                 });
                             }
-                            if ($data_policy->all_sub_categories == false && setting('sub_categories') == 1) {
+                            if ($data_policy->all_sub_categories == false && $this->settingEnabled('sub_categories')) {
                                 // $query->whereIn($table . ".sub_category_id", $data_policy->sub_categories()->withoutGlobalScopes([DataPolicyFilter::class])->pluck('sub_categories.id'));
                                 $subCategoryIds = $data_policy->sub_categories()->withoutGlobalScopes([DataPolicyFilter::class])->pluck('sub_categories.id')->toArray();
                                 $query->where(function ($q) use ($table, $subCategoryIds) {
@@ -147,7 +147,7 @@ class DataPolicyFilter implements Scope
                                     }
                                 });
                             }
-                            if ($data_policy->all_designations == false && setting('designations') == 1) {
+                            if ($data_policy->all_designations == false && $this->settingEnabled('designations')) {
                                 // $query->whereIn($table . ".designation_id", $data_policy->designations()->withoutGlobalScopes([DataPolicyFilter::class])->pluck('designations.id'));
                                 $designationIds = $data_policy->designations()->withoutGlobalScopes([DataPolicyFilter::class])->pluck('designations.id')->toArray();
                                 $query->where(function ($q) use ($table, $designationIds) {
@@ -161,7 +161,7 @@ class DataPolicyFilter implements Scope
                                     }
                                 });
                             }
-                            if ($data_policy->all_grades == false && setting('grades') == 1) {
+                            if ($data_policy->all_grades == false && $this->settingEnabled('grades')) {
                                 // $query->whereIn($table . ".grade_id", $data_policy->grades()->withoutGlobalScopes([DataPolicyFilter::class])->pluck('grades.id'));
                                 $gradeIds = $data_policy->grades()->withoutGlobalScopes([DataPolicyFilter::class])->pluck('grades.id')->toArray();
                                 $query->where(function ($q) use ($table, $gradeIds) {
@@ -175,7 +175,7 @@ class DataPolicyFilter implements Scope
                                     }
                                 });
                             }
-                            if ($data_policy->all_units == false && setting('units') == 1) {
+                            if ($data_policy->all_units == false && $this->settingEnabled('units')) {
                                 // $query->whereIn($table . ".unit_id", $data_policy->units()->withoutGlobalScopes([DataPolicyFilter::class])->pluck('units.id'));
                                 $unitIds = $data_policy->units()->withoutGlobalScopes([DataPolicyFilter::class])->pluck('units.id')->toArray();
                                 $query->where(function ($q) use ($table, $unitIds) {
@@ -189,7 +189,7 @@ class DataPolicyFilter implements Scope
                                     }
                                 });
                             }
-                            if ($data_policy->all_bus_routes == false && setting('bus_routes') == 1) {
+                            if ($data_policy->all_bus_routes == false && $this->settingEnabled('bus_routes')) {
                                 // $query->whereIn($table . ".bus_route_id", $data_policy->bus_routes()->withoutGlobalScopes([DataPolicyFilter::class])->pluck('bus_routes.id'));
                                 $busRouteIds = $data_policy->bus_routes()->withoutGlobalScopes([DataPolicyFilter::class])->pluck('bus_routes.id')->toArray();
                                 $query->where(function ($q) use ($table, $busRouteIds) {
@@ -203,12 +203,12 @@ class DataPolicyFilter implements Scope
                                     }
                                 });
                             }
-                            if ($data_policy->all_areas == false && setting('areas') == 1) {
+                            if ($data_policy->all_areas == false && $this->settingEnabled('areas')) {
                                 $query->whereHas('areas', function ($squery) use ($data_policy) {
                                     $squery->whereIn('areas.id', $data_policy->areas()->withoutGlobalScopes([DataPolicyFilter::class])->pluck('areas.id'));
                                 });
                             }
-                            if ($data_policy->machines == false && setting('machines') == 1) {
+                            if ($data_policy->machines == false && $this->settingEnabled('machines')) {
                                 // $query->whereIn($table . ".machine_id", $data_policy->machines()->withoutGlobalScopes([DataPolicyFilter::class])->pluck('machines.id'));
                                 $machineIds = $data_policy->machines()->withoutGlobalScopes([DataPolicyFilter::class])->pluck('machines.id')->toArray();
                                 $query->where(function ($q) use ($table, $machineIds) {
@@ -223,11 +223,12 @@ class DataPolicyFilter implements Scope
                                 });
                             }
                         });
+                        $this->addSelfCreatedRecordAccess($query, $table);
                     });
                 } else {
                     $builder->where(function (Builder $query) use ($table) {
                         $query->where($table.'.id', '=', Auth::id());
-                        // $query->orWhere($table . '.created_by', '=', Auth::id());
+                        $this->addSelfCreatedRecordAccess($query, $table);
                     });
                 }
             } else {
@@ -244,7 +245,7 @@ class DataPolicyFilter implements Scope
         // First, ensure the shift change record itself is accessible
         $builder->where(function (Builder $query) use ($data_policy) {
             // Allow access to shift changes created by the current user
-            $query->where('shift_changes.created_by', '=', Auth::id());
+            $this->addSelfCreatedRecordAccess($query, 'shift_changes', false);
 
             // Or where the user has access to the related users
             $query->orWhereHas('Users', function (Builder $userQuery) use ($data_policy) {
@@ -262,7 +263,7 @@ class DataPolicyFilter implements Scope
         // First, ensure the shift change record itself is accessible
         $builder->where(function (Builder $query) use ($data_policy) {
             // Allow access to shift changes created by the current user
-            $query->where('week_off_changes.created_by', '=', Auth::id());
+            $this->addSelfCreatedRecordAccess($query, 'week_off_changes', false);
 
             // Or where the user has access to the related users
             $query->orWhereHas('Users', function (Builder $userQuery) use ($data_policy) {
@@ -280,6 +281,7 @@ class DataPolicyFilter implements Scope
         // User is always allowed to see themselves
         $query->where(function (Builder $subquery) {
             $subquery->where('users.id', '=', Auth::id());
+            $this->addSelfCreatedRecordAccess($subquery, 'users');
         });
 
         // Apply location filters
@@ -298,7 +300,7 @@ class DataPolicyFilter implements Scope
         }
 
         // Apply company filters
-        if ($data_policy->all_companies == false && setting('companies') == 1) {
+        if ($data_policy->all_companies == false && $this->settingEnabled('companies')) {
             $companyIds = $data_policy->companies()->withoutGlobalScopes([DataPolicyFilter::class])->pluck('companies.id')->toArray();
             $query->where(function ($q) use ($companyIds) {
                 foreach ($companyIds as $id) {
@@ -349,16 +351,29 @@ class DataPolicyFilter implements Scope
                         $query->whereIn($table.'.id', [$idValue]);
                     }
                 }
+                $this->addSelfCreatedRecordAccess($query, $table);
             });
         } elseif ($table == 'users') {
             $id = Auth::id();
             $builder->where(function (Builder $query) use ($table) {
                 $query->where($table.'.id', '=', Auth::id());
+                $this->addSelfCreatedRecordAccess($query, $table);
             });
         } else {
             $builder->where(function (Builder $query) use ($table) {
-                $query->where($table.'.created_by', '=', Auth::id());
+                $this->addSelfCreatedRecordAccess($query, $table, false);
             });
         }
+    }
+
+    private function settingEnabled(string $key): bool
+    {
+        return (string) Setting::query()->where('key', $key)->value('value') === '1';
+    }
+
+    private function addSelfCreatedRecordAccess(Builder $query, string $table, bool $orWhere = true): void
+    {
+        $method = $orWhere ? 'orWhere' : 'where';
+        $query->{$method}($table.'.created_by', '=', Auth::id());
     }
 }

@@ -16,7 +16,9 @@ class LocationImportExportCompleted extends Notification implements ShouldQueue
         public string $operation,
         public string $message,
         public ?string $downloadUrl = null,
-    ) {}
+    ) {
+        $this->onConnection('database_tenant')->onQueue('tenant');
+    }
 
     public function via(object $notifiable): array
     {

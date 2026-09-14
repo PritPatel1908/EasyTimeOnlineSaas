@@ -61,6 +61,7 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
 
                 Route::get('/dashboard', [DashboardController::class, 'index'])->name('tenant.dashboard');
                 Route::get('/notifications/poll', [\App\Http\Controllers\Central\AdminNotificationController::class, 'poll'])->name('tenant.notifications.poll');
+                Route::get('/notifications', [NotificationController::class, 'index'])->name('tenant.notifications.index');
                 Route::get('/notifications/{notification}', [NotificationController::class, 'show'])->name('tenant.notifications.show');
                     Route::get('data-policy', [DataPolicyController::class, 'index'])
                     ->middleware('tenant.permission:DataPolicy,read')
@@ -102,7 +103,6 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middleware('tenant.permission:Company,import')
                         ->name('companies.import-sample');
                     Route::get('companies/export/download/{file}', [CompanyController::class, 'downloadExport'])
-                        ->middleware('tenant.permission:Company,export')
                         ->name('companies.download-export');
                     Route::post('companies/import', [CompanyController::class, 'import'])
                         ->middleware('tenant.permission:Company,import')
@@ -128,7 +128,6 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middleware('tenant.permission:Location,import')
                         ->name('locations.import-sample');
                     Route::get('locations/export/download/{file}', [LocationController::class, 'downloadExport'])
-                        ->middleware('tenant.permission:Location,export')
                         ->name('locations.download-export');
                     Route::post('locations/import', [LocationController::class, 'import'])
                         ->middleware('tenant.permission:Location,import')
@@ -141,13 +140,11 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->name('locations.create');
                     Route::resource('locations', LocationController::class)
                         ->except(['create', 'show'])
-                        ->middleware([
-                            'index' => 'tenant.permission:Location,read',
-                            'store' => 'tenant.permission:Location,create',
-                            'edit' => 'tenant.permission:Location,write',
-                            'update' => 'tenant.permission:Location,write',
-                            'destroy' => 'tenant.permission:Location,delete',
-                        ])
+                        ->middlewareFor('index', 'tenant.permission:Location,read')
+                        ->middlewareFor('store', 'tenant.permission:Location,create')
+                        ->middlewareFor('edit', 'tenant.permission:Location,write')
+                        ->middlewareFor('update', 'tenant.permission:Location,write')
+                        ->middlewareFor('destroy', 'tenant.permission:Location,delete')
                         ->names('locations');
                     Route::get('data-policies', function () {
                         return redirect('data-policy');

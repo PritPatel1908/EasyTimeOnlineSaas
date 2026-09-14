@@ -12,6 +12,16 @@ use Illuminate\Support\Facades\Storage;
 
 class NotificationController extends Controller
 {
+    public function index(): View
+    {
+        $user = Auth::guard('tenant')->user();
+        abort_unless($user !== null && method_exists($user, 'notifications'), 403);
+
+        $notifications = $user->notifications()->latest()->paginate(15);
+
+        return view('notifications.index', compact('notifications'));
+    }
+
     public function show(Request $request, string $tenant, string $notification): View
     {
         $user = Auth::guard('tenant')->user();

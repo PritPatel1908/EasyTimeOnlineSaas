@@ -30,19 +30,19 @@ final class TenantPermissions
             return true;
         }
 
-        $required = self::normalize($module) . '.' . strtolower($action);
+        $permissionNames = self::permissionNames($module, $action);
 
         if ($user->permissions()
             ->where('guard_name', 'tenant')
-            ->where('name', $required)
+            ->whereIn('name', $permissionNames)
             ->exists()) {
             return true;
         }
 
         return $user->roles()
             ->where('guard_name', 'tenant')
-            ->whereHas('permissions', function ($query) use ($required): void {
-                $query->where('guard_name', 'tenant')->where('name', $required);
+            ->whereHas('permissions', function ($query) use ($permissionNames): void {
+                $query->where('guard_name', 'tenant')->whereIn('name', $permissionNames);
             })
             ->exists();
     }
@@ -106,6 +106,29 @@ final class TenantPermissions
         [$module, $action] = array_pad(explode('.', $permission, 2), 2, '');
 
         return self::normalize($module) . '.' . strtolower($action);
+    }
+
+    /**
+     * Return the canonical permission and the equivalent policy permissions.
+     * This keeps the custom matrix compatible with existing Shield permissions.
+     *
+     * @return array<int, string>
+     */
+    private static function permissionNames(string $module, string $action): array
+    {
+        $module = self::normalize($module);
+        $action = strtolower($action);
+        $canonical = $module . '.' . $action;
+
+        $aliases = match ($action) {
+            'read' => ['view_any_'.$module, 'view_'.$module],
+            'write' => ['update_'.$module],
+            'create' => ['create_'.$module],
+            'delete' => ['delete_any_'.$module, 'delete_'.$module],
+            default => [],
+        };
+
+        return array_values(array_unique(array_merge([$canonical], $aliases)));
     }
 
     public static function registerGateHook(): void

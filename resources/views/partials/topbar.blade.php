@@ -1684,7 +1684,7 @@
                             </div>
                             <div class="d-flex p-0">
                                 <a href="#" class="btn btn-light w-100 me-2">Cancel</a>
-                                <a href="{{url('activity')}}" class="btn btn-primary w-100">View All</a>
+                                <a href="{{ url('/notifications') }}" class="btn btn-primary w-100">View All</a>
                             </div>
                         </div>
                     </div>
