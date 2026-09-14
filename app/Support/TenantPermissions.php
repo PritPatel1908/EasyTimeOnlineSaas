@@ -32,9 +32,19 @@ final class TenantPermissions
 
         $required = self::normalize($module) . '.' . strtolower($action);
 
-        return $user->getAllPermissions()->contains(
-            fn ($permission): bool => self::normalizePermission((string) $permission->name) === $required
-        );
+        if ($user->permissions()
+            ->where('guard_name', 'tenant')
+            ->where('name', $required)
+            ->exists()) {
+            return true;
+        }
+
+        return $user->roles()
+            ->where('guard_name', 'tenant')
+            ->whereHas('permissions', function ($query) use ($required): void {
+                $query->where('guard_name', 'tenant')->where('name', $required);
+            })
+            ->exists();
     }
 
     public static function userCan(string $module, string $action): bool
@@ -88,7 +98,7 @@ final class TenantPermissions
 
     private static function normalize(string $value): string
     {
-        return strtolower((string) preg_replace('/[^a-z0-9]+/', '', $value));
+        return (string) preg_replace('/[^a-z0-9]+/', '', strtolower($value));
     }
 
     private static function normalizePermission(string $permission): string

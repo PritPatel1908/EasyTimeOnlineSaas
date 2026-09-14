@@ -89,6 +89,7 @@
 						</li>
 					</ul>
 				</li>
+				@if (\App\Support\TenantPermissions::userCan('Role', 'read') || \App\Support\TenantPermissions::userCan('DataPolicy', 'read'))
 				<li class="menu-title"><span>ROLE &amp; POLICY</span></li>
 				<li>
 					<ul>
@@ -102,12 +103,14 @@
 								@if (\App\Support\TenantPermissions::userCan('Role', 'read'))<li><a href="{{ url('roles') }}"
 										class="{{ Request::is('roles', 'roles/*') ? 'active' : '' }}">Role &amp; Permission</a></li>
 								@endif
-								<li><a href="{{ url('data-policy') }}"
+								@if (\App\Support\TenantPermissions::userCan('DataPolicy', 'read'))<li><a href="{{ url('data-policy') }}"
 										class="{{ Request::is('data-policy', 'data-policy/*') ? 'active' : '' }}">Data Policy</a></li>
+								@endif
 							</ul>
 						</li>
 					</ul>
 				</li>
+				@endif
 				<li class="menu-title"><span>COMPANY STRUCTURE</span></li>
 				<li>
 					<ul>

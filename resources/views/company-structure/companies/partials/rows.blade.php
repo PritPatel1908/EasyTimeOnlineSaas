@@ -1,23 +1,23 @@
 @forelse ($companies as $company)
     <tr>
-        <td>
+        <td class="text-center">
             <div class="form-check form-check-md">
                 <input class="form-check-input" type="checkbox">
             </div>
         </td>
-        <td>
+        <td class="text-center">
             <h6 class="fw-medium fs-14">{{ $company->name }}</h6>
         </td>
-        <td>{{ $company->code }}</td>
-        <td>{{ $company->email ?? '—' }}</td>
-        <td>{{ $company->locations->pluck('name')->join(', ') ?: '—' }}</td>
-        <td>
+        <td class="text-center">{{ $company->code }}</td>
+        <td class="text-center">{{ $company->email ?? '—' }}</td>
+        <td class="text-center">{{ $company->locations->pluck('name')->join(', ') ?: '—' }}</td>
+        <td class="text-center">
             <span class="badge {{ $company->status === 1 ? 'badge-success' : 'badge-danger' }} d-inline-flex align-items-center badge-xs">
                 <i class="ti ti-point-filled me-1"></i>
                 <span class="company-status-label">{{ $company->status === 1 ? 'Active' : 'Inactive' }}</span>
             </span>
         </td>
-        <td>
+        <td class="text-center">
             <div class="action-icon d-inline-flex">
                 @if (\App\Support\TenantPermissions::userCan('Company', 'write'))
                 <a href="{{ url('company-structure/companies/'.$company->id.'/edit') }}"
@@ -42,9 +42,11 @@
     </tr>
 @empty
     <tr>
-        <td colspan="7" class="text-center py-4 text-muted">
-            <i class="ti ti-building-off fs-24 d-block mb-2"></i>
-            No companies found.
+        <td colspan="7" class="py-4 text-muted">
+            <div class="d-flex flex-column align-items-center justify-content-center text-center">
+                <i class="ti ti-building-off fs-24 mb-2"></i>
+                <span>No companies found.</span>
+            </div>
         </td>
     </tr>
 @endforelse

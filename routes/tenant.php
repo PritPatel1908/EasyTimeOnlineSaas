@@ -115,13 +115,11 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->name('companies.create');
                     Route::resource('companies', CompanyController::class)
                         ->except(['create', 'show'])
-                        ->middleware([
-                            'index' => 'tenant.permission:Company,read',
-                            'store' => 'tenant.permission:Company,create',
-                            'edit' => 'tenant.permission:Company,write',
-                            'update' => 'tenant.permission:Company,write',
-                            'destroy' => 'tenant.permission:Company,delete',
-                        ])
+                        ->middlewareFor('index', 'tenant.permission:Company,read')
+                        ->middlewareFor('store', 'tenant.permission:Company,create')
+                        ->middlewareFor('edit', 'tenant.permission:Company,write')
+                        ->middlewareFor('update', 'tenant.permission:Company,write')
+                        ->middlewareFor('destroy', 'tenant.permission:Company,delete')
                         ->names('companies');
                     Route::get('locations/export', [LocationController::class, 'export'])
                         ->middleware('tenant.permission:Location,export')
