@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Tenant\AuthController;
 use App\Http\Controllers\Tenant\CompanyController;
+use App\Http\Controllers\Tenant\DepartmentController;
 use App\Http\Controllers\Tenant\DataPolicyController;
 use App\Http\Controllers\Tenant\LocationController;
 use App\Http\Controllers\Tenant\NotificationController;
@@ -121,6 +122,26 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:Company,write')
                         ->middlewareFor('destroy', 'tenant.permission:Company,delete')
                         ->names('companies');
+                    Route::get('departments/export', [DepartmentController::class, 'export'])
+                        ->middleware('tenant.permission:Department,export')->name('departments.export');
+                    Route::get('departments/import/sample', [DepartmentController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:Department,import')->name('departments.import-sample');
+                    Route::get('departments/export/download/{file}', [DepartmentController::class, 'downloadExport'])
+                        ->name('departments.download-export');
+                    Route::post('departments/import', [DepartmentController::class, 'import'])
+                        ->middleware('tenant.permission:Department,import')->name('departments.import');
+                    Route::post('departments/filter', [DepartmentController::class, 'filterStatus'])
+                        ->middleware('tenant.permission:Department,read')->name('departments.filter');
+                    Route::get('departments/create', [DepartmentController::class, 'create'])
+                        ->middleware('tenant.permission:Department,create')->name('departments.create');
+                    Route::resource('departments', DepartmentController::class)
+                        ->except(['create', 'show'])
+                        ->middlewareFor('index', 'tenant.permission:Department,read')
+                        ->middlewareFor('store', 'tenant.permission:Department,create')
+                        ->middlewareFor('edit', 'tenant.permission:Department,write')
+                        ->middlewareFor('update', 'tenant.permission:Department,write')
+                        ->middlewareFor('destroy', 'tenant.permission:Department,delete')
+                        ->names('departments');
                     Route::get('locations/export', [LocationController::class, 'export'])
                         ->middleware('tenant.permission:Location,export')
                         ->name('locations.export');

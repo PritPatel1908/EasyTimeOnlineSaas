@@ -59,6 +59,7 @@ class NotificationController extends Controller
         $storagePath = match (true) {
             preg_match('/\Acompanies_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'company-exports/' . $fileName,
             preg_match('/\Alocations_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'location-exports/' . $fileName,
+            preg_match('/\Adepartments_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'department-exports/' . $fileName,
             default => null,
         };
 
