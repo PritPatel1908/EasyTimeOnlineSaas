@@ -1,5 +1,10 @@
 <!-- Sidebar -->
 <div class="sidebar" id="sidebar">
+@php
+	$companyStructureActive = request()->is('company-structure/*');
+	$locationsActive = request()->is('company-structure/locations*');
+	$departmentsActive = request()->is('company-structure/departments*');
+@endphp
 	<!-- Logo -->
 	<div class="sidebar-logo">
 		<a href="{{url('dashboard')}}" class="logo logo-normal">
@@ -116,7 +121,7 @@
 					<ul>
 						<li class="submenu">
 							<a href="javascript:void(0);"
-								class="{{ Request::is('company-structure/*') ? 'active subdrop' : '' }}">
+								class="{{ $companyStructureActive ? 'active subdrop' : '' }}">
 								<i class="ti ti-building-estate"></i><span>Company Structure</span>
 								<span class="menu-arrow"></span>
 							</a>
@@ -125,10 +130,10 @@
 										class="{{ Request::is('company-structure/companies*') ? 'active' : '' }}">Companies</a></li>
 								@endif
 								@if (\App\Support\TenantPermissions::userCan('Location', 'read'))<li><a href="{{url('company-structure/locations')}}"
-										class="{{ Request::is('company-structure/locations') ? 'active' : '' }}">Locations</a></li>
+										class="{{ $locationsActive ? 'active' : '' }}">Locations</a></li>
 								@endif
 																@if (\App\Support\TenantPermissions::userCan('Department', 'read'))<li><a href="{{url('company-structure/departments')}}"
-										class="{{ Request::is('company-structure/departments') ? 'active' : '' }}">Departments</a></li>
+										class="{{ $departmentsActive ? 'active' : '' }}">Departments</a></li>
 																@endif
 																<li><a href="{{url('company-structure/sub-departments')}}"
 										class="{{ Request::is('company-structure/sub-departments') ? 'active' : '' }}">Sub Departments</a></li>
