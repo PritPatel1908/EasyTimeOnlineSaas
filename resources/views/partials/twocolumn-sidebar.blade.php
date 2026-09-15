@@ -252,7 +252,7 @@
 							<li><a href="{{url('company-structure/departments')}}"
 									class="{{ Request::is('company-structure/departments') ? 'active' : '' }}">Departments</a></li>
 							<li><a href="{{url('company-structure/sub-departments')}}"
-									class="{{ Request::is('company-structure/sub-departments') ? 'active' : '' }}">Sub Departments</a></li>
+									class="{{ Request::is('company-structure/sub-departments*') ? 'active' : '' }}">Sub Departments</a></li>
 							<li><a href="{{url('company-structure/units')}}"
 									class="{{ Request::is('company-structure/units') ? 'active' : '' }}">Unit (Mill)</a></li>
 							<li><a href="{{url('company-structure/teams')}}"

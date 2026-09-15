@@ -15,7 +15,7 @@ class SubDepartmentPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->can('view_any_sub::department');
+        return $user->can('view_any_subdepartment');
     }
 
     /**
@@ -23,7 +23,7 @@ class SubDepartmentPolicy
      */
     public function view(User $user, SubDepartment $subDepartment): bool
     {
-        return $user->can('view_sub::department');
+        return $user->can('view_subdepartment');
     }
 
     /**
@@ -31,7 +31,7 @@ class SubDepartmentPolicy
      */
     public function create(User $user): bool
     {
-        return $user->can('create_sub::department');
+        return $user->can('create_subdepartment');
     }
 
     /**
@@ -39,7 +39,7 @@ class SubDepartmentPolicy
      */
     public function update(User $user, SubDepartment $subDepartment): bool
     {
-        return $user->can('update_sub::department');
+        return $user->can('update_subdepartment');
     }
 
     /**
@@ -47,7 +47,7 @@ class SubDepartmentPolicy
      */
     public function delete(User $user, SubDepartment $subDepartment): bool
     {
-        return $user->can('delete_sub::department');
+        return $user->can('delete_subdepartment');
     }
 
     /**
@@ -55,7 +55,7 @@ class SubDepartmentPolicy
      */
     public function deleteAny(User $user): bool
     {
-        return $user->can('delete_any_sub::department');
+        return $user->can('delete_any_subdepartment');
     }
 
     /**
@@ -63,7 +63,7 @@ class SubDepartmentPolicy
      */
     public function forceDelete(User $user, SubDepartment $subDepartment): bool
     {
-        return $user->can('force_delete_sub::department');
+        return $user->can('force_delete_subdepartment');
     }
 
     /**
@@ -71,7 +71,7 @@ class SubDepartmentPolicy
      */
     public function forceDeleteAny(User $user): bool
     {
-        return $user->can('force_delete_any_sub::department');
+        return $user->can('force_delete_any_subdepartment');
     }
 
     /**
@@ -79,7 +79,7 @@ class SubDepartmentPolicy
      */
     public function restore(User $user, SubDepartment $subDepartment): bool
     {
-        return $user->can('restore_sub::department');
+        return $user->can('restore_subdepartment');
     }
 
     /**
@@ -87,7 +87,7 @@ class SubDepartmentPolicy
      */
     public function restoreAny(User $user): bool
     {
-        return $user->can('restore_any_sub::department');
+        return $user->can('restore_any_subdepartment');
     }
 
     /**

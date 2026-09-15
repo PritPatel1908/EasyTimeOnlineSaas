@@ -4,6 +4,7 @@
 	$companyStructureActive = request()->is('company-structure/*');
 	$locationsActive = request()->is('company-structure/locations*');
 	$departmentsActive = request()->is('company-structure/departments*');
+	$subDepartmentsActive = request()->is('company-structure/sub-departments*');
 @endphp
 	<!-- Logo -->
 	<div class="sidebar-logo">
@@ -136,7 +137,7 @@
 										class="{{ $departmentsActive ? 'active' : '' }}">Departments</a></li>
 																@endif
 																<li><a href="{{url('company-structure/sub-departments')}}"
-										class="{{ Request::is('company-structure/sub-departments') ? 'active' : '' }}">Sub Departments</a></li>
+																class="{{ $subDepartmentsActive ? 'active' : '' }}">Sub Departments</a></li>
 								<li><a href="{{url('company-structure/units')}}"
 										class="{{ Request::is('company-structure/units') ? 'active' : '' }}">Unit (Mill)</a></li>
 								<li><a href="{{url('company-structure/teams')}}"

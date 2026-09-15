@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Tenant\AuthController;
 use App\Http\Controllers\Tenant\CompanyController;
 use App\Http\Controllers\Tenant\DepartmentController;
+use App\Http\Controllers\Tenant\SubDepartmentController;
 use App\Http\Controllers\Tenant\DataPolicyController;
 use App\Http\Controllers\Tenant\LocationController;
 use App\Http\Controllers\Tenant\NotificationController;
@@ -145,6 +146,28 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:Department,write')
                         ->middlewareFor('destroy', 'tenant.permission:Department,delete')
                         ->names('departments');
+                    Route::get('sub-departments/export', [SubDepartmentController::class, 'export'])
+                        ->middleware('tenant.permission:SubDepartment,export')->name('sub-departments.export');
+                    Route::get('sub-departments/import/sample', [SubDepartmentController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:SubDepartment,import')->name('sub-departments.import-sample');
+                    Route::get('sub-departments/export/download/{file}', [SubDepartmentController::class, 'downloadExport'])
+                        ->middleware('tenant.permission:SubDepartment,export')->name('sub-departments.download-export');
+                    Route::post('sub-departments/import', [SubDepartmentController::class, 'import'])
+                        ->middleware('tenant.permission:SubDepartment,import')->name('sub-departments.import');
+                    Route::post('sub-departments/filter', [SubDepartmentController::class, 'filterStatus'])
+                        ->middleware('tenant.permission:SubDepartment,read')->name('sub-departments.filter');
+                    Route::get('sub-departments/create', [SubDepartmentController::class, 'create'])
+                        ->middleware('tenant.permission:SubDepartment,create')->name('sub-departments.create');
+                    Route::resource('sub-departments', SubDepartmentController::class)
+                        ->except(['create'])
+                        ->parameters(['sub-departments' => 'sub_department'])
+                        ->middlewareFor('index', 'tenant.permission:SubDepartment,read')
+                        ->middlewareFor('show', 'tenant.permission:SubDepartment,read')
+                        ->middlewareFor('store', 'tenant.permission:SubDepartment,create')
+                        ->middlewareFor('edit', 'tenant.permission:SubDepartment,write')
+                        ->middlewareFor('update', 'tenant.permission:SubDepartment,write')
+                        ->middlewareFor('destroy', 'tenant.permission:SubDepartment,delete')
+                        ->names('sub-departments');
                     Route::get('locations/export', [LocationController::class, 'export'])
                         ->middleware('tenant.permission:Location,export')
                         ->name('locations.export');
