@@ -56,7 +56,7 @@ class DataPolicyFilter implements Scope
                 return;
             }
 
-            if (in_array($table, ['locations', 'companies', 'departments', 'sub_departments', 'categories', 'sub_categories', 'designations', 'grades', 'units', 'bus_routes', 'areas', 'machines'])) {
+            if (in_array($table, ['locations', 'companies', 'departments', 'teams', 'sub_departments', 'categories', 'sub_categories', 'designations', 'grades', 'units', 'bus_routes', 'areas', 'machines'])) {
                 $ids = $data_policy->$table()->withoutGlobalScopes([DataPolicyFilter::class])->pluck($table . '.id');
                 if (! $data_policy->{'all_' . $table}) {
                     $builder->where(function (Builder $query) use ($table, $ids) {
@@ -111,6 +111,19 @@ class DataPolicyFilter implements Scope
                                     })
                                         ->orWhere(function ($subquery) use ($table, $id) {
                                             $subquery->whereRaw('TRY_CAST(' . $table . '.department_id AS INT) = ?', [$id]);
+                                        });
+                                }
+                            });
+                        }
+                        if ($data_policy->all_teams == false && $this->settingEnabled('teams')) {
+                            $teamIds = $data_policy->teams()->withoutGlobalScopes([DataPolicyFilter::class])->pluck('teams.id')->toArray();
+                            $query->where(function ($q) use ($table, $teamIds) {
+                                foreach ($teamIds as $id) {
+                                    $q->orWhere(function ($subquery) use ($table, $id) {
+                                        $subquery->whereRaw('CHARINDEX(?, ' . $table . '.team_id) > 0', ['["' . $id . '"]']);
+                                    })
+                                        ->orWhere(function ($subquery) use ($table, $id) {
+                                            $subquery->whereRaw('TRY_CAST(' . $table . '.team_id AS INT) = ?', [$id]);
                                         });
                                 }
                             });
@@ -334,7 +347,7 @@ class DataPolicyFilter implements Scope
                     $this->applyCurrentUserAssignmentFilters($userQuery);
                 });
             });
-        } elseif (in_array($table, ['locations', 'companies', 'departments', 'sub_departments', 'categories', 'sub_categories', 'designations', 'grades', 'units', 'bus_routes'])) {
+        } elseif (in_array($table, ['locations', 'companies', 'departments', 'teams', 'sub_departments', 'categories', 'sub_categories', 'designations', 'grades', 'units', 'bus_routes'])) {
             $singular = Str::singular($table);
             $property = $singular . '_id';
             $user = Auth::guard('tenant')->user();

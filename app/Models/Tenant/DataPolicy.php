@@ -31,6 +31,7 @@ use Illuminate\Support\Facades\Auth;
  * @property Collection|Category[] $categories
  * @property Collection|Company[] $companies
  * @property Collection|Department[] $departments
+ * @property Collection|Team[] $teams
  * @property Collection|Location[] $locations
  * @property Collection|Designation[] $designations
  * @property Collection|Grade[] $grades
@@ -83,6 +84,7 @@ class DataPolicy extends Model
         'all_locations' => 'boolean',
         'all_companies' => 'boolean',
         'all_departments' => 'boolean',
+        'all_teams' => 'boolean',
         'all_sub_departments' => 'boolean',
         'all_categories' => 'boolean',
         'all_sub_categories' => 'boolean',
@@ -105,6 +107,7 @@ class DataPolicy extends Model
         'all_locations',
         'all_companies',
         'all_departments',
+        'all_teams',
         'all_sub_departments',
         'all_categories',
         'all_sub_categories',
@@ -133,6 +136,13 @@ class DataPolicy extends Model
     public function departments()
     {
         return $this->belongsToMany(Department::class, 'data_policy_department')
+            // ->withPivot('id')
+            ->withTimestamps();
+    }
+
+    public function teams()
+    {
+        return $this->belongsToMany(Team::class, 'data_policy_team')
             // ->withPivot('id')
             ->withTimestamps();
     }

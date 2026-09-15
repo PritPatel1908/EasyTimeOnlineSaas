@@ -77,6 +77,7 @@ class RolePermissionController extends Controller
             'ShortLeaveApplication',
             'SubCategory',
             'SubDepartment',
+            'Team',
             'Transaction',
             'Unit',
             'User',

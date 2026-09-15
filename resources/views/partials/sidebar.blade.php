@@ -6,6 +6,7 @@
 	$departmentsActive = request()->is('company-structure/departments*');
 	$subDepartmentsActive = request()->is('company-structure/sub-departments*');
 	$unitsActive = request()->is('company-structure/units*');
+	$teamsActive = request()->is('company-structure/teams*');
 @endphp
 	<!-- Logo -->
 	<div class="sidebar-logo">
@@ -143,8 +144,9 @@
 								@if (\App\Support\TenantPermissions::userCan('Unit', 'read'))<li><a href="{{url('company-structure/units')}}"
 										class="{{ $unitsActive ? 'active' : '' }}">Unit (Mill)</a></li>
 								@endif
-								<li><a href="{{url('company-structure/teams')}}"
-										class="{{ Request::is('company-structure/teams') ? 'active' : '' }}">Team</a></li>
+													@if (\App\Support\TenantPermissions::userCan('Team', 'read'))<li><a href="{{url('company-structure/teams')}}"
+															class="{{ $teamsActive ? 'active' : '' }}">Team</a></li>
+													@endif
 								<li><a href="{{url('company-structure/facilities')}}"
 										class="{{ Request::is('company-structure/facilities') ? 'active' : '' }}">Company Facility</a></li>
 							</ul>
@@ -360,8 +362,9 @@
 								@endif
 								<li><a href="{{url('company-structure/units')}}"
 										class="{{ Request::is('company-structure/units') ? 'active' : '' }}">Unit (Mill)</a></li>
-								<li><a href="{{url('company-structure/teams')}}"
-										class="{{ Request::is('company-structure/teams') ? 'active' : '' }}">Team</a></li>
+												@if (\App\Support\TenantPermissions::userCan('Team', 'read'))<li><a href="{{url('company-structure/teams')}}"
+														class="{{ $teamsActive ? 'active' : '' }}">Team</a></li>
+												@endif
 								<li><a href="{{url('company-structure/facilities')}}"
 										class="{{ Request::is('company-structure/facilities') ? 'active' : '' }}">Company Facility</a></li>
 							</ul>

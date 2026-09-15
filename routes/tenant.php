@@ -147,6 +147,27 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:Department,write')
                         ->middlewareFor('destroy', 'tenant.permission:Department,delete')
                         ->names('departments');
+                    Route::get('teams/export', [\App\Http\Controllers\Tenant\TeamController::class, 'export'])
+                        ->middleware('tenant.permission:Team,export')->name('teams.export');
+                    Route::get('teams/import/sample', [\App\Http\Controllers\Tenant\TeamController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:Team,import')->name('teams.import-sample');
+                    Route::get('teams/export/download/{file}', [\App\Http\Controllers\Tenant\TeamController::class, 'downloadExport'])
+                        ->name('teams.download-export');
+                    Route::post('teams/import', [\App\Http\Controllers\Tenant\TeamController::class, 'import'])
+                        ->middleware('tenant.permission:Team,import')->name('teams.import');
+                    Route::post('teams/filter', [\App\Http\Controllers\Tenant\TeamController::class, 'filterStatus'])
+                        ->middleware('tenant.permission:Team,read')->name('teams.filter');
+                    Route::get('teams/create', [\App\Http\Controllers\Tenant\TeamController::class, 'create'])
+                        ->middleware('tenant.permission:Team,create')->name('teams.create');
+                    Route::resource('teams', \App\Http\Controllers\Tenant\TeamController::class)
+                        ->except(['create'])
+                        ->middlewareFor('index', 'tenant.permission:Team,read')
+                        ->middlewareFor('show', 'tenant.permission:Team,read')
+                        ->middlewareFor('store', 'tenant.permission:Team,create')
+                        ->middlewareFor('edit', 'tenant.permission:Team,write')
+                        ->middlewareFor('update', 'tenant.permission:Team,write')
+                        ->middlewareFor('destroy', 'tenant.permission:Team,delete')
+                        ->names('teams');
                     Route::get('units/export', [UnitController::class, 'export'])
                         ->middleware('tenant.permission:Unit,export')->name('units.export');
                     Route::get('units/import/sample', [UnitController::class, 'downloadImportSample'])

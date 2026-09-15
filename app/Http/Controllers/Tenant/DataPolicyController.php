@@ -20,6 +20,7 @@ use App\Models\Tenant\Location;
 use App\Models\Tenant\Machine;
 use App\Models\Tenant\SubCategory;
 use App\Models\Tenant\SubDepartment;
+use App\Models\Tenant\Team;
 use App\Models\Tenant\Unit;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -34,6 +35,7 @@ class DataPolicyController extends Controller
         'locations' => Location::class,
         'companies' => Company::class,
         'departments' => Department::class,
+        'teams' => Team::class,
         'sub_departments' => SubDepartment::class,
         'categories' => Category::class,
         'sub_categories' => SubCategory::class,
@@ -144,6 +146,7 @@ class DataPolicyController extends Controller
                 'all_locations',
                 'all_companies',
                 'all_departments',
+                'all_teams',
                 'all_sub_departments',
                 'all_categories',
                 'all_sub_categories',

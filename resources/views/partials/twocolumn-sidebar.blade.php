@@ -253,10 +253,10 @@
 									class="{{ Request::is('company-structure/departments') ? 'active' : '' }}">Departments</a></li>
 							<li><a href="{{url('company-structure/sub-departments')}}"
 									class="{{ Request::is('company-structure/sub-departments*') ? 'active' : '' }}">Sub Departments</a></li>
-							<li><a href="{{url('company-structure/units')}}"
-									class="{{ Request::is('company-structure/units') ? 'active' : '' }}">Unit (Mill)</a></li>
-							<li><a href="{{url('company-structure/teams')}}"
-									class="{{ Request::is('company-structure/teams') ? 'active' : '' }}">Team</a></li>
+							@if (\App\Support\TenantPermissions::userCan('Unit', 'read'))<li><a href="{{url('company-structure/units')}}"
+									class="{{ Request::is('company-structure/units') ? 'active' : '' }}">Unit (Mill)</a></li>@endif
+							@if (\App\Support\TenantPermissions::userCan('Team', 'read'))<li><a href="{{url('company-structure/teams')}}"
+									class="{{ Request::is('company-structure/teams*') ? 'active' : '' }}">Team</a></li>@endif
 							<li><a href="{{url('company-structure/facilities')}}"
 									class="{{ Request::is('company-structure/facilities') ? 'active' : '' }}">Company Facility</a></li>
 						</ul>

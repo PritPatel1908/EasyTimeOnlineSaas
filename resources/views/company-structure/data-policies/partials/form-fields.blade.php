@@ -4,6 +4,7 @@
         'all_locations' => 'All locations',
         'all_companies' => 'All companies',
         'all_departments' => 'All departments',
+        'all_teams' => 'All teams',
         'all_sub_departments' => 'All sub departments',
         'all_categories' => 'All categories',
         'all_sub_categories' => 'All sub categories',
