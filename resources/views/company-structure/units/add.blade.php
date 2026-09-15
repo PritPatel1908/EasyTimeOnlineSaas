@@ -1,0 +1,4 @@
+@extends('layout.mainlayout')
+@section('content')
+<div class="page-wrapper"><div class="content"><div class="d-flex justify-content-between page-breadcrumb mb-3"><div><h2 class="mb-1">Add Unit</h2><nav><ol class="breadcrumb mb-0"><li class="breadcrumb-item">Company Structure</li><li class="breadcrumb-item"><a href="{{ url('company-structure/units') }}">Units</a></li><li class="breadcrumb-item active">Add Unit</li></ol></nav></div></div><div class="card"><div class="card-header"><h5 class="mb-0">Unit Information</h5></div><div class="card-body"><form method="POST" action="{{ url('company-structure/units') }}">@csrf @include('company-structure.units.partials.form-fields')<div class="text-end"><a href="{{ url('company-structure/units') }}" class="btn btn-light me-2">Cancel</a><button class="btn btn-primary">Save Unit</button></div></form></div></div></div>@include('partials.footer')</div>
+@endsection

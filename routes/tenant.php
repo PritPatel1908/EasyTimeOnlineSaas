@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Tenant\AuthController;
 use App\Http\Controllers\Tenant\CompanyController;
 use App\Http\Controllers\Tenant\DepartmentController;
+use App\Http\Controllers\Tenant\UnitController;
 use App\Http\Controllers\Tenant\SubDepartmentController;
 use App\Http\Controllers\Tenant\DataPolicyController;
 use App\Http\Controllers\Tenant\LocationController;
@@ -146,6 +147,29 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:Department,write')
                         ->middlewareFor('destroy', 'tenant.permission:Department,delete')
                         ->names('departments');
+                    Route::get('units/export', [UnitController::class, 'export'])
+                        ->middleware('tenant.permission:Unit,export')->name('units.export');
+                    Route::get('units/import/sample', [UnitController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:Unit,import')->name('units.import-sample');
+                    Route::get('units/export/download/{file}', [UnitController::class, 'downloadExport'])
+                        ->middleware('tenant.permission:Unit,export')->name('units.download-export');
+                    Route::post('units/import', [UnitController::class, 'import'])
+                        ->middleware('tenant.permission:Unit,import')->name('units.import');
+                    Route::post('units/filter', [UnitController::class, 'filterStatus'])
+                        ->middleware('tenant.permission:Unit,read')->name('units.filter');
+                    Route::post('units/{unit}/status', [UnitController::class, 'updateStatus'])
+                        ->middleware('tenant.permission:Unit,write')->name('units.status');
+                    Route::get('units/create', [UnitController::class, 'create'])
+                        ->middleware('tenant.permission:Unit,create')->name('units.create');
+                    Route::resource('units', UnitController::class)
+                        ->except(['create'])
+                        ->middlewareFor('index', 'tenant.permission:Unit,read')
+                        ->middlewareFor('show', 'tenant.permission:Unit,read')
+                        ->middlewareFor('store', 'tenant.permission:Unit,create')
+                        ->middlewareFor('edit', 'tenant.permission:Unit,write')
+                        ->middlewareFor('update', 'tenant.permission:Unit,write')
+                        ->middlewareFor('destroy', 'tenant.permission:Unit,delete')
+                        ->names('units');
                     Route::get('sub-departments/export', [SubDepartmentController::class, 'export'])
                         ->middleware('tenant.permission:SubDepartment,export')->name('sub-departments.export');
                     Route::get('sub-departments/import/sample', [SubDepartmentController::class, 'downloadImportSample'])
