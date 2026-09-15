@@ -188,4 +188,27 @@ class SubDepartment extends Model
             ? $this->{$relation}->pluck('id')->all()
             : $this->{$relation}()->withoutGlobalScopes()->pluck('data_policies.id')->all();
     }
+
+    private function relatedRecords(string $model, array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        return $model::query()
+            ->whereIn('id', $ids)
+            ->get(['id', 'name', 'code'])
+            ->map(static fn (Model $record): array => $record->only(['id', 'name', 'code']))
+            ->values()
+            ->all();
+    }
+
+    private function actorRecord(mixed $id): ?array
+    {
+        if ($id === null || $id === '') {
+            return null;
+        }
+
+        return User::query()->find($id)?->only(['id', 'name', 'email']);
+    }
 }

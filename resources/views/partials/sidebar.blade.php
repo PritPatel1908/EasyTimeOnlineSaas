@@ -136,8 +136,9 @@
 																@if (\App\Support\TenantPermissions::userCan('Department', 'read'))<li><a href="{{url('company-structure/departments')}}"
 										class="{{ $departmentsActive ? 'active' : '' }}">Departments</a></li>
 																@endif
-																<li><a href="{{url('company-structure/sub-departments')}}"
+																@if (\App\Support\TenantPermissions::userCan('SubDepartment', 'read'))<li><a href="{{url('company-structure/sub-departments')}}"
 																class="{{ $subDepartmentsActive ? 'active' : '' }}">Sub Departments</a></li>
+								@endif
 								<li><a href="{{url('company-structure/units')}}"
 										class="{{ Request::is('company-structure/units') ? 'active' : '' }}">Unit (Mill)</a></li>
 								<li><a href="{{url('company-structure/teams')}}"
@@ -349,10 +350,12 @@
 										class="{{ Request::is('company-structure/companies*') ? 'active' : '' }}">Companies</a></li>
 								<li><a href="{{url('company-structure/locations')}}"
 										class="{{ Request::is('company-structure/locations') ? 'active' : '' }}">Locations</a></li>
-								<li><a href="{{url('company-structure/departments')}}"
+								@if (\App\Support\TenantPermissions::userCan('Department', 'read'))<li><a href="{{url('company-structure/departments')}}"
 										class="{{ Request::is('company-structure/departments') ? 'active' : '' }}">Departments</a></li>
-								<li><a href="{{url('company-structure/sub-departments')}}"
+								@endif
+								@if (\App\Support\TenantPermissions::userCan('SubDepartment', 'read'))<li><a href="{{url('company-structure/sub-departments')}}"
 										class="{{ Request::is('company-structure/sub-departments') ? 'active' : '' }}">Sub Departments</a></li>
+								@endif
 								<li><a href="{{url('company-structure/units')}}"
 										class="{{ Request::is('company-structure/units') ? 'active' : '' }}">Unit (Mill)</a></li>
 								<li><a href="{{url('company-structure/teams')}}"

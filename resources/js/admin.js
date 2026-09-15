@@ -107,12 +107,12 @@ function refreshNotifications() {
 		.then((payload) => {
 			const count = Number(payload.count || 0);
 			const countNode = document.querySelector('[data-notification-count]');
+			const currentPath = window.location.pathname.replace(/\/+$/, '') || '/';
 			const completedImport = (payload.items || []).find((item) => {
-				const notificationPath = new URL(item.url || '', window.location.origin).pathname;
+				const notificationPath = new URL(item.url || '', window.location.origin).pathname.replace(/\/+$/, '') || '/';
 
 				return item.type === 'import'
-					&& /^\/company-structure\/(locations|companies|departments)\/?$/.test(notificationPath)
-					&& notificationPath === window.location.pathname;
+					&& notificationPath === currentPath;
 			});
 
 			if (completedImport?.id) {
