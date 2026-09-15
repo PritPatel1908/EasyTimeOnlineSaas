@@ -48,11 +48,6 @@ class ProcessCompanyImport implements ShouldQueue
         $filePath = $this->filePath;
 
         if (! Storage::disk('local')->exists($filePath)) {
-            $user->notify(new CompanyImportExportCompleted(
-                'import',
-                'The uploaded company import file was not found.',
-            ));
-
             return;
         }
 
@@ -60,11 +55,6 @@ class ProcessCompanyImport implements ShouldQueue
 
         if ($rows === []) {
             Storage::disk('local')->delete($filePath);
-            $user->notify(new CompanyImportExportCompleted(
-                'import',
-                'The uploaded company import file is empty or invalid.',
-            ));
-
             return;
         }
 
@@ -109,20 +99,10 @@ class ProcessCompanyImport implements ShouldQueue
         }
 
         Storage::disk('local')->delete($filePath);
-
-        if ($errors !== []) {
-            $user->notify(new CompanyImportExportCompleted(
-                'import',
-                'Import finished with ' . count($errors) . ' invalid row(s): ' . implode(' | ', array_slice($errors, 0, 5)),
-            ));
-
-            return;
-        }
-
-        $user->notify(new CompanyImportExportCompleted(
-            'import',
-            'Imported ' . $created . ' new company record(s) and updated ' . $updated . ' existing record(s).',
-        ));
+        $message = $errors === []
+            ? 'Imported ' . $created . ' new company record(s) and updated ' . $updated . ' existing record(s).'
+            : 'Import completed with errors: ' . implode(' | ', array_slice($errors, 0, 5));
+        $user->notify(new CompanyImportExportCompleted('import', $message));
     }
 
     private function parseCsv(string $path): array

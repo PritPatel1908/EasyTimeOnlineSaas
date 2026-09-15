@@ -169,7 +169,7 @@
                 data-import-form="true"
                 data-status-alert="#company-status-alert"
                 data-modal="#import_company_modal"
-                data-url-match="companies"
+                data-url-match="/company-structure/companies"
                 data-entity-label="Company">
                 @csrf
                 <div class="modal-body">

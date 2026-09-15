@@ -30,7 +30,6 @@ class ProcessLocationImport implements ShouldQueue
         Auth::guard('tenant')->setUser($user);
 
         if (! Storage::disk('local')->exists($this->filePath)) {
-            $user->notify(new LocationImportExportCompleted('import', 'The uploaded location import file was not found.'));
             return;
         }
 
@@ -38,8 +37,6 @@ class ProcessLocationImport implements ShouldQueue
 
         if ($rows === []) {
             Storage::disk('local')->delete($this->filePath);
-            $user->notify(new LocationImportExportCompleted('import', 'The uploaded location import file is empty or invalid.'));
-
             return;
         }
 
@@ -73,12 +70,10 @@ class ProcessLocationImport implements ShouldQueue
         }
 
         Storage::disk('local')->delete($this->filePath);
-        if ($errors !== []) {
-            $user->notify(new LocationImportExportCompleted('import', 'Import finished with ' . count($errors) . ' invalid row(s): ' . implode(' | ', array_slice($errors, 0, 5))));
-            return;
-        }
-
-        $user->notify(new LocationImportExportCompleted('import', 'Imported ' . $created . ' new location record(s) and updated ' . $updated . ' existing record(s).'));
+        $message = $errors === []
+            ? 'Imported ' . $created . ' new location record(s) and updated ' . $updated . ' existing record(s).'
+            : 'Import completed with errors: ' . implode(' | ', array_slice($errors, 0, 5));
+        $user->notify(new LocationImportExportCompleted('import', $message));
     }
 
     private function parseCsv(string $path): array

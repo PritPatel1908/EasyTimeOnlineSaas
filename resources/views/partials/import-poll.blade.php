@@ -8,23 +8,26 @@
          data-import-form="true"
          data-status-alert="#company-status-alert"   ← CSS selector of the status <div>
          data-modal="#import_company_modal"           ← CSS selector of the Bootstrap modal wrapper
-         data-url-match="companies"                   ← substring matched against notification url
+         data-url-match="/company-structure/companies" ← full path matched against notification url (use full path to avoid substring collisions e.g. "departments" vs "sub-departments")
          data-entity-label="Company"                  ← human-readable label shown in the alert
 
     2. @include('partials.import-poll') once anywhere inside @push('scripts').
 
     The partial wires itself to EVERY form that has data-import-form="true" on the page,
     so you can safely include it once even if there are multiple import forms.
+
+    URL MATCHING RULES
+    ──────────────────
+    • If data-url-match starts with "/" it is treated as an exact path and compared
+      against the pathname of the notification URL (e.g. "/company-structure/sub-departments"
+      matches only that exact path, never "/company-structure/departments").
+    • Otherwise it falls back to a plain substring search (legacy behaviour).
 --}}
 <script>
 (function () {
     'use strict';
 
     var POLL_URL      = '{{ url('/notifications/poll') }}';
-    var MARK_READ_URL = '{{ url('/notifications/mark-read') }}';
-    var CSRF_TOKEN    = document.querySelector('meta[name="csrf-token"]')
-                            ? document.querySelector('meta[name="csrf-token"]').content
-                            : '{{ csrf_token() }}';
     var POLL_MS     = 3000;   // poll every 3 s
     var MAX_RETRIES = 100;    // stop after ~5 min
 
@@ -91,20 +94,37 @@
         if (backdrop) backdrop.remove();
     }
 
-    function reloadTableBody() {
-        return fetch(window.location.href, { headers: { 'Accept': 'text/html' } })
-            .then(function (r) { return r.text(); })
-            .then(function (html) {
-                var doc    = new DOMParser().parseFromString(html, 'text/html');
-                var newTbody = doc.querySelector('table.datatable tbody');
-                var curTbody = document.querySelector('table.datatable tbody');
-                if (newTbody && curTbody) {
-                    curTbody.innerHTML = newTbody.innerHTML;
-                }
-            });
-    }
-
     /* ─────────────────────── polling engine ──────────────────────── */
+
+    /**
+     * Match a notification URL against the configured urlMatch value.
+     *
+     * If urlMatch starts with "/" it is treated as an exact pathname comparison
+     * (e.g. "/company-structure/sub-departments" will NOT match a notification
+     * whose url pathname is "/company-structure/departments").
+     *
+     * Otherwise a plain substring search is used (legacy behaviour).
+     */
+    function notificationUrlMatches(notificationUrl, urlMatch) {
+        if (!notificationUrl || !urlMatch) return false;
+        if (urlMatch.charAt(0) === '/') {
+            // Exact path comparison — parse the notification URL to extract only the pathname
+            try {
+                // Notification URLs may be relative paths like "/company-structure/sub-departments"
+                // Use a dummy base so the URL constructor can parse relative paths too
+                var parsed = new URL(notificationUrl, window.location.origin);
+                // Compare pathnames with trailing-slash tolerance
+                var notifPath = parsed.pathname.replace(/\/$/, '');
+                var matchPath = urlMatch.replace(/\/$/, '');
+                return notifPath === matchPath;
+            } catch (e) {
+                // If URL parsing fails fall back to substring check
+                return notificationUrl.toString().indexOf(urlMatch) !== -1;
+            }
+        }
+        // Legacy substring match
+        return notificationUrl.toString().indexOf(urlMatch) !== -1;
+    }
 
     function startPolling(urlMatch, alertEl, label) {
         var retries = 0;
@@ -119,29 +139,18 @@
 
                     var found = items.filter(function (item) {
                         return item.type === 'import'
-                            && item.url
-                            && item.url.toString().indexOf(urlMatch) !== -1;
+                            && notificationUrlMatches(item.url, urlMatch);
                     });
 
                     if (found.length > 0) {
                         clearInterval(interval);
-
-                        // Mark the detected notifications as read so they don't re-trigger
-                        var ids = found.map(function (item) { return item.id; });
-                        fetch(MARK_READ_URL, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Accept': 'application/json',
-                                'X-CSRF-TOKEN': CSRF_TOKEN,
-                            },
-                            body: JSON.stringify({ ids: ids }),
-                        }).catch(function () {}); // fire-and-forget
-
-                        reloadTableBody().then(function () {
-                            showAlert(alertEl, 'success',
-                                (label || 'Import') + ' completed. Table has been refreshed.');
-                        });
+                        var message = (found[0].message || (label || 'Import') + ' completed.')
+                            + ' Table has been refreshed.';
+                        sessionStorage.setItem('import-completed-message', JSON.stringify({
+                            path: window.location.pathname,
+                            message: message,
+                        }));
+                        window.location.reload();
                     }
                 })
                 .catch(function (err) {
@@ -221,5 +230,22 @@
     /* ──────────────────────── boot ────────────────────────────────── */
 
     document.querySelectorAll('form[data-import-form="true"]').forEach(wireForm);
+
+    var completedMessage = sessionStorage.getItem('import-completed-message');
+    if (completedMessage) {
+        try {
+            var completed = JSON.parse(completedMessage);
+            if (completed.path === window.location.pathname) {
+                sessionStorage.removeItem('import-completed-message');
+                var completedForm = document.querySelector('form[data-import-form="true"]');
+                var completedAlert = completedForm && completedForm.dataset.statusAlert
+                    ? document.querySelector(completedForm.dataset.statusAlert)
+                    : null;
+                showAlert(completedAlert, 'success', completed.message);
+            }
+        } catch (e) {
+            sessionStorage.removeItem('import-completed-message');
+        }
+    }
 })();
 </script>

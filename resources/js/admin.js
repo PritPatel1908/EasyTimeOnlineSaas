@@ -107,6 +107,7 @@ function refreshNotifications() {
 		.then((payload) => {
 			const count = Number(payload.count || 0);
 			const countNode = document.querySelector('[data-notification-count]');
+			const importPage = document.querySelector('form[data-import-form="true"]');
 			const currentPath = window.location.pathname.replace(/\/+$/, '') || '/';
 			const completedImport = (payload.items || []).find((item) => {
 				const notificationPath = new URL(item.url || '', window.location.origin).pathname.replace(/\/+$/, '') || '/';
@@ -115,7 +116,7 @@ function refreshNotifications() {
 					&& notificationPath === currentPath;
 			});
 
-			if (completedImport?.id) {
+			if (completedImport?.id && !importPage) {
 				const refreshKey = `import-refresh-${completedImport.id}`;
 
 				if (!sessionStorage.getItem(refreshKey)) {
@@ -224,4 +225,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	const refreshInterval = Number(panel.dataset.refreshInterval || 15000);
 	window.setInterval(refreshNotifications, refreshInterval);
+
+	window.addEventListener('pageshow', refreshNotifications);
+	document.addEventListener('visibilitychange', () => {
+		if (document.visibilityState === 'visible') {
+			refreshNotifications();
+		}
+	});
 });

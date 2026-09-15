@@ -20,7 +20,7 @@
 				data-import-form="true"
 				data-status-alert="#department-status-alert"
 				data-modal="#import_department_modal"
-				data-url-match="departments"
+				data-url-match="/company-structure/departments"
 				data-entity-label="Department">
 				@csrf
 				<div class="modal-body">

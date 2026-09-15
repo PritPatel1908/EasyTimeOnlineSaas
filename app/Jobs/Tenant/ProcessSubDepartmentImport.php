@@ -34,36 +34,38 @@ class ProcessSubDepartmentImport implements ShouldQueue
         $updated = 0;
         $errors = [];
         while (($values = fgetcsv($handle)) !== false) {
-            $row = array_combine($headers, array_pad($values, count($headers), ''));
-            if (! is_array($row) || trim((string) ($row['code'] ?? '')) === '') continue;
-            $subDepartment = SubDepartment::query()->where('code', trim((string) $row['code']))->first();
-            if ($subDepartment !== null && ! $this->updateDuplicateRecords) {
-                $errors[] = 'Duplicate code ' . $row['code'];
-                continue;
-            }
-            $payload = [
-                'name' => trim((string) ($row['name'] ?? '')),
-                'code' => trim((string) $row['code']),
-                'email' => trim((string) ($row['email'] ?? '')) ?: null,
-                'status' => strtolower(trim((string) ($row['status'] ?? 'active'))) === 'inactive' ? 0 : 1,
-                'department_id' => $this->resolveRelatedIds(Department::class, $row['department'] ?? ''),
-                'location_id' => $this->resolveRelatedIds(Location::class, $row['location'] ?? ''),
-            ];
-            if ($payload['name'] === '') {
-                $errors[] = 'Missing name for code ' . $row['code'];
-                continue;
-            }
-            if ($subDepartment !== null) {
-                $subDepartment->update($payload);
-                $updated++;
-            } else {
-                SubDepartment::create($payload);
-                $created++;
-            }
+                $row = array_combine($headers, array_pad(array_slice($values, 0, count($headers)), count($headers), ''));
+                if (! is_array($row) || trim((string) ($row['code'] ?? '')) === '') continue;
+                $subDepartment = SubDepartment::query()->where('code', trim((string) $row['code']))->first();
+                if ($subDepartment !== null && ! $this->updateDuplicateRecords) {
+                    $errors[] = 'Duplicate code ' . $row['code'];
+                    continue;
+                }
+                $payload = [
+                    'name' => trim((string) ($row['name'] ?? '')),
+                    'code' => trim((string) $row['code']),
+                    'email' => trim((string) ($row['email'] ?? '')) ?: null,
+                    'status' => strtolower(trim((string) ($row['status'] ?? 'active'))) === 'inactive' ? 0 : 1,
+                    'department_id' => $this->resolveRelatedIds(Department::class, $row['department'] ?? ''),
+                    'location_id' => $this->resolveRelatedIds(Location::class, $row['location'] ?? ''),
+                ];
+                if ($payload['name'] === '') {
+                    $errors[] = 'Missing name for code ' . $row['code'];
+                    continue;
+                }
+                if ($subDepartment !== null) {
+                    $subDepartment->update($payload);
+                    $updated++;
+                } else {
+                    SubDepartment::create($payload);
+                    $created++;
+                }
         }
         fclose($handle);
         Storage::disk('local')->delete($this->filePath);
-        $message = $errors === [] ? "Imported {$created} new sub department record(s) and updated {$updated} existing record(s)." : 'Import completed with errors: ' . implode('; ', array_slice($errors, 0, 5));
+        $message = $errors === []
+            ? "Imported {$created} new sub department record(s) and updated {$updated} existing record(s)."
+            : 'Import completed with errors: ' . implode('; ', array_slice($errors, 0, 5));
         $user->notify(new SubDepartmentImportExportCompleted('import', $message));
     }
 
