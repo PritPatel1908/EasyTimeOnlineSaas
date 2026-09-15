@@ -116,8 +116,9 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middleware('tenant.permission:Company,create')
                         ->name('companies.create');
                     Route::resource('companies', CompanyController::class)
-                        ->except(['create', 'show'])
+                        ->except(['create'])
                         ->middlewareFor('index', 'tenant.permission:Company,read')
+                        ->middlewareFor('show', 'tenant.permission:Company,read')
                         ->middlewareFor('store', 'tenant.permission:Company,create')
                         ->middlewareFor('edit', 'tenant.permission:Company,write')
                         ->middlewareFor('update', 'tenant.permission:Company,write')
@@ -136,8 +137,9 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                     Route::get('departments/create', [DepartmentController::class, 'create'])
                         ->middleware('tenant.permission:Department,create')->name('departments.create');
                     Route::resource('departments', DepartmentController::class)
-                        ->except(['create', 'show'])
+                        ->except(['create'])
                         ->middlewareFor('index', 'tenant.permission:Department,read')
+                        ->middlewareFor('show', 'tenant.permission:Department,read')
                         ->middlewareFor('store', 'tenant.permission:Department,create')
                         ->middlewareFor('edit', 'tenant.permission:Department,write')
                         ->middlewareFor('update', 'tenant.permission:Department,write')
@@ -161,8 +163,9 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middleware('tenant.permission:Location,create')
                         ->name('locations.create');
                     Route::resource('locations', LocationController::class)
-                        ->except(['create', 'show'])
+                        ->except(['create'])
                         ->middlewareFor('index', 'tenant.permission:Location,read')
+                        ->middlewareFor('show', 'tenant.permission:Location,read')
                         ->middlewareFor('store', 'tenant.permission:Location,create')
                         ->middlewareFor('edit', 'tenant.permission:Location,write')
                         ->middlewareFor('update', 'tenant.permission:Location,write')

@@ -7,6 +7,9 @@
         <td>{{ $location->latitude !== null && $location->longitude !== null ? $location->latitude . ', ' . $location->longitude : '—' }}</td>
         <td><span class="badge {{ $location->status === 1 ? 'badge-success' : 'badge-danger' }} d-inline-flex align-items-center badge-xs"><i class="ti ti-point-filled me-1"></i><span>{{ $location->status === 1 ? 'Active' : 'Inactive' }}</span></span></td>
         <td><div class="action-icon d-inline-flex">
+            @if (\App\Support\TenantPermissions::userCan('Location', 'read'))
+            <a href="{{ url('company-structure/locations/'.$location->id) }}" class="me-2" title="View"><i class="ti ti-eye"></i></a>
+            @endif
             @if (\App\Support\TenantPermissions::userCan('Location', 'write'))
             <a href="{{ url('company-structure/locations/'.$location->id.'/edit') }}" class="me-2" title="Edit"><i class="ti ti-edit"></i></a>
             @endif

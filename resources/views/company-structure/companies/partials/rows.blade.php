@@ -19,6 +19,11 @@
         </td>
         <td class="text-center">
             <div class="action-icon d-inline-flex">
+                @if (\App\Support\TenantPermissions::userCan('Company', 'read'))
+                <a href="{{ url('company-structure/companies/'.$company->id) }}" class="me-2" title="View">
+                    <i class="ti ti-eye"></i>
+                </a>
+                @endif
                 @if (\App\Support\TenantPermissions::userCan('Company', 'write'))
                 <a href="{{ url('company-structure/companies/'.$company->id.'/edit') }}"
                     class="me-2" title="Edit">

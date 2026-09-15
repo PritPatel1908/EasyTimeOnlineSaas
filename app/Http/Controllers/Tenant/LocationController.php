@@ -9,6 +9,8 @@ use App\Http\Requests\Tenant\StoreLocationRequest;
 use App\Http\Requests\Tenant\UpdateLocationRequest;
 use App\Jobs\Tenant\GenerateLocationExport;
 use App\Jobs\Tenant\ProcessLocationImport;
+use App\Models\Tenant\Company;
+use App\Models\Tenant\Department;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\User;
 use Illuminate\Contracts\View\View;
@@ -25,6 +27,39 @@ class LocationController extends Controller
     public function index(): View
     {
         return view('company-structure.locations.index', ['locations' => Location::query()->latest('id')->paginate(15)->withQueryString()]);
+    }
+
+    public function show(Request $request): View
+    {
+        $location = Location::query()->findOrFail($request->route('location'));
+        $locationId = (int) $location->getKey();
+
+        return view('company-structure.locations.show', [
+            'location' => $location,
+            'companies' => Company::query()
+                ->orderBy('name')
+                ->get()
+                ->filter(fn (Company $company): bool => $this->containsId($company->getRawOriginal('location_id'), $locationId))
+                ->values(),
+            'departments' => Department::query()
+                ->orderBy('name')
+                ->get()
+                ->filter(fn (Department $department): bool => $this->containsId($department->getRawOriginal('location_id'), $locationId))
+                ->values(),
+        ]);
+    }
+
+    private function containsId(mixed $value, int $id): bool
+    {
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $value = $decoded;
+            }
+        }
+
+        return in_array((string) $id, array_map('strval', (array) $value), true);
     }
 
     public function filterStatus(Request $request): JsonResponse

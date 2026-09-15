@@ -33,6 +33,13 @@ class DepartmentController extends Controller
         ]);
     }
 
+    public function show(Request $request): View
+    {
+        return view('company-structure.departments.show', [
+            'department' => Department::query()->findOrFail($request->route('department')),
+        ]);
+    }
+
     public function filterStatus(Request $request): JsonResponse
     {
         $validated = $request->validate([

@@ -41,6 +41,13 @@ class CompanyController extends Controller
         ]);
     }
 
+    public function show(Request $request): View
+    {
+        return view('company-structure.companies.show', [
+            'company' => Company::query()->findOrFail($request->route('company')),
+        ]);
+    }
+
     public function filterStatus(Request $request): JsonResponse
     {
         $validated = $request->validate([
