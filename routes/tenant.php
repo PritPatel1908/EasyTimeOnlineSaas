@@ -62,6 +62,7 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
 
                 Route::get('/dashboard', [DashboardController::class, 'index'])->name('tenant.dashboard');
                 Route::get('/notifications/poll', [\App\Http\Controllers\Central\AdminNotificationController::class, 'poll'])->name('tenant.notifications.poll');
+                Route::post('/notifications/mark-read', [\App\Http\Controllers\Central\AdminNotificationController::class, 'markRead'])->name('tenant.notifications.mark-read');
                 Route::get('/notifications', [NotificationController::class, 'index'])->name('tenant.notifications.index');
                 Route::get('/notifications/{notification}', [NotificationController::class, 'show'])->name('tenant.notifications.show');
                 Route::get('data-policy', [DataPolicyController::class, 'index'])

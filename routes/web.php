@@ -28,6 +28,7 @@ $adminRoutes = function (): void {
     Route::middleware('auth')->group(function (): void {
         Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('admin.dashboard');
         Route::get('/notifications/poll', [AdminNotificationController::class, 'poll'])->name('admin.notifications.poll');
+        Route::post('/notifications/mark-read', [AdminNotificationController::class, 'markRead'])->name('admin.notifications.mark-read');
         Route::post('/tenants/pagination', [AdminTenantController::class, 'pagination'])->name('admin.tenants.pagination');
         Route::post('/tenants/{tenant}/database-action', [AdminTenantController::class, 'databaseAction'])->name('admin.tenants.database-action');
         Route::post('/tenants/{tenant}/migrate', [AdminTenantController::class, 'migrate'])->name('admin.tenants.migrate');

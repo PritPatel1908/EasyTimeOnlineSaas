@@ -165,7 +165,12 @@
                 <h5 class="modal-title">Import Companies</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form method="POST" action="{{ url('company-structure/companies/import') }}" enctype="multipart/form-data">
+            <form method="POST" action="{{ url('company-structure/companies/import') }}" enctype="multipart/form-data"
+                data-import-form="true"
+                data-status-alert="#company-status-alert"
+                data-modal="#import_company_modal"
+                data-url-match="companies"
+                data-entity-label="Company">
                 @csrf
                 <div class="modal-body">
                     <div class="mb-3">
@@ -196,69 +201,8 @@
 {{-- /Import Company Modal --}}
 
 @push('scripts')
+@include('partials.import-poll')
 <script>
-    function showStatusAlert(alert, type, message) {
-        alert.className = 'alert alert-' + type + ' alert-dismissible d-flex align-items-center';
-        alert.querySelector('.alert-icon').className = type === 'success'
-            ? 'ti ti-circle-check me-2 alert-icon'
-            : 'ti ti-alert-circle me-2 alert-icon';
-        alert.querySelector('.alert-message').textContent = message;
-        alert.classList.remove('d-none');
-    }
-
-    function startAutoDismissAlert(alert) {
-        if (alert.autoDismissTimer) {
-            window.clearTimeout(alert.autoDismissTimer);
-        }
-
-        var remaining = 5000;
-        var timer;
-        var startedAt;
-
-        function dismiss() {
-            if (alert.id === 'company-status-alert') {
-                alert.classList.add('d-none');
-            } else {
-                alert.remove();
-            }
-        }
-
-        function startTimer() {
-            startedAt = Date.now();
-            timer = window.setTimeout(dismiss, remaining);
-            alert.autoDismissTimer = timer;
-        }
-
-        alert.addEventListener('mouseenter', function () {
-            if (timer) {
-                window.clearTimeout(timer);
-                remaining = Math.max(0, remaining - (Date.now() - startedAt));
-                timer = null;
-            }
-        });
-
-        alert.addEventListener('mouseleave', function () {
-            if (!timer && remaining > 0) {
-                startTimer();
-            }
-        });
-
-        startTimer();
-    }
-
-    document.querySelector('#company-status-alert .btn-close').addEventListener('click', function () {
-        var alert = this.closest('.alert');
-
-        if (alert.autoDismissTimer) {
-            window.clearTimeout(alert.autoDismissTimer);
-            alert.autoDismissTimer = null;
-        }
-
-        alert.classList.add('d-none');
-    });
-
-    document.querySelectorAll('.auto-dismiss-alert').forEach(startAutoDismissAlert);
-
     // Wire up the delete modal with the correct company id and name (delegated so it works after dynamic table updates)
     document.addEventListener('click', function (event) {
         var btn = event.target.closest('.delete-company-btn');
@@ -338,18 +282,24 @@
                     pages.innerHTML = '';
                 }
 
-                showStatusAlert(alert, 'success', 'Company status filter applied successfully.');
-                startAutoDismissAlert(alert);
+                // Reuse the shared alert helper exposed by import-poll partial
+                if (typeof window.importPollShowAlert === 'function') {
+                    window.importPollShowAlert(alert, 'success', 'Company status filter applied successfully.');
+                } else {
+                    alert.className = 'alert alert-success alert-dismissible d-flex align-items-center';
+                    alert.querySelector('.alert-message').textContent = 'Company status filter applied successfully.';
+                    alert.classList.remove('d-none');
+                }
             })
             .catch(function (error) {
-                showStatusAlert(alert, 'danger', error.message);
-                startAutoDismissAlert(alert);
+                if (typeof window.importPollShowAlert === 'function') {
+                    window.importPollShowAlert(alert, 'danger', error.message);
+                }
             })
             .finally(function () {
                 filterButton.disabled = false;
             });
     }, true);
-
 </script>
 @endpush
 

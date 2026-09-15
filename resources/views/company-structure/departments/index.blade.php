@@ -16,7 +16,12 @@
 				<h5 class="modal-title">Import Departments</h5>
 				<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 			</div>
-			<form id="import_department_form" method="POST" action="{{ url('company-structure/departments/import') }}" enctype="multipart/form-data">
+			<form id="import_department_form" method="POST" action="{{ url('company-structure/departments/import') }}" enctype="multipart/form-data"
+				data-import-form="true"
+				data-status-alert="#department-status-alert"
+				data-modal="#import_department_modal"
+				data-url-match="departments"
+				data-entity-label="Department">
 				@csrf
 				<div class="modal-body">
 					<div class="mb-3">
@@ -45,202 +50,8 @@
 </div>
 @endif
 @push('scripts')
+@include('partials.import-poll')
 <script>
-    function showDepartmentStatusAlert(alert, type, message) {
-        alert.className = 'alert alert-' + type + ' alert-dismissible d-flex align-items-center';
-        alert.querySelector('.alert-icon').className = type === 'success'
-            ? 'ti ti-circle-check me-2 alert-icon'
-            : 'ti ti-alert-circle me-2 alert-icon';
-        alert.querySelector('.alert-message').textContent = message;
-        alert.classList.remove('d-none');
-    }
-
-    function startDepartmentAutoDismissAlert(alert) {
-        if (alert.autoDismissTimer) {
-            window.clearTimeout(alert.autoDismissTimer);
-        }
-
-        var remaining = 5000;
-        var timer;
-        var startedAt;
-
-        function dismiss() {
-            if (alert.id === 'department-status-alert') {
-                alert.classList.add('d-none');
-            } else {
-                alert.remove();
-            }
-        }
-
-        function startTimer() {
-            startedAt = Date.now();
-            timer = window.setTimeout(dismiss, remaining);
-            alert.autoDismissTimer = timer;
-        }
-
-        alert.addEventListener('mouseenter', function () {
-            if (timer) {
-                window.clearTimeout(timer);
-                remaining = Math.max(0, remaining - (Date.now() - startedAt));
-                timer = null;
-            }
-        });
-
-        alert.addEventListener('mouseleave', function () {
-            if (!timer && remaining > 0) {
-                startTimer();
-            }
-        });
-
-        startTimer();
-    }
-
-    function refreshDepartmentTable() {
-        var status = 'all';
-        fetch('{{ url('company-structure/departments/filter') }}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-            },
-            body: JSON.stringify({ status: status })
-        })
-            .then(function (response) {
-                return response.json().then(function (data) {
-                    if (!response.ok) {
-                        throw new Error(data.message || 'Unable to refresh departments.');
-                    }
-                    return data;
-                });
-            })
-            .then(function (data) {
-                var table = document.querySelector('table.datatable');
-                var sourceBody = table.querySelector('tbody');
-                sourceBody.innerHTML = data.html;
-            })
-            .catch(function (error) {
-                console.error('Error refreshing department table:', error);
-            });
-    }
-
-    // Close alert button
-    document.querySelector('#department-status-alert .btn-close').addEventListener('click', function () {
-        var alert = this.closest('.alert');
-        if (alert.autoDismissTimer) {
-            window.clearTimeout(alert.autoDismissTimer);
-            alert.autoDismissTimer = null;
-        }
-        alert.classList.add('d-none');
-    });
-
-    // Handle import form submission via AJAX
-    document.getElementById('import_department_form').addEventListener('submit', function (e) {
-        e.preventDefault();
-
-        var form = this;
-        var formData = new FormData(form);
-        var alert = document.getElementById('department-status-alert');
-        var submitBtn = form.querySelector('button[type="submit"]');
-        var originalBtnText = submitBtn.innerHTML;
-        var modalElement = document.querySelector('#import_department_modal');
-        var bootstrapModal = null;
-
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="ti ti-loader-2 me-1 animate-spin"></i>Importing...';
-
-        fetch(form.action, {
-            method: 'POST',
-            body: formData
-        })
-            .then(function (response) {
-                if (response.ok || response.status === 302) {
-                    showDepartmentStatusAlert(alert, 'success', 'Department import has started. Table will refresh automatically...');
-                    startDepartmentAutoDismissAlert(alert);
-
-                    // Reset form
-                    form.reset();
-
-                    // Close modal using Bootstrap API
-                    try {
-                        bootstrapModal = bootstrap.Modal.getInstance(modalElement);
-                        if (bootstrapModal) {
-                            bootstrapModal.hide();
-                        }
-                    } catch (err) {
-                        console.log('Modal close error:', err);
-                        // Fallback manual close
-                        modalElement.classList.remove('show');
-                        document.body.classList.remove('modal-open');
-                        var backdrop = document.querySelector('.modal-backdrop');
-                        if (backdrop) backdrop.remove();
-                    }
-
-                    // Start polling for table refresh via notification system
-                    var retryCount = 0;
-                    var maxRetries = 120;
-
-                    var refreshInterval = setInterval(function () {
-                        retryCount++;
-
-                        // Poll for notifications
-                        fetch('{{ url('/notifications/poll') }}', {
-                            method: 'GET',
-                            headers: { 'Accept': 'application/json' }
-                        })
-                            .then(r => r.json())
-                            .then(data => {
-                                // Check if there's a department import notification
-                                if (data && data.notifications && Array.isArray(data.notifications)) {
-                                    var hasImportNotification = data.notifications.some(function(notif) {
-                                        return notif.data && notif.data.type === 'import' &&
-                                               notif.data.url && notif.data.url.includes('departments');
-                                    });
-
-                                    if (hasImportNotification) {
-                                        // Refresh the page to show updated data
-                                        fetch(window.location.href, {
-                                            method: 'GET',
-                                            headers: { 'Accept': 'text/html' }
-                                        })
-                                            .then(r => r.text())
-                                            .then(html => {
-                                                var parser = new DOMParser();
-                                                var doc = parser.parseFromString(html, 'text/html');
-                                                var newTable = doc.querySelector('table.datatable tbody');
-
-                                                if (newTable) {
-                                                    document.querySelector('table.datatable tbody').innerHTML = newTable.innerHTML;
-                                                    console.log('Table refreshed successfully');
-                                                    clearInterval(refreshInterval);
-                                                }
-                                            });
-                                    }
-                                }
-                            })
-                            .catch(err => console.error('Poll error:', err));
-
-                        if (retryCount >= maxRetries) {
-                            clearInterval(refreshInterval);
-                        }
-                    }, 2000);
-
-                } else {
-                    return response.json().then(data => {
-                        throw new Error(data.message || 'Import failed. Please try again.');
-                    });
-                }
-            })
-            .catch(function (error) {
-                showDepartmentStatusAlert(alert, 'danger', error.message);
-                startDepartmentAutoDismissAlert(alert);
-            })
-            .finally(function () {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = originalBtnText;
-            });
-    });
-
     // Delete modal handling
     document.addEventListener('click', function(e) {
         var b = e.target.closest('.delete-department-btn');

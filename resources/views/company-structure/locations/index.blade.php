@@ -54,71 +54,10 @@
     </div>
 </div>@include('partials.footer')</div>
 <div class="modal fade" id="delete_location_modal"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-body text-center"><span class="avatar avatar-xl bg-transparent-danger text-danger mb-3"><i class="ti ti-trash-x fs-36"></i></span><h4 class="mb-1">Confirm Delete</h4><p class="mb-3 text-muted" id="delete_location_message">Are you sure you want to delete this location?</p><form id="delete_location_form" method="POST">@csrf @method('DELETE')<button type="button" class="btn btn-light me-3" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-danger"><i class="ti ti-trash me-1"></i>Yes, Delete</button></form></div></div></div></div>
-@if ($canImportLocation)<div class="modal fade" id="import_location_modal"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Import Locations</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><form method="POST" action="{{ url('company-structure/locations/import') }}" enctype="multipart/form-data">@csrf<div class="modal-body"><label for="location_import_file" class="form-label">CSV File</label><input id="location_import_file" name="file" type="file" class="form-control" accept=".csv,.txt" required><a href="{{ url('company-structure/locations/import/sample') }}" class="d-inline-flex align-items-center mt-2"><i class="ti ti-download me-1"></i>Download Sample CSV</a><div class="form-check mt-3"><input class="form-check-input" type="checkbox" name="update_duplicate_records" id="update_location_duplicates" value="1"><label class="form-check-label" for="update_location_duplicates">Update Duplicate Records</label></div></div><div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary"><i class="ti ti-file-import me-1"></i>Import</button></div></form></div></div></div>@endif
+@if ($canImportLocation)<div class="modal fade" id="import_location_modal"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Import Locations</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><form method="POST" action="{{ url('company-structure/locations/import') }}" enctype="multipart/form-data" data-import-form="true" data-status-alert="#location-status-alert" data-modal="#import_location_modal" data-url-match="locations" data-entity-label="Location">@csrf<div class="modal-body"><label for="location_import_file" class="form-label">CSV File</label><input id="location_import_file" name="file" type="file" class="form-control" accept=".csv,.txt" required><a href="{{ url('company-structure/locations/import/sample') }}" class="d-inline-flex align-items-center mt-2"><i class="ti ti-download me-1"></i>Download Sample CSV</a><div class="form-check mt-3"><input class="form-check-input" type="checkbox" name="update_duplicate_records" id="update_location_duplicates" value="1"><label class="form-check-label" for="update_location_duplicates">Update Duplicate Records</label></div></div><div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary"><i class="ti ti-file-import me-1"></i>Import</button></div></form></div></div></div>@endif
 @push('scripts')
+@include('partials.import-poll')
 <script>
-    function showLocationStatusAlert(alert, type, message) {
-        alert.className = 'alert alert-' + type + ' alert-dismissible d-flex align-items-center';
-        alert.querySelector('.alert-icon').className = type === 'success'
-            ? 'ti ti-circle-check me-2 alert-icon'
-            : 'ti ti-alert-circle me-2 alert-icon';
-        alert.querySelector('.alert-message').textContent = message;
-        alert.classList.remove('d-none');
-    }
-
-    function startLocationAutoDismissAlert(alert) {
-        if (alert.autoDismissTimer) {
-            window.clearTimeout(alert.autoDismissTimer);
-        }
-
-        var remaining = 5000;
-        var timer;
-        var startedAt;
-
-        function dismiss() {
-            if (alert.id === 'location-status-alert') {
-                alert.classList.add('d-none');
-            } else {
-                alert.remove();
-            }
-        }
-
-        function startTimer() {
-            startedAt = Date.now();
-            timer = window.setTimeout(dismiss, remaining);
-            alert.autoDismissTimer = timer;
-        }
-
-        alert.addEventListener('mouseenter', function () {
-            if (timer) {
-                window.clearTimeout(timer);
-                remaining = Math.max(0, remaining - (Date.now() - startedAt));
-                timer = null;
-            }
-        });
-
-        alert.addEventListener('mouseleave', function () {
-            if (!timer && remaining > 0) {
-                startTimer();
-            }
-        });
-
-        startTimer();
-    }
-
-    document.querySelector('#location-status-alert .btn-close').addEventListener('click', function () {
-        var alert = this.closest('.alert');
-
-        if (alert.autoDismissTimer) {
-            window.clearTimeout(alert.autoDismissTimer);
-            alert.autoDismissTimer = null;
-        }
-
-        alert.classList.add('d-none');
-    });
-
-    document.querySelectorAll('.auto-dismiss-alert').forEach(startLocationAutoDismissAlert);
-
     document.addEventListener('click', function (event) {
         var button = event.target.closest('.delete-location-btn');
 
@@ -193,12 +132,14 @@
                     pages.innerHTML = '';
                 }
 
-                showLocationStatusAlert(alert, 'success', 'Location status filter applied successfully.');
-                startLocationAutoDismissAlert(alert);
+                if (typeof window.importPollShowAlert === 'function') {
+                    window.importPollShowAlert(alert, 'success', 'Location status filter applied successfully.');
+                }
             })
             .catch(function (error) {
-                showLocationStatusAlert(alert, 'danger', error.message);
-                startLocationAutoDismissAlert(alert);
+                if (typeof window.importPollShowAlert === 'function') {
+                    window.importPollShowAlert(alert, 'danger', error.message);
+                }
             })
             .finally(function () {
                 filterButton.disabled = false;
