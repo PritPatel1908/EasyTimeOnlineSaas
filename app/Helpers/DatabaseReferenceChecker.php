@@ -11,7 +11,7 @@ use Illuminate\Support\Str;
 class DatabaseReferenceChecker
 {
     /**
-     * @param array<int, string>|null $referenceColumns
+     * @param  array<int, string>|null  $referenceColumns
      * @return array{table: string, column: string}|null
      */
     public static function findReferences(
@@ -21,12 +21,7 @@ class DatabaseReferenceChecker
         ?string $connectionName = null,
     ): ?array {
         $connection = DB::connection($connectionName);
-        $schema     = $connection->getSchemaBuilder();
-        $targetColumns = array_map(
-            'strtolower',
-            $referenceColumns ?? [Str::singular($referencedTable).'_id'],
-        );
-
+        $schema = $connection->getSchemaBuilder();
         foreach ($schema->getTables() as $tableDefinition) {
             $table = self::metadataName($tableDefinition);
 
@@ -36,6 +31,13 @@ class DatabaseReferenceChecker
             ) {
                 continue;
             }
+
+            $targetColumns = self::referenceColumnsForTable(
+                $schema,
+                $table,
+                $referencedTable,
+                $referenceColumns,
+            );
 
             foreach ($schema->getColumns($table) as $columnDefinition) {
                 $column = self::metadataName($columnDefinition);
@@ -67,12 +69,7 @@ class DatabaseReferenceChecker
         ?string $connectionName = null,
     ): array {
         $connection = DB::connection($connectionName);
-        $schema     = $connection->getSchemaBuilder();
-        $targetColumns = array_map(
-            'strtolower',
-            $referenceColumns ?? [Str::singular($referencedTable).'_id'],
-        );
-
+        $schema = $connection->getSchemaBuilder();
         $found = [];
 
         foreach ($schema->getTables() as $tableDefinition) {
@@ -84,6 +81,13 @@ class DatabaseReferenceChecker
             ) {
                 continue;
             }
+
+            $targetColumns = self::referenceColumnsForTable(
+                $schema,
+                $table,
+                $referencedTable,
+                $referenceColumns,
+            );
 
             foreach ($schema->getColumns($table) as $columnDefinition) {
                 $column = self::metadataName($columnDefinition);
@@ -104,7 +108,7 @@ class DatabaseReferenceChecker
     }
 
     /**
-     * @param array<int, string>|null $referenceColumns
+     * @param  array<int, string>|null  $referenceColumns
      */
     public static function hasReferences(
         string $referencedTable,
@@ -122,8 +126,8 @@ class DatabaseReferenceChecker
         int|string $referencedId,
     ): bool {
         $driver = $connection->getPdo()->getAttribute(\PDO::ATTR_DRIVER_NAME);
-        $id     = (string) $referencedId;
-        $query  = $connection->table($table);
+        $id = (string) $referencedId;
+        $query = $connection->table($table);
         $wrapped = $query->getGrammar()->wrap($column);
 
         if ($driver === 'sqlsrv') {
@@ -159,7 +163,7 @@ class DatabaseReferenceChecker
              * SQLite has no JSON_CONTAINS. Column may hold plain integer or JSON text.
              * Use a simple equality check plus LIKE-based JSON array search.
              */
-            return $query->where(function ($q) use ($column, $wrapped, $id, $connection): void {
+            return $query->where(function ($q) use ($column, $wrapped, $id): void {
                 // Plain integer / string match
                 $q->where($column, $id);
 
@@ -177,6 +181,34 @@ class DatabaseReferenceChecker
             $q->orWhereJsonContains($column, (int) $id);
             $q->orWhereJsonContains($column, $id); // string variant
         })->exists();
+    }
+
+    /**
+     * Includes declared foreign-key columns as well as the convention-based
+     * and explicitly configured columns used for JSON references.
+     *
+     * @param  array<int, string>|null  $referenceColumns
+     * @return array<int, string>
+     */
+    private static function referenceColumnsForTable(
+        mixed $schema,
+        string $table,
+        string $referencedTable,
+        ?array $referenceColumns,
+    ): array {
+        $columns = $referenceColumns ?? [Str::singular($referencedTable).'_id'];
+
+        foreach ($schema->getForeignKeys($table) as $foreignKey) {
+            if (strcasecmp((string) ($foreignKey['foreign_table'] ?? ''), $referencedTable) !== 0) {
+                continue;
+            }
+
+            foreach ($foreignKey['columns'] ?? [] as $column) {
+                $columns[] = $column;
+            }
+        }
+
+        return array_values(array_unique(array_map('strtolower', $columns)));
     }
 
     private static function metadataName(mixed $definition): ?string

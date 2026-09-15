@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Traits;
 
 use App\Helpers\DatabaseReferenceChecker;
+use Illuminate\Support\Str;
 
 /**
  * Trait HasRelatedRecords
@@ -84,10 +85,10 @@ trait HasRelatedRecords
     public function hasRelatedRecords(): bool
     {
         return DatabaseReferenceChecker::hasReferences(
-            referencedTable:    $this->getTable(),
-            referencedId:       $this->getKey(),
-            referenceColumns:   $this->resolvedReferenceColumns(),
-            connectionName:     $this->referenceConnectionName,
+            referencedTable: $this->getTable(),
+            referencedId: $this->getKey(),
+            referenceColumns: $this->resolvedReferenceColumns(),
+            connectionName: $this->referenceConnectionName,
         );
     }
 
@@ -101,10 +102,10 @@ trait HasRelatedRecords
     public function findRelatedRecord(): ?array
     {
         return DatabaseReferenceChecker::findReferences(
-            referencedTable:    $this->getTable(),
-            referencedId:       $this->getKey(),
-            referenceColumns:   $this->resolvedReferenceColumns(),
-            connectionName:     $this->referenceConnectionName,
+            referencedTable: $this->getTable(),
+            referencedId: $this->getKey(),
+            referenceColumns: $this->resolvedReferenceColumns(),
+            connectionName: $this->referenceConnectionName,
         );
     }
 
@@ -116,10 +117,10 @@ trait HasRelatedRecords
     public function findAllRelatedRecords(): array
     {
         return DatabaseReferenceChecker::findAllReferences(
-            referencedTable:    $this->getTable(),
-            referencedId:       $this->getKey(),
-            referenceColumns:   $this->resolvedReferenceColumns(),
-            connectionName:     $this->referenceConnectionName,
+            referencedTable: $this->getTable(),
+            referencedId: $this->getKey(),
+            referenceColumns: $this->resolvedReferenceColumns(),
+            connectionName: $this->referenceConnectionName,
         );
     }
 
@@ -132,17 +133,15 @@ trait HasRelatedRecords
      */
     public function getRelatedRecordsMessage(?string $label = null): string
     {
-        $references = $this->findAllRelatedRecords();
+        $reference = $this->findRelatedRecord();
 
-        if (empty($references)) {
+        if ($reference === null) {
             return '';
         }
 
         $label = $label ?? ucfirst(str_replace('_', ' ', $this->getTable()));
 
-        $tableList = implode(', ', array_unique(array_column($references, 'table')));
-
-        return "This {$label} cannot be deleted because it is still referenced in: {$tableList}.";
+        return "This {$label} cannot be deleted because it is still in use.";
     }
 
     /**
@@ -160,6 +159,6 @@ trait HasRelatedRecords
         }
 
         // Auto-derive: "departments" → "department_id"
-        return [\Illuminate\Support\Str::singular($this->getTable()) . '_id'];
+        return [Str::singular($this->getTable()).'_id'];
     }
 }

@@ -31,15 +31,19 @@ class LocationController extends Controller
     {
         $status = $request->validate(['status' => ['nullable', 'in:all,1,0']])['status'] ?? 'all';
         $query = Location::query()->latest('id');
-        if ($status !== 'all') $query->where('status', (int) $status);
+        if ($status !== 'all') {
+            $query->where('status', (int) $status);
+        }
         $locations = $query->get();
+
         return response()->json(['html' => view('company-structure.locations.partials.rows', compact('locations'))->render(), 'count' => $locations->count()]);
     }
 
     public function export(): RedirectResponse
     {
-        $fileName = 'locations_' . now()->format('Ymd_His') . '.csv';
+        $fileName = 'locations_'.now()->format('Ymd_His').'.csv';
         GenerateLocationExport::dispatch(Auth::guard('tenant')->id(), $fileName)->onConnection('database_tenant')->onQueue('tenant');
+
         return redirect(url('company-structure/locations'))->with('success', 'Location export has started. You will receive a notification when the export is ready.');
     }
 
@@ -58,7 +62,7 @@ class LocationController extends Controller
     {
         $fileName = basename($file ?? $tenant);
         abort_unless(preg_match('/\Alocations_\d{8}_\d{6}\.csv\z/', $fileName) === 1, 404);
-        $path = 'location-exports/' . $fileName;
+        $path = 'location-exports/'.$fileName;
 
         if (! Storage::disk('local')->exists($path)) {
             (new GenerateLocationExport(Auth::guard('tenant')->id(), $fileName))->handle();
@@ -76,8 +80,9 @@ class LocationController extends Controller
 
         $validated = $request->validate(['file' => ['required', 'file', 'mimes:csv,txt', 'max:2048'], 'update_duplicate_records' => ['nullable', 'boolean']]);
         $file = $request->file('file');
-        $storedPath = $file->storeAs('location-imports', 'location_import_' . now()->format('Ymd_His') . '_' . uniqid() . '.' . $file->getClientOriginalExtension());
+        $storedPath = $file->storeAs('location-imports', 'location_import_'.now()->format('Ymd_His').'_'.uniqid().'.'.$file->getClientOriginalExtension());
         ProcessLocationImport::dispatch(Auth::guard('tenant')->id(), $storedPath, (bool) ($validated['update_duplicate_records'] ?? false))->onConnection('database_tenant')->onQueue('tenant');
+
         return redirect(url('company-structure/locations'))->with('success', 'Location import has started. You will receive a notification when the import finishes.');
     }
 
@@ -89,6 +94,7 @@ class LocationController extends Controller
     public function store(StoreLocationRequest $request): RedirectResponse
     {
         Location::query()->create($request->validated());
+
         return redirect(url('company-structure/locations'))->with('success', 'Location created successfully.');
     }
 
@@ -100,14 +106,15 @@ class LocationController extends Controller
     public function update(UpdateLocationRequest $request): RedirectResponse
     {
         Location::query()->findOrFail($request->route('location'))->update($request->validated());
+
         return redirect(url('company-structure/locations'))->with('success', 'Location updated successfully.');
     }
 
     public function destroy(Request $request): RedirectResponse
     {
         $location = Location::query()->findOrFail($request->route('location'));
-        if ($location->hasRelatedRecords()) return redirect(url('company-structure/locations'))->with('error', $location->getRelatedRecordsMessage('Location'));
         $location->delete();
+
         return redirect(url('company-structure/locations'))->with('success', 'Location deleted successfully.');
     }
 }
