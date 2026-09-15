@@ -30,7 +30,6 @@ class DepartmentController extends Controller
         return view('company-structure.departments.index', [
             'departments' => Department::query()->latest('id')->paginate(15)->withQueryString(),
             'companies' => Company::query()->where('status', 1)->orderBy('name')->get(),
-            'locations' => Location::query()->where('status', 1)->orderBy('name')->get(),
         ]);
     }
 
@@ -38,28 +37,14 @@ class DepartmentController extends Controller
     {
         $validated = $request->validate([
             'status' => ['nullable', 'in:all,1,0'],
-            'location_id' => ['nullable', 'integer'],
         ]);
 
         $status = $validated['status'] ?? 'all';
-        $locationId = $validated['location_id'] ?? null;
 
         $query = Department::query()->latest('id');
 
         if ($status !== 'all') {
             $query->where('status', (int) $status);
-        }
-
-        if ($locationId !== null) {
-            // location_id is stored as JSON array, so we search for the location ID within it
-            $query->where(function ($q) use ($locationId) {
-                $q->orWhere(function ($subquery) use ($locationId) {
-                    $subquery->whereRaw('CHARINDEX(?, location_id) > 0', ['["' . $locationId . '"]']);
-                })
-                    ->orWhere(function ($subquery) use ($locationId) {
-                        $subquery->whereRaw('TRY_CAST(location_id AS INT) = ?', [$locationId]);
-                    });
-            });
         }
 
         $departments = $query->get();
