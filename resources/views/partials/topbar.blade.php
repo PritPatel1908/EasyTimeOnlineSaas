@@ -1660,7 +1660,7 @@
                                     @forelse ($adminNotifications as $notification)
                                         <li class="border-bottom mb-3 pb-3">
                                             <div class="d-flex">
-                                                <a href="{{ request()->routeIs('tenant.*') ? url('/notifications/' . $notification->id) : data_get($notification->data, 'url', '#') }}" class="flex-grow-1">
+                                                <a href="{{ data_get($notification->data, 'url', url('/notifications/' . $notification->id)) }}" class="flex-grow-1">
                                                     <div class="d-flex">
                                                         <span class="avatar avatar-lg me-2 flex-shrink-0">
                                                             <img src="{{URL::asset('build/img/profiles/avatar-01.jpg')}}"

@@ -36,9 +36,31 @@ class DepartmentController extends Controller
 
     public function filterStatus(Request $request): JsonResponse
     {
-        $status = $request->validate(['status' => ['nullable', 'in:all,1,0']])['status'] ?? 'all';
+        $validated = $request->validate([
+            'status' => ['nullable', 'in:all,1,0'],
+            'location_id' => ['nullable', 'integer'],
+        ]);
+
+        $status = $validated['status'] ?? 'all';
+        $locationId = $validated['location_id'] ?? null;
+
         $query = Department::query()->latest('id');
-        if ($status !== 'all') $query->where('status', (int) $status);
+
+        if ($status !== 'all') {
+            $query->where('status', (int) $status);
+        }
+
+        if ($locationId !== null) {
+            // location_id is stored as JSON array, so we search for the location ID within it
+            $query->where(function ($q) use ($locationId) {
+                $q->orWhere(function ($subquery) use ($locationId) {
+                    $subquery->whereRaw('CHARINDEX(?, location_id) > 0', ['["' . $locationId . '"]']);
+                })
+                    ->orWhere(function ($subquery) use ($locationId) {
+                        $subquery->whereRaw('TRY_CAST(location_id AS INT) = ?', [$locationId]);
+                    });
+            });
+        }
 
         $departments = $query->get();
         return response()->json([

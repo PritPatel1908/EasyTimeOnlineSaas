@@ -15,6 +15,9 @@
                 </nav>
             </div>
             <div class="d-flex align-items-center gap-2 mb-2">
+                @if (data_get($data, 'url') && data_get($data, 'url') !== '#')
+                    <a href="{{ data_get($data, 'url') }}" class="btn btn-primary"><i class="ti ti-external-link me-2"></i>Go to Page</a>
+                @endif
                 @if (data_get($data, 'download_url'))
                     <a href="{{ data_get($data, 'download_url') }}" class="btn btn-primary"><i class="ti ti-download me-2"></i>Download</a>
                 @endif

@@ -62,13 +62,17 @@ function renderNotificationList(items) {
 	const rows = items.map((item) => {
 		const title = item.title || 'Notification';
 		const message = item.message || '';
-		const url = item.detail_url || item.url || '#';
+		const url = item.url && item.url !== '#' ? item.url : (item.detail_url || '#');
+		const detailUrl = item.detail_url || '';
 		const downloadUrl = item.download_url || '';
 		const downloadButton = downloadUrl
 			? `<a href="${downloadUrl}" class="btn btn-sm btn-primary mt-2">Download</a>`
 			: '';
+		const detailButton = detailUrl && detailUrl !== url
+			? `<a href="${detailUrl}" class="btn btn-sm btn-light mt-2 ms-1">Details</a>`
+			: '';
 
-		return `<li><div class="dropdown-item px-2 py-2"><a href="${url}" class="d-block"><strong>${title}</strong><br><span class="text-muted">${message}</span></a>${downloadButton}</div></li>`;
+		return `<li><div class="dropdown-item px-2 py-2"><a href="${url}" class="d-block"><strong>${title}</strong><br><span class="text-muted">${message}</span></a>${downloadButton}${detailButton}</div></li>`;
 	}).join('');
 
 	list.innerHTML = '<li><span class="dropdown-item px-2 py-2"><strong>Notifications</strong></span></li>' + rows + viewAllLink;
@@ -107,7 +111,7 @@ function refreshNotifications() {
 				const notificationPath = new URL(item.url || '', window.location.origin).pathname;
 
 				return item.type === 'import'
-					&& /^\/company-structure\/(locations|companies)\/?$/.test(notificationPath)
+					&& /^\/company-structure\/(locations|companies|departments)\/?$/.test(notificationPath)
 					&& notificationPath === window.location.pathname;
 			});
 
