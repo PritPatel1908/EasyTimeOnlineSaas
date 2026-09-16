@@ -147,8 +147,8 @@
 													@if (\App\Support\TenantPermissions::userCan('Team', 'read'))<li><a href="{{url('company-structure/teams')}}"
 															class="{{ $teamsActive ? 'active' : '' }}">Team</a></li>
 													@endif
-								<li><a href="{{url('company-structure/facilities')}}"
-										class="{{ Request::is('company-structure/facilities') ? 'active' : '' }}">Company Facility</a></li>
+								<li><a href="{{url('company-structure/canteen-facilities')}}"
+										class="{{ Request::is('company-structure/canteen-facilities*') ? 'active' : '' }}">Canteen Facility</a></li>
 							</ul>
 						</li>
 					</ul>
@@ -365,8 +365,8 @@
 												@if (\App\Support\TenantPermissions::userCan('Team', 'read'))<li><a href="{{url('company-structure/teams')}}"
 														class="{{ $teamsActive ? 'active' : '' }}">Team</a></li>
 												@endif
-								<li><a href="{{url('company-structure/facilities')}}"
-										class="{{ Request::is('company-structure/facilities') ? 'active' : '' }}">Company Facility</a></li>
+								<li><a href="{{url('company-structure/canteen-facilities')}}"
+										class="{{ Request::is('company-structure/canteen-facilities*') ? 'active' : '' }}">Canteen Facility</a></li>
 							</ul>
 						</li>
 					</ul>

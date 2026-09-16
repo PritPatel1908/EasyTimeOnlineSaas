@@ -56,7 +56,13 @@ class DataPolicyFilter implements Scope
                 return;
             }
 
-            if (in_array($table, ['locations', 'companies', 'departments', 'teams', 'sub_departments', 'categories', 'sub_categories', 'designations', 'grades', 'units', 'bus_routes', 'areas', 'machines'])) {
+            if ($table === 'canteen_facilities') {
+                if (! $data_policy->all_locations) {
+                    $locationIds = $data_policy->locations()->withoutGlobalScopes([DataPolicyFilter::class])->pluck('locations.id');
+                    $builder->whereIn($table . '.location_id', $locationIds);
+                }
+                $this->addSelfCreatedRecordAccess($builder, $table);
+            } elseif (in_array($table, ['locations', 'companies', 'departments', 'teams', 'sub_departments', 'categories', 'sub_categories', 'designations', 'grades', 'units', 'bus_routes', 'areas', 'machines'])) {
                 $ids = $data_policy->$table()->withoutGlobalScopes([DataPolicyFilter::class])->pluck($table . '.id');
                 if (! $data_policy->{'all_' . $table}) {
                     $builder->where(function (Builder $query) use ($table, $ids) {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Tenant\AuthController;
 use App\Http\Controllers\Tenant\CompanyController;
 use App\Http\Controllers\Tenant\DepartmentController;
+use App\Http\Controllers\Tenant\CanteenFacilityController;
 use App\Http\Controllers\Tenant\UnitController;
 use App\Http\Controllers\Tenant\SubDepartmentController;
 use App\Http\Controllers\Tenant\DataPolicyController;
@@ -147,6 +148,30 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:Department,write')
                         ->middlewareFor('destroy', 'tenant.permission:Department,delete')
                         ->names('departments');
+                    Route::get('canteen-facilities/export', [CanteenFacilityController::class, 'export'])
+                        ->middleware('tenant.permission:CanteenFacility,export')->name('canteen-facilities.export');
+                    Route::get('canteen-facilities/import/sample', [CanteenFacilityController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:CanteenFacility,import')->name('canteen-facilities.import-sample');
+                    Route::get('canteen-facilities/export/download/{file}', [CanteenFacilityController::class, 'downloadExport'])
+                        ->middleware('tenant.permission:CanteenFacility,export')->name('canteen-facilities.download-export');
+                    Route::post('canteen-facilities/import', [CanteenFacilityController::class, 'import'])
+                        ->middleware('tenant.permission:CanteenFacility,import')->name('canteen-facilities.import');
+                    Route::post('canteen-facilities/filter', [CanteenFacilityController::class, 'filterStatus'])
+                        ->middleware('tenant.permission:CanteenFacility,read')->name('canteen-facilities.filter');
+                    Route::post('canteen-facilities/{canteen_facility}/status', [CanteenFacilityController::class, 'updateStatus'])
+                        ->middleware('tenant.permission:CanteenFacility,write')->name('canteen-facilities.status');
+                    Route::get('canteen-facilities/create', [CanteenFacilityController::class, 'create'])
+                        ->middleware('tenant.permission:CanteenFacility,create')->name('canteen-facilities.create');
+                    Route::resource('canteen-facilities', CanteenFacilityController::class)
+                        ->except(['create'])
+                        ->parameters(['canteen-facilities' => 'canteen_facility'])
+                        ->middlewareFor('index', 'tenant.permission:CanteenFacility,read')
+                        ->middlewareFor('show', 'tenant.permission:CanteenFacility,read')
+                        ->middlewareFor('store', 'tenant.permission:CanteenFacility,create')
+                        ->middlewareFor('edit', 'tenant.permission:CanteenFacility,write')
+                        ->middlewareFor('update', 'tenant.permission:CanteenFacility,write')
+                        ->middlewareFor('destroy', 'tenant.permission:CanteenFacility,delete')
+                        ->names('canteen-facilities');
                     Route::get('teams/export', [\App\Http\Controllers\Tenant\TeamController::class, 'export'])
                         ->middleware('tenant.permission:Team,export')->name('teams.export');
                     Route::get('teams/import/sample', [\App\Http\Controllers\Tenant\TeamController::class, 'downloadImportSample'])
