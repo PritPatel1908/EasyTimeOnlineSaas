@@ -1,4 +1,4 @@
-<!-- Sidebar -->
+﻿<!-- Sidebar -->
 <div class="sidebar" id="sidebar">
 @php
 	$companyStructureActive = request()->is('company-structure/*');
@@ -7,6 +7,15 @@
 	$subDepartmentsActive = request()->is('company-structure/sub-departments*');
 	$unitsActive = request()->is('company-structure/units*');
 	$teamsActive = request()->is('company-structure/teams*');
+	$canteenFacilityActive = request()->is('company-structure/canteen-facilities*');
+	$canViewCompanyStructure =
+		\App\Support\TenantPermissions::userCan('Company', 'read') ||
+		\App\Support\TenantPermissions::userCan('Location', 'read') ||
+		\App\Support\TenantPermissions::userCan('Department', 'read') ||
+		\App\Support\TenantPermissions::userCan('SubDepartment', 'read') ||
+		\App\Support\TenantPermissions::userCan('Unit', 'read') ||
+		\App\Support\TenantPermissions::userCan('Team', 'read') ||
+		\App\Support\TenantPermissions::userCan('CanteenFacility', 'read');
 @endphp
 	<!-- Logo -->
 	<div class="sidebar-logo">
@@ -119,6 +128,7 @@
 					</ul>
 				</li>
 				@endif
+				@if ($canViewCompanyStructure)
 				<li class="menu-title"><span>COMPANY STRUCTURE</span></li>
 				<li>
 					<ul>
@@ -144,15 +154,17 @@
 								@if (\App\Support\TenantPermissions::userCan('Unit', 'read'))<li><a href="{{url('company-structure/units')}}"
 										class="{{ $unitsActive ? 'active' : '' }}">Unit (Mill)</a></li>
 								@endif
-													@if (\App\Support\TenantPermissions::userCan('Team', 'read'))<li><a href="{{url('company-structure/teams')}}"
-															class="{{ $teamsActive ? 'active' : '' }}">Team</a></li>
+																										@if (\App\Support\TenantPermissions::userCan('Team', 'read'))<li><a href="{{ url('company-structure/teams') }}"
+																													class="{{ $teamsActive ? 'active' : '' }}">Team</a></li>
 													@endif
-								<li><a href="{{url('company-structure/canteen-facilities')}}"
-										class="{{ Request::is('company-structure/canteen-facilities*') ? 'active' : '' }}">Canteen Facility</a></li>
+															@if (\App\Support\TenantPermissions::userCan('CanteenFacility', 'read'))<li><a href="{{ url('company-structure/canteen-facilities') }}"
+																											class="{{ $canteenFacilityActive ? 'active' : '' }}">Canteen Facility</a></li>
+													@endif
 							</ul>
 						</li>
 					</ul>
 				</li>
+				@endif
 				@if (false)
 				<li class="menu-title"><span>MAIN MENU</span></li>
 				<li>
@@ -340,38 +352,43 @@
 						</li>
 					</ul>
 				</li>
-				<li class="menu-title"><span>COMPANY STRUCTURE</span></li>
-				<li>
-					<ul>
-						<li class="submenu">
-							<a href="javascript:void(0);"
-								class="{{ Request::is('company-structure/*') ? 'active subdrop' : '' }}">
-								<i class="ti ti-building-estate"></i><span>Company Structure</span>
-								<span class="menu-arrow"></span>
-							</a>
-							<ul>
-								<li><a href="{{url('company-structure/companies')}}"
-										class="{{ Request::is('company-structure/companies*') ? 'active' : '' }}">Companies</a></li>
-								<li><a href="{{url('company-structure/locations')}}"
-										class="{{ Request::is('company-structure/locations') ? 'active' : '' }}">Locations</a></li>
-								@if (\App\Support\TenantPermissions::userCan('Department', 'read'))<li><a href="{{url('company-structure/departments')}}"
-										class="{{ Request::is('company-structure/departments') ? 'active' : '' }}">Departments</a></li>
-								@endif
-								@if (\App\Support\TenantPermissions::userCan('SubDepartment', 'read'))<li><a href="{{url('company-structure/sub-departments')}}"
-										class="{{ Request::is('company-structure/sub-departments') ? 'active' : '' }}">Sub Departments</a></li>
-								@endif
-								<li><a href="{{url('company-structure/units')}}"
-										class="{{ Request::is('company-structure/units') ? 'active' : '' }}">Unit (Mill)</a></li>
-												@if (\App\Support\TenantPermissions::userCan('Team', 'read'))<li><a href="{{url('company-structure/teams')}}"
-														class="{{ $teamsActive ? 'active' : '' }}">Team</a></li>
-												@endif
-								<li><a href="{{url('company-structure/canteen-facilities')}}"
-										class="{{ Request::is('company-structure/canteen-facilities*') ? 'active' : '' }}">Canteen Facility</a></li>
-							</ul>
-						</li>
-					</ul>
-				</li>
-				<li class="menu-title"><span>LAYOUT</span></li>
+				@if ($canViewCompanyStructure)
+<li class="menu-title"><span>COMPANY STRUCTURE</span></li>
+<li>
+<ul>
+<li class="submenu">
+<a href="javascript:void(0);"
+class="{{ Request::is('company-structure/*') ? 'active subdrop' : '' }}">
+<i class="ti ti-building-estate"></i><span>Company Structure</span>
+<span class="menu-arrow"></span>
+</a>
+<ul>
+@if (\App\Support\TenantPermissions::userCan('Company', 'read'))<li><a href="{{url('company-structure/companies')}}"
+class="{{ Request::is('company-structure/companies*') ? 'active' : '' }}">Companies</a></li>
+@endif
+@if (\App\Support\TenantPermissions::userCan('Location', 'read'))<li><a href="{{url('company-structure/locations')}}"
+class="{{ $locationsActive ? 'active' : '' }}">Locations</a></li>
+@endif
+@if (\App\Support\TenantPermissions::userCan('Department', 'read'))<li><a href="{{url('company-structure/departments')}}"
+class="{{ $departmentsActive ? 'active' : '' }}">Departments</a></li>
+@endif
+@if (\App\Support\TenantPermissions::userCan('SubDepartment', 'read'))<li><a href="{{url('company-structure/sub-departments')}}"
+class="{{ $subDepartmentsActive ? 'active' : '' }}">Sub Departments</a></li>
+@endif
+@if (\App\Support\TenantPermissions::userCan('Unit', 'read'))<li><a href="{{url('company-structure/units')}}"
+class="{{ $unitsActive ? 'active' : '' }}">Unit (Mill)</a></li>
+@endif
+@if (\App\Support\TenantPermissions::userCan('Team', 'read'))<li><a href="{{url('company-structure/teams')}}"
+class="{{ $teamsActive ? 'active' : '' }}">Team</a></li>
+@endif
+@if (\App\Support\TenantPermissions::userCan('CanteenFacility', 'read'))<li><a href="{{url('company-structure/canteen-facilities')}}"
+class="{{ $canteenFacilityActive ? 'active' : '' }}">Canteen Facility</a></li>
+@endif
+</ul>
+</li>
+</ul>
+</li>
+@endif<li class="menu-title"><span>LAYOUT</span></li>
 				<li>
 					<ul>
 						<li class="{{ Request::is('layout-horizontal') ? 'active' : '' }}">
@@ -1057,7 +1074,7 @@
 						</li>
 						<li class="{{ Request::is('faq') ? 'active' : '' }}">
 							<a href="{{url('faq')}}">
-								<i class="ti ti-question-mark"></i><span>FAQ’S</span>
+								<i class="ti ti-question-mark"></i><span>FAQâ€™S</span>
 							</a>
 						</li>
 					</ul>
@@ -1600,3 +1617,4 @@
 	</div>
 </div>
 <!-- /Sidebar -->
+

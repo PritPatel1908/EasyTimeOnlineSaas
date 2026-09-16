@@ -13,6 +13,7 @@
         'all_units' => 'All units',
         'all_bus_routes' => 'All bus routes',
         'all_areas' => 'All areas',
+        'all_canteen_facilities' => 'All canteen facilities',
         'all_machines' => 'All machines',
     ];
 @endphp
@@ -118,6 +119,7 @@
             units: { locations: 'locationIds' },
             bus_routes: { locations: 'locationIds' },
             areas: { locations: 'locationIds' },
+            canteen_facilities: { locations: 'locationIds' },
             machines: { locations: 'locationIds', companies: 'companyIds', areas: 'areaIds' }
         };
 

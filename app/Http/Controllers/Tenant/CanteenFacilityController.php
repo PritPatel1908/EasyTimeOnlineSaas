@@ -31,7 +31,7 @@ class CanteenFacilityController extends Controller
     {
         $search = trim((string) $request->query('search', ''));
         $status = $request->query('status', 'all');
-        $query = CanteenFacility::with(['location', 'rule'])->latest('id');
+        $query = CanteenFacility::with(['location', 'rules'])->latest('id');
         if ($search !== '') {
             $query->where(function ($query) use ($search): void {
                 $query->where('name', 'like', '%' . $search . '%')
@@ -51,7 +51,7 @@ class CanteenFacilityController extends Controller
 
     public function show(Request $request): View
     {
-        return view('company-structure.canteen-facilities.show', ['canteenFacility' => CanteenFacility::with(['location', 'rule'])->findOrFail($request->route('canteen_facility'))]);
+        return view('company-structure.canteen-facilities.show', ['canteenFacility' => CanteenFacility::with(['location', 'rules'])->findOrFail($request->route('canteen_facility'))]);
     }
 
     public function filterStatus(Request $request): JsonResponse
@@ -62,7 +62,7 @@ class CanteenFacilityController extends Controller
         ]);
         $status = $validated['status'] ?? 'all';
         $search = trim((string) ($validated['search'] ?? ''));
-        $query = CanteenFacility::with(['location', 'rule'])->latest('id');
+        $query = CanteenFacility::with(['location', 'rules'])->latest('id');
         if ($search !== '') {
             $query->where(function ($query) use ($search): void {
                 $query->where('name', 'like', '%' . $search . '%')
@@ -85,14 +85,14 @@ class CanteenFacilityController extends Controller
         $this->assertLocationAccess((int) $payload['location_id']);
         DB::transaction(function () use ($payload): void {
             $facility = CanteenFacility::create($this->facilityPayload($payload));
-            $facility->rule()->create($this->rulePayload($payload));
+            $facility->rules()->createMany($payload['rules']);
         });
         return redirect(url(self::INDEX_URL))->with('success', 'Canteen Facility created successfully.');
     }
 
     public function edit(Request $request): View
     {
-        return view('company-structure.canteen-facilities.edit', ['canteenFacility' => CanteenFacility::with('rule')->findOrFail($request->route('canteen_facility')), 'locations' => $this->locations()]);
+        return view('company-structure.canteen-facilities.edit', ['canteenFacility' => CanteenFacility::with('rules')->findOrFail($request->route('canteen_facility')), 'locations' => $this->locations()]);
     }
 
     public function update(UpdateCanteenFacilityRequest $request): RedirectResponse
@@ -102,7 +102,8 @@ class CanteenFacilityController extends Controller
         $facility = CanteenFacility::query()->findOrFail($request->route('canteen_facility'));
         DB::transaction(function () use ($facility, $payload): void {
             $facility->update($this->facilityPayload($payload));
-            $facility->rule()->updateOrCreate([], $this->rulePayload($payload));
+            $facility->rules()->delete();
+            $facility->rules()->createMany($payload['rules']);
         });
         return redirect(url(self::INDEX_URL))->with('success', 'Canteen Facility updated successfully.');
     }
@@ -180,8 +181,4 @@ class CanteenFacilityController extends Controller
         return array_intersect_key($payload, array_flip(['name', 'code', 'total_cfa', 'status', 'location_id']));
     }
 
-    private function rulePayload(array $payload): array
-    {
-        return array_intersect_key($payload, array_flip(['total_absent_days', 'company_contribution_in_percentage_wise', 'company_allowance_contribution_in_fixed', 'company_allowance_contribution_in_percentage']));
-    }
 }

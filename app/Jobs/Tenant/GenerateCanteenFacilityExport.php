@@ -28,7 +28,7 @@ class GenerateCanteenFacilityExport implements ShouldQueue
         $handle = fopen('php://temp', 'w+');
         if ($handle === false) return;
         fputcsv($handle, CanteenFacility::IMPORT_EXPORT_COLUMNS);
-        $query = CanteenFacility::with(['location', 'rule'])->orderBy('name');
+        $query = CanteenFacility::with(['location', 'rules'])->orderBy('name');
         if ($this->search !== '') {
             $query->where(function ($query): void {
                 $query->where('name', 'like', '%' . $this->search . '%')
@@ -39,7 +39,21 @@ class GenerateCanteenFacilityExport implements ShouldQueue
             $query->where('status', (int) $this->status);
         }
         foreach ($query->get() as $facility) {
-            fputcsv($handle, [$facility->name, $facility->code, $facility->total_cfa, $facility->status === 1 ? 'Active' : 'Inactive', $facility->location?->name ?? '', $facility->rule?->total_absent_days ?? '', $facility->rule?->company_contribution_in_percentage_wise ? '1' : '0', $facility->rule?->company_allowance_contribution_in_fixed ?? '', $facility->rule?->company_allowance_contribution_in_percentage ?? '']);
+            $rules = $facility->rules->isNotEmpty() ? $facility->rules : [null];
+
+            foreach ($rules as $rule) {
+                fputcsv($handle, [
+                    $facility->name,
+                    $facility->code,
+                    $facility->total_cfa,
+                    $facility->status === 1 ? 'Active' : 'Inactive',
+                    $facility->location?->name ?? '',
+                    $rule?->total_absent_days ?? '',
+                    $rule?->company_contribution_in_percentage_wise ? '1' : '0',
+                    $rule?->company_allowance_contribution_in_fixed ?? '',
+                    $rule?->company_allowance_contribution_in_percentage ?? '',
+                ]);
+            }
         }
         rewind($handle);
         $contents = stream_get_contents($handle);

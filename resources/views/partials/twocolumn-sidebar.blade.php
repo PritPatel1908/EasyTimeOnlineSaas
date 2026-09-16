@@ -1,4 +1,14 @@
 <!-- Two Col Sidebar -->
+@php
+	$canViewCompanyStructure =
+		\App\Support\TenantPermissions::userCan('Company', 'read') ||
+		\App\Support\TenantPermissions::userCan('Location', 'read') ||
+		\App\Support\TenantPermissions::userCan('Department', 'read') ||
+		\App\Support\TenantPermissions::userCan('SubDepartment', 'read') ||
+		\App\Support\TenantPermissions::userCan('Unit', 'read') ||
+		\App\Support\TenantPermissions::userCan('Team', 'read') ||
+		\App\Support\TenantPermissions::userCan('CanteenFacility', 'read');
+@endphp
 <div class="two-col-sidebar" id="two-col-sidebar">
 	<div class="sidebar sidebar-twocol">
 		<div class="twocol-mini">
@@ -241,26 +251,28 @@
 									class="{{ Request::is('ai-configuration') ? 'active' : '' }}">AI Settings</a></li>
 						</ul>
 					</div>
+					@if ($canViewCompanyStructure)
 					<div class="tab-pane fade {{ Request::is('company-structure/*') ? ' show active' : '' }}"
 						id="company-structure">
 						<ul>
 							<li class="menu-title"><span>COMPANY STRUCTURE</span></li>
-							<li><a href="{{url('company-structure/companies')}}"
-									class="{{ Request::is('company-structure/companies*') ? 'active' : '' }}">Companies</a></li>
-							<li><a href="{{url('company-structure/locations')}}"
-									class="{{ Request::is('company-structure/locations') ? 'active' : '' }}">Locations</a></li>
-							<li><a href="{{url('company-structure/departments')}}"
-									class="{{ Request::is('company-structure/departments') ? 'active' : '' }}">Departments</a></li>
-							<li><a href="{{url('company-structure/sub-departments')}}"
-									class="{{ Request::is('company-structure/sub-departments*') ? 'active' : '' }}">Sub Departments</a></li>
+							@if (\App\Support\TenantPermissions::userCan('Company', 'read'))<li><a href="{{url('company-structure/companies')}}"
+									class="{{ Request::is('company-structure/companies*') ? 'active' : '' }}">Companies</a></li>@endif
+							@if (\App\Support\TenantPermissions::userCan('Location', 'read'))<li><a href="{{url('company-structure/locations')}}"
+									class="{{ Request::is('company-structure/locations') ? 'active' : '' }}">Locations</a></li>@endif
+							@if (\App\Support\TenantPermissions::userCan('Department', 'read'))<li><a href="{{url('company-structure/departments')}}"
+									class="{{ Request::is('company-structure/departments') ? 'active' : '' }}">Departments</a></li>@endif
+							@if (\App\Support\TenantPermissions::userCan('SubDepartment', 'read'))<li><a href="{{url('company-structure/sub-departments')}}"
+									class="{{ Request::is('company-structure/sub-departments*') ? 'active' : '' }}">Sub Departments</a></li>@endif
 							@if (\App\Support\TenantPermissions::userCan('Unit', 'read'))<li><a href="{{url('company-structure/units')}}"
 									class="{{ Request::is('company-structure/units') ? 'active' : '' }}">Unit (Mill)</a></li>@endif
 							@if (\App\Support\TenantPermissions::userCan('Team', 'read'))<li><a href="{{url('company-structure/teams')}}"
 									class="{{ Request::is('company-structure/teams*') ? 'active' : '' }}">Team</a></li>@endif
-							<li><a href="{{url('company-structure/canteen-facilities')}}"
-									class="{{ Request::is('company-structure/canteen-facilities*') ? 'active' : '' }}">Canteen Facility</a></li>
+							@if (\App\Support\TenantPermissions::userCan('CanteenFacility', 'read'))<li><a href="{{url('company-structure/canteen-facilities')}}"
+									class="{{ Request::is('company-structure/canteen-facilities*') ? 'active' : '' }}">Canteen Facility</a></li>@endif
 						</ul>
 					</div>
+					@endif
 					<div class="tab-pane fade {{ Request::is('layout-horizontal', 'layout-detached', 'layout-modern', 'layout-two-column', 'layout-hovered', 'layout-box', 'layout-horizontal-single', 'layout-horizontal-overlay', 'layout-horizontal-box', 'layout-horizontal-sidemenu', 'layout-vertical-transparent', 'layout-without-header', 'layout-rtl', 'layout-dark') ? ' show active' : '' }}"
 						id="layout">
 						<ul>

@@ -61,6 +61,15 @@ class DataPolicyFilter implements Scope
                     $locationIds = $data_policy->locations()->withoutGlobalScopes([DataPolicyFilter::class])->pluck('locations.id');
                     $builder->whereIn($table . '.location_id', $locationIds);
                 }
+
+                if (! $data_policy->all_canteen_facilities) {
+                    $canteenFacilityIds = $data_policy->canteen_facilities()->withoutGlobalScopes([DataPolicyFilter::class])->pluck('canteen_facilities.id');
+                    $builder->where(function (Builder $query) use ($table, $canteenFacilityIds) {
+                        $query->whereIn($table . '.id', $canteenFacilityIds);
+                        $this->addSelfCreatedRecordAccess($query, $table);
+                    });
+                }
+
                 $this->addSelfCreatedRecordAccess($builder, $table);
             } elseif (in_array($table, ['locations', 'companies', 'departments', 'teams', 'sub_departments', 'categories', 'sub_categories', 'designations', 'grades', 'units', 'bus_routes', 'areas', 'machines'])) {
                 $ids = $data_policy->$table()->withoutGlobalScopes([DataPolicyFilter::class])->pluck($table . '.id');

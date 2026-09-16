@@ -9,7 +9,7 @@ use App\Models\Tenant\Scopes\DataPolicyFilter;
 use App\Traits\CUDby;
 use App\Traits\HasRelatedRecords;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Auth;
 
@@ -52,9 +52,9 @@ class CanteenFacility extends \Illuminate\Database\Eloquent\Model
         return $this->belongsTo(Location::class);
     }
 
-    public function rule(): HasOne
+    public function rules(): HasMany
     {
-        return $this->hasOne(CanteenFacilityRule::class);
+        return $this->hasMany(CanteenFacilityRule::class);
     }
 
     public static function getImportUniqueFields(): array

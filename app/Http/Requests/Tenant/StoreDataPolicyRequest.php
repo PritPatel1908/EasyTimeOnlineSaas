@@ -32,6 +32,7 @@ class StoreDataPolicyRequest extends FormRequest
             'all_units' => ['nullable', 'boolean'],
             'all_bus_routes' => ['nullable', 'boolean'],
             'all_areas' => ['nullable', 'boolean'],
+            'all_canteen_facilities' => ['nullable', 'boolean'],
             'all_machines' => ['nullable', 'boolean'],
             'locations' => ['nullable', 'array'],
             'locations.*' => ['integer', 'exists:locations,id'],
@@ -57,6 +58,8 @@ class StoreDataPolicyRequest extends FormRequest
             'bus_routes.*' => ['integer', 'exists:bus_routes,id'],
             'areas' => ['nullable', 'array'],
             'areas.*' => ['integer', 'exists:areas,id'],
+            'canteen_facilities' => ['nullable', 'array'],
+            'canteen_facilities.*' => ['integer', 'exists:canteen_facilities,id'],
             'machines' => ['nullable', 'array'],
             'machines.*' => ['integer', 'exists:machines,id'],
         ];
@@ -79,6 +82,7 @@ class StoreDataPolicyRequest extends FormRequest
             'all_units',
             'all_bus_routes',
             'all_areas',
+            'all_canteen_facilities',
             'all_machines',
         ];
 

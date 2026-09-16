@@ -42,6 +42,7 @@ use Illuminate\Support\Facades\Auth;
  * @property Collection|User[] $users
  * @property Collection|Area[] $areas
  * @property Collection|Machines[] $machines
+ * @property Collection|CanteenFacility[] $canteen_facilities
  */
 class DataPolicy extends Model
 {
@@ -93,6 +94,7 @@ class DataPolicy extends Model
         'all_units' => 'boolean',
         'all_bus_routes' => 'boolean',
         'all_areas' => 'boolean',
+        'all_canteen_facilities' => 'boolean',
         'all_machines' => 'boolean',
     ];
 
@@ -116,6 +118,7 @@ class DataPolicy extends Model
         'all_units',
         'all_bus_routes',
         'all_areas',
+        'all_canteen_facilities',
         'all_machines',
     ];
 
@@ -212,6 +215,12 @@ class DataPolicy extends Model
     {
         return $this->belongsToMany(Machine::class, 'data_policy_machine')
             // ->withPivot('id')
+            ->withTimestamps();
+    }
+
+    public function canteen_facilities()
+    {
+        return $this->belongsToMany(CanteenFacility::class, 'data_policy_canteen_facility')
             ->withTimestamps();
     }
 

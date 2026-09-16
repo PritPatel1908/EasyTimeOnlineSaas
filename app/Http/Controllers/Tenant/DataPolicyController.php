@@ -10,6 +10,7 @@ use App\Http\Requests\Tenant\UpdateDataPolicyRequest;
 use App\Jobs\Tenant\ActivityLog;
 use App\Models\Tenant\Area;
 use App\Models\Tenant\BusRoute;
+use App\Models\Tenant\CanteenFacility;
 use App\Models\Tenant\Category;
 use App\Models\Tenant\Company;
 use App\Models\Tenant\DataPolicy;
@@ -44,6 +45,7 @@ class DataPolicyController extends Controller
         'units' => Unit::class,
         'bus_routes' => BusRoute::class,
         'areas' => Area::class,
+        'canteen_facilities' => CanteenFacility::class,
         'machines' => Machine::class,
     ];
 
@@ -155,6 +157,7 @@ class DataPolicyController extends Controller
                 'all_units',
                 'all_bus_routes',
                 'all_areas',
+                'all_canteen_facilities',
                 'all_machines',
             ])),
             [

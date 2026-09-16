@@ -30,6 +30,7 @@ class RolePermissionController extends Controller
             'AttendanceLog',
             'BusRoute',
             'Category',
+            'CanteenFacility',
             'Coff',
             'Company',
             'DailyReport',
