@@ -50,7 +50,7 @@
                     <input class="form-check-input" type="checkbox" role="switch" id="{{ $field }}" name="{{ $field }}" value="1"
                         aria-checked="{{ old($field, $dataPolicy?->{$field} ?? false) ? 'true' : 'false' }}"
                         @checked(old($field, $dataPolicy?->{$field} ?? false))>
-                    <label class="form-check-label" for="{{ $field }}">{{ $label }}</label>
+                    <label class="form-label d-block" for="{{ $field }}">{{ $label }}?</label>
                 </div>
             </div>
         @endforeach

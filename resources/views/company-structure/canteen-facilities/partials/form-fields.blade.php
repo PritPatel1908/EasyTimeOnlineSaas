@@ -118,7 +118,7 @@
                         @error('rules.' . $index . '.total_absent_days')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                     </div>
                     <div class="col-md-6 mb-3">
-                        <label class="form-label d-block">Company Contribution in Percentage Wise</label>
+                        <label class="form-label d-block">Company Contribution in Percentage Wise?</label>
                         <div class="form-check form-check-lg form-switch">
                             <input class="form-check-input rule-percentage-toggle" type="checkbox" role="switch" name="rules[{{ $index }}][company_contribution_in_percentage_wise]" value="1" @checked(!empty($rule['company_contribution_in_percentage_wise']))>
                         </div>
@@ -144,7 +144,7 @@
         <div class="d-flex justify-content-between align-items-center mb-3"><h6 class="mb-0">Rule <span class="rule-number"></span></h6><button type="button" class="btn btn-sm btn-outline-danger remove-canteen-rule"><i class="ti ti-trash me-1"></i>Remove</button></div>
         <div class="row">
             <div class="col-md-6 mb-3"><label class="form-label">Total Absent Days <span class="text-danger">*</span></label><input type="number" name="rules[__INDEX__][total_absent_days]" min="0" class="form-control" placeholder="e.g. 2" required></div>
-            <div class="col-md-6 mb-3"><label class="form-label d-block">Company Contribution in Percentage Wise</label><div class="form-check form-check-lg form-switch"><input class="form-check-input rule-percentage-toggle" type="checkbox" role="switch" name="rules[__INDEX__][company_contribution_in_percentage_wise]" value="1"></div></div>
+            <div class="col-md-6 mb-3"><label class="form-label d-block">Company Contribution in Percentage Wise?</label><div class="form-check form-check-lg form-switch"><input class="form-check-input rule-percentage-toggle" type="checkbox" role="switch" name="rules[__INDEX__][company_contribution_in_percentage_wise]" value="1"></div></div>
             <div class="col-md-12 mb-3 rule-fixed-group"><label class="form-label">Company Allowance Contribution in Fixed</label><input type="number" name="rules[__INDEX__][company_allowance_contribution_in_fixed]" min="0" step="0.01" class="form-control" placeholder="0.00"></div>
             <div class="col-md-12 mb-3 rule-percentage-group"><label class="form-label">Company Allowance Contribution in Percentage</label><input type="number" name="rules[__INDEX__][company_allowance_contribution_in_percentage]" min="0" max="100" step="0.01" class="form-control" placeholder="e.g. 50.00"></div>
         </div>
