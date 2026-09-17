@@ -1,0 +1,25 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Requests\Tenant;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class UpdateCategoryRequest extends FormRequest
+{
+    public function authorize(): bool { return true; }
+
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'company_id' => array_values((array) $this->input('company_id', [])),
+            'location_id' => array_values((array) $this->input('location_id', [])),
+        ]);
+    }
+
+    public function rules(): array
+    {
+        return CategoryRequestRules::rules((string) $this->route('category'));
+    }
+}

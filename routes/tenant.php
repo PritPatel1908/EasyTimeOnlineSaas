@@ -112,6 +112,13 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                     Route::get('categories', [CategoryController::class, 'index'])
                         ->middleware('tenant.permission:Category,read')
                         ->name('categories.index');
+                    Route::get('categories/export', [CategoryController::class, 'export'])->middleware('tenant.permission:Category,export')->name('categories.export');
+                    Route::get('categories/import/sample', [CategoryController::class, 'downloadImportSample'])->middleware('tenant.permission:Category,import')->name('categories.import-sample');
+                    Route::get('categories/export/download/{file}', [CategoryController::class, 'downloadExport'])->middleware('tenant.permission:Category,export')->name('categories.download-export');
+                    Route::post('categories/import', [CategoryController::class, 'import'])->middleware('tenant.permission:Category,import')->name('categories.import');
+                    Route::post('categories/filter', [CategoryController::class, 'filterStatus'])->middleware('tenant.permission:Category,read')->name('categories.filter');
+                    Route::get('categories/create', [CategoryController::class, 'create'])->middleware('tenant.permission:Category,create')->name('categories.create');
+                    Route::resource('categories', CategoryController::class)->except(['create'])->middlewareFor('index', 'tenant.permission:Category,read')->middlewareFor('show', 'tenant.permission:Category,read')->middlewareFor('store', 'tenant.permission:Category,create')->middlewareFor('edit', 'tenant.permission:Category,write')->middlewareFor('update', 'tenant.permission:Category,write')->middlewareFor('destroy', 'tenant.permission:Category,delete')->names('categories');
                 });
 
                 Route::prefix('company-structure')->name('tenant.company-structure.')->group(function (): void {

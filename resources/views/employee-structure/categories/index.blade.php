@@ -1,62 +1,10 @@
-@extends('layouts.app')
-
+@extends('layout.mainlayout')
 @section('content')
-    <div class="page-wrapper">
-        <div class="content">
-            <div class="d-md-flex d-block align-items-center justify-content-between page-breadcrumb mb-3">
-                <div class="my-auto mb-2">
-                    <h2 class="mb-1">Categories</h2>
-                    <nav aria-label="breadcrumb">
-                        <ol class="breadcrumb mb-0">
-                            <li class="breadcrumb-item">Employee Structure</li>
-                            <li class="breadcrumb-item active">Category</li>
-                        </ol>
-                    </nav>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-nowrap mb-0">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Name</th>
-                                    <th>Code</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse ($categories as $category)
-                                    <tr>
-                                        <td>{{ $loop->iteration + ($categories->firstItem() - 1) }}</td>
-                                        <td>{{ $category->name }}</td>
-                                        <td>{{ $category->code }}</td>
-                                        <td>
-                                            @if ($category->status == 1)
-                                                <span class="badge bg-success">Active</span>
-                                            @else
-                                                <span class="badge bg-secondary">Inactive</span>
-                                            @endif
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="4" class="text-center text-muted py-4">No categories found.</td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-
-                    @if ($categories->hasPages())
-                        <div class="mt-3 d-flex justify-content-center">
-                            {{ $categories->links() }}
-                        </div>
-                    @endif
-                </div>
-            </div>
-        </div>
-    </div>
+@php $canCreate=\App\Support\TenantPermissions::userCan('Category','create'); $canImport=\App\Support\TenantPermissions::userCan('Category','import'); $canExport=\App\Support\TenantPermissions::userCan('Category','export'); @endphp
+<div class="page-wrapper"><div class="content">@include('partials.flash-alerts')<div id="category-status-alert" class="alert alert-dismissible d-none align-items-center" role="alert"><i class="ti ti-circle-check me-2 alert-icon"></i><span class="alert-message"></span><button type="button" class="btn-close" aria-label="Close"></button></div><div class="d-flex justify-content-between page-breadcrumb mb-3"><div><h2 class="mb-1">Categories</h2><nav><ol class="breadcrumb mb-0"><li class="breadcrumb-item">Employee Structure</li><li class="breadcrumb-item active">Categories</li></ol></nav></div><div class="d-flex align-items-center gap-2">@if($canExport)<a class="btn btn-light" href="{{ url('employee-structure/categories/export') }}"><i class="ti ti-file-export me-2"></i>Export</a>@endif @if($canImport)<button class="btn btn-light" data-bs-toggle="modal" data-bs-target="#import_category_modal"><i class="ti ti-file-import me-2"></i>Import</button>@endif @if($canCreate)<a class="btn btn-primary" href="{{ url('employee-structure/categories/create') }}"><i class="ti ti-circle-plus me-2"></i>Add Category</a>@endif</div></div><div class="card"><div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"><h5>Category List</h5><div class="dropdown"><button class="btn btn-white dropdown-toggle" data-bs-toggle="dropdown">Status</button><ul class="dropdown-menu"><li><button class="dropdown-item category-status-filter" data-status="all">All</button></li><li><button class="dropdown-item category-status-filter" data-status="1">Active</button></li><li><button class="dropdown-item category-status-filter" data-status="0">Inactive</button></li></ul></div></div><div class="card-body p-0"><div class="table-responsive"><table class="table datatable"><thead class="thead-light"><tr><th></th><th>Name</th><th>Code</th><th>Email</th><th>Companies</th><th>Locations</th><th>Status</th><th></th></tr></thead><tbody>@include('employee-structure.categories.partials.rows')</tbody></table></div></div>@if($categories->hasPages())<div class="card-footer d-flex justify-content-between"><span class="text-muted">Showing {{ $categories->firstItem() }}–{{ $categories->lastItem() }} of {{ $categories->total() }} categories</span>{{ $categories->links() }}</div>@endif</div></div>@include('partials.footer')</div><div class="modal fade" id="delete_category_modal"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-body text-center"><h4>Confirm Delete</h4><p id="delete_category_message">Are you sure you want to delete this category?</p><form id="delete_category_form" method="POST">@csrf @method('DELETE')<button type="button" class="btn btn-light me-2" data-bs-dismiss="modal">Cancel</button><button class="btn btn-danger">Yes, Delete</button></form></div></div></div></div>@if($canImport)<div class="modal fade" id="import_category_modal"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Import Categories</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><form id="import_category_form" method="POST" action="{{ url('employee-structure/categories/import') }}" enctype="multipart/form-data" data-import-form="true" data-status-alert="#category-status-alert" data-modal="#import_category_modal" data-url-match="/employee-structure/categories" data-entity-label="Category">@csrf<div class="modal-body"><label for="category_import_file" class="form-label">CSV File</label><input id="category_import_file" name="file" type="file" class="form-control" accept=".csv,.txt" required><a href="{{ url('employee-structure/categories/import/sample') }}" class="d-inline-flex align-items-center mt-2"><i class="ti ti-download me-1"></i>Download Sample CSV</a><div class="form-check mt-3"><input class="form-check-input" type="checkbox" name="update_duplicate_records" id="update_category_duplicates" value="1"><label class="form-check-label" for="update_category_duplicates">Update Duplicate Records</label></div></div><div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary"><i class="ti ti-file-import me-1"></i>Import</button></div></form></div></div></div>@endif
+@push('scripts')@include('partials.import-poll')<script>
+document.addEventListener('click',function(e){var b=e.target.closest('.delete-category-btn');if(b){document.getElementById('delete_category_form').action=b.dataset.url;document.getElementById('delete_category_message').textContent='Are you sure you want to delete "'+b.dataset.name+'"?';}});
+function applyCategoryFilter(status){fetch('{{ url('employee-structure/categories/filter') }}',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':'{{ csrf_token() }}'},body:JSON.stringify({status:status})}).then(function(r){return r.json();}).then(function(data){var table=document.querySelector('table.datatable');var sourceBody=table.querySelector('tbody');var rowContainer=document.createElement('tbody');var visibleBody=document.querySelector('.gridjs-tbody');rowContainer.innerHTML=data.html;sourceBody.innerHTML=data.html;if(visibleBody){visibleBody.innerHTML='';rowContainer.querySelectorAll('tr').forEach(function(row){row.classList.add('gridjs-tr');row.querySelectorAll('td').forEach(function(cell){cell.classList.add('gridjs-td');});visibleBody.appendChild(row);});}var summary=document.querySelector('.gridjs-summary');if(summary){summary.textContent=data.count===0?'No records to show':'Showing 1-'+data.count+' of '+data.count+' entries';}var pages=document.querySelector('.gridjs-pages');if(pages){pages.innerHTML='';}}).catch(function(error){console.error('Filter error:',error);});}
+document.querySelectorAll('.category-status-filter').forEach(function(b){b.addEventListener('click',function(){applyCategoryFilter(this.dataset.status);});});
+</script>@endpush
 @endsection
