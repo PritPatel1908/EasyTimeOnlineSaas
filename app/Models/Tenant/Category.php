@@ -173,4 +173,9 @@ class Category extends Model
     {
         return $this->hasMany(CoffAgainstWoHlSlab::class);
     }
+
+    public function c_off_against_ot_slabs()
+    {
+        return $this->hasMany(CoffAgainstOtSlab::class);
+    }
 }
