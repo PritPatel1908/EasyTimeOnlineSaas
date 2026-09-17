@@ -24,7 +24,12 @@ final class CategoryRequestRules
         }
         $fields['canteen_break_limit'] = ['nullable', 'string', 'max:255'];
         $fields['fix_work_hours_value'] = ['nullable', 'string', 'max:255'];
-        $fields['leave_type_id'] = ['nullable', 'integer', 'exists:leave_types,id'];
+        $fields['leave_type_id'] = ['nullable', 'array'];
+        $fields['leave_type_id.*'] = ['integer', 'exists:leave_types,id'];
+        $fields['c_off_against_wo_hl_slabs'] = ['nullable', 'array'];
+        $fields['c_off_against_wo_hl_slabs.*.from_time'] = ['nullable', 'date_format:H:i'];
+        $fields['c_off_against_wo_hl_slabs.*.to_time'] = ['nullable', 'date_format:H:i', 'after_or_equal:c_off_against_wo_hl_slabs.*.from_time'];
+        $fields['c_off_against_wo_hl_slabs.*.credit_days'] = ['nullable', 'numeric', 'min:0'];
         $fields['min_avail'] = ['nullable', 'numeric', 'min:0'];
         $fields['max_avail'] = ['nullable', 'numeric', 'min:0', 'gte:min_avail'];
         $fields['skip_overtime'] = ['nullable', 'date_format:H:i'];

@@ -12,6 +12,7 @@ use App\Jobs\Tenant\ProcessCategoryImport;
 use App\Models\Tenant\Category;
 use App\Models\Tenant\Company;
 use App\Models\Tenant\Location;
+use App\Models\Tenant\LeaveType;
 use App\Models\Tenant\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
@@ -19,6 +20,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -52,12 +54,19 @@ class CategoryController extends Controller
             'category' => null,
             'companies' => Company::query()->where('status', 1)->orderBy('name')->get(),
             'locations' => Location::query()->where('status', 1)->orderBy('name')->get(),
+            'leaveTypes' => LeaveType::query()->where('status', 1)->orderBy('description')->get(),
         ]);
     }
 
     public function store(StoreCategoryRequest $request): RedirectResponse
     {
-        Category::query()->create($request->validated());
+        DB::transaction(function () use ($request): void {
+            $validated = $request->validated();
+            $slabs = $validated['c_off_against_wo_hl_slabs'] ?? [];
+            unset($validated['c_off_against_wo_hl_slabs']);
+            $category = Category::query()->create($validated);
+            $this->syncCoffSlabs($category, $slabs);
+        });
         return redirect(url(self::INDEX_URL))->with('success', 'Category created successfully.');
     }
 
@@ -67,13 +76,32 @@ class CategoryController extends Controller
             'category' => Category::query()->findOrFail($request->route('category')),
             'companies' => Company::query()->where('status', 1)->orderBy('name')->get(),
             'locations' => Location::query()->where('status', 1)->orderBy('name')->get(),
+            'leaveTypes' => LeaveType::query()->where('status', 1)->orderBy('description')->get(),
         ]);
     }
 
     public function update(UpdateCategoryRequest $request): RedirectResponse
     {
-        Category::query()->findOrFail($request->route('category'))->update($request->validated());
+        DB::transaction(function () use ($request): void {
+            $validated = $request->validated();
+            $slabs = $validated['c_off_against_wo_hl_slabs'] ?? [];
+            unset($validated['c_off_against_wo_hl_slabs']);
+            $category = Category::query()->findOrFail($request->route('category'));
+            $category->update($validated);
+            $this->syncCoffSlabs($category, $slabs);
+        });
         return redirect(url(self::INDEX_URL))->with('success', 'Category updated successfully.');
+    }
+
+    private function syncCoffSlabs(Category $category, array $slabs): void
+    {
+        $category->c_off_against_wo_hl_slabs()->delete();
+        foreach ($slabs as $slab) {
+            if (($slab['from_time'] ?? '') === '' && ($slab['to_time'] ?? '') === '' && ($slab['credit_days'] ?? '') === '') {
+                continue;
+            }
+            $category->c_off_against_wo_hl_slabs()->create($slab);
+        }
     }
 
     public function destroy(Request $request): RedirectResponse

@@ -41,7 +41,7 @@ class Category extends Model
         'max_short_leave_minutes_per_month' => 'int', 'max_short_leave_minutes_per_application' => 'int', 'max_occurance_of_short_leave_in_month' => 'int',
         'advance_short_leave_application' => 'int', 'is_eligible_for_c_off' => 'bool', 'c_off_lapse_in_days' => 'int',
         'backdated_day_limit' => 'int', 'advance_day_limit' => 'int', 'maximum_accumulation' => 'int', 'maximum_request_in_a_month' => 'int',
-        'maximum_request_in_a_year' => 'int', 'leave_type_id' => 'int', 'min_avail' => 'decimal:2', 'max_avail' => 'decimal:2',
+        'maximum_request_in_a_year' => 'int', 'leave_type_id' => 'array', 'min_avail' => 'decimal:2', 'max_avail' => 'decimal:2',
         'allow_halfday_c_off' => 'bool', 'allow_backdated_leave' => 'bool', 'skip_overtime' => 'datetime',
         'created_by' => 'int', 'updated_by' => 'int', 'deleted_by' => 'int',
     ];

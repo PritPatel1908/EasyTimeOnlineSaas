@@ -15,6 +15,7 @@ class StoreCategoryRequest extends FormRequest
         $this->merge([
             'company_id' => array_values((array) $this->input('company_id', [])),
             'location_id' => array_values((array) $this->input('location_id', [])),
+            'leave_type_id' => array_values(array_filter((array) $this->input('leave_type_id', []), static fn ($id): bool => $id !== '')),
         ]);
     }
 
