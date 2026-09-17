@@ -8,6 +8,8 @@
 	$unitsActive = request()->is('company-structure/units*');
 	$teamsActive = request()->is('company-structure/teams*');
 	$canteenFacilityActive = request()->is('company-structure/canteen-facilities*');
+	$employeeStructureActive = request()->is('employee-structure/*');
+	$categoryActive = request()->is('employee-structure/categories*');
 	$canViewCompanyStructure =
 		\App\Support\TenantPermissions::userCan('Company', 'read') ||
 		\App\Support\TenantPermissions::userCan('Location', 'read') ||
@@ -16,6 +18,7 @@
 		\App\Support\TenantPermissions::userCan('Unit', 'read') ||
 		\App\Support\TenantPermissions::userCan('Team', 'read') ||
 		\App\Support\TenantPermissions::userCan('CanteenFacility', 'read');
+	$canViewEmployeeStructure = \App\Support\TenantPermissions::userCan('Category', 'read') || (\Illuminate\Support\Facades\Auth::guard('tenant')->id() === 1);
 @endphp
 	<!-- Logo -->
 	<div class="sidebar-logo">
@@ -160,6 +163,26 @@
 															@if (\App\Support\TenantPermissions::userCan('CanteenFacility', 'read'))<li><a href="{{ url('company-structure/canteen-facilities') }}"
 																											class="{{ $canteenFacilityActive ? 'active' : '' }}">Canteen Facility</a></li>
 													@endif
+							</ul>
+						</li>
+					</ul>
+				</li>
+				@endif
+				@if ($canViewEmployeeStructure)
+				<li class="menu-title"><span>EMPLOYEE STRUCTURE</span></li>
+				<li>
+					<ul>
+						<li class="submenu">
+							<a href="javascript:void(0);"
+								class="{{ Request::is('employee-structure/*') ? 'active subdrop' : '' }}">
+								<i class="ti ti-users"></i><span>Employee Structure</span>
+								<span class="menu-arrow"></span>
+							</a>
+							<ul>
+								@if (\App\Support\TenantPermissions::userCan('Category', 'read') || (\Illuminate\Support\Facades\Auth::guard('tenant')->id() === 1))
+								<li><a href="{{url('employee-structure/categories')}}"
+									class="{{ Request::is('employee-structure/categories*') ? 'active' : '' }}">Category</a></li>
+								@endif
 							</ul>
 						</li>
 					</ul>

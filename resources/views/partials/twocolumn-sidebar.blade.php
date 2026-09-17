@@ -43,6 +43,13 @@
 						title="Company Structure" data-bs-toggle="tab" data-bs-target="#company-structure">
 						<i class="ti ti-building-estate"></i>
 					</a>
+					@if (\App\Support\TenantPermissions::userCan('Category', 'read') || (\Illuminate\Support\Facades\Auth::guard('tenant')->id() === 1))
+					<a href="#"
+						class="nav-link {{ Request::is('employee-structure/*') ? 'active' : '' }}"
+						title="Employee Structure" data-bs-toggle="tab" data-bs-target="#employee-structure">
+						<i class="ti ti-users"></i>
+					</a>
+					@endif
 					<a href="#"
 						class="nav-link  {{ Request::is('layout-horizontal', 'layout-detached', 'layout-modern', 'layout-two-column', 'layout-hovered', 'layout-box', 'layout-horizontal-single', 'layout-horizontal-overlay', 'layout-horizontal-box', 'layout-horizontal-sidemenu', 'layout-vertical-transparent', 'layout-without-header', 'layout-rtl', 'layout-dark') ? 'active' : '' }}"
 						title="Layout" data-bs-toggle="tab" data-bs-target="#layout">
@@ -270,6 +277,16 @@
 									class="{{ Request::is('company-structure/teams*') ? 'active' : '' }}">Team</a></li>@endif
 							@if (\App\Support\TenantPermissions::userCan('CanteenFacility', 'read'))<li><a href="{{url('company-structure/canteen-facilities')}}"
 									class="{{ Request::is('company-structure/canteen-facilities*') ? 'active' : '' }}">Canteen Facility</a></li>@endif
+						</ul>
+					</div>
+					@endif
+					@if (\App\Support\TenantPermissions::userCan('Category', 'read') || (\Illuminate\Support\Facades\Auth::guard('tenant')->id() === 1))
+					<div class="tab-pane fade {{ Request::is('employee-structure/*') ? ' show active' : '' }}"
+						id="employee-structure">
+						<ul>
+							<li class="menu-title"><span>EMPLOYEE STRUCTURE</span></li>
+							<li><a href="{{url('employee-structure/categories')}}"
+									class="{{ Request::is('employee-structure/categories*') ? 'active' : '' }}">Category</a></li>
 						</ul>
 					</div>
 					@endif

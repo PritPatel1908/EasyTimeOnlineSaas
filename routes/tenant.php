@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Tenant\AuthController;
+use App\Http\Controllers\Tenant\CategoryController;
 use App\Http\Controllers\Tenant\CompanyController;
 use App\Http\Controllers\Tenant\DepartmentController;
 use App\Http\Controllers\Tenant\CanteenFacilityController;
@@ -99,6 +100,19 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                 Route::get('company structure/{any}', function (string $any) {
                     return redirect('company-structure/' . $any, 301);
                 })->where('any', '.*');
+
+                Route::get('employee structure/{any}', function (string $any) {
+                    return redirect('employee-structure/' . $any, 301);
+                })->where('any', '.*');
+
+                Route::prefix('employee-structure')->name('tenant.employee-structure.')->group(function (): void {
+                    Route::get('/', function () {
+                        return redirect()->route('tenant.employee-structure.categories.index');
+                    })->name('index');
+                    Route::get('categories', [CategoryController::class, 'index'])
+                        ->middleware('tenant.permission:Category,read')
+                        ->name('categories.index');
+                });
 
                 Route::prefix('company-structure')->name('tenant.company-structure.')->group(function (): void {
                     Route::get('companies/export', [CompanyController::class, 'export'])

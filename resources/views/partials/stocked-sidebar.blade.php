@@ -1,4 +1,15 @@
 <!-- Stacked Sidebar -->
+@php
+    $canViewCompanyStructure =
+        \App\Support\TenantPermissions::userCan('Company', 'read') ||
+        \App\Support\TenantPermissions::userCan('Location', 'read') ||
+        \App\Support\TenantPermissions::userCan('Department', 'read') ||
+        \App\Support\TenantPermissions::userCan('SubDepartment', 'read') ||
+        \App\Support\TenantPermissions::userCan('Unit', 'read') ||
+        \App\Support\TenantPermissions::userCan('Team', 'read') ||
+        \App\Support\TenantPermissions::userCan('CanteenFacility', 'read');
+    $canViewEmployeeStructure = \App\Support\TenantPermissions::userCan('Category', 'read') || (\Illuminate\Support\Facades\Auth::guard('tenant')->id() === 1);
+@endphp
 <div class="stacked-sidebar" id="stacked-sidebar">
     <div class="sidebar sidebar-stacked" style="display: flex !important;">
         <div class="stacked-mini">
@@ -98,6 +109,17 @@
                                     <p>Company Structure</p>
                                 </a>
                             </div>
+                            @if ($canViewEmployeeStructure)
+                            <div class="col-6">
+                                <a href="#menu-employee-structure" role="tab"
+                                    class="nav-link {{ Request::is('employee-structure/*') ? 'active' : '' }}"
+                                    title="Employee Structure" data-bs-toggle="tab" data-bs-target="#menu-employee-structure"
+                                    aria-selected="false">
+                                    <span><i class="ti ti-users"></i></span>
+                                    <p>Employee Structure</p>
+                                </a>
+                            </div>
+                            @endif
                             <div class="col-6">
                                 <a href="#menu-layout" role="tab"
                                     class="nav-link {{ Request::is('layout-horizontal', 'layout-detached', 'layout-modern', 'layout-two-column', 'layout-hovered', 'layout-box', 'layout-horizontal-single', 'layout-horizontal-overlay', 'layout-horizontal-box', 'layout-horizontal-sidemenu', 'layout-vertical-transparent', 'layout-without-header', 'layout-rtl', 'layout-dark') ? 'active' : '' }}"
@@ -342,6 +364,7 @@
                                 \App\Support\TenantPermissions::userCan('Unit', 'read') ||
                                 \App\Support\TenantPermissions::userCan('Team', 'read') ||
                                 \App\Support\TenantPermissions::userCan('CanteenFacility', 'read');
+                            $canViewEmployeeStructure = \App\Support\TenantPermissions::userCan('Category', 'read') || (\Illuminate\Support\Facades\Auth::guard('tenant')->id() === 1);
                         @endphp
                         @if ($canViewCompanyStructure)
                         <div class="tab-pane fade {{ Request::is('company-structure/*') ? ' show active' : '' }}"
@@ -361,6 +384,15 @@
                                         class="{{ Request::is('company-structure/teams*') ? 'active' : '' }}">Team</a></li>@endif
                                 @if (\App\Support\TenantPermissions::userCan('CanteenFacility', 'read'))<li><a href="{{url('company-structure/canteen-facilities')}}"
                                         class="{{ Request::is('company-structure/canteen-facilities*') ? 'active' : '' }}">Canteen Facility</a></li>@endif
+                            </ul>
+                        </div>
+                        @endif
+                        @if ($canViewEmployeeStructure)
+                        <div class="tab-pane fade {{ Request::is('employee-structure/*') ? ' show active' : '' }}"
+                            id="menu-employee-structure">
+                            <ul class="stack-submenu">
+                                @if (\App\Support\TenantPermissions::userCan('Category', 'read'))<li><a href="{{url('employee-structure/categories')}}"
+                                        class="{{ Request::is('employee-structure/categories*') ? 'active' : '' }}">Category</a></li>@endif
                             </ul>
                         </div>
                         @endif

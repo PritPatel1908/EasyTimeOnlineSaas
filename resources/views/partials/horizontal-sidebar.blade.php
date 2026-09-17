@@ -163,6 +163,7 @@
 						\App\Support\TenantPermissions::userCan('Unit', 'read') ||
 						\App\Support\TenantPermissions::userCan('Team', 'read') ||
 						\App\Support\TenantPermissions::userCan('CanteenFacility', 'read');
+					$canViewEmployeeStructure = \App\Support\TenantPermissions::userCan('Category', 'read') || (\Illuminate\Support\Facades\Auth::guard('tenant')->id() === 1);
 				@endphp
 				@if ($canViewCompanyStructure)
 				<li class="submenu">
@@ -186,6 +187,19 @@
 								class="{{ Request::is('company-structure/teams*') ? 'active' : '' }}">Team</a></li>@endif
 						@if (\App\Support\TenantPermissions::userCan('CanteenFacility', 'read'))<li><a href="{{url('company-structure/canteen-facilities')}}"
 								class="{{ Request::is('company-structure/canteen-facilities*') ? 'active' : '' }}">Canteen Facility</a></li>@endif
+					</ul>
+				</li>
+				@endif
+				@if ($canViewEmployeeStructure)
+				<li class="submenu">
+					<a href="javascript:void(0);"
+						class="{{ Request::is('employee-structure/*') ? 'active subdrop' : '' }}">
+						<i class="ti ti-users"></i><span>Employee Structure</span>
+						<span class="menu-arrow"></span>
+					</a>
+					<ul>
+						@if (\App\Support\TenantPermissions::userCan('Category', 'read'))<li><a href="{{url('employee-structure/categories')}}"
+								class="{{ Request::is('employee-structure/categories*') ? 'active' : '' }}">Category</a></li>@endif
 					</ul>
 				</li>
 				@endif
