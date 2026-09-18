@@ -130,7 +130,7 @@ class CanteenFacilityController extends Controller
             'status' => ['nullable', 'in:all,1,0'],
             'search' => ['nullable', 'string', 'max:100'],
         ]);
-        GenerateCanteenFacilityExport::dispatch(Auth::guard('tenant')->id(), $fileName, trim((string) ($filters['search'] ?? '')), $filters['status'] ?? 'all')->onConnection('database_tenant')->onQueue('tenant');
+        GenerateCanteenFacilityExport::dispatch(Auth::guard('tenant')->id(), $fileName, trim((string) ($filters['search'] ?? '')), $filters['status'] ?? 'all')->onConnection('database_tenant')->onQueue('export');
         return redirect(url(self::INDEX_URL))->with('success', 'Canteen Facility export has started. You will receive a notification when it is ready.');
     }
 
@@ -152,7 +152,7 @@ class CanteenFacilityController extends Controller
         /** @var UploadedFile $file */
         $file = $request->file('file');
         $storedPath = $file->storeAs('canteen-facility-imports', 'canteen_facility_import_' . now()->format('Ymd_His') . '_' . uniqid() . '.' . $file->getClientOriginalExtension());
-        ProcessCanteenFacilityImport::dispatch(Auth::guard('tenant')->id(), $storedPath, (bool) ($validated['update_duplicate_records'] ?? false))->onConnection('database_tenant')->onQueue('tenant');
+        ProcessCanteenFacilityImport::dispatch(Auth::guard('tenant')->id(), $storedPath, (bool) ($validated['update_duplicate_records'] ?? false))->onConnection('database_tenant')->onQueue('import');
         return redirect(url(self::INDEX_URL))->with('success', 'Canteen Facility import has started. You will receive a notification when it finishes.');
     }
 
@@ -180,5 +180,4 @@ class CanteenFacilityController extends Controller
     {
         return array_intersect_key($payload, array_flip(['name', 'code', 'total_cfa', 'status', 'location_id']));
     }
-
 }

@@ -26,7 +26,9 @@ class GenerateCompanyExport implements ShouldQueue
     public function __construct(
         public ?int $userId,
         public string $fileName,
-    ) {}
+    ) {
+        $this->onConnection('database_tenant')->onQueue('export');
+    }
 
     public function handle(): void
     {

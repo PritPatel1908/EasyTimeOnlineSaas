@@ -19,7 +19,10 @@ class ProcessSubDepartmentImport implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public function __construct(public ?int $userId, public string $filePath, public bool $updateDuplicateRecords = false) {}
+    public function __construct(public ?int $userId, public string $filePath, public bool $updateDuplicateRecords = false)
+    {
+        $this->onConnection('database_tenant')->onQueue('import');
+    }
 
     public function handle(): void
     {
@@ -29,37 +32,37 @@ class ProcessSubDepartmentImport implements ShouldQueue
         Auth::guard('tenant')->setUser($user);
         $handle = fopen(Storage::disk('local')->path($this->filePath), 'r');
         if ($handle === false) return;
-        $headers = array_map(fn ($header) => strtolower(trim((string) $header)), fgetcsv($handle) ?: []);
+        $headers = array_map(fn($header) => strtolower(trim((string) $header)), fgetcsv($handle) ?: []);
         $created = 0;
         $updated = 0;
         $errors = [];
         while (($values = fgetcsv($handle)) !== false) {
-                $row = array_combine($headers, array_pad(array_slice($values, 0, count($headers)), count($headers), ''));
-                if (! is_array($row) || trim((string) ($row['code'] ?? '')) === '') continue;
-                $subDepartment = SubDepartment::query()->where('code', trim((string) $row['code']))->first();
-                if ($subDepartment !== null && ! $this->updateDuplicateRecords) {
-                    $errors[] = 'Duplicate code ' . $row['code'];
-                    continue;
-                }
-                $payload = [
-                    'name' => trim((string) ($row['name'] ?? '')),
-                    'code' => trim((string) $row['code']),
-                    'email' => trim((string) ($row['email'] ?? '')) ?: null,
-                    'status' => strtolower(trim((string) ($row['status'] ?? 'active'))) === 'inactive' ? 0 : 1,
-                    'department_id' => $this->resolveRelatedIds(Department::class, $row['department'] ?? ''),
-                    'location_id' => $this->resolveRelatedIds(Location::class, $row['location'] ?? ''),
-                ];
-                if ($payload['name'] === '') {
-                    $errors[] = 'Missing name for code ' . $row['code'];
-                    continue;
-                }
-                if ($subDepartment !== null) {
-                    $subDepartment->update($payload);
-                    $updated++;
-                } else {
-                    SubDepartment::create($payload);
-                    $created++;
-                }
+            $row = array_combine($headers, array_pad(array_slice($values, 0, count($headers)), count($headers), ''));
+            if (! is_array($row) || trim((string) ($row['code'] ?? '')) === '') continue;
+            $subDepartment = SubDepartment::query()->where('code', trim((string) $row['code']))->first();
+            if ($subDepartment !== null && ! $this->updateDuplicateRecords) {
+                $errors[] = 'Duplicate code ' . $row['code'];
+                continue;
+            }
+            $payload = [
+                'name' => trim((string) ($row['name'] ?? '')),
+                'code' => trim((string) $row['code']),
+                'email' => trim((string) ($row['email'] ?? '')) ?: null,
+                'status' => strtolower(trim((string) ($row['status'] ?? 'active'))) === 'inactive' ? 0 : 1,
+                'department_id' => $this->resolveRelatedIds(Department::class, $row['department'] ?? ''),
+                'location_id' => $this->resolveRelatedIds(Location::class, $row['location'] ?? ''),
+            ];
+            if ($payload['name'] === '') {
+                $errors[] = 'Missing name for code ' . $row['code'];
+                continue;
+            }
+            if ($subDepartment !== null) {
+                $subDepartment->update($payload);
+                $updated++;
+            } else {
+                SubDepartment::create($payload);
+                $created++;
+            }
         }
         fclose($handle);
         Storage::disk('local')->delete($this->filePath);

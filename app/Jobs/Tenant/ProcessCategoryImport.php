@@ -20,22 +20,36 @@ use Illuminate\Support\Facades\Storage;
 class ProcessCategoryImport implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
-    public function __construct(public ?int $userId, public string $filePath, public bool $updateDuplicateRecords = false) {}
+    public function __construct(public ?int $userId, public string $filePath, public bool $updateDuplicateRecords = false)
+    {
+        $this->onConnection('database_tenant')->onQueue('import');
+    }
     public function handle(): void
     {
         $user = $this->userId === null ? null : User::withoutGlobalScopes()->find($this->userId);
-        if ($user === null || ! Storage::disk('local')->exists($this->filePath)) { return; }
-        Auth::shouldUse('tenant'); Auth::guard('tenant')->setUser($user);
+        if ($user === null || ! Storage::disk('local')->exists($this->filePath)) {
+            return;
+        }
+        Auth::shouldUse('tenant');
+        Auth::guard('tenant')->setUser($user);
         $handle = fopen(Storage::disk('local')->path($this->filePath), 'r');
-        if ($handle === false) { return; }
-        $headers = array_map(fn ($header) => strtolower(trim((string) $header)), fgetcsv($handle) ?: []);
-        $created = 0; $updated = 0; $errors = [];
+        if ($handle === false) {
+            return;
+        }
+        $headers = array_map(fn($header) => strtolower(trim((string) $header)), fgetcsv($handle) ?: []);
+        $created = 0;
+        $updated = 0;
+        $errors = [];
         while (($values = fgetcsv($handle)) !== false) {
             $result = $this->processRow($headers, $values);
-            $created += $result['created']; $updated += $result['updated'];
-            if ($result['error'] !== null) { $errors[] = $result['error']; }
+            $created += $result['created'];
+            $updated += $result['updated'];
+            if ($result['error'] !== null) {
+                $errors[] = $result['error'];
+            }
         }
-        fclose($handle); Storage::disk('local')->delete($this->filePath);
+        fclose($handle);
+        Storage::disk('local')->delete($this->filePath);
         $message = $errors === [] ? "Imported {$created} new category record(s) and updated {$updated} existing record(s)." : 'Import completed with errors: ' . implode('; ', array_slice($errors, 0, 5));
         $user->notify(new CategoryImportExportCompleted('import', $message));
     }
@@ -68,7 +82,8 @@ class ProcessCategoryImport implements ShouldQueue
     private function payloadFromRow(array $row, string $code): array
     {
         return [
-            'name' => trim((string) ($row['name'] ?? '')), 'code' => $code,
+            'name' => trim((string) ($row['name'] ?? '')),
+            'code' => $code,
             'email' => trim((string) ($row['email'] ?? '')) ?: null,
             'status' => strtolower(trim((string) ($row['status'] ?? 'active'))) === 'inactive' ? 0 : 1,
             'company_id' => $this->resolveRelatedIds(Company::class, $row['company'] ?? ''),
@@ -80,7 +95,9 @@ class ProcessCategoryImport implements ShouldQueue
         $ids = [];
         foreach (array_values(array_filter(array_map('trim', explode(',', (string) $value)))) as $item) {
             $record = ctype_digit($item) ? $modelClass::query()->find((int) $item) : ($modelClass::query()->where('name', $item)->first() ?? $modelClass::query()->where('code', $item)->first());
-            if ($record !== null) { $ids[] = $record->getKey(); }
+            if ($record !== null) {
+                $ids[] = $record->getKey();
+            }
         }
         return array_values(array_unique($ids));
     }

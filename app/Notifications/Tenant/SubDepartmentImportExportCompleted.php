@@ -12,7 +12,7 @@ class SubDepartmentImportExportCompleted extends Notification implements ShouldQ
 
     public function __construct(public string $operation, public string $message, public ?string $downloadUrl = null)
     {
-        $this->onConnection('database_tenant')->onQueue('tenant');
+        $this->onConnection('database_tenant')->onQueue('notifications');
     }
 
     public function via(object $notifiable): array

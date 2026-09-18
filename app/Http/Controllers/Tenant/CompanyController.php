@@ -78,7 +78,7 @@ class CompanyController extends Controller
 
         GenerateCompanyExport::dispatch($userId, $fileName)
             ->onConnection('database_tenant')
-            ->onQueue('tenant');
+            ->onQueue('export');
 
         return redirect(url('company-structure/companies'))
             ->with('success', 'Company export has started. You will receive a notification when the export is ready.');
@@ -176,7 +176,7 @@ class CompanyController extends Controller
             Auth::guard('tenant')->id(),
             $storedPath,
             (bool) ($validated['update_duplicate_records'] ?? false),
-        )->onConnection('database_tenant')->onQueue('tenant');
+        )->onConnection('database_tenant')->onQueue('import');
 
         return redirect(url('company-structure/companies'))
             ->with('success', 'Company import has started. You will receive a notification when the import finishes.');

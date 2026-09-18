@@ -20,7 +20,10 @@ class GenerateLocationExport implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public function __construct(public ?int $userId, public string $fileName) {}
+    public function __construct(public ?int $userId, public string $fileName)
+    {
+        $this->onConnection('database_tenant')->onQueue('export');
+    }
 
     public function handle(): void
     {

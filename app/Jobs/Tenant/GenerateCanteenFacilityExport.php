@@ -18,7 +18,10 @@ use Illuminate\Support\Facades\Storage;
 class GenerateCanteenFacilityExport implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
-    public function __construct(public ?int $userId, public string $fileName, public string $search = '', public string $status = 'all') {}
+    public function __construct(public ?int $userId, public string $fileName, public string $search = '', public string $status = 'all')
+    {
+        $this->onConnection('database_tenant')->onQueue('export');
+    }
     public function handle(): void
     {
         $user = $this->userId === null ? null : User::withoutGlobalScopes()->find($this->userId);

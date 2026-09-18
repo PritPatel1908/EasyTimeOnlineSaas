@@ -102,7 +102,7 @@ class UnitController extends Controller
     public function export(): RedirectResponse
     {
         $fileName = 'units_' . Auth::guard('tenant')->id() . '_' . now()->format('Ymd_His') . '.csv';
-        GenerateUnitExport::dispatch(Auth::guard('tenant')->id(), $fileName)->onConnection('database_tenant')->onQueue('tenant');
+        GenerateUnitExport::dispatch(Auth::guard('tenant')->id(), $fileName)->onConnection('database_tenant')->onQueue('export');
         return redirect(url('company-structure/units'))->with('success', 'Unit export has started. You will receive a notification when it is ready.');
     }
 
@@ -127,7 +127,7 @@ class UnitController extends Controller
         /** @var UploadedFile $file */
         $file = $request->file('file');
         $storedPath = $file->storeAs('unit-imports', 'unit_import_' . now()->format('Ymd_His') . '_' . uniqid() . '.' . $file->getClientOriginalExtension());
-        ProcessUnitImport::dispatch(Auth::guard('tenant')->id(), $storedPath, (bool) ($validated['update_duplicate_records'] ?? false))->onConnection('database_tenant')->onQueue('tenant');
+        ProcessUnitImport::dispatch(Auth::guard('tenant')->id(), $storedPath, (bool) ($validated['update_duplicate_records'] ?? false))->onConnection('database_tenant')->onQueue('import');
         return redirect(url('company-structure/units'))->with('success', 'Unit import has started. You will receive a notification when it finishes.');
     }
 

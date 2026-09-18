@@ -20,7 +20,10 @@ class ProcessUnitImport implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public function __construct(public ?int $userId, public string $filePath, public bool $updateDuplicateRecords = false) {}
+    public function __construct(public ?int $userId, public string $filePath, public bool $updateDuplicateRecords = false)
+    {
+        $this->onConnection('database_tenant')->onQueue('import');
+    }
 
     public function handle(): void
     {

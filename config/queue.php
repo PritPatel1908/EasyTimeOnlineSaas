@@ -95,10 +95,11 @@ return [
             'driver'       => 'database',
             'connection'   => 'sqlite',
             'table'        => env('DB_QUEUE_TABLE', 'jobs'),
-            'queue'        => 'tenant',
+            'queue'        => 'notifications',
             'retry_after'  => (int) env('DB_QUEUE_RETRY_AFTER', 90),
             'after_commit' => false,
             // NO 'central' flag → QueueTenancyBootstrapper injects tenant_id
+            // Workloads are separated by queue names: notifications, import, export, activity-log
         ],
 
         'beanstalkd' => [

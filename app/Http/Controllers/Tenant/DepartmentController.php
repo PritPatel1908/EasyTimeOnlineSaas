@@ -104,7 +104,7 @@ class DepartmentController extends Controller
     public function export(): RedirectResponse
     {
         $fileName = 'departments_' . now()->format('Ymd_His') . '.csv';
-        GenerateDepartmentExport::dispatch(Auth::guard('tenant')->id(), $fileName)->onConnection('database_tenant')->onQueue('tenant');
+        GenerateDepartmentExport::dispatch(Auth::guard('tenant')->id(), $fileName)->onConnection('database_tenant')->onQueue('export');
         return redirect(url('company-structure/departments'))->with('success', 'Department export has started. You will receive a notification when it is ready.');
     }
 
@@ -129,7 +129,7 @@ class DepartmentController extends Controller
         /** @var UploadedFile $file */
         $file = $request->file('file');
         $storedPath = $file->storeAs('department-imports', 'department_import_' . now()->format('Ymd_His') . '_' . uniqid() . '.' . $file->getClientOriginalExtension());
-        ProcessDepartmentImport::dispatch(Auth::guard('tenant')->id(), $storedPath, (bool) ($validated['update_duplicate_records'] ?? false))->onConnection('database_tenant')->onQueue('tenant');
+        ProcessDepartmentImport::dispatch(Auth::guard('tenant')->id(), $storedPath, (bool) ($validated['update_duplicate_records'] ?? false))->onConnection('database_tenant')->onQueue('import');
         return redirect(url('company-structure/departments'))->with('success', 'Department import has started. You will receive a notification when it finishes.');
     }
 

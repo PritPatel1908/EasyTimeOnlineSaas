@@ -28,7 +28,9 @@ class ProcessCompanyImport implements ShouldQueue
         public string $filePath,
         public bool $updateDuplicateRecords = false,
         public ?string $originalFileName = null,
-    ) {}
+    ) {
+        $this->onConnection('database_tenant')->onQueue('import');
+    }
 
     public function handle(): void
     {

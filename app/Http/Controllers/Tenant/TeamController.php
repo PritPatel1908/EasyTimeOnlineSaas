@@ -122,7 +122,7 @@ class TeamController extends Controller
     public function export(): RedirectResponse
     {
         $fileName = 'teams_' . now()->format('Ymd_His') . '.csv';
-        GenerateTeamExport::dispatch(Auth::guard('tenant')->id(), $fileName)->onConnection('database_tenant')->onQueue('tenant');
+        GenerateTeamExport::dispatch(Auth::guard('tenant')->id(), $fileName)->onConnection('database_tenant')->onQueue('export');
 
         return redirect(url(self::INDEX_URL))->with('success', 'Team export has started. You will receive a notification when it is ready.');
     }
@@ -152,7 +152,7 @@ class TeamController extends Controller
 
         ProcessTeamImport::dispatch(Auth::guard('tenant')->id(), $storedPath, (bool) ($validated['update_duplicate_records'] ?? false))
             ->onConnection('database_tenant')
-            ->onQueue('tenant');
+            ->onQueue('import');
 
         return redirect(url(self::INDEX_URL))->with('success', 'Team import has started. You will receive a notification when it finishes.');
     }

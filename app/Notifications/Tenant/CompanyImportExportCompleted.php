@@ -17,7 +17,7 @@ class CompanyImportExportCompleted extends Notification implements ShouldQueue
         public string $message,
         public ?string $downloadUrl = null,
     ) {
-        $this->onConnection('database_tenant')->onQueue('tenant');
+        $this->onConnection('database_tenant')->onQueue('notifications');
     }
 
     /**

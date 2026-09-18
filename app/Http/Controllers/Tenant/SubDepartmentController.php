@@ -100,7 +100,7 @@ class SubDepartmentController extends Controller
     public function export(): RedirectResponse
     {
         $fileName = 'sub_departments_' . now()->format('Ymd_His') . '.csv';
-        GenerateSubDepartmentExport::dispatch(Auth::guard('tenant')->id(), $fileName)->onConnection('database_tenant')->onQueue('tenant');
+        GenerateSubDepartmentExport::dispatch(Auth::guard('tenant')->id(), $fileName)->onConnection('database_tenant')->onQueue('export');
         return redirect(url(self::INDEX_URL))->with('success', 'Sub Department export has started. You will receive a notification when it is ready.');
     }
 
@@ -125,7 +125,7 @@ class SubDepartmentController extends Controller
         /** @var UploadedFile $file */
         $file = $request->file('file');
         $storedPath = $file->storeAs('sub-department-imports', 'sub_department_import_' . now()->format('Ymd_His') . '_' . uniqid() . '.' . $file->getClientOriginalExtension());
-        ProcessSubDepartmentImport::dispatch(Auth::guard('tenant')->id(), $storedPath, (bool) ($validated['update_duplicate_records'] ?? false))->onConnection('database_tenant')->onQueue('tenant');
+        ProcessSubDepartmentImport::dispatch(Auth::guard('tenant')->id(), $storedPath, (bool) ($validated['update_duplicate_records'] ?? false))->onConnection('database_tenant')->onQueue('import');
         return redirect(url(self::INDEX_URL))->with('success', 'Sub Department import has started. You will receive a notification when it finishes.');
     }
 

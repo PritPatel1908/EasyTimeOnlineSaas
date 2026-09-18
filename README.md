@@ -61,3 +61,4 @@ The Laravel framework is open-sourced software licensed under the [MIT license](
 
 php artisan queue:work database --queue=default
 php artisan queue:work database_tenant --queue=tenant,processing,low
+php artisan queue:work database_tenant --queue=notifications,import,export,activity-log

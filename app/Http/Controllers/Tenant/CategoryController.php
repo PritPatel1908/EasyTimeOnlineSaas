@@ -142,7 +142,7 @@ class CategoryController extends Controller
     public function export(): RedirectResponse
     {
         $fileName = 'categories_' . now()->format('Ymd_His') . '.csv';
-        GenerateCategoryExport::dispatch(Auth::guard('tenant')->id(), $fileName)->onConnection('database_tenant')->onQueue('tenant');
+        GenerateCategoryExport::dispatch(Auth::guard('tenant')->id(), $fileName)->onConnection('database_tenant')->onQueue('export');
         return redirect(url(self::INDEX_URL))->with('success', 'Category export has started. You will receive a notification when it is ready.');
     }
 
@@ -164,7 +164,7 @@ class CategoryController extends Controller
         /** @var UploadedFile $file */
         $file = $request->file('file');
         $storedPath = $file->storeAs('category-imports', 'category_import_' . now()->format('Ymd_His') . '_' . uniqid() . '.' . $file->getClientOriginalExtension());
-        ProcessCategoryImport::dispatch(Auth::guard('tenant')->id(), $storedPath, (bool) ($validated['update_duplicate_records'] ?? false))->onConnection('database_tenant')->onQueue('tenant');
+        ProcessCategoryImport::dispatch(Auth::guard('tenant')->id(), $storedPath, (bool) ($validated['update_duplicate_records'] ?? false))->onConnection('database_tenant')->onQueue('import');
         return redirect(url(self::INDEX_URL))->with('success', 'Category import has started. You will receive a notification when it finishes.');
     }
 

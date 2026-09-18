@@ -39,12 +39,12 @@ class LocationController extends Controller
             'companies' => Company::query()
                 ->orderBy('name')
                 ->get()
-                ->filter(fn (Company $company): bool => $this->containsId($company->getRawOriginal('location_id'), $locationId))
+                ->filter(fn(Company $company): bool => $this->containsId($company->getRawOriginal('location_id'), $locationId))
                 ->values(),
             'departments' => Department::query()
                 ->orderBy('name')
                 ->get()
-                ->filter(fn (Department $department): bool => $this->containsId($department->getRawOriginal('location_id'), $locationId))
+                ->filter(fn(Department $department): bool => $this->containsId($department->getRawOriginal('location_id'), $locationId))
                 ->values(),
         ]);
     }
@@ -76,8 +76,8 @@ class LocationController extends Controller
 
     public function export(): RedirectResponse
     {
-        $fileName = 'locations_'.now()->format('Ymd_His').'.csv';
-        GenerateLocationExport::dispatch(Auth::guard('tenant')->id(), $fileName)->onConnection('database_tenant')->onQueue('tenant');
+        $fileName = 'locations_' . now()->format('Ymd_His') . '.csv';
+        GenerateLocationExport::dispatch(Auth::guard('tenant')->id(), $fileName)->onConnection('database_tenant')->onQueue('export');
 
         return redirect(url('company-structure/locations'))->with('success', 'Location export has started. You will receive a notification when the export is ready.');
     }
@@ -97,7 +97,7 @@ class LocationController extends Controller
     {
         $fileName = basename($file ?? $tenant);
         abort_unless(preg_match('/\Alocations_\d{8}_\d{6}\.csv\z/', $fileName) === 1, 404);
-        $path = 'location-exports/'.$fileName;
+        $path = 'location-exports/' . $fileName;
 
         if (! Storage::disk('local')->exists($path)) {
             (new GenerateLocationExport(Auth::guard('tenant')->id(), $fileName))->handle();
@@ -115,8 +115,8 @@ class LocationController extends Controller
 
         $validated = $request->validate(['file' => ['required', 'file', 'mimes:csv,txt', 'max:2048'], 'update_duplicate_records' => ['nullable', 'boolean']]);
         $file = $request->file('file');
-        $storedPath = $file->storeAs('location-imports', 'location_import_'.now()->format('Ymd_His').'_'.uniqid().'.'.$file->getClientOriginalExtension());
-        ProcessLocationImport::dispatch(Auth::guard('tenant')->id(), $storedPath, (bool) ($validated['update_duplicate_records'] ?? false))->onConnection('database_tenant')->onQueue('tenant');
+        $storedPath = $file->storeAs('location-imports', 'location_import_' . now()->format('Ymd_His') . '_' . uniqid() . '.' . $file->getClientOriginalExtension());
+        ProcessLocationImport::dispatch(Auth::guard('tenant')->id(), $storedPath, (bool) ($validated['update_duplicate_records'] ?? false))->onConnection('database_tenant')->onQueue('import');
 
         return redirect(url('company-structure/locations'))->with('success', 'Location import has started. You will receive a notification when the import finishes.');
     }
