@@ -59,6 +59,14 @@ The Laravel framework is open-sourced software licensed under the [MIT license](
 
 ## Queue
 
+# Central jobs
+
 php artisan queue:work database --queue=default
-php artisan queue:work database_tenant --queue=tenant,processing,low
-php artisan queue:work database_tenant --queue=notifications,import,export,activity-log
+
+# Tenant jobs (single worker covering all tenant queues used by the app)
+
+QUEUE_NAMES=notifications,import,export,activity-log,processing,low bash queue-worker.sh
+
+# Alternative explicit command
+
+php artisan queue:work database_tenant --queue=notifications,import,export,activity-log,processing,low --sleep=3 --tries=3

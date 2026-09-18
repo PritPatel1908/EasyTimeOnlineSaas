@@ -172,7 +172,7 @@ Add:
 ```ini
 [program:laravel-queue]
 process_name=%(program_name)s_%(process_num)02d
-command=php /var/www/easytimeonline/artisan queue:work database_tenant --queue=notifications,import,export,activity-log --sleep=3 --tries=3
+command=php /var/www/easytimeonline/artisan queue:work database_tenant --queue=notifications,import,export,activity-log,processing,low --sleep=3 --tries=3
 directory=/var/www/easytimeonline
 autostart=true
 autorestart=true
