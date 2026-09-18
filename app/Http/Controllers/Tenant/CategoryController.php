@@ -43,7 +43,9 @@ class CategoryController extends Controller
     {
         $validated = $request->validate(['status' => ['nullable', 'in:all,1,0']]);
         $query = Category::query()->latest('id');
-        if (($validated['status'] ?? 'all') !== 'all') { $query->where('status', (int) $validated['status']); }
+        if (($validated['status'] ?? 'all') !== 'all') {
+            $query->where('status', (int) $validated['status']);
+        }
         $categories = $query->get();
         return response()->json(['html' => view('employee-structure.categories.partials.rows', compact('categories'))->render(), 'count' => $categories->count()]);
     }
@@ -63,9 +65,12 @@ class CategoryController extends Controller
         DB::transaction(function () use ($request): void {
             $validated = $request->validated();
             $slabs = $validated['c_off_against_wo_hl_slabs'] ?? [];
+            $otSlabs = $validated['c_off_against_ot_slabs'] ?? [];
             unset($validated['c_off_against_wo_hl_slabs']);
+            unset($validated['c_off_against_ot_slabs']);
             $category = Category::query()->create($validated);
             $this->syncCoffSlabs($category, $slabs);
+            $this->syncCoffOtSlabs($category, $otSlabs);
         });
         return redirect(url(self::INDEX_URL))->with('success', 'Category created successfully.');
     }
@@ -85,10 +90,13 @@ class CategoryController extends Controller
         DB::transaction(function () use ($request): void {
             $validated = $request->validated();
             $slabs = $validated['c_off_against_wo_hl_slabs'] ?? [];
+            $otSlabs = $validated['c_off_against_ot_slabs'] ?? [];
             unset($validated['c_off_against_wo_hl_slabs']);
+            unset($validated['c_off_against_ot_slabs']);
             $category = Category::query()->findOrFail($request->route('category'));
             $category->update($validated);
             $this->syncCoffSlabs($category, $slabs);
+            $this->syncCoffOtSlabs($category, $otSlabs);
         });
         return redirect(url(self::INDEX_URL))->with('success', 'Category updated successfully.');
     }
@@ -104,10 +112,29 @@ class CategoryController extends Controller
         }
     }
 
+    private function syncCoffOtSlabs(Category $category, array $slabs): void
+    {
+        $category->c_off_against_ot_slabs()->delete();
+        foreach ($slabs as $slab) {
+            if (($slab['from_hours'] ?? '') === '' && ($slab['to_hours'] ?? '') === '' && ($slab['credit_days'] ?? '') === '') {
+                continue;
+            }
+            foreach (['from_hours', 'to_hours'] as $field) {
+                if (($slab[$field] ?? '') !== '') {
+                    [$hours, $minutes] = array_map('intval', explode(':', $slab[$field]));
+                    $slab[$field] = $hours + ($minutes / 60);
+                }
+            }
+            $category->c_off_against_ot_slabs()->create($slab);
+        }
+    }
+
     public function destroy(Request $request): RedirectResponse
     {
         $category = Category::query()->findOrFail($request->route('category'));
-        if ($category->hasRelatedRecords()) { return redirect(url(self::INDEX_URL))->with('error', $category->getRelatedRecordsMessage('Category')); }
+        if ($category->hasRelatedRecords()) {
+            return redirect(url(self::INDEX_URL))->with('error', $category->getRelatedRecordsMessage('Category'));
+        }
         $category->delete();
         return redirect(url(self::INDEX_URL))->with('success', 'Category deleted successfully.');
     }
@@ -123,7 +150,10 @@ class CategoryController extends Controller
     {
         return response()->streamDownload(function (): void {
             $handle = fopen('php://output', 'w');
-            if ($handle !== false) { fputcsv($handle, Category::IMPORT_EXPORT_COLUMNS); fclose($handle); }
+            if ($handle !== false) {
+                fputcsv($handle, Category::IMPORT_EXPORT_COLUMNS);
+                fclose($handle);
+            }
         }, 'categories_import_sample.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
@@ -143,7 +173,9 @@ class CategoryController extends Controller
         $fileName = basename($file ?? $tenant);
         abort_unless(preg_match('/\Acategories_\d{8}_\d{6}\.csv\z/', $fileName) === 1, 404);
         $path = 'category-exports/' . $fileName;
-        if (! Storage::disk('local')->exists($path)) { (new GenerateCategoryExport(Auth::guard('tenant')->id(), $fileName))->handle(); }
+        if (! Storage::disk('local')->exists($path)) {
+            (new GenerateCategoryExport(Auth::guard('tenant')->id(), $fileName))->handle();
+        }
         abort_unless(Storage::disk('local')->exists($path), 404);
         return response()->download(Storage::disk('local')->path($path), 'categories.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }

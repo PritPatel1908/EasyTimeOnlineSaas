@@ -13,8 +13,10 @@ final class CategoryRequestRules
             'code' => ['required', 'string', 'max:50', 'unique:categories,code' . ($categoryId ? ',' . $categoryId : '')],
             'email' => ['nullable', 'email', 'max:255'],
             'status' => ['required', 'integer', 'in:1,0'],
-            'company_id' => ['nullable', 'array'], 'company_id.*' => ['integer', 'exists:companies,id'],
-            'location_id' => ['nullable', 'array'], 'location_id.*' => ['integer', 'exists:locations,id'],
+            'company_id' => ['nullable', 'array'],
+            'company_id.*' => ['integer', 'exists:companies,id'],
+            'location_id' => ['nullable', 'array'],
+            'location_id.*' => ['integer', 'exists:locations,id'],
         ];
         foreach (['is_week_off_paid', 'is_holiday_paid', 'single_punch_allowed_present', 'single_punch_allowed_half_day', 'need_approval_for_overtime', 'regular_ot_on_wo', 'bypass_timing_rule', 'ignore_before_after_shift_punch', 'fix_work_hours', 'fix_work_hours_as_per_shift', 'ignore_break_in_attendance', 'reset_halfday_rule_cycle', 'give_double_ot_in_public_holiday', 'give_double_coff_in_public_holiday', 'is_eligible_for_c_off', 'allow_halfday_c_off', 'allow_backdated_leave'] as $field) {
             $fields[$field] = ['nullable', 'boolean'];
@@ -30,6 +32,10 @@ final class CategoryRequestRules
         $fields['c_off_against_wo_hl_slabs.*.from_time'] = ['nullable', 'date_format:H:i'];
         $fields['c_off_against_wo_hl_slabs.*.to_time'] = ['nullable', 'date_format:H:i', 'after_or_equal:c_off_against_wo_hl_slabs.*.from_time'];
         $fields['c_off_against_wo_hl_slabs.*.credit_days'] = ['nullable', 'numeric', 'min:0'];
+        $fields['c_off_against_ot_slabs'] = ['nullable', 'array'];
+        $fields['c_off_against_ot_slabs.*.from_hours'] = ['nullable', 'date_format:H:i'];
+        $fields['c_off_against_ot_slabs.*.to_hours'] = ['nullable', 'date_format:H:i', 'after_or_equal:c_off_against_ot_slabs.*.from_hours'];
+        $fields['c_off_against_ot_slabs.*.credit_days'] = ['nullable', 'numeric', 'min:0'];
         $fields['min_avail'] = ['nullable', 'numeric', 'min:0'];
         $fields['max_avail'] = ['nullable', 'numeric', 'min:0', 'gte:min_avail'];
         $fields['skip_overtime'] = ['nullable', 'date_format:H:i'];
