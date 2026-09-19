@@ -5,5 +5,6 @@
 <div class="card mb-4"><div class="card-header"><h5 class="mb-0">Contact Information</h5></div><div class="card-body"><div class="row"><div class="col-md-6 mb-3"><small class="text-muted d-block">Email</small><span>{{ $subDepartment->email ?: '-' }}</span></div></div></div></div>
 <div class="card mb-4"><div class="card-header"><h5 class="mb-0">Organization</h5></div><div class="card-body"><div class="row"><div class="col-md-6 mb-3"><small class="text-muted d-block">Departments</small><span>{{ $subDepartment->departments->pluck('name')->join(', ') ?: '-' }}</span></div><div class="col-md-6 mb-3"><small class="text-muted d-block">Locations</small><span>{{ $subDepartment->locations()->pluck('name')->join(', ') ?: '-' }}</span></div></div></div></div>
 <div class="card"><div class="card-header"><h5 class="mb-0">Configuration</h5></div><div class="card-body"><small class="text-muted d-block mb-1">Status</small><span class="badge {{ $subDepartment->status === 1 ? 'badge-success' : 'badge-danger' }} d-inline-flex align-items-center badge-xs"><i class="ti ti-point-filled me-1"></i>{{ $subDepartment->status === 1 ? 'Active' : 'Inactive' }}</span></div></div>
+@include('partials.audit-users', ['record' => $subDepartment])
 </div>@include('partials.footer')</div>
 @endsection

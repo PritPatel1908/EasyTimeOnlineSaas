@@ -48,6 +48,7 @@
                 <span class="badge {{ $company->status === 1 ? 'badge-success' : 'badge-danger' }} d-inline-flex align-items-center badge-xs"><i class="ti ti-point-filled me-1"></i>{{ $company->status === 1 ? 'Active' : 'Inactive' }}</span>
             </div>
         </div>
+        @include('partials.audit-users', ['record' => $company])
     </div>
     @include('partials.footer')
 </div>

@@ -30,8 +30,6 @@
 
     $companyNames = $category->companies->pluck('name')->filter()->implode(', ') ?: '-';
     $locationNames = $category->locations->pluck('name')->filter()->implode(', ') ?: '-';
-    $createdByName = $category->created_by ? (\App\Models\Tenant\User::find($category->created_by)?->name ?? '-') : '-';
-    $updatedByName = $category->updated_by ? (\App\Models\Tenant\User::find($category->updated_by)?->name ?? '-') : '-';
 
     $formatTimeValue = function ($value) {
         if ($value === null || $value === '') {
@@ -191,11 +189,10 @@
             <div class="card-body">
                 <div class="row">
                     <div class="col-md-4 mb-3"><small class="text-muted d-block">Status</small><span class="badge {{ $category->status === 1 ? 'badge-success' : 'badge-danger' }}">{{ $category->status === 1 ? 'Active' : 'Inactive' }}</span></div>
-                    <div class="col-md-4 mb-3"><small class="text-muted d-block">Created By</small>{{ $createdByName }}</div>
-                    <div class="col-md-4 mb-3"><small class="text-muted d-block">Updated By</small>{{ $updatedByName }}</div>
                 </div>
             </div>
         </div>
+        @include('partials.audit-users', ['record' => $category])
     </div>
 </div>
 @endsection

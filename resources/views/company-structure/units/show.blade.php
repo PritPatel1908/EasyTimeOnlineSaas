@@ -4,5 +4,6 @@
 <div class="card mb-4"><div class="card-header"><h5 class="mb-0">Basic Information</h5></div><div class="card-body"><div class="row"><div class="col-md-6 mb-3"><small class="text-muted d-block">Unit Name</small><span>{{ $unit->name }}</span></div><div class="col-md-6 mb-3"><small class="text-muted d-block">Unit Code</small><span>{{ $unit->code }}</span></div></div></div></div>
 <div class="card mb-4"><div class="card-header"><h5 class="mb-0">Organization</h5></div><div class="card-body"><div class="row"><div class="col-md-12 mb-3"><small class="text-muted d-block">Locations</small><span>{{ $unit->locations->pluck('name')->join(', ') ?: '-' }}</span></div></div></div></div>
 <div class="card"><div class="card-header"><h5 class="mb-0">Configuration</h5></div><div class="card-body"><small class="text-muted d-block mb-1">Status</small><span class="badge {{ $unit->status === 1 ? 'badge-success' : 'badge-danger' }} d-inline-flex align-items-center badge-xs"><i class="ti ti-point-filled me-1"></i>{{ $unit->status === 1 ? 'Active' : 'Inactive' }}</span></div></div>
+@include('partials.audit-users', ['record' => $unit])
 </div>@include('partials.footer')</div>
 @endsection
