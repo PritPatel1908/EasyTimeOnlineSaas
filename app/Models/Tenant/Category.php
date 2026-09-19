@@ -18,7 +18,47 @@ class Category extends Model
     use SoftDeletes;
 
     protected array $auditLogOldSnapshot = [];
-    public const IMPORT_EXPORT_COLUMNS = ['name', 'code', 'email', 'status', 'company', 'location'];
+    public const IMPORT_EXPORT_COLUMNS = [
+        'name',
+        'code',
+        'email',
+        'status',
+        'company',
+        'location',
+        'canteen_break_limit',
+        'need_approval_for_overtime',
+        'regular_ot_on_wo',
+        'bypass_timing_rule',
+        'ignore_before_after_shift_punch',
+        'fix_work_hours',
+        'fix_work_hours_as_per_shift',
+        'fix_work_hours_value',
+        'ignore_break_in_attendance',
+        'reset_halfday_rule_cycle',
+        'give_double_ot_in_public_holiday',
+        'give_double_coff_in_public_holiday',
+        'is_week_off_paid',
+        'is_holiday_paid',
+        'single_punch_allowed_present',
+        'single_punch_allowed_half_day',
+        'max_short_leave_minutes_per_month',
+        'max_short_leave_minutes_per_application',
+        'max_occurance_of_short_leave_in_month',
+        'advance_short_leave_application',
+        'is_eligible_for_c_off',
+        'c_off_lapse_in_days',
+        'allow_halfday_c_off',
+        'allow_backdated_leave',
+        'backdated_day_limit',
+        'advance_day_limit',
+        'maximum_accumulation',
+        'maximum_request_in_a_month',
+        'maximum_request_in_a_year',
+        'leave_type',
+        'min_avail',
+        'max_avail',
+        'skip_overtime',
+    ];
     protected $table = 'categories';
 
     protected static function booted(): void

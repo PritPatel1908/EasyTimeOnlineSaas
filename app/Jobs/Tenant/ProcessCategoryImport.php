@@ -6,6 +6,7 @@ namespace App\Jobs\Tenant;
 
 use App\Models\Tenant\Category;
 use App\Models\Tenant\Company;
+use App\Models\Tenant\LeaveType;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\User;
 use App\Notifications\Tenant\CategoryImportExportCompleted;
@@ -85,11 +86,82 @@ class ProcessCategoryImport implements ShouldQueue
             'name' => trim((string) ($row['name'] ?? '')),
             'code' => $code,
             'email' => trim((string) ($row['email'] ?? '')) ?: null,
-            'status' => strtolower(trim((string) ($row['status'] ?? 'active'))) === 'inactive' ? 0 : 1,
+            'status' => $this->parseStatus($row['status'] ?? 'active'),
             'company_id' => $this->resolveRelatedIds(Company::class, $row['company'] ?? ''),
             'location_id' => $this->resolveRelatedIds(Location::class, $row['location'] ?? ''),
+            'canteen_break_limit' => trim((string) ($row['canteen_break_limit'] ?? '')) ?: null,
+            'need_approval_for_overtime' => $this->parseBooleanValue($row['need_approval_for_overtime'] ?? null),
+            'regular_ot_on_wo' => $this->parseBooleanValue($row['regular_ot_on_wo'] ?? null),
+            'bypass_timing_rule' => $this->parseBooleanValue($row['bypass_timing_rule'] ?? null),
+            'ignore_before_after_shift_punch' => $this->parseBooleanValue($row['ignore_before_after_shift_punch'] ?? null),
+            'fix_work_hours' => $this->parseBooleanValue($row['fix_work_hours'] ?? null),
+            'fix_work_hours_as_per_shift' => $this->parseBooleanValue($row['fix_work_hours_as_per_shift'] ?? null),
+            'fix_work_hours_value' => trim((string) ($row['fix_work_hours_value'] ?? '')) ?: null,
+            'ignore_break_in_attendance' => $this->parseBooleanValue($row['ignore_break_in_attendance'] ?? null),
+            'reset_halfday_rule_cycle' => $this->parseBooleanValue($row['reset_halfday_rule_cycle'] ?? null),
+            'give_double_ot_in_public_holiday' => $this->parseBooleanValue($row['give_double_ot_in_public_holiday'] ?? null),
+            'give_double_coff_in_public_holiday' => $this->parseBooleanValue($row['give_double_coff_in_public_holiday'] ?? null),
+            'is_week_off_paid' => $this->parseBooleanValue($row['is_week_off_paid'] ?? null),
+            'is_holiday_paid' => $this->parseBooleanValue($row['is_holiday_paid'] ?? null),
+            'single_punch_allowed_present' => $this->parseBooleanValue($row['single_punch_allowed_present'] ?? null),
+            'single_punch_allowed_half_day' => $this->parseBooleanValue($row['single_punch_allowed_half_day'] ?? null),
+            'max_short_leave_minutes_per_month' => $this->parseNullableInteger($row['max_short_leave_minutes_per_month'] ?? null),
+            'max_short_leave_minutes_per_application' => $this->parseNullableInteger($row['max_short_leave_minutes_per_application'] ?? null),
+            'max_occurance_of_short_leave_in_month' => $this->parseNullableInteger($row['max_occurance_of_short_leave_in_month'] ?? null),
+            'advance_short_leave_application' => $this->parseNullableInteger($row['advance_short_leave_application'] ?? null),
+            'is_eligible_for_c_off' => $this->parseBooleanValue($row['is_eligible_for_c_off'] ?? null),
+            'c_off_lapse_in_days' => $this->parseNullableInteger($row['c_off_lapse_in_days'] ?? null),
+            'allow_halfday_c_off' => $this->parseBooleanValue($row['allow_halfday_c_off'] ?? null),
+            'allow_backdated_leave' => $this->parseBooleanValue($row['allow_backdated_leave'] ?? null),
+            'backdated_day_limit' => $this->parseNullableInteger($row['backdated_day_limit'] ?? null),
+            'advance_day_limit' => $this->parseNullableInteger($row['advance_day_limit'] ?? null),
+            'maximum_accumulation' => $this->parseNullableInteger($row['maximum_accumulation'] ?? null),
+            'maximum_request_in_a_month' => $this->parseNullableInteger($row['maximum_request_in_a_month'] ?? null),
+            'maximum_request_in_a_year' => $this->parseNullableInteger($row['maximum_request_in_a_year'] ?? null),
+            'leave_type_id' => $this->resolveRelatedIds(LeaveType::class, $row['leave_type'] ?? ''),
+            'min_avail' => $this->parseNullableDecimal($row['min_avail'] ?? null),
+            'max_avail' => $this->parseNullableDecimal($row['max_avail'] ?? null),
+            'skip_overtime' => trim((string) ($row['skip_overtime'] ?? '')) ?: null,
         ];
     }
+
+    private function parseStatus(mixed $value): int
+    {
+        $normalized = strtolower(trim((string) $value));
+        return in_array($normalized, ['inactive', '0', 'no', 'false'], true) ? 0 : 1;
+    }
+
+    private function parseBooleanValue(mixed $value): ?bool
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $normalized = strtolower(trim((string) $value));
+
+        if (in_array($normalized, ['1', 'true', 'yes', 'y', 'active'], true)) {
+            return true;
+        }
+
+        if (in_array($normalized, ['0', 'false', 'no', 'n', 'inactive'], true)) {
+            return false;
+        }
+
+        return null;
+    }
+
+    private function parseNullableInteger(mixed $value): ?int
+    {
+        $trimmed = trim((string) $value);
+        return $trimmed === '' ? null : (int) $trimmed;
+    }
+
+    private function parseNullableDecimal(mixed $value): ?string
+    {
+        $trimmed = trim((string) $value);
+        return $trimmed === '' ? null : (string) $trimmed;
+    }
+
     private function resolveRelatedIds(string $modelClass, mixed $value): array
     {
         $ids = [];
