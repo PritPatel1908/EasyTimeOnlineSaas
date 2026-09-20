@@ -47,5 +47,5 @@ document.addEventListener('DOMContentLoaded', function () {
 	updateFixWorkHoursFields();
 });
 </script>
-<div class="card mb-4"><div class="card-header"><h5 class="mb-0">Leave Rules</h5></div><div class="card-body"><div class="row">@foreach($numberFields as $field=>$label)<div class="col-md-4 mb-3"><label class="form-label">{{ $label }}</label><input type="number" min="0" name="{{ $field }}" class="form-control" value="{{ old($field,$category?->{$field}) }}"></div>@endforeach</div></div></div>
+<div class="card mb-4"><div class="card-header"><h5 class="mb-0">Leave Rules</h5></div><div class="card-body"><div class="row">@foreach($numberFields as $field=>$label)<div class="col-md-3 mb-3"><label class="form-label">{{ $label }}</label><input type="number" min="0" name="{{ $field }}" class="form-control" value="{{ old($field,$category?->{$field}) }}"></div>@endforeach</div></div></div>
 <div class="card mb-4"><div class="card-header"><h5 class="mb-0">Configuration</h5></div><div class="card-body"><label class="form-label">Status *</label><select name="status" class="form-control" required><option value="1" @selected(old('status',$category?->status??1)==1)>Active</option><option value="0" @selected(old('status',$category?->status??1)==0)>Inactive</option></select></div></div>
