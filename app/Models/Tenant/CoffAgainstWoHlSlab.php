@@ -6,7 +6,9 @@
 
 namespace App\Models\Tenant;
 
+use App\Support\ActivityLogger;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * Class c_off_against_wo_hl_slabs
@@ -18,7 +20,22 @@ use Illuminate\Database\Eloquent\Model;
  */
 class CoffAgainstWoHlSlab extends Model
 {
+    protected array $auditLogOldSnapshot = [];
+
     protected $table = 'c_off_against_wo_hl_slabs';
+
+    protected static function booted(): void
+    {
+        static::created(function (self $slab): void {
+            $slab->audit('created', [], $slab->getAttributes());
+        });
+        static::updating(function (self $slab): void {
+            $slab->auditLogOldSnapshot = $slab->getOriginal();
+        });
+        static::updated(function (self $slab): void {
+            $slab->audit('updated', $slab->auditLogOldSnapshot, $slab->getAttributes());
+        });
+    }
 
     protected $casts = [
         'category_id' => 'int',
@@ -37,5 +54,10 @@ class CoffAgainstWoHlSlab extends Model
     public function category()
     {
         return $this->belongsTo(Category::class);
+    }
+
+    private function audit(string $event, array $old, array $new): void
+    {
+        ActivityLogger::log(Auth::guard('tenant')->user(), $this, $old, $new, $event);
     }
 }

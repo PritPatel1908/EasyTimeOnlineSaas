@@ -213,7 +213,7 @@ class RolePermissionController extends Controller
         $newPermissions = $permissionNames->all();
         if ($oldPermissions !== $newPermissions) {
             ActivityLogger::log(
-                Auth::user(),
+                Auth::guard('tenant')->user(),
                 $role,
                 ['permissions' => $oldPermissions],
                 ['permissions' => $newPermissions],

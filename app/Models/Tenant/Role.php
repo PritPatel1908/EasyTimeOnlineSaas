@@ -253,7 +253,7 @@ class Role extends Model implements RoleContract
 
     private function dispatchAuditLog(array $old, array $new, string $event): void
     {
-        ActivityLogger::log(Auth::user(), $this, $old, $new, $event);
+        ActivityLogger::log(Auth::guard('tenant')->user(), $this, $old, $new, $event);
     }
 
     private function auditSnapshot(array $attributes): array
