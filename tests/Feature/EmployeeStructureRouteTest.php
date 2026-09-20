@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Tenant\Category;
+use App\Models\Tenant\Designation;
 use App\Models\Tenant\User;
 use App\Support\TenantPermissions;
 use Illuminate\Support\Facades\Auth;
@@ -16,6 +17,13 @@ class EmployeeStructureRouteTest extends TestCase
         $this->assertTrue(Route::has('tenant.employee-structure.categories.index'));
     }
 
+    public function test_employee_structure_designation_routes_exist(): void
+    {
+        $this->assertTrue(Route::has('tenant.employee-structure.designations.index'));
+        $this->assertTrue(Route::has('tenant.employee-structure.designations.import'));
+        $this->assertTrue(Route::has('tenant.employee-structure.designations.export'));
+    }
+
     public function test_super_admin_user_id_1_has_no_employee_structure_permission_restriction(): void
     {
         $user = new User();
@@ -25,6 +33,8 @@ class EmployeeStructureRouteTest extends TestCase
 
         $this->assertTrue(TenantPermissions::userCan('Category', 'read'));
         $this->assertTrue(TenantPermissions::userCan('Category', 'create'));
+        $this->assertTrue(TenantPermissions::userCan('Designation', 'read'));
+        $this->assertTrue(TenantPermissions::userCan('Designation', 'create'));
     }
 
     public function test_category_form_views_render_flash_alerts(): void
@@ -53,6 +63,33 @@ class EmployeeStructureRouteTest extends TestCase
         ])->render();
 
         $this->assertStringContainsString('auto-dismiss-alert', $addView);
+        $this->assertStringContainsString('alert-success', $editView);
+    }
+
+    public function test_designation_form_views_render_flash_alerts(): void
+    {
+        view()->share('errors', new \Illuminate\Support\ViewErrorBag());
+        session(['success' => 'Designation saved successfully.']);
+
+        $designation = new Designation();
+        $designation->id = 1;
+        $designation->name = 'Test Designation';
+
+        $addView = view('employee-structure.designations.add', [
+            'designation' => null,
+            'companies' => collect(),
+            'locations' => collect(),
+            'categories' => collect(),
+        ])->render();
+
+        $editView = view('employee-structure.designations.edit', [
+            'designation' => $designation,
+            'companies' => collect(),
+            'locations' => collect(),
+            'categories' => collect(),
+        ])->render();
+
+        $this->assertStringContainsString('Designation Name', $addView);
         $this->assertStringContainsString('alert-success', $editView);
     }
 }

@@ -176,7 +176,7 @@
     <script src="{{URL::asset('build/js/forms-pickers.js')}}"></script>
 @endif
 
-@if (Route::is(['form-select', 'form-select2', 'tenant.company-structure.companies.create', 'tenant.company-structure.companies.edit', 'tenant.company-structure.departments.create', 'tenant.company-structure.departments.edit', 'tenant.company-structure.sub-departments.create', 'tenant.company-structure.sub-departments.edit', 'tenant.company-structure.teams.create', 'tenant.company-structure.teams.edit', 'tenant.company-structure.units.create', 'tenant.company-structure.units.edit', 'tenant.company-structure.canteen-facilities.create', 'tenant.company-structure.canteen-facilities.edit', 'tenant.employee-structure.categories.create', 'tenant.employee-structure.categories.edit', 'tenant.data-policy.create', 'tenant.data-policy.edit']))
+@if (Route::is(['form-select', 'form-select2', 'tenant.company-structure.companies.create', 'tenant.company-structure.companies.edit', 'tenant.company-structure.departments.create', 'tenant.company-structure.departments.edit', 'tenant.company-structure.sub-departments.create', 'tenant.company-structure.sub-departments.edit', 'tenant.company-structure.teams.create', 'tenant.company-structure.teams.edit', 'tenant.company-structure.units.create', 'tenant.company-structure.units.edit', 'tenant.company-structure.canteen-facilities.create', 'tenant.company-structure.canteen-facilities.edit', 'tenant.employee-structure.categories.create', 'tenant.employee-structure.categories.edit', 'tenant.employee-structure.designations.create', 'tenant.employee-structure.designations.edit', 'tenant.data-policy.create', 'tenant.data-policy.edit']))
     <!-- Custom JS -->
     <script src="{{URL::asset('build/js/custom-tom-select.js')}}"></script>
 @endif

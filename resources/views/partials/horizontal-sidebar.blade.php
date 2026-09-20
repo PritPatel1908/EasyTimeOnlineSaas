@@ -200,6 +200,8 @@
 					<ul>
 						@if (\App\Support\TenantPermissions::userCan('Category', 'read'))<li><a href="{{url('employee-structure/categories')}}"
 								class="{{ Request::is('employee-structure/categories*') ? 'active' : '' }}">Category</a></li>@endif
+						@if (\App\Support\TenantPermissions::userCan('Designation', 'read'))<li><a href="{{url('employee-structure/designations')}}"
+								class="{{ Request::is('employee-structure/designations*') ? 'active' : '' }}">Designation</a></li>@endif
 					</ul>
 				</li>
 				@endif

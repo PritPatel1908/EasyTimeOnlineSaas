@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Tenant\AuthController;
 use App\Http\Controllers\Tenant\CategoryController;
+use App\Http\Controllers\Tenant\DesignationController;
 use App\Http\Controllers\Tenant\CompanyController;
 use App\Http\Controllers\Tenant\DepartmentController;
 use App\Http\Controllers\Tenant\CanteenFacilityController;
@@ -119,6 +120,14 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                     Route::post('categories/filter', [CategoryController::class, 'filterStatus'])->middleware('tenant.permission:Category,read')->name('categories.filter');
                     Route::get('categories/create', [CategoryController::class, 'create'])->middleware('tenant.permission:Category,create')->name('categories.create');
                     Route::resource('categories', CategoryController::class)->except(['create'])->middlewareFor('index', 'tenant.permission:Category,read')->middlewareFor('show', 'tenant.permission:Category,read')->middlewareFor('store', 'tenant.permission:Category,create')->middlewareFor('edit', 'tenant.permission:Category,write')->middlewareFor('update', 'tenant.permission:Category,write')->middlewareFor('destroy', 'tenant.permission:Category,delete')->names('categories');
+                    Route::get('designations', [DesignationController::class, 'index'])->middleware('tenant.permission:Designation,read')->name('designations.index');
+                    Route::get('designations/export', [DesignationController::class, 'export'])->middleware('tenant.permission:Designation,export')->name('designations.export');
+                    Route::get('designations/import/sample', [DesignationController::class, 'downloadImportSample'])->middleware('tenant.permission:Designation,import')->name('designations.import-sample');
+                    Route::get('designations/export/download/{file}', [DesignationController::class, 'downloadExport'])->middleware('tenant.permission:Designation,export')->name('designations.download-export');
+                    Route::post('designations/import', [DesignationController::class, 'import'])->middleware('tenant.permission:Designation,import')->name('designations.import');
+                    Route::post('designations/filter', [DesignationController::class, 'filterStatus'])->middleware('tenant.permission:Designation,read')->name('designations.filter');
+                    Route::get('designations/create', [DesignationController::class, 'create'])->middleware('tenant.permission:Designation,create')->name('designations.create');
+                    Route::resource('designations', DesignationController::class)->except(['create'])->middlewareFor('index', 'tenant.permission:Designation,read')->middlewareFor('show', 'tenant.permission:Designation,read')->middlewareFor('store', 'tenant.permission:Designation,create')->middlewareFor('edit', 'tenant.permission:Designation,write')->middlewareFor('update', 'tenant.permission:Designation,write')->middlewareFor('destroy', 'tenant.permission:Designation,delete')->names('designations');
                 });
 
                 Route::prefix('company-structure')->name('tenant.company-structure.')->group(function (): void {
