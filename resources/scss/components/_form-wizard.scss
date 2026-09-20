@@ -14,3 +14,56 @@
         }
     }
 }
+
+.employee-form-wizard {
+    .form-tab {
+        gap: 12px;
+
+        .nav-item {
+            .nav-link {
+                border: 1px solid transparent;
+                color: #344054;
+                min-height: 46px;
+                transition: background-color .2s ease, border-color .2s ease, color .2s ease;
+            }
+
+            &:nth-child(1) .nav-link {
+                background: #fff1eb;
+                border-color: #ffd8c7;
+            }
+
+            &:nth-child(2) .nav-link {
+                background: #eef6ff;
+                border-color: #cfe4ff;
+            }
+
+            &:nth-child(3) .nav-link {
+                background: #effaf3;
+                border-color: #ccefd8;
+            }
+
+            .nav-link:hover,
+            .nav-link.active {
+                color: #fff;
+            }
+
+            &:nth-child(1) .nav-link:hover,
+            &:nth-child(1) .nav-link.active {
+                background: #ff6b35;
+                border-color: #ff6b35;
+            }
+
+            &:nth-child(2) .nav-link:hover,
+            &:nth-child(2) .nav-link.active {
+                background: #3b82f6;
+                border-color: #3b82f6;
+            }
+
+            &:nth-child(3) .nav-link:hover,
+            &:nth-child(3) .nav-link.active {
+                background: #22a05a;
+                border-color: #22a05a;
+            }
+        }
+    }
+}

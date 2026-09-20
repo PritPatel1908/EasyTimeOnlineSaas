@@ -4,6 +4,7 @@ namespace App\Models\Tenant;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 
+use App\Support\ActivityLogger;
 use App\Models\Tenant\Scopes\DataPolicyFilter;
 use App\Models\Tenant\Scopes\HideSuperAdminScope;
 use App\Traits\CUby;
@@ -148,6 +149,37 @@ class User extends Authenticatable implements FilamentUser, HasTenants
     use HasRoles;
     use SoftDeletes;
 
+    protected array $auditLogOldSnapshot = [];
+
+    public const IMPORT_EXPORT_COLUMNS = [
+        'code',
+        'fname',
+        'mname',
+        'lname',
+        'name',
+        'email',
+        'number',
+        'card',
+        'gender',
+        'dob',
+        'join_date',
+        'status',
+        'user_type',
+        'company',
+        'location',
+        'department',
+        'sub_department',
+        'category',
+        'sub_category',
+        'designation',
+        'grade',
+        'unit',
+        'bus_route',
+        'data_policy',
+        'role',
+        'is_locked',
+    ];
+
     public function getDefaultGuardName(): string
     {
         return 'tenant';
@@ -159,6 +191,15 @@ class User extends Authenticatable implements FilamentUser, HasTenants
             static::addGlobalScope(new HideSuperAdminScope);
         }
         static::addGlobalScope(new DataPolicyFilter);
+        static::created(fn(User $user) => $user->dispatchAuditLog([], $user->auditSnapshot($user->getAttributes()), 'created'));
+        static::updating(function (User $user): void {
+            $user->auditLogOldSnapshot = $user->auditSnapshot($user->getOriginal());
+        });
+        static::updated(fn(User $user) => $user->dispatchAuditLog($user->auditLogOldSnapshot, $user->auditSnapshot($user->getAttributes()), 'updated'));
+        static::deleting(function (User $user): void {
+            $user->auditLogOldSnapshot = $user->auditSnapshot($user->getAttributes());
+        });
+        static::deleted(fn(User $user) => $user->dispatchAuditLog($user->auditLogOldSnapshot, $user->auditSnapshot($user->getAttributes()), 'deleted'));
     }
 
     public function getFilamentName(): string
@@ -280,6 +321,21 @@ class User extends Authenticatable implements FilamentUser, HasTenants
         'grade_id',
         'unit_id',
         'bus_route_id',
+        'dms_user_id',
+        'profile_pic',
+        'left_date',
+        'left_reason',
+        'shift_type',
+        'password_policy_id',
+        'is_inactive',
+        'approval_flow_id',
+        'login_attempts',
+        'password_changed_at',
+        'last_active_at',
+        'last_login_at',
+        'shift_rotation_id',
+        'shift_change_id',
+        'week_off_change_id',
         'code',
         'fname',
         'mname',
@@ -333,6 +389,10 @@ class User extends Authenticatable implements FilamentUser, HasTenants
         'aadhar_number',
         'uan_number',
         'esic_number',
+        'reference_name',
+        'reference_number',
+        'coff_approval_flow_id',
+        'od_approval_flow_id',
     ];
 
     /**
@@ -650,6 +710,23 @@ class User extends Authenticatable implements FilamentUser, HasTenants
     public function family_details()
     {
         return $this->hasMany(FamilyDetail::class);
+    }
+
+    public static function getImportUniqueFields(): array
+    {
+        return ['code'];
+    }
+
+    private function dispatchAuditLog(array $old, array $new, string $event): void
+    {
+        ActivityLogger::log(Auth::guard('tenant')->user(), $this, $old, $new, $event);
+    }
+
+    private function auditSnapshot(array $attributes): array
+    {
+        unset($attributes['password'], $attributes['remember_token']);
+
+        return $attributes;
     }
 
     public function leave_balances()
