@@ -7,7 +7,7 @@ namespace App\Http\Controllers\Tenant;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tenant\StoreDataPolicyRequest;
 use App\Http\Requests\Tenant\UpdateDataPolicyRequest;
-use App\Jobs\Tenant\ActivityLog;
+use App\Support\ActivityLogger;
 use App\Models\Tenant\Area;
 use App\Models\Tenant\BusRoute;
 use App\Models\Tenant\CanteenFacility;
@@ -90,13 +90,13 @@ class DataPolicyController extends Controller
             $newRelations = $this->relationSnapshot($dataPolicy);
 
             if ($oldRelations !== $newRelations) {
-                ActivityLog::dispatch(
+                ActivityLogger::log(
                     auth('tenant')->user(),
                     $dataPolicy,
                     ['relations' => $oldRelations],
                     ['relations' => $newRelations],
                     'relations_updated'
-                )->afterCommit()->onConnection('database_tenant')->onQueue('processing');
+                );
             }
         });
 

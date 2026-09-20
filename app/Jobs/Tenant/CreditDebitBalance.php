@@ -2,6 +2,7 @@
 
 namespace App\Jobs\Tenant;
 
+use App\Support\ActivityLogger;
 use App\Enums\BasedOnEnumn;
 use App\Enums\YesNoEnumn;
 use App\Helpers\GeneralHelper;
@@ -116,7 +117,7 @@ class CreditDebitBalance implements ShouldBeUnique, ShouldQueue
                                     $this->user?->id,
                                     $total_leave_balance,
                                     0,
-                                    'Credit #'.$grade_wise_detail->leave_type->code.' '.$user_leave_check_muster?->check_date?->copy()->setTime(00, 00, 02, 000000),
+                                    'Credit #' . $grade_wise_detail->leave_type->code . ' ' . $user_leave_check_muster?->check_date?->copy()->setTime(00, 00, 02, 000000),
                                     $this->user?->id,
                                     $this->user?->id,
                                     false
@@ -136,7 +137,7 @@ class CreditDebitBalance implements ShouldBeUnique, ShouldQueue
                                         $this->user?->id,
                                         0,
                                         LeaveAccountDetail::where('leave_type_id', $grade_wise_detail->leave_type_id)?->first()->balance - $grade_wise_detail->max_accumulation,
-                                        'Debit #'.$grade_wise_detail->leave_type->code.' '.$user_leave_check_muster?->check_date?->copy()->setTime(00, 00, 03, 000000),
+                                        'Debit #' . $grade_wise_detail->leave_type->code . ' ' . $user_leave_check_muster?->check_date?->copy()->setTime(00, 00, 03, 000000),
                                         $this->user?->id,
                                         $this->user?->id,
                                         false
@@ -193,7 +194,7 @@ class CreditDebitBalance implements ShouldBeUnique, ShouldQueue
                                     $this->user?->id,
                                     $total_leave_balance,
                                     0,
-                                    'Credit #'.$grade_wise_detail->leave_type->code.' '.$user_leave_check_muster?->check_date?->copy()->setTime(00, 00, 02, 000000),
+                                    'Credit #' . $grade_wise_detail->leave_type->code . ' ' . $user_leave_check_muster?->check_date?->copy()->setTime(00, 00, 02, 000000),
                                     $this->user?->id,
                                     $this->user?->id,
                                     false
@@ -213,7 +214,7 @@ class CreditDebitBalance implements ShouldBeUnique, ShouldQueue
                                         $this->user?->id,
                                         0,
                                         LeaveAccountDetail::where('leave_type_id', $grade_wise_detail->leave_type_id)?->first()->balance - $grade_wise_detail->max_accumulation,
-                                        'Debit #'.$grade_wise_detail->leave_type->code.' '.$user_leave_check_muster?->check_date?->copy()->setTime(00, 00, 03, 000000),
+                                        'Debit #' . $grade_wise_detail->leave_type->code . ' ' . $user_leave_check_muster?->check_date?->copy()->setTime(00, 00, 03, 000000),
                                         $this->user?->id,
                                         $this->user?->id,
                                         false
@@ -233,25 +234,25 @@ class CreditDebitBalance implements ShouldBeUnique, ShouldQueue
 
                 $old_record = [];
                 $agent = new Agent;
-                $browser = $agent->browser().' '.$agent->version($agent->browser());
+                $browser = $agent->browser() . ' ' . $agent->version($agent->browser());
                 $os = $agent->platform();
 
                 $new_record = [
                     'ip' => request()->ip(),
-                    'browser' => $os.' > '.$browser,
-                    'user' => $userLeaveAccount->name.'('.$userLeaveAccount->code.')',
+                    'browser' => $os . ' > ' . $browser,
+                    'user' => $userLeaveAccount->name . '(' . $userLeaveAccount->code . ')',
                     'date' => $user_leave_check_muster?->check_date?->copy()->format('Y-m-d'),
                 ];
 
                 $authUser = User::where('id', '1')->first();
-                ActivityLog::dispatch($authUser, $userLeaveAccount, $old_record, $new_record, 'updated')->onQueue('processing');
+                ActivityLogger::log($authUser, $userLeaveAccount, $old_record, $new_record, 'updated');
             } else {
-                Log::channel('attprocess')->debug('Not have any leave check muster record for | '.$this->user?->name.'('.$this->user?->code.')');
+                Log::channel('attprocess')->debug('Not have any leave check muster record for | ' . $this->user?->name . '(' . $this->user?->code . ')');
             }
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::channel('attprocess')->debug('Error Credit Leave Balance. '.Str::limit($e->getMessage(), 200));
+            Log::channel('attprocess')->debug('Error Credit Leave Balance. ' . Str::limit($e->getMessage(), 200));
         }
     }
 }

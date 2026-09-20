@@ -6,7 +6,7 @@
 
 namespace App\Models\Tenant;
 
-use App\Jobs\Tenant\ActivityLog;
+use App\Support\ActivityLogger;
 use App\Traits\CUDby;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
@@ -226,10 +226,7 @@ class DataPolicy extends Model
 
     private function dispatchAuditLog(array $old, array $new, string $event): void
     {
-        ActivityLog::dispatch(Auth::guard('tenant')->user(), $this, $old, $new, $event)
-            ->afterCommit()
-            ->onConnection('database_tenant')
-            ->onQueue('processing');
+        ActivityLogger::log(Auth::guard('tenant')->user(), $this, $old, $new, $event);
     }
 
     private function auditSnapshot(array $attributes): array

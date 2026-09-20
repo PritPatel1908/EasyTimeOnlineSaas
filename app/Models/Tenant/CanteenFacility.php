@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models\Tenant;
 
-use App\Jobs\Tenant\ActivityLog;
+use App\Support\ActivityLogger;
 use App\Models\Tenant\Scopes\DataPolicyFilter;
 use App\Traits\CUDby;
 use App\Traits\HasRelatedRecords;
@@ -64,7 +64,6 @@ class CanteenFacility extends \Illuminate\Database\Eloquent\Model
 
     private function audit(string $event, array $old, array $new): void
     {
-        ActivityLog::dispatch(Auth::guard('tenant')->user(), $this, $old, $new, $event)
-            ->afterCommit()->onConnection('database_tenant')->onQueue('processing');
+        ActivityLogger::log(Auth::guard('tenant')->user(), $this, $old, $new, $event);
     }
 }

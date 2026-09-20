@@ -2,6 +2,7 @@
 
 namespace App\Jobs\Tenant;
 
+use App\Support\ActivityLogger;
 use App\Models\Tenant\Attendance;
 use App\Models\Tenant\Holiday;
 use App\Models\Tenant\StatusMaster;
@@ -139,18 +140,18 @@ class ReprocessDailyAtten implements ShouldBeUnique, ShouldQueue
 
                     $old_record = [];
                     $agent = new Agent;
-                    $browser = $agent->browser().' '.$agent->version($agent->browser());
+                    $browser = $agent->browser() . ' ' . $agent->version($agent->browser());
                     $os = $agent->platform();
 
                     $new_record = [
                         'ip' => request()->ip(),
-                        'browser' => $os.' > '.$browser,
-                        'user' => $user->name.'('.$user->code.')',
+                        'browser' => $os . ' > ' . $browser,
+                        'user' => $user->name . '(' . $user->code . ')',
                         'date' => $att->date->format('Y-m-d'),
                         'status' => StatusMaster::where('id', $att->status_master_id)->first()->code,
                     ];
 
-                    ActivityLog::dispatch($this->authUser, $att, $old_record, $new_record, 'created')->onQueue('processing');
+                    ActivityLogger::log($this->authUser, $att, $old_record, $new_record, 'created');
                 }
             }
         }

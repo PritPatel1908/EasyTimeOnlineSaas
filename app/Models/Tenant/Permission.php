@@ -6,7 +6,7 @@
 
 namespace App\Models\Tenant;
 
-use App\Jobs\Tenant\ActivityLog;
+use App\Support\ActivityLogger;
 use BackedEnum;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
@@ -133,7 +133,7 @@ class Permission extends Model implements PermissionContract
 
     private function dispatchAuditLog(array $old, array $new, string $event): void
     {
-        ActivityLog::dispatch(Auth::user(), $this, $old, $new, $event)->onQueue('processing');
+        ActivityLogger::log(Auth::user(), $this, $old, $new, $event);
     }
 
     /**

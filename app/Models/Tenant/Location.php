@@ -7,7 +7,7 @@
 namespace App\Models\Tenant;
 
 use App\Models\Tenant\Scopes\DataPolicyFilter;
-use App\Jobs\Tenant\ActivityLog;
+use App\Support\ActivityLogger;
 use App\Traits\CUDby;
 use App\Traits\HasRelatedRecords;
 use Carbon\Carbon;
@@ -217,7 +217,7 @@ class Location extends Model
 
     private function dispatchAuditLog(array $old, array $new, string $event): void
     {
-        ActivityLog::dispatch(Auth::user(), $this, $old, $new, $event)->onQueue('processing');
+        ActivityLogger::log(Auth::user(), $this, $old, $new, $event);
     }
 
     private function auditSnapshot(array $attributes): array

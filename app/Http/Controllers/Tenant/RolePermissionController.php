@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
-use App\Jobs\Tenant\ActivityLog;
+use App\Support\ActivityLogger;
 use App\Models\Tenant\Permission;
 use App\Models\Tenant\Role;
 use Illuminate\Contracts\View\View;
@@ -212,13 +212,13 @@ class RolePermissionController extends Controller
 
         $newPermissions = $permissionNames->all();
         if ($oldPermissions !== $newPermissions) {
-            ActivityLog::dispatch(
+            ActivityLogger::log(
                 Auth::user(),
                 $role,
                 ['permissions' => $oldPermissions],
                 ['permissions' => $newPermissions],
                 'permissions_updated'
-            )->onQueue('processing');
+            );
         }
     }
 

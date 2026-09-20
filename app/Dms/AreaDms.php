@@ -2,7 +2,7 @@
 
 namespace App\Dms;
 
-use App\Jobs\Tenant\ActivityLog;
+use App\Support\ActivityLogger;
 use App\Models\Tenant\Area;
 use App\Models\Tenant\Location;
 use Filament\Notifications\Notification;
@@ -60,15 +60,15 @@ class AreaDms extends DmsRequest
                         $area_obj->save();
 
                         $agent = new Agent;
-                        $browser = $agent->browser().' '.$agent->version($agent->browser());
+                        $browser = $agent->browser() . ' ' . $agent->version($agent->browser());
                         $os = $agent->platform();
 
                         $new_record = [
                             'ip' => request()->ip(),
-                            'browser' => $os.' > '.$browser,
+                            'browser' => $os . ' > ' . $browser,
                             'dms_area_id' => $area_obj->dms_area_id ? $area_obj->dms_area_id : '-',
                         ];
-                        ActivityLog::dispatch(auth()->user(), $area_obj, $old_record, $new_record, 'area_sync_updated')->onQueue('processing');
+                        ActivityLogger::log(auth()->user(), $area_obj, $old_record, $new_record, 'area_sync_updated');
                     } else {
                         $this->updateAreaToDms($area_obj);
                     }
@@ -82,12 +82,12 @@ class AreaDms extends DmsRequest
 
                     $old_record = [];
                     $agent = new Agent;
-                    $browser = $agent->browser().' '.$agent->version($agent->browser());
+                    $browser = $agent->browser() . ' ' . $agent->version($agent->browser());
                     $os = $agent->platform();
 
                     $new_record = [
                         'ip' => request()->ip(),
-                        'browser' => $os.' > '.$browser,
+                        'browser' => $os . ' > ' . $browser,
                         'name' => $area_obj->name,
                         'code' => $area_obj->code,
                         'location' => $area_obj->location_id
@@ -95,7 +95,7 @@ class AreaDms extends DmsRequest
                             : null,
                         'dms_area_id' => $area_obj->dms_area_id,
                     ];
-                    ActivityLog::dispatch(auth()->user(), $area_obj, $old_record, $new_record, 'area_sync_created')->onQueue('processing');
+                    ActivityLogger::log(auth()->user(), $area_obj, $old_record, $new_record, 'area_sync_created');
                 }
             }
         }
@@ -125,7 +125,7 @@ class AreaDms extends DmsRequest
         if ($response['error']) {
             Notification::make()
                 ->title('Error')
-                ->body('Error: '.$response['message'])
+                ->body('Error: ' . $response['message'])
                 ->persistent()
                 ->send();
 
@@ -140,15 +140,15 @@ class AreaDms extends DmsRequest
         $area_obj->save();
 
         $agent = new Agent;
-        $browser = $agent->browser().' '.$agent->version($agent->browser());
+        $browser = $agent->browser() . ' ' . $agent->version($agent->browser());
         $os = $agent->platform();
 
         $new_record = [
             'ip' => request()->ip(),
-            'browser' => $os.' > '.$browser,
+            'browser' => $os . ' > ' . $browser,
             'dms_area_id' => $area_obj->dms_area_id,
         ];
-        ActivityLog::dispatch(auth()->user(), $area_obj, $old_record, $new_record, 'updated')->onQueue('processing');
+        ActivityLogger::log(auth()->user(), $area_obj, $old_record, $new_record, 'updated');
     }
 
     public function checkAreaRegisterdOnDms($area_obj)
@@ -195,7 +195,7 @@ class AreaDms extends DmsRequest
         if ($response['error']) {
             Notification::make()
                 ->title('Error')
-                ->body('Error: '.$response['message'])
+                ->body('Error: ' . $response['message'])
                 ->persistent()
                 ->send();
 
@@ -209,14 +209,14 @@ class AreaDms extends DmsRequest
         ];
 
         $agent = new Agent;
-        $browser = $agent->browser().' '.$agent->version($agent->browser());
+        $browser = $agent->browser() . ' ' . $agent->version($agent->browser());
         $os = $agent->platform();
 
         $new_record = [
             'ip' => request()->ip(),
-            'browser' => $os.' > '.$browser,
+            'browser' => $os . ' > ' . $browser,
             'dms_area_id' => $area_obj->dms_area_id,
         ];
-        ActivityLog::dispatch(auth()->user(), $area_obj, $old_record, $new_record, 'updated')->onQueue('processing');
+        ActivityLogger::log(auth()->user(), $area_obj, $old_record, $new_record, 'updated');
     }
 }

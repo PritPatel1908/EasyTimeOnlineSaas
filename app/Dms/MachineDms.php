@@ -2,7 +2,7 @@
 
 namespace App\Dms;
 
-use App\Jobs\Tenant\ActivityLog;
+use App\Support\ActivityLogger;
 use App\Models\Tenant\Area;
 use App\Models\Tenant\Company;
 use App\Models\Tenant\Location;
@@ -68,19 +68,19 @@ class MachineDms extends DmsRequest
 
                         $area_old_record = [];
                         $agent = new Agent;
-                        $browser = $agent->browser().' '.$agent->version($agent->browser());
+                        $browser = $agent->browser() . ' ' . $agent->version($agent->browser());
                         $os = $agent->platform();
 
                         $area_new_record = [
                             'ip' => request()->ip(),
-                            'browser' => $os.' > '.$browser,
+                            'browser' => $os . ' > ' . $browser,
                             'name' => $area->name,
                             'code' => $area->code,
                             'location' => $area->location?->name,
                             'company' => $area->company?->name,
                             'dms_area_id' => $area->dms_area_id,
                         ];
-                        ActivityLog::dispatch(auth()->user(), $area, $area_old_record, $area_new_record, 'area_sync_created')->onQueue('processing');
+                        ActivityLogger::log(auth()->user(), $area, $area_old_record, $area_new_record, 'area_sync_created');
                     }
                 }
 
@@ -111,12 +111,12 @@ class MachineDms extends DmsRequest
 
                 $machine_old_record = [];
                 $agent = new Agent;
-                $browser = $agent->browser().' '.$agent->version($agent->browser());
+                $browser = $agent->browser() . ' ' . $agent->version($agent->browser());
                 $os = $agent->platform();
 
                 $machine_new_record = [
                     'ip' => request()->ip(),
-                    'browser' => $os.' > '.$browser,
+                    'browser' => $os . ' > ' . $browser,
                     'name' => $machine_obj->name,
                     'machine_ip' => $machine_obj->machine_ip,
                     'machine_serial_number' => $machine_obj->machine_serial_number,
@@ -127,7 +127,7 @@ class MachineDms extends DmsRequest
                     'company' => $machine_obj->company?->name,
                     'area' => $machine_obj->area?->name,
                 ];
-                ActivityLog::dispatch(auth()->user(), $area, $machine_old_record, $machine_new_record, 'machine_sync_created')->onQueue('processing');
+                ActivityLogger::log(auth()->user(), $area, $machine_old_record, $machine_new_record, 'machine_sync_created');
             }
         }
     }

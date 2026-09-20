@@ -2,7 +2,7 @@
 
 namespace App\Helpers;
 
-use App\Jobs\Tenant\ActivityLog;
+use App\Support\ActivityLogger;
 use App\Jobs\Tenant\ApproveCoff;
 use App\Jobs\Tenant\ApproveLeaveApplication;
 use App\Jobs\Tenant\ApproveOd;
@@ -33,7 +33,7 @@ class ApprovalApprove
             //     'status' => "approved",
             //     'approved_by' => auth()->user()->name . "(" . auth()->user()->code . ")",
             // ];
-            // ActivityLog::dispatch(auth()->user(), $record, $old_record, $new_record, 'approved')->onQueue('processing');
+            // ActivityLogger::log(auth()->user(), $record, $old_record, $new_record, 'approved');
 
             CreateShiftMuster::dispatch($record)->onQueue('processing');
 
@@ -68,7 +68,7 @@ class ApprovalApprove
             //     'status' => "approved",
             //     'approved_by' => auth()->user()->name . "(" . auth()->user()->code . ")",
             // ];
-            // ActivityLog::dispatch(auth()->user(), $record, $old_record, $new_record, 'approved')->onQueue('processing');
+            // ActivityLogger::log(auth()->user(), $record, $old_record, $new_record, 'approved');
 
             CreateWeekOffMuster::dispatch($record)->onQueue('processing');
         } elseif (get_class($record) === "App\Models\Tenant\WeekOffSwapApplication") {
@@ -83,7 +83,7 @@ class ApprovalApprove
             //     'status' => "approved",
             //     'approved_by' => auth()->user()->name . "(" . auth()->user()->code . ")",
             // ];
-            // ActivityLog::dispatch(auth()->user(), $record, $old_record, $new_record, 'approved')->onQueue('processing');
+            // ActivityLogger::log(auth()->user(), $record, $old_record, $new_record, 'approved');
 
             CreateWeekOffSwap::dispatch($record)->onQueue('processing');
         } elseif (get_class($record) === "App\Models\Tenant\ManualPunchApplication") {
@@ -98,7 +98,7 @@ class ApprovalApprove
             //     'status' => "approved",
             //     'approved_by' => auth()->user()->name . "(" . auth()->user()->code . ")",
             // ];
-            // ActivityLog::dispatch(auth()->user(), $record, $old_record, $new_record, 'approved')->onQueue('processing');
+            // ActivityLogger::log(auth()->user(), $record, $old_record, $new_record, 'approved');
 
             ApproveUserManualPunch::dispatch($record)->onQueue('processing');
         } elseif (get_class($record) === "App\Models\Tenant\ManualAttendanceApplication") {
@@ -113,7 +113,7 @@ class ApprovalApprove
             //     'status' => "approved",
             //     'approved_by' => auth()->user()->name . "(" . auth()->user()->code . ")",
             // ];
-            // ActivityLog::dispatch(auth()->user(), $record, $old_record, $new_record, 'approved')->onQueue('processing');
+            // ActivityLogger::log(auth()->user(), $record, $old_record, $new_record, 'approved');
 
             ApproveUserManualAttendance::dispatch($record)->onQueue('processing');
         } elseif (get_class($record) === "App\Models\Tenant\LeaveApplication") {
@@ -128,7 +128,7 @@ class ApprovalApprove
             //     'status' => "approved",
             //     'approved_by' => auth()->user()->name . "(" . auth()->user()->code . ")",
             // ];
-            // ActivityLog::dispatch(auth()->user(), $record, $old_record, $new_record, 'approved')->onQueue('processing');
+            // ActivityLogger::log(auth()->user(), $record, $old_record, $new_record, 'approved');
 
             ApproveLeaveApplication::dispatch($record)->onQueue('processing');
         } elseif (get_class($record) === "App\Models\Tenant\ShortLeaveApplication") {
@@ -143,7 +143,7 @@ class ApprovalApprove
             //     'status' => "approved",
             //     'approved_by' => auth()->user()->name . "(" . auth()->user()->code . ")",
             // ];
-            // ActivityLog::dispatch(auth()->user(), $record, $old_record, $new_record, 'approved')->onQueue('processing');
+            // ActivityLogger::log(auth()->user(), $record, $old_record, $new_record, 'approved');
 
             ApproveShortLeaveApplication::dispatch($record)->onQueue('processing');
         } elseif (get_class($record) === "App\Models\Tenant\Coff") {
@@ -158,7 +158,7 @@ class ApprovalApprove
             //     'status' => "approved",
             //     'approved_by' => auth()->user()->name . "(" . auth()->user()->code . ")",
             // ];
-            // ActivityLog::dispatch(auth()->user(), $record, $old_record, $new_record, 'approved')->onQueue('processing');
+            // ActivityLogger::log(auth()->user(), $record, $old_record, $new_record, 'approved');
 
             ApproveCoff::dispatch($record)->onQueue('processing');
         } elseif (get_class($record) === "App\Models\Tenant\OutDuty") {
@@ -173,7 +173,7 @@ class ApprovalApprove
             //     'status' => "approved",
             //     'approved_by' => auth()->user()->name . "(" . auth()->user()->code . ")",
             // ];
-            // ActivityLog::dispatch(auth()->user(), $record, $old_record, $new_record, 'approved')->onQueue('processing');
+            // ActivityLogger::log(auth()->user(), $record, $old_record, $new_record, 'approved');
 
             ApproveOd::dispatch($record)->onQueue('processing');
         } else {

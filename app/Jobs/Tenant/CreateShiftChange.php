@@ -2,6 +2,7 @@
 
 namespace App\Jobs\Tenant;
 
+use App\Support\ActivityLogger;
 use App\Models\Tenant\FinancialYear;
 use App\Models\Tenant\GeneralConfiguration;
 use App\Models\Tenant\Location;
@@ -140,15 +141,15 @@ class CreateShiftChange implements ShouldBeUnique, ShouldQueue
         $this->user->save();
 
         $agent = new Agent;
-        $browser = $agent->browser().' '.$agent->version($agent->browser());
+        $browser = $agent->browser() . ' ' . $agent->version($agent->browser());
         $os = $agent->platform();
 
         $user_new_record = [
             'ip' => request()->ip(),
-            'browser' => $os.' > '.$browser,
+            'browser' => $os . ' > ' . $browser,
             'shift_change_id' => $this->user->shift_change_id ? $this->user->shift_change_id : '-',
         ];
-        ActivityLog::dispatch($this->auth_user, $this->user, $user_old_record, $user_new_record, 'updated')->onQueue('processing');
+        ActivityLogger::log($this->auth_user, $this->user, $user_old_record, $user_new_record, 'updated');
 
         $shift_change->Users()->sync($this->user->id);
         $shift_change->departments()->sync($this->user?->department_id);
@@ -162,12 +163,12 @@ class CreateShiftChange implements ShouldBeUnique, ShouldQueue
             $shift_change_old_record = [];
 
             $agent = new Agent;
-            $browser = $agent->browser().' '.$agent->version($agent->browser());
+            $browser = $agent->browser() . ' ' . $agent->version($agent->browser());
             $os = $agent->platform();
 
             $shift_change_new_record = [
                 'ip' => request()->ip(),
-                'browser' => $os.' > '.$browser,
+                'browser' => $os . ' > ' . $browser,
                 'from_date' => $shift_change->from_date,
                 'is_forever' => $shift_change->is_forever,
                 'to_date' => $shift_change->to_date,
@@ -202,15 +203,15 @@ class CreateShiftChange implements ShouldBeUnique, ShouldQueue
             if ($shift_change->Users()?->count() > 0) {
                 $shift_change_new_record['users'] = $shift_change->Users()?->pluck('code')->implode(',');
             }
-            ActivityLog::dispatch($this->auth_user, $shift_change, $shift_change_old_record, $shift_change_new_record, 'created')->onQueue('processing');
+            ActivityLogger::log($this->auth_user, $shift_change, $shift_change_old_record, $shift_change_new_record, 'created');
         } else {
             $agent = new Agent;
-            $browser = $agent->browser().' '.$agent->version($agent->browser());
+            $browser = $agent->browser() . ' ' . $agent->version($agent->browser());
             $os = $agent->platform();
 
             $shift_change_new_record = [
                 'ip' => request()->ip(),
-                'browser' => $os.' > '.$browser,
+                'browser' => $os . ' > ' . $browser,
                 'from_date' => $shift_change->from_date,
                 'is_forever' => $shift_change->is_forever,
                 'to_date' => $shift_change->to_date,
@@ -245,7 +246,7 @@ class CreateShiftChange implements ShouldBeUnique, ShouldQueue
             if ($shift_change->Users()?->count() > 0) {
                 $shift_change_new_record['users'] = $shift_change->Users()?->pluck('code')->implode(',');
             }
-            ActivityLog::dispatch($this->auth_user, $shift_change, $shift_change_old_record, $shift_change_new_record, 'updated')->onQueue('processing');
+            ActivityLogger::log($this->auth_user, $shift_change, $shift_change_old_record, $shift_change_new_record, 'updated');
         }
 
         CreateShiftMuster::dispatch($shift_change)->onQueue('processing');
