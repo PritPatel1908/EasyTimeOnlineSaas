@@ -60,6 +60,8 @@ class GenerateEmployeeExport implements ShouldQueue
                 $employee->data_policy?->name ?? '',
                 $employee->roles->pluck('name')->join(', '),
                 $employee->is_locked ? 'Yes' : 'No',
+                $employee->allow_mobile_login ? 'Yes' : 'No',
+                $employee->allow_mobile_punch ? 'Yes' : 'No',
             ]);
         }
         rewind($handle);

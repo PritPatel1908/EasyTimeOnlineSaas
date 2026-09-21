@@ -178,6 +178,8 @@ class User extends Authenticatable implements FilamentUser, HasTenants
         'data_policy',
         'role',
         'is_locked',
+        'allow_mobile_login',
+        'allow_mobile_punch',
     ];
 
     public function getDefaultGuardName(): string
@@ -270,7 +272,8 @@ class User extends Authenticatable implements FilamentUser, HasTenants
         'unit_id' => 'array',
         'bus_route_id' => 'array',
         'is_locked' => 'bool',
-        'allow_phone_login' => 'bool',
+        'allow_mobile_login' => 'bool',
+        'allow_mobile_punch' => 'bool',
         'dob' => 'datetime',
         'join_date' => 'datetime',
         'left_date' => 'datetime',
@@ -345,7 +348,8 @@ class User extends Authenticatable implements FilamentUser, HasTenants
         'user_type',
         'status',
         'is_locked',
-        'allow_phone_login',
+        'allow_mobile_login',
+        'allow_mobile_punch',
         'profile_pic',
         'dob',
         'join_date',

@@ -95,6 +95,8 @@ class ProcessEmployeeImport implements ShouldQueue
             'status' => strtolower(trim((string) ($row['status'] ?? 'active'))) === 'inactive' ? 0 : 1,
             'user_type' => trim((string) ($row['user_type'] ?? 'employee')) ?: 'employee',
             'is_locked' => in_array(strtolower(trim((string) ($row['is_locked'] ?? ''))), ['1', 'yes', 'true'], true),
+            'allow_mobile_login' => in_array(strtolower(trim((string) ($row['allow_mobile_login'] ?? ''))), ['1', 'yes', 'true'], true),
+            'allow_mobile_punch' => in_array(strtolower(trim((string) ($row['allow_mobile_punch'] ?? ''))), ['1', 'yes', 'true'], true),
             'company_id' => $this->resolveIds(Company::class, $row['company'] ?? ''),
             'location_id' => $this->resolveIds(Location::class, $row['location'] ?? ''),
             'department_id' => $this->resolveIds(Department::class, $row['department'] ?? ''),
