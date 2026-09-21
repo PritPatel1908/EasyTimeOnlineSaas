@@ -239,6 +239,9 @@ class EmployeeController extends Controller
             'last_active_at',
             'last_login_at',
         ];
-        return array_intersect_key($validated, array_flip($fields));
+        $attributes = array_intersect_key($validated, array_flip($fields));
+        $attributes['name'] = trim(($validated['fname'] ?? '') . ' ' . ($validated['lname'] ?? ''));
+
+        return $attributes;
     }
 }

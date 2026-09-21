@@ -56,14 +56,13 @@
                     <div class="card-header"><h5 class="mb-0">Identity & Contact</h5></div>
                     <div class="card-body">
                         <div class="row">
-                            <div class="col-md-4 mb-3"><label class="form-label">Employee Code *</label><input name="code" class="form-control" value="{{ $value('code') }}" required>@error('code')<small class="text-danger">{{ $message }}</small>@enderror</div>
+                            <div class="col-md-6 mb-3"><label class="form-label">Employee Code *</label><input name="code" class="form-control" value="{{ $value('code') }}" required>@error('code')<small class="text-danger">{{ $message }}</small>@enderror</div>
+                            <div class="col-md-6 mb-3"><label class="form-label">Card</label><input name="card" class="form-control" value="{{ $value('card') }}"></div>
                             <div class="col-md-4 mb-3"><label class="form-label">First Name *</label><input name="fname" class="form-control" value="{{ $value('fname') }}" required></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Middle Name</label><input name="mname" class="form-control" value="{{ $value('mname') }}"></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Last Name</label><input name="lname" class="form-control" value="{{ $value('lname') }}"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Display Name *</label><input name="name" class="form-control" value="{{ $value('name') }}" required></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Email</label><input type="email" name="email" class="form-control" value="{{ $value('email') }}"></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Phone</label><input name="number" class="form-control" value="{{ $value('number') }}"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Card</label><input name="card" class="form-control" value="{{ $value('card') }}"></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Gender</label><select name="gender" class="form-control"><option value="">Select</option>@foreach(['male' => 'Male', 'female' => 'Female', 'other' => 'Other'] as $key => $label)<option value="{{ $key }}" @selected($value('gender') === $key)>{{ $label }}</option>@endforeach</select></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Date of Birth</label><input type="date" name="dob" class="form-control" value="{{ $dateValue('dob') }}"></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Profile Picture</label><input name="profile_pic" class="form-control" value="{{ $value('profile_pic') }}"></div>

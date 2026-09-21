@@ -28,7 +28,6 @@ class StoreEmployeeRequest extends FormRequest
             'fname' => ['required', 'string', 'max:100'],
             'mname' => ['nullable', 'string', 'max:100'],
             'lname' => ['nullable', 'string', 'max:100'],
-            'name' => ['required', 'string', 'max:200'],
             'email' => ['nullable', 'email', 'max:150'],
             'number' => ['nullable', 'string', 'max:30'],
             'card' => ['nullable', 'string', 'max:100'],
