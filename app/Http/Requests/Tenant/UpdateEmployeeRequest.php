@@ -13,7 +13,7 @@ class UpdateEmployeeRequest extends StoreEmployeeRequest
     {
         $rules = parent::rules();
         $rules['code'] = ['required', 'string', 'max:100', Rule::unique('users', 'code')->ignore($this->route('employee'))];
-        $rules['password'] = ['nullable', 'string', 'min:8'];
+        $rules['password'] = ['exclude_unless:is_locked,1', 'nullable', 'string', 'min:8'];
 
         return $rules;
     }

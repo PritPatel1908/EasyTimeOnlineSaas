@@ -1,5 +1,6 @@
 @php
     $value = fn (string $field, mixed $default = '') => old($field, data_get($employee, $field, $default));
+    $allowLogin = filter_var($value('is_locked', false), FILTER_VALIDATE_BOOLEAN);
     $dateValue = fn (string $field): string => ($date = $value($field)) ? \Illuminate\Support\Carbon::parse($date)->format('Y-m-d') : '';
     $selected = fn (string $field): array => array_map('strval', (array) $value($field, []));
     $relationFields = [
@@ -58,12 +59,15 @@
                         <div class="row">
                             <div class="col-md-6 mb-3"><label class="form-label">Employee Code *</label><input name="code" class="form-control" value="{{ $value('code') }}" required>@error('code')<small class="text-danger">{{ $message }}</small>@enderror</div>
                             <div class="col-md-6 mb-3"><label class="form-label">Employee Card</label><input name="card" class="form-control" value="{{ $value('card') }}"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label d-block" for="is_locked">Allow Login?</label><div class="form-check form-check-lg form-switch ps-0"><input type="hidden" name="is_locked" value="0"><input type="checkbox" name="is_locked" value="1" id="is_locked" class="form-check-input ms-0" role="switch" @checked($value('is_locked'))></div></div>
+                            <div class="col-md-4 mb-3"><label class="form-label d-block" for="is_locked">Allow Login?</label><div class="form-check form-check-lg form-switch ps-0"><input type="hidden" name="is_locked" value="0"><input type="checkbox" name="is_locked" value="1" id="is_locked" class="form-check-input ms-0" role="switch" @checked($allowLogin)></div></div>
                             <div class="col-md-4 mb-3"><label class="form-label d-block" for="allow_mobile_login">Allow Mobile Login?</label><div class="form-check form-check-lg form-switch ps-0"><input type="hidden" name="allow_mobile_login" value="0"><input type="checkbox" name="allow_mobile_login" value="1" id="allow_mobile_login" class="form-check-input ms-0" role="switch" @checked($value('allow_mobile_login'))></div></div>
                             <div class="col-md-4 mb-3"><label class="form-label d-block" for="allow_mobile_punch">Allow Mobile Punch?</label><div class="form-check form-check-lg form-switch ps-0"><input type="hidden" name="allow_mobile_punch" value="0"><input type="checkbox" name="allow_mobile_punch" value="1" id="allow_mobile_punch" class="form-check-input ms-0" role="switch" @checked($value('allow_mobile_punch'))></div></div>
                             <div class="col-md-4 mb-3"><label class="form-label">First Name *</label><input name="fname" class="form-control" value="{{ $value('fname') }}" required></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Middle Name</label><input name="mname" class="form-control" value="{{ $value('mname') }}"></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Last Name</label><input name="lname" class="form-control" value="{{ $value('lname') }}"></div>
+                            <div class="col-md-4 mb-3 login-dependent-field @class(['d-none' => !$allowLogin])"><label class="form-label">Role</label><select name="role_id" class="form-control" @disabled(!$allowLogin)><option value="">Select</option>@foreach($roles as $option)<option value="{{ $option->id }}" @selected((string) $value('role_id') === (string) $option->id)>{{ $option->name }}</option>@endforeach</select></div>
+                            <div class="col-md-4 mb-3 login-dependent-field @class(['d-none' => !$allowLogin])"><label class="form-label">Data Policy</label><select name="data_policy_id" class="form-control" @disabled(!$allowLogin)><option value="">Select</option>@foreach($dataPolicies as $option)<option value="{{ $option->id }}" @selected((string) $value('data_policy_id') === (string) $option->id)>{{ $option->name }}</option>@endforeach</select></div>
+                            <div class="col-md-4 mb-3 login-dependent-field @class(['d-none' => !$allowLogin])"><label class="form-label">Password</label><input type="password" name="password" class="form-control" @disabled(!$allowLogin)><small class="text-muted">Leave blank to keep the current password.</small></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Email</label><input type="email" name="email" class="form-control" value="{{ $value('email') }}"></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Phone</label><input name="number" class="form-control" value="{{ $value('number') }}"></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Gender</label><select name="gender" class="form-control"><option value="">Select</option>@foreach(['male' => 'Male', 'female' => 'Female', 'other' => 'Other'] as $key => $label)<option value="{{ $key }}" @selected($value('gender') === $key)>{{ $label }}</option>@endforeach</select></div>
@@ -86,10 +90,7 @@
                     <div class="card-body">
                         <div class="row">
                             @foreach($relationFields as $field => $relation)<div class="col-md-6 mb-3"><label class="form-label">{{ $relation['label'] }}</label><select name="{{ $field }}[]" class="form-control" multiple>@foreach($relation['options'] as $option)<option value="{{ $option->id }}" @selected(in_array((string) $option->id, $selected($field), true))>{{ $option->name }}</option>@endforeach</select></div>@endforeach
-                            <div class="col-md-4 mb-3"><label class="form-label">Data Policy</label><select name="data_policy_id" class="form-control"><option value="">Select</option>@foreach($dataPolicies as $option)<option value="{{ $option->id }}" @selected((string) $value('data_policy_id') === (string) $option->id)>{{ $option->name }}</option>@endforeach</select></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Role</label><select name="role_id" class="form-control"><option value="">Select</option>@foreach($roles as $option)<option value="{{ $option->id }}" @selected((string) $value('role_id') === (string) $option->id)>{{ $option->name }}</option>@endforeach</select></div>
                             <div class="col-md-4 mb-3"><label class="form-label">User Type *</label><select name="user_type" class="form-control" required><option value="employee" @selected($value('user_type', 'employee') === 'employee')>Employee</option><option value="guest" @selected($value('user_type') === 'guest')>Guest</option></select></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Password</label><input type="password" name="password" class="form-control"><small class="text-muted">Leave blank to keep the current password.</small></div>
                             <div class="col-md-4 mb-3"><label class="form-label">DMS User ID</label><input name="dms_user_id" class="form-control" value="{{ $value('dms_user_id') }}"></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Shift Type</label><input name="shift_type" class="form-control" value="{{ $value('shift_type') }}"></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Password Policy ID</label><input type="number" name="password_policy_id" class="form-control" value="{{ $value('password_policy_id') }}"></div>
@@ -148,6 +149,22 @@
     document.addEventListener('DOMContentLoaded', function () {
         const wizardRoot = document.querySelector('.employee-form-wizard');
         if (!wizardRoot || typeof bootstrap === 'undefined') return;
+
+        const loginToggle = wizardRoot.querySelector('#is_locked');
+        const loginFields = wizardRoot.querySelectorAll('.login-dependent-field');
+        const updateLoginFields = function () {
+            loginFields.forEach(function (field) {
+                field.classList.toggle('d-none', !loginToggle.checked);
+                field.querySelectorAll('input, select, textarea').forEach(function (control) {
+                    control.disabled = !loginToggle.checked;
+                });
+            });
+        };
+
+        if (loginToggle) {
+            loginToggle.addEventListener('change', updateLoginFields);
+            updateLoginFields();
+        }
 
         const getActiveLi = function () {
             const activeTab = wizardRoot.querySelector('.form-tab .active');

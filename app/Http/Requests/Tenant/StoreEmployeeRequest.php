@@ -36,7 +36,7 @@ class StoreEmployeeRequest extends FormRequest
             'join_date' => ['nullable', 'date'],
             'status' => ['required', 'boolean'],
             'user_type' => ['required', Rule::in(['employee', 'guest'])],
-            'password' => ['nullable', 'string', 'min:8'],
+            'password' => ['exclude_unless:is_locked,1', 'nullable', 'string', 'min:8'],
             'is_locked' => ['nullable', 'boolean'],
             'profile_pic' => ['nullable', 'string', 'max:255'],
             'left_date' => ['nullable', 'date'],
@@ -80,8 +80,8 @@ class StoreEmployeeRequest extends FormRequest
             'aadhar_number' => ['nullable', 'string', 'max:255'],
             'uan_number' => ['nullable', 'string', 'max:255'],
             'esic_number' => ['nullable', 'string', 'max:255'],
-            'data_policy_id' => ['nullable', 'exists:data_policies,id'],
-            'role_id' => ['nullable', 'exists:roles,id'],
+            'data_policy_id' => ['exclude_unless:is_locked,1', 'nullable', 'exists:data_policies,id'],
+            'role_id' => ['exclude_unless:is_locked,1', 'nullable', 'exists:roles,id'],
             '*.id' => ['nullable'],
         ] + $this->relationRules();
     }
