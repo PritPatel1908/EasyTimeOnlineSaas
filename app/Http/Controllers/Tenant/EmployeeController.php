@@ -75,6 +75,9 @@ class EmployeeController extends Controller
     {
         DB::transaction(function () use ($request): void {
             $validated = $request->validated();
+            if ($request->hasFile('profile_pic')) {
+                $validated['profile_pic'] = $request->file('profile_pic')->store('employee-profiles', 'public');
+            }
             $roleId = $validated['role_id'] ?? null;
             unset($validated['role_id']);
             $employee = User::query()->create($this->attributes($validated));
@@ -99,6 +102,9 @@ class EmployeeController extends Controller
     {
         $employee = User::query()->where('user_type', 'employee')->findOrFail($request->route('employee'));
         $validated = $request->validated();
+        if ($request->hasFile('profile_pic')) {
+            $validated['profile_pic'] = $request->file('profile_pic')->store('employee-profiles', 'public');
+        }
         $roleId = $validated['role_id'] ?? null;
         unset($validated['role_id']);
         if (($validated['password'] ?? '') === '') {

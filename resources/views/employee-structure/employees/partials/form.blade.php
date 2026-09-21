@@ -2,6 +2,8 @@
     $value = fn (string $field, mixed $default = '') => old($field, data_get($employee, $field, $default));
     $allowLogin = filter_var($value('is_locked', false), FILTER_VALIDATE_BOOLEAN);
     $dateValue = fn (string $field): string => ($date = $value($field)) ? \Illuminate\Support\Carbon::parse($date)->format('Y-m-d') : '';
+    $profilePic = $value('profile_pic');
+    $profilePicUrl = $profilePic ? (\Illuminate\Support\Str::startsWith($profilePic, ['http://', 'https://']) ? $profilePic : \Illuminate\Support\Facades\Storage::disk('public')->url($profilePic)) : '';
     $selected = fn (string $field): array => array_map('strval', (array) $value($field, []));
     $relationFields = [
         'company_id' => ['label' => 'Company', 'options' => $companies],
@@ -41,11 +43,16 @@
             </li>
             <li class="nav-item flex-fill" role="presentation">
                 <a class="nav-link rounded mx-auto d-flex align-items-center justify-content-center" href="#employee-step-2" id="employee-step-2-tab" data-bs-toggle="tab" role="tab" aria-controls="employee-step-2" aria-selected="false">
-                    <div class="step-icon"><i class="fas fa-building"></i></div>
+                    <div class="step-icon"><i class="fas fa-address-card"></i></div>
                 </a>
             </li>
             <li class="nav-item flex-fill" role="presentation">
                 <a class="nav-link rounded mx-auto d-flex align-items-center justify-content-center" href="#employee-step-3" id="employee-step-3-tab" data-bs-toggle="tab" role="tab" aria-controls="employee-step-3" aria-selected="false">
+                    <div class="step-icon"><i class="fas fa-building"></i></div>
+                </a>
+            </li>
+            <li class="nav-item flex-fill" role="presentation">
+                <a class="nav-link rounded mx-auto d-flex align-items-center justify-content-center" href="#employee-step-4" id="employee-step-4-tab" data-bs-toggle="tab" role="tab" aria-controls="employee-step-4" aria-selected="false">
                     <div class="step-icon"><i class="fas fa-clipboard-check"></i></div>
                 </a>
             </li>
@@ -54,7 +61,7 @@
         <div class="tab-content">
             <div class="tab-pane fade show active" id="employee-step-1" role="tabpanel" aria-labelledby="employee-step-1-tab">
                 <div class="card mb-4">
-                    <div class="card-header"><h5 class="mb-0">Identity & Contact</h5></div>
+                    <div class="card-header"><h5 class="mb-0">Identity & Access</h5></div>
                     <div class="card-body">
                         <div class="row">
                             <div class="col-md-6 mb-3"><label class="form-label">Employee Code *</label><input name="code" class="form-control" value="{{ $value('code') }}" required>@error('code')<small class="text-danger">{{ $message }}</small>@enderror</div>
@@ -72,11 +79,32 @@
                             <div class="col-md-3 mb-3"><label class="form-label">UAN No</label><input name="uan_number" class="form-control" value="{{ $value('uan_number') }}"></div>
                             <div class="col-md-3 mb-3"><label class="form-label">ESIC No</label><input name="esic_number" class="form-control" value="{{ $value('esic_number') }}"></div>
                             <div class="col-md-3 mb-3"><label class="form-label">PAN No</label><input name="pan_number" class="form-control" value="{{ $value('pan_number') }}"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Email</label><input type="email" name="email" class="form-control" value="{{ $value('email') }}"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Phone</label><input name="number" class="form-control" value="{{ $value('number') }}"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Gender</label><select name="gender" class="form-control"><option value="">Select</option>@foreach(['male' => 'Male', 'female' => 'Female', 'other' => 'Other'] as $key => $label)<option value="{{ $key }}" @selected($value('gender') === $key)>{{ $label }}</option>@endforeach</select></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Date of Birth</label><input type="date" name="dob" class="form-control" value="{{ $dateValue('dob') }}"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Profile Picture</label><input name="profile_pic" class="form-control" value="{{ $value('profile_pic') }}"></div>
+                            <div class="col-md-3 mb-3"><label class="form-label">Joining Date</label><input type="date" name="join_date" class="form-control" value="{{ $dateValue('join_date') }}"></div>
+                            <div class="col-md-3 mb-3"><label class="form-label d-block" for="is_left">Is Left?</label><div class="form-check form-check-lg form-switch ps-0"><input type="hidden" name="is_left" value="0"><input type="checkbox" name="is_left" value="1" id="is_left" class="form-check-input ms-0" role="switch" @checked($value('left_date') || $value('left_reason'))></div></div>
+                            <div class="col-md-3 mb-3 left-dependent-field @class(['d-none' => !$value('left_date') && !$value('left_reason')])"><label class="form-label">Left Date</label><input type="date" name="left_date" class="form-control" value="{{ $dateValue('left_date') }}"></div>
+                            <div class="col-md-3 mb-3 left-dependent-field @class(['d-none' => !$value('left_date') && !$value('left_reason')])"><label class="form-label">Left Remarks</label><input name="left_reason" class="form-control" value="{{ $value('left_reason') }}"></div>
+                            <div class="col-md-12 mb-3">
+                                <label class="form-label d-block">Profile Picture</label>
+                                <div class="d-flex align-items-center flex-wrap row-gap-3 bg-light w-100 rounded p-3">
+                                    <div class="d-flex align-items-center justify-content-center avatar avatar-xxl rounded-circle border border-dashed me-2 flex-shrink-0 text-dark frames overflow-hidden" style="width: 80px; height: 80px;">
+                                        <img id="profile_pic_preview" src="{{ $profilePicUrl }}" data-original-src="{{ $profilePicUrl }}" alt="Profile preview" class="w-100 h-100 object-fit-cover{{ $profilePicUrl ? '' : ' d-none' }}">
+                                        <i id="profile_pic_placeholder" class="ti ti-photo text-gray-3 fs-16{{ $profilePicUrl ? ' d-none' : '' }}"></i>
+                                    </div>
+                                    <div class="profile-upload">
+                                        <div class="mb-2">
+                                            <h6 class="mb-1">Profile Photo</h6>
+                                            <p class="fs-12 mb-0">Recommended image size is 40px x 40px</p>
+                                        </div>
+                                        <div class="profile-uploader d-flex align-items-center">
+                                            <div class="drag-upload-btn btn btn-sm btn-primary me-2">
+                                                Upload
+                                                <input type="file" name="profile_pic" id="profile_pic" class="form-control image-sign" accept="image/jpeg,image/png,image/webp">
+                                            </div>
+                                            <button type="button" id="profile_pic_cancel" class="btn btn-light btn-sm">Cancel</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -86,6 +114,24 @@
             </div>
 
             <div class="tab-pane fade" id="employee-step-2" role="tabpanel" aria-labelledby="employee-step-2-tab">
+                <div class="card mb-4">
+                    <div class="card-header"><h5 class="mb-0">Contact & Personal</h5></div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3"><label class="form-label">Email</label><input type="email" name="email" class="form-control" value="{{ $value('email') }}"></div>
+                            <div class="col-md-6 mb-3"><label class="form-label">Phone</label><input name="number" class="form-control" value="{{ $value('number') }}"></div>
+                            <div class="col-md-6 mb-3"><label class="form-label">Gender</label><select name="gender" class="form-control"><option value="">Select</option>@foreach(['male' => 'Male', 'female' => 'Female', 'other' => 'Other'] as $key => $label)<option value="{{ $key }}" @selected($value('gender') === $key)>{{ $label }}</option>@endforeach</select></div>
+                            <div class="col-md-6 mb-3"><label class="form-label">Date of Birth</label><input type="date" name="dob" class="form-control" value="{{ $dateValue('dob') }}"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <button type="button" class="btn btn-light previous">Back</button>
+                    <button type="button" class="btn btn-primary next">Next</button>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="employee-step-3" role="tabpanel" aria-labelledby="employee-step-3-tab">
                 <div class="card mb-4">
                     <div class="card-header"><h5 class="mb-0">Organization & Access</h5></div>
                     <div class="card-body">
@@ -109,16 +155,13 @@
                 </div>
             </div>
 
-            <div class="tab-pane fade" id="employee-step-3" role="tabpanel" aria-labelledby="employee-step-3-tab">
+            <div class="tab-pane fade" id="employee-step-4" role="tabpanel" aria-labelledby="employee-step-4-tab">
                 <div class="card mb-4">
                     <div class="card-header"><h5 class="mb-0">Employment & Attendance</h5></div>
                     <div class="card-body">
                         <div class="row">
-                            <div class="col-md-4 mb-3"><label class="form-label">Join Date</label><input type="date" name="join_date" class="form-control" value="{{ $dateValue('join_date') }}"></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Rejoin Date</label><input type="date" name="rejoin_date" class="form-control" value="{{ $dateValue('rejoin_date') }}"></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Rejoin Reason</label><input name="rejoin_reason" class="form-control" value="{{ $value('rejoin_reason') }}"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Left Date</label><input type="date" name="left_date" class="form-control" value="{{ $dateValue('left_date') }}"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Left Reason</label><input name="left_reason" class="form-control" value="{{ $value('left_reason') }}"></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Inactive Date</label><input type="date" name="inactive_date" class="form-control" value="{{ $dateValue('inactive_date') }}"></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Inactive Days</label><input type="number" name="inactive_days" class="form-control" value="{{ $value('inactive_days', 10) }}"></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Reference Name</label><input name="reference_name" class="form-control" value="{{ $value('reference_name') }}"></div>
@@ -165,6 +208,50 @@
         if (loginToggle) {
             loginToggle.addEventListener('change', updateLoginFields);
             updateLoginFields();
+        }
+
+        const leftToggle = wizardRoot.querySelector('#is_left');
+        const leftFields = wizardRoot.querySelectorAll('.left-dependent-field');
+        const updateLeftFields = function () {
+            leftFields.forEach(function (field) {
+                field.classList.toggle('d-none', !leftToggle.checked);
+            });
+
+            if (!leftToggle.checked) {
+                leftFields.forEach(function (field) {
+                    field.querySelectorAll('input').forEach(function (control) {
+                        control.value = '';
+                    });
+                });
+            }
+        };
+
+        if (leftToggle) {
+            leftToggle.addEventListener('change', updateLeftFields);
+            updateLeftFields();
+        }
+
+        const profileInput = wizardRoot.querySelector('#profile_pic');
+        const profilePreview = wizardRoot.querySelector('#profile_pic_preview');
+        const profilePlaceholder = wizardRoot.querySelector('#profile_pic_placeholder');
+        const profileCancel = wizardRoot.querySelector('#profile_pic_cancel');
+        if (profileInput) {
+            profileInput.addEventListener('change', function () {
+                const file = profileInput.files[0];
+                if (!file) return;
+
+                profilePreview.src = URL.createObjectURL(file);
+                profilePreview.classList.remove('d-none');
+                profilePlaceholder.classList.add('d-none');
+            });
+        }
+        if (profileCancel) {
+            profileCancel.addEventListener('click', function () {
+                profileInput.value = '';
+                profilePreview.src = profilePreview.dataset.originalSrc || '';
+                profilePreview.classList.toggle('d-none', !profilePreview.dataset.originalSrc);
+                profilePlaceholder.classList.toggle('d-none', Boolean(profilePreview.dataset.originalSrc));
+            });
         }
 
         const getActiveLi = function () {

@@ -38,7 +38,7 @@ class StoreEmployeeRequest extends FormRequest
             'user_type' => ['required', Rule::in(['employee', 'guest'])],
             'password' => ['exclude_unless:is_locked,1', 'nullable', 'string', 'min:8'],
             'is_locked' => ['nullable', 'boolean'],
-            'profile_pic' => ['nullable', 'string', 'max:255'],
+            'profile_pic' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'left_date' => ['nullable', 'date'],
             'left_reason' => ['nullable', 'string', 'max:255'],
             'shift_type' => ['nullable', 'string', 'max:255'],
