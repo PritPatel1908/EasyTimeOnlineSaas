@@ -229,6 +229,7 @@ class EmployeeController extends Controller
             'aadhar_number',
             'uan_number',
             'esic_number',
+            'pan_number',
             'allow_mobile_login',
             'allow_mobile_punch',
             'shift_type',

@@ -80,6 +80,7 @@ class StoreEmployeeRequest extends FormRequest
             'aadhar_number' => ['nullable', 'string', 'max:255'],
             'uan_number' => ['nullable', 'string', 'max:255'],
             'esic_number' => ['nullable', 'string', 'max:255'],
+            'pan_number' => ['nullable', 'string', 'max:255'],
             'data_policy_id' => ['exclude_unless:is_locked,1', 'nullable', 'exists:data_policies,id'],
             'role_id' => ['exclude_unless:is_locked,1', 'nullable', 'exists:roles,id'],
             '*.id' => ['nullable'],

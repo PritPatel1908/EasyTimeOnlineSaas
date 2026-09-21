@@ -393,6 +393,7 @@ class User extends Authenticatable implements FilamentUser, HasTenants
         'aadhar_number',
         'uan_number',
         'esic_number',
+        'pan_number',
         'reference_name',
         'reference_number',
         'coff_approval_flow_id',

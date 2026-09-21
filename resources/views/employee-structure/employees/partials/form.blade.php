@@ -68,14 +68,15 @@
                             <div class="col-md-4 mb-3 login-dependent-field @class(['d-none' => !$allowLogin])"><label class="form-label">Role</label><select name="role_id" class="form-control" @disabled(!$allowLogin)><option value="">Select</option>@foreach($roles as $option)<option value="{{ $option->id }}" @selected((string) $value('role_id') === (string) $option->id)>{{ $option->name }}</option>@endforeach</select></div>
                             <div class="col-md-4 mb-3 login-dependent-field @class(['d-none' => !$allowLogin])"><label class="form-label">Data Policy</label><select name="data_policy_id" class="form-control" @disabled(!$allowLogin)><option value="">Select</option>@foreach($dataPolicies as $option)<option value="{{ $option->id }}" @selected((string) $value('data_policy_id') === (string) $option->id)>{{ $option->name }}</option>@endforeach</select></div>
                             <div class="col-md-4 mb-3 login-dependent-field @class(['d-none' => !$allowLogin])"><label class="form-label">Password</label><input type="password" name="password" class="form-control" @disabled(!$allowLogin)><small class="text-muted">Leave blank to keep the current password.</small></div>
+                            <div class="col-md-3 mb-3"><label class="form-label">Aadhar Card</label><input name="aadhar_number" class="form-control" value="{{ $value('aadhar_number') }}"></div>
+                            <div class="col-md-3 mb-3"><label class="form-label">UAN No</label><input name="uan_number" class="form-control" value="{{ $value('uan_number') }}"></div>
+                            <div class="col-md-3 mb-3"><label class="form-label">ESIC No</label><input name="esic_number" class="form-control" value="{{ $value('esic_number') }}"></div>
+                            <div class="col-md-3 mb-3"><label class="form-label">PAN No</label><input name="pan_number" class="form-control" value="{{ $value('pan_number') }}"></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Email</label><input type="email" name="email" class="form-control" value="{{ $value('email') }}"></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Phone</label><input name="number" class="form-control" value="{{ $value('number') }}"></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Gender</label><select name="gender" class="form-control"><option value="">Select</option>@foreach(['male' => 'Male', 'female' => 'Female', 'other' => 'Other'] as $key => $label)<option value="{{ $key }}" @selected($value('gender') === $key)>{{ $label }}</option>@endforeach</select></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Date of Birth</label><input type="date" name="dob" class="form-control" value="{{ $dateValue('dob') }}"></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Profile Picture</label><input name="profile_pic" class="form-control" value="{{ $value('profile_pic') }}"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Aadhar Number</label><input name="aadhar_number" class="form-control" value="{{ $value('aadhar_number') }}"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">UAN Number</label><input name="uan_number" class="form-control" value="{{ $value('uan_number') }}"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">ESIC Number</label><input name="esic_number" class="form-control" value="{{ $value('esic_number') }}"></div>
                         </div>
                     </div>
                 </div>
