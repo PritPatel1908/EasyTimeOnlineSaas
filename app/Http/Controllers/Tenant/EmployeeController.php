@@ -10,18 +10,22 @@ use App\Http\Requests\Tenant\UpdateEmployeeRequest;
 use App\Jobs\Tenant\GenerateEmployeeExport;
 use App\Jobs\Tenant\ProcessEmployeeImport;
 use App\Models\Tenant\Category;
+use App\Models\Tenant\CanteenFacility;
 use App\Models\Tenant\Company;
 use App\Models\Tenant\DataPolicy;
 use App\Models\Tenant\Department;
 use App\Models\Tenant\Designation;
 use App\Models\Tenant\Grade;
 use App\Models\Tenant\Location;
+use App\Models\Tenant\LeaveGroup;
 use App\Models\Tenant\Role;
 use App\Models\Tenant\SubCategory;
 use App\Models\Tenant\SubDepartment;
+use App\Models\Tenant\Team;
 use App\Models\Tenant\Unit;
 use App\Models\Tenant\BusRoute;
 use App\Models\Tenant\User;
+use App\Models\Tenant\PasswordPolicy;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -171,7 +175,14 @@ class EmployeeController extends Controller
         foreach (self::RELATIONS as $key => $model) {
             $options[$key] = $model::query()->where(fn($query) => $query->where('status', 1)->orWhereNull('status'))->orderBy('name')->get();
         }
-        return array_merge($options, ['dataPolicies' => DataPolicy::query()->where('status', 1)->orderBy('name')->get(), 'roles' => Role::query()->where('guard_name', 'tenant')->where('status', 1)->orderBy('name')->get()]);
+        return array_merge($options, [
+            'leaveGroups' => LeaveGroup::query()->where('status', 1)->orderBy('code')->get(),
+            'teams' => Team::query()->where('status', 1)->orderBy('name')->get(),
+            'canteenFacilities' => CanteenFacility::query()->where('status', 1)->orderBy('name')->get(),
+            'passwordPolicies' => PasswordPolicy::query()->orderBy('policy_name')->get(),
+            'dataPolicies' => DataPolicy::query()->where('status', 1)->orderBy('name')->get(),
+            'roles' => Role::query()->where('guard_name', 'tenant')->where('status', 1)->orderBy('name')->get(),
+        ]);
     }
 
     private function attributes(array $validated): array
@@ -196,6 +207,9 @@ class EmployeeController extends Controller
             'left_date',
             'left_reason',
             'data_policy_id',
+            'leave_group_id',
+            'team_id',
+            'canteen_facility_id',
             'company_id',
             'location_id',
             'department_id',

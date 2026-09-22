@@ -5,9 +5,10 @@
     $profilePic = $value('profile_pic');
     $profilePicUrl = $profilePic ? (\Illuminate\Support\Str::startsWith($profilePic, ['http://', 'https://']) ? $profilePic : \Illuminate\Support\Facades\Storage::disk('public')->url($profilePic)) : '';
     $selected = fn (string $field): array => array_map('strval', (array) $value($field, []));
+    $singleSelectFields = ['category_id', 'designation_id'];
     $relationFields = [
-        'company_id' => ['label' => 'Company', 'options' => $companies],
         'location_id' => ['label' => 'Location', 'options' => $locations],
+        'company_id' => ['label' => 'Company', 'options' => $companies],
         'department_id' => ['label' => 'Department', 'options' => $departments],
         'sub_department_id' => ['label' => 'Sub Department', 'options' => $subDepartments],
         'category_id' => ['label' => 'Category', 'options' => $categories],
@@ -42,13 +43,13 @@
                 </a>
             </li>
             <li class="nav-item flex-fill" role="presentation">
-                <a class="nav-link rounded mx-auto d-flex align-items-center justify-content-center" href="#employee-step-2" id="employee-step-2-tab" data-bs-toggle="tab" role="tab" aria-controls="employee-step-2" aria-selected="false">
-                    <div class="step-icon"><i class="fas fa-address-card"></i></div>
+                <a class="nav-link rounded mx-auto d-flex align-items-center justify-content-center" href="#employee-step-3" id="employee-step-3-tab" data-bs-toggle="tab" role="tab" aria-controls="employee-step-3" aria-selected="false">
+                    <div class="step-icon"><i class="fas fa-building"></i></div>
                 </a>
             </li>
             <li class="nav-item flex-fill" role="presentation">
-                <a class="nav-link rounded mx-auto d-flex align-items-center justify-content-center" href="#employee-step-3" id="employee-step-3-tab" data-bs-toggle="tab" role="tab" aria-controls="employee-step-3" aria-selected="false">
-                    <div class="step-icon"><i class="fas fa-building"></i></div>
+                <a class="nav-link rounded mx-auto d-flex align-items-center justify-content-center" href="#employee-step-2" id="employee-step-2-tab" data-bs-toggle="tab" role="tab" aria-controls="employee-step-2" aria-selected="false">
+                    <div class="step-icon"><i class="fas fa-address-card"></i></div>
                 </a>
             </li>
             <li class="nav-item flex-fill" role="presentation">
@@ -136,11 +137,14 @@
                     <div class="card-header"><h5 class="mb-0">Organization & Access</h5></div>
                     <div class="card-body">
                         <div class="row">
-                            @foreach($relationFields as $field => $relation)<div class="col-md-6 mb-3"><label class="form-label">{{ $relation['label'] }}</label><select name="{{ $field }}[]" class="form-control" multiple>@foreach($relation['options'] as $option)<option value="{{ $option->id }}" @selected(in_array((string) $option->id, $selected($field), true))>{{ $option->name }}</option>@endforeach</select></div>@endforeach
+                            @foreach($relationFields as $field => $relation)<div class="col-md-6 mb-3"><label class="form-label">{{ $relation['label'] }}</label><select name="{{ $field }}{{ in_array($field, $singleSelectFields, true) ? '' : '[]' }}" class="form-control" @unless(in_array($field, $singleSelectFields, true)) multiple @endunless><option value="">Select</option>@foreach($relation['options'] as $option)<option value="{{ $option->id }}" @selected(in_array((string) $option->id, $selected($field), true))>{{ $option->name }}</option>@endforeach</select></div>@endforeach
+                            <div class="col-md-6 mb-3"><label class="form-label">Leave Group</label><select name="leave_group_id" class="form-control"><option value="">Select</option>@foreach($leaveGroups as $leaveGroup)<option value="{{ $leaveGroup->id }}" @selected((string) $value('leave_group_id') === (string) $leaveGroup->id)>{{ $leaveGroup->code }}{{ $leaveGroup->description ? ' - ' . $leaveGroup->description : '' }}</option>@endforeach</select></div>
+                            <div class="col-md-6 mb-3"><label class="form-label">Team</label><select name="team_id" class="form-control"><option value="">Select</option>@foreach($teams as $team)<option value="{{ $team->id }}" @selected((string) $value('team_id') === (string) $team->id)>{{ $team->name }}{{ $team->code ? ' - ' . $team->code : '' }}</option>@endforeach</select></div>
+                            <div class="col-md-6 mb-3"><label class="form-label">Canteen Facility</label><select name="canteen_facility_id" class="form-control"><option value="">Select</option>@foreach($canteenFacilities as $canteenFacility)<option value="{{ $canteenFacility->id }}" @selected((string) $value('canteen_facility_id') === (string) $canteenFacility->id)>{{ $canteenFacility->name }}{{ $canteenFacility->code ? ' - ' . $canteenFacility->code : '' }}</option>@endforeach</select></div>
                             <div class="col-md-4 mb-3"><label class="form-label">User Type *</label><select name="user_type" class="form-control" required><option value="employee" @selected($value('user_type', 'employee') === 'employee')>Employee</option><option value="guest" @selected($value('user_type') === 'guest')>Guest</option></select></div>
                             <div class="col-md-4 mb-3"><label class="form-label">DMS User ID</label><input name="dms_user_id" class="form-control" value="{{ $value('dms_user_id') }}"></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Shift Type</label><input name="shift_type" class="form-control" value="{{ $value('shift_type') }}"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Password Policy ID</label><input type="number" name="password_policy_id" class="form-control" value="{{ $value('password_policy_id') }}"></div>
+                            <div class="col-md-4 mb-3 login-dependent-field @class(['d-none' => !$allowLogin])"><label class="form-label">Password Policy</label><select name="password_policy_id" class="form-control" @disabled(!$allowLogin)><option value="">Select</option>@foreach($passwordPolicies as $passwordPolicy)<option value="{{ $passwordPolicy->id }}" @selected((string) $value('password_policy_id') === (string) $passwordPolicy->id)>{{ $passwordPolicy->policy_name }}</option>@endforeach</select></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Shift Rotation ID</label><input type="number" name="shift_rotation_id" class="form-control" value="{{ $value('shift_rotation_id') }}"></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Approval Flow ID</label><input type="number" name="approval_flow_id" class="form-control" value="{{ $value('approval_flow_id') }}"></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Login Attempts</label><input type="number" name="login_attempts" class="form-control" value="{{ $value('login_attempts', 0) }}"></div>

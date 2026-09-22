@@ -283,6 +283,8 @@ class User extends Authenticatable implements FilamentUser, HasTenants
         'shift_id' => 'int',
         'rejoin_date' => 'datetime',
         'leave_group_id' => 'int',
+        'team_id' => 'int',
+        'canteen_facility_id' => 'int',
         'grade_wise_leave_id' => 'int',
         'late_coming_rule_id' => 'int',
         'early_going_rule_id' => 'int',
@@ -363,6 +365,8 @@ class User extends Authenticatable implements FilamentUser, HasTenants
         'rejoin_date',
         'rejoin_reason',
         'leave_group_id',
+        'team_id',
+        'canteen_facility_id',
         'grade_wise_leave_id',
         'late_coming_rule_id',
         'early_going_rule_id',
@@ -478,6 +482,16 @@ class User extends Authenticatable implements FilamentUser, HasTenants
     public function leave_group()
     {
         return $this->belongsTo(LeaveGroup::class);
+    }
+
+    public function team()
+    {
+        return $this->belongsTo(Team::class);
+    }
+
+    public function canteen_facility()
+    {
+        return $this->belongsTo(CanteenFacility::class);
     }
 
     public function grade_wise_leave()

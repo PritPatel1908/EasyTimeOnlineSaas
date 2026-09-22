@@ -42,7 +42,7 @@ class StoreEmployeeRequest extends FormRequest
             'left_date' => ['nullable', 'date'],
             'left_reason' => ['nullable', 'string', 'max:255'],
             'shift_type' => ['nullable', 'string', 'max:255'],
-            'password_policy_id' => ['nullable', 'integer'],
+            'password_policy_id' => ['exclude_unless:is_locked,1', 'nullable', 'integer', 'exists:password_policies,id'],
             'is_inactive' => ['nullable', 'boolean'],
             'approval_flow_id' => ['nullable', 'integer'],
             'login_attempts' => ['nullable', 'integer', 'min:0'],
@@ -83,6 +83,9 @@ class StoreEmployeeRequest extends FormRequest
             'pan_number' => ['nullable', 'string', 'max:255'],
             'data_policy_id' => ['exclude_unless:is_locked,1', 'nullable', 'exists:data_policies,id'],
             'role_id' => ['exclude_unless:is_locked,1', 'nullable', 'exists:roles,id'],
+            'leave_group_id' => ['nullable', 'integer', 'exists:leave_groups,id'],
+            'team_id' => ['nullable', 'integer', 'exists:teams,id'],
+            'canteen_facility_id' => ['nullable', 'integer', 'exists:canteen_facilities,id'],
             '*.id' => ['nullable'],
         ] + $this->relationRules();
     }
@@ -90,7 +93,10 @@ class StoreEmployeeRequest extends FormRequest
     private function relationRules(): array
     {
         return collect(['location_id', 'company_id', 'department_id', 'sub_department_id', 'category_id', 'sub_category_id', 'designation_id', 'grade_id', 'unit_id', 'bus_route_id'])
-            ->mapWithKeys(fn(string $field): array => [$field => ['array', $field . '.*' => ['integer']]])
+            ->mapWithKeys(fn(string $field): array => [
+                $field => ['array'],
+                $field . '.*' => ['integer'],
+            ])
             ->all();
     }
 }
