@@ -57,6 +57,11 @@
                     <div class="step-icon"><i class="fas fa-clipboard-check"></i></div>
                 </a>
             </li>
+            <li class="nav-item flex-fill" role="presentation">
+                <a class="nav-link rounded mx-auto d-flex align-items-center justify-content-center" href="#employee-step-5" id="employee-step-5-tab" data-bs-toggle="tab" role="tab" aria-controls="employee-step-5" aria-selected="false">
+                    <div class="step-icon"><i class="fas fa-user-shield"></i></div>
+                </a>
+            </li>
         </ul>
 
         <div class="tab-content">
@@ -141,15 +146,9 @@
                             <div class="col-md-6 mb-3"><label class="form-label">Leave Group</label><select name="leave_group_id" class="form-control"><option value="">Select</option>@foreach($leaveGroups as $leaveGroup)<option value="{{ $leaveGroup->id }}" @selected((string) $value('leave_group_id') === (string) $leaveGroup->id)>{{ $leaveGroup->code }}{{ $leaveGroup->description ? ' - ' . $leaveGroup->description : '' }}</option>@endforeach</select></div>
                             <div class="col-md-6 mb-3"><label class="form-label">Team</label><select name="team_id" class="form-control"><option value="">Select</option>@foreach($teams as $team)<option value="{{ $team->id }}" @selected((string) $value('team_id') === (string) $team->id)>{{ $team->name }}{{ $team->code ? ' - ' . $team->code : '' }}</option>@endforeach</select></div>
                             <div class="col-md-6 mb-3"><label class="form-label">Canteen Facility</label><select name="canteen_facility_id" class="form-control"><option value="">Select</option>@foreach($canteenFacilities as $canteenFacility)<option value="{{ $canteenFacility->id }}" @selected((string) $value('canteen_facility_id') === (string) $canteenFacility->id)>{{ $canteenFacility->name }}{{ $canteenFacility->code ? ' - ' . $canteenFacility->code : '' }}</option>@endforeach</select></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">User Type *</label><select name="user_type" class="form-control" required><option value="employee" @selected($value('user_type', 'employee') === 'employee')>Employee</option><option value="guest" @selected($value('user_type') === 'guest')>Guest</option></select></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">DMS User ID</label><input name="dms_user_id" class="form-control" value="{{ $value('dms_user_id') }}"></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Shift Type</label><input name="shift_type" class="form-control" value="{{ $value('shift_type') }}"></div>
                             <div class="col-md-4 mb-3 login-dependent-field @class(['d-none' => !$allowLogin])"><label class="form-label">Password Policy</label><select name="password_policy_id" class="form-control" @disabled(!$allowLogin)><option value="">Select</option>@foreach($passwordPolicies as $passwordPolicy)<option value="{{ $passwordPolicy->id }}" @selected((string) $value('password_policy_id') === (string) $passwordPolicy->id)>{{ $passwordPolicy->policy_name }}</option>@endforeach</select></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Shift Rotation ID</label><input type="number" name="shift_rotation_id" class="form-control" value="{{ $value('shift_rotation_id') }}"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Approval Flow ID</label><input type="number" name="approval_flow_id" class="form-control" value="{{ $value('approval_flow_id') }}"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Login Attempts</label><input type="number" name="login_attempts" class="form-control" value="{{ $value('login_attempts', 0) }}"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Password Changed At</label><input type="datetime-local" name="password_changed_at" class="form-control" value="{{ $value('password_changed_at') ? \Illuminate\Support\Carbon::parse($value('password_changed_at'))->format('Y-m-d\\TH:i') : '' }}"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Status *</label><select name="status" class="form-control" required><option value="1" @selected((string) $value('status', 1) === '1')>Active</option><option value="0" @selected((string) $value('status') === '0')>Inactive</option></select></div>
                         </div>
                     </div>
                 </div>
@@ -181,6 +180,26 @@
                         <hr>
                         <div class="row">
                             @foreach($approvalFields as $field => $label)<div class="col-md-4 mb-3"><label class="form-label">{{ $label }}</label><input type="number" name="{{ $field }}" class="form-control" value="{{ $value($field) }}"></div>@endforeach
+                        </div>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <button type="button" class="btn btn-light previous">Previous</button>
+                    <button type="button" class="btn btn-primary next">Next</button>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="employee-step-5" role="tabpanel" aria-labelledby="employee-step-5-tab">
+                <div class="card mb-4">
+                    <div class="card-header"><h5 class="mb-0">System Access</h5></div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4 mb-3"><label class="form-label">User Type *</label><select name="user_type" class="form-control" required><option value="employee" @selected($value('user_type', 'employee') === 'employee')>Employee</option><option value="guest" @selected($value('user_type') === 'guest')>Guest</option></select></div>
+                            <div class="col-md-4 mb-3"><label class="form-label">DMS User ID</label><input name="dms_user_id" class="form-control" value="{{ $value('dms_user_id') }}"></div>
+                            <div class="col-md-4 mb-3"><label class="form-label">Approval Flow ID</label><input type="number" name="approval_flow_id" class="form-control" value="{{ $value('approval_flow_id') }}"></div>
+                            <div class="col-md-4 mb-3"><label class="form-label">Login Attempts</label><input type="number" name="login_attempts" class="form-control" value="{{ $value('login_attempts', 0) }}"></div>
+                            <div class="col-md-4 mb-3"><label class="form-label">Password Changed At</label><input type="datetime-local" name="password_changed_at" class="form-control" value="{{ $value('password_changed_at') ? \Illuminate\Support\Carbon::parse($value('password_changed_at'))->format('Y-m-d\\TH:i') : '' }}"></div>
+                            <div class="col-md-4 mb-3"><label class="form-label">Status *</label><select name="status" class="form-control" required><option value="1" @selected((string) $value('status', 1) === '1')>Active</option><option value="0" @selected((string) $value('status') === '0')>Inactive</option></select></div>
                         </div>
                     </div>
                 </div>
