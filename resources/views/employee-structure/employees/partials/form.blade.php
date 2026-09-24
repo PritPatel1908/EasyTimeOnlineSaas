@@ -3,7 +3,7 @@
     $allowLogin = filter_var($value('is_locked', false), FILTER_VALIDATE_BOOLEAN);
     $dateValue = fn (string $field): string => ($date = $value($field)) ? \Illuminate\Support\Carbon::parse($date)->format('Y-m-d') : '';
     $profilePic = $value('profile_pic');
-    $profilePicUrl = $profilePic ? (\Illuminate\Support\Str::startsWith($profilePic, ['http://', 'https://']) ? $profilePic : \Illuminate\Support\Facades\Storage::disk('public')->url($profilePic)) : '';
+    $profilePicUrl = $profilePic ? (\Illuminate\Support\Str::startsWith($profilePic, ['http://', 'https://']) ? $profilePic : tenant_asset($profilePic)) : '';
     $selected = fn (string $field): array => array_map('strval', (array) $value($field, []));
     $singleSelectFields = ['category_id', 'designation_id'];
     $relationFields = [
