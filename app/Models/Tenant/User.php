@@ -162,6 +162,7 @@ class User extends Authenticatable implements FilamentUser, HasTenants
         'card',
         'gender',
         'dob',
+        'blood_group_id',
         'join_date',
         'status',
         'user_type',

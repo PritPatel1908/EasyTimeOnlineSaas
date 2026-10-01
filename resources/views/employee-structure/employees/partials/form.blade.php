@@ -3,6 +3,11 @@
     $allowLogin = filter_var($value('is_locked', false), FILTER_VALIDATE_BOOLEAN);
     $dateValue = fn (string $field): string => ($date = $value($field)) ? \Illuminate\Support\Carbon::parse($date)->format('Y-m-d') : '';
     $profilePic = $value('profile_pic');
+    $personalInfo = $employee?->personalInfo;
+    $personalValue = fn (string $field, mixed $default = '') => old($field, data_get($personalInfo, $field, $default));
+    $listValue = fn (string $field): string => implode(",\n", (array) $personalValue($field, []));
+    $address = $employee?->addresses?->firstWhere('is_current_address', true) ?? $employee?->addresses?->first();
+    $addressValue = fn (string $field, mixed $default = '') => old($field, data_get($address, $field, $default));
     $profilePicUrl = $profilePic ? (\Illuminate\Support\Str::startsWith($profilePic, ['http://', 'https://']) ? $profilePic : tenant_asset($profilePic)) : '';
     $selected = fn (string $field): array => array_map('strval', (array) $value($field, []));
     $selectedShiftIds = array_map('strval', (array) old('shift_ids', $employee?->shifts?->pluck('id')->all() ?? []));
@@ -69,8 +74,8 @@
                 </a>
             </li>
             <li class="nav-item flex-fill" role="presentation">
-                <a class="nav-link rounded mx-auto d-flex align-items-center justify-content-center" href="#employee-step-2" id="employee-step-2-tab" data-bs-toggle="tab" role="tab" aria-controls="employee-step-2" aria-selected="false">
-                    <div class="step-icon"><i class="fas fa-address-card"></i></div>
+                <a class="nav-link rounded mx-auto d-flex align-items-center justify-content-center" href="#employee-step-8" id="employee-step-8-tab" data-bs-toggle="tab" role="tab" aria-controls="employee-step-8" aria-selected="false">
+                    <div class="step-icon"><i class="fas fa-heart"></i></div>
                 </a>
             </li>
             <li class="nav-item flex-fill" role="presentation">
@@ -192,20 +197,39 @@
                 </div>
             </div>
 
-            <div class="tab-pane fade" id="employee-step-2" role="tabpanel" aria-labelledby="employee-step-2-tab">
+            <div class="tab-pane fade" id="employee-step-8" role="tabpanel" aria-labelledby="employee-step-8-tab">
                 <div class="card mb-4">
-                    <div class="card-header"><h5 class="mb-0">Contact & Personal</h5></div>
+                    <div class="card-header"><h5 class="mb-0">Personal Information</h5></div>
                     <div class="card-body">
                         <div class="row">
-                            <div class="col-md-6 mb-3"><label class="form-label">Email</label><input type="email" name="email" class="form-control" value="{{ $value('email') }}"></div>
-                            <div class="col-md-6 mb-3"><label class="form-label">Phone</label><input name="number" class="form-control" value="{{ $value('number') }}"></div>
-                            <div class="col-md-6 mb-3"><label class="form-label">Gender</label><select name="gender" class="form-control"><option value="">Select</option>@foreach(['male' => 'Male', 'female' => 'Female', 'other' => 'Other'] as $key => $label)<option value="{{ $key }}" @selected($value('gender') === $key)>{{ $label }}</option>@endforeach</select></div>
-                            <div class="col-md-6 mb-3"><label class="form-label">Date of Birth</label><input type="date" name="dob" class="form-control" value="{{ $dateValue('dob') }}"></div>
+                            <div class="col-md-6 mb-3"><label class="form-label" for="email">Email</label><input type="email" id="email" name="email" class="form-control" maxlength="150" value="{{ $value('email') }}">@error('email')<small class="text-danger">{{ $message }}</small>@enderror</div>
+                            <div class="col-md-6 mb-3"><label class="form-label" for="number">Phone</label><input id="number" name="number" class="form-control" maxlength="30" value="{{ $value('number') }}">@error('number')<small class="text-danger">{{ $message }}</small>@enderror</div>
+                            <div class="col-md-6 mb-3"><label class="form-label" for="gender">Gender</label><select id="gender" name="gender" class="form-control"><option value="">Select</option>@foreach(['male' => 'Male', 'female' => 'Female', 'other' => 'Other'] as $key => $label)<option value="{{ $key }}" @selected($value('gender') === $key)>{{ $label }}</option>@endforeach</select>@error('gender')<small class="text-danger">{{ $message }}</small>@enderror</div>
+                            <div class="col-md-6 mb-3"><label class="form-label" for="dob">Birth Date</label><input type="date" id="dob" name="dob" class="form-control" value="{{ $dateValue('dob') }}">@error('dob')<small class="text-danger">{{ $message }}</small>@enderror</div>
+                            <div class="col-md-6 mb-3"><label class="form-label" for="blood_group_id">Blood Group</label><select id="blood_group_id" name="blood_group_id" class="form-control"><option value="">Select</option>@foreach($bloodGroups as $bloodGroup)<option value="{{ $bloodGroup->id }}" @selected((string) $value('blood_group_id') === (string) $bloodGroup->id)>{{ $bloodGroup->name }}</option>@endforeach</select>@error('blood_group_id')<small class="text-danger">{{ $message }}</small>@enderror</div>
+                            <div class="col-md-6 mb-3"><label class="form-label" for="height">Height</label><input type="number" step="0.01" min="0" max="300" id="height" name="height" class="form-control" value="{{ $personalValue('height') }}">@error('height')<small class="text-danger">{{ $message }}</small>@enderror</div>
+                            <div class="col-md-6 mb-3"><label class="form-label" for="weight">Weight</label><input type="number" step="0.01" min="0" max="500" id="weight" name="weight" class="form-control" value="{{ $personalValue('weight') }}">@error('weight')<small class="text-danger">{{ $message }}</small>@enderror</div>
+                            <div class="col-md-6 mb-3"><label class="form-label" for="languages">Languages</label><textarea id="languages" name="languages" class="form-control" rows="3" maxlength="2000">{{ $listValue('languages') }}</textarea><small class="text-muted">Separate entries with commas or new lines.</small>@error('languages')<small class="text-danger d-block">{{ $message }}</small>@enderror</div>
+                            <div class="col-md-6 mb-3"><label class="form-label" for="hobbies">Hobbies</label><textarea id="hobbies" name="hobbies" class="form-control" rows="3" maxlength="2000">{{ $listValue('hobbies') }}</textarea><small class="text-muted">Separate entries with commas or new lines.</small>@error('hobbies')<small class="text-danger d-block">{{ $message }}</small>@enderror</div>
+                            <div class="col-md-6 mb-3"><label class="form-label" for="emergency_name">Emergency Contact Name</label><input id="emergency_name" name="emergency_name" class="form-control" maxlength="255" value="{{ $personalValue('emergency_name') }}">@error('emergency_name')<small class="text-danger">{{ $message }}</small>@enderror</div>
+                            <div class="col-md-6 mb-3"><label class="form-label" for="emergency_number">Emergency Contact Number</label><input id="emergency_number" name="emergency_number" class="form-control" maxlength="255" value="{{ $personalValue('emergency_number') }}">@error('emergency_number')<small class="text-danger">{{ $message }}</small>@enderror</div>
+                            <div class="col-md-12 mb-3"><label class="form-label" for="emergency_address">Emergency Contact Address</label><textarea id="emergency_address" name="emergency_address" class="form-control" rows="2" maxlength="255">{{ $personalValue('emergency_address') }}</textarea>@error('emergency_address')<small class="text-danger">{{ $message }}</small>@enderror</div>
+                            <div class="col-12"><h6 class="mb-3">Address</h6></div>
+                            <div class="col-md-6 mb-3"><label class="form-label" for="flat_building">Flat / Building</label><input id="flat_building" name="flat_building" class="form-control" maxlength="255" value="{{ $addressValue('flat_building') }}">@error('flat_building')<small class="text-danger">{{ $message }}</small>@enderror</div>
+                            <div class="col-md-6 mb-3"><label class="form-label" for="house_no">House Number</label><input id="house_no" name="house_no" class="form-control" maxlength="255" value="{{ $addressValue('house_no') }}">@error('house_no')<small class="text-danger">{{ $message }}</small>@enderror</div>
+                            <div class="col-md-6 mb-3"><label class="form-label" for="flore">Floor</label><input id="flore" name="flore" class="form-control" maxlength="255" value="{{ $addressValue('flore') }}">@error('flore')<small class="text-danger">{{ $message }}</small>@enderror</div>
+                            <div class="col-md-6 mb-3"><label class="form-label" for="street">Street</label><input id="street" name="street" class="form-control" maxlength="255" value="{{ $addressValue('street') }}">@error('street')<small class="text-danger">{{ $message }}</small>@enderror</div>
+                            <div class="col-md-6 mb-3"><label class="form-label" for="landmark">Landmark</label><input id="landmark" name="landmark" class="form-control" maxlength="255" value="{{ $addressValue('landmark') }}">@error('landmark')<small class="text-danger">{{ $message }}</small>@enderror</div>
+                            <div class="col-md-6 mb-3"><label class="form-label" for="country">Country</label><input id="country" name="country" class="form-control" maxlength="255" value="{{ $addressValue('country') }}">@error('country')<small class="text-danger">{{ $message }}</small>@enderror</div>
+                            <div class="col-md-6 mb-3"><label class="form-label" for="state">State</label><input id="state" name="state" class="form-control" maxlength="255" value="{{ $addressValue('state') }}">@error('state')<small class="text-danger">{{ $message }}</small>@enderror</div>
+                            <div class="col-md-6 mb-3"><label class="form-label" for="city">City</label><input id="city" name="city" class="form-control" maxlength="255" value="{{ $addressValue('city') }}">@error('city')<small class="text-danger">{{ $message }}</small>@enderror</div>
+                            <div class="col-md-6 mb-3"><label class="form-label" for="pincode">Pincode</label><input id="pincode" name="pincode" class="form-control" maxlength="255" value="{{ $addressValue('pincode') }}">@error('pincode')<small class="text-danger">{{ $message }}</small>@enderror</div>
+                            <div class="col-md-6 mb-3"><div class="form-check mt-2"><input type="hidden" name="is_current_address" value="0"><input id="is_current_address" type="checkbox" name="is_current_address" value="1" class="form-check-input" @checked($addressValue('is_current_address'))><label class="form-check-label" for="is_current_address">This is my current address</label></div>@error('is_current_address')<small class="text-danger">{{ $message }}</small>@enderror</div>
                         </div>
                     </div>
                 </div>
                 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                    <button type="button" class="btn btn-light previous">Back</button>
+                    <button type="button" class="btn btn-light previous">Previous</button>
                     <button type="button" class="btn btn-primary next">Next</button>
                 </div>
             </div>

@@ -28,6 +28,7 @@ use App\Models\Tenant\Unit;
 use App\Models\Tenant\BusRoute;
 use App\Models\Tenant\ApprovalFlow;
 use App\Models\Tenant\AbsentRule;
+use App\Models\Tenant\BloodGroup;
 use App\Models\Tenant\EarlyGoingRule;
 use App\Models\Tenant\HalfDayRule;
 use App\Models\Tenant\LateComingRule;
@@ -100,6 +101,8 @@ class EmployeeController extends Controller
             if ($shiftIds !== null) {
                 $employee->shifts()->sync($shiftIds);
             }
+            $this->savePersonalInfo($employee, $validated);
+            $this->saveAddress($employee, $validated);
         });
         return redirect(url(self::INDEX_URL))->with('success', 'Employee created successfully.');
     }
@@ -133,6 +136,8 @@ class EmployeeController extends Controller
             if ($shiftIds !== null) {
                 $employee->shifts()->sync($shiftIds);
             }
+            $this->savePersonalInfo($employee, $validated);
+            $this->saveAddress($employee, $validated);
         });
         return redirect(url(self::INDEX_URL))->with('success', 'Employee updated successfully.');
     }
@@ -199,6 +204,7 @@ class EmployeeController extends Controller
             'shifts' => Shift::query()->where('status', 1)->orderBy('name')->get(),
             'shiftRotations' => ShiftRotation::query()->where('status', 1)->orderBy('code')->get(),
             'dataPolicies' => DataPolicy::query()->where('status', 1)->orderBy('name')->get(),
+            'bloodGroups' => BloodGroup::query()->orderBy('id')->get(),
             'roles' => Role::query()->where('guard_name', 'tenant')->where('status', 1)->orderBy('name')->get(),
             'approvalFlows' => ApprovalFlow::query()->orderBy('approval_flow_code')->get(),
             'lateComingRules' => LateComingRule::query()->where('status', 1)->orderBy('code')->get(),
@@ -223,6 +229,7 @@ class EmployeeController extends Controller
             'card',
             'gender',
             'dob',
+            'blood_group_id',
             'join_date',
             'status',
             'user_type',
@@ -294,6 +301,54 @@ class EmployeeController extends Controller
         $attributes['name'] = trim(($validated['fname'] ?? '') . ' ' . ($validated['lname'] ?? ''));
 
         return $attributes;
+    }
+
+    private function savePersonalInfo(User $employee, array $validated): void
+    {
+        $attributes = [
+            'height' => $validated['height'] ?? null,
+            'weight' => $validated['weight'] ?? null,
+            'emergency_name' => $validated['emergency_name'] ?? null,
+            'emergency_number' => $validated['emergency_number'] ?? null,
+            'emergency_address' => $validated['emergency_address'] ?? null,
+        ];
+
+        foreach (['languages', 'hobbies'] as $field) {
+            $items = preg_split('/[\r\n,]+/', $validated[$field] ?? '', -1, PREG_SPLIT_NO_EMPTY) ?: [];
+            $attributes[$field] = array_values(array_filter(array_map('trim', $items), static fn(string $item): bool => $item !== '')) ?: null;
+        }
+
+        $hasValues = collect($attributes)->contains(static fn($value): bool => $value !== null && $value !== '');
+        if ($hasValues || $employee->personalInfo()->exists()) {
+            $employee->personalInfo()->updateOrCreate([], $attributes);
+        }
+    }
+
+    private function saveAddress(User $employee, array $validated): void
+    {
+        $attributes = [
+            'flat_building' => $validated['flat_building'] ?? null,
+            'house_no' => $validated['house_no'] ?? null,
+            'flore' => $validated['flore'] ?? null,
+            'street' => $validated['street'] ?? null,
+            'landmark' => $validated['landmark'] ?? null,
+            'country' => $validated['country'] ?? null,
+            'state' => $validated['state'] ?? null,
+            'city' => $validated['city'] ?? null,
+            'pincode' => $validated['pincode'] ?? null,
+            'is_current_address' => (bool) ($validated['is_current_address'] ?? false),
+        ];
+
+        $address = $employee->addresses()->where('is_current_address', true)->first()
+            ?? $employee->addresses()->first();
+        $hasAddress = collect($attributes)->except('is_current_address')
+            ->contains(static fn($value): bool => $value !== null && $value !== '');
+
+        if ($address) {
+            $address->update($attributes);
+        } elseif ($hasAddress) {
+            $employee->addresses()->create($attributes);
+        }
     }
 
     private function extractShiftIds(array &$validated): ?array
