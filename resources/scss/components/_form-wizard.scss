@@ -42,6 +42,11 @@
                 border-color: #ccefd8;
             }
 
+            &:nth-child(4) .nav-link {
+                background: #fff8e7;
+                border-color: #ffe3a3;
+            }
+
             .nav-link:hover,
             .nav-link.active {
                 color: #fff;
@@ -63,6 +68,12 @@
             &:nth-child(3) .nav-link.active {
                 background: #22a05a;
                 border-color: #22a05a;
+            }
+
+            &:nth-child(4) .nav-link:hover,
+            &:nth-child(4) .nav-link.active {
+                background: #d99a00;
+                border-color: #d99a00;
             }
         }
     }

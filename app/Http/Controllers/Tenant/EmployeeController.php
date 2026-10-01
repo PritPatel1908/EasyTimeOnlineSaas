@@ -19,11 +19,19 @@ use App\Models\Tenant\Grade;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\LeaveGroup;
 use App\Models\Tenant\Role;
+use App\Models\Tenant\Shift;
+use App\Models\Tenant\ShiftRotation;
 use App\Models\Tenant\SubCategory;
 use App\Models\Tenant\SubDepartment;
 use App\Models\Tenant\Team;
 use App\Models\Tenant\Unit;
 use App\Models\Tenant\BusRoute;
+use App\Models\Tenant\ApprovalFlow;
+use App\Models\Tenant\AbsentRule;
+use App\Models\Tenant\EarlyGoingRule;
+use App\Models\Tenant\HalfDayRule;
+use App\Models\Tenant\LateComingRule;
+use App\Models\Tenant\OvertimeRule;
 use App\Models\Tenant\User;
 use App\Models\Tenant\PasswordPolicy;
 use Illuminate\Contracts\View\View;
@@ -77,8 +85,9 @@ class EmployeeController extends Controller
 
     public function store(StoreEmployeeRequest $request): RedirectResponse
     {
-        DB::transaction(function () use ($request): void {
-            $validated = $request->validated();
+        $validated = $request->validated();
+        $shiftIds = $this->extractShiftIds($validated);
+        DB::transaction(function () use ($request, $validated, $shiftIds): void {
             if ($request->hasFile('profile_pic')) {
                 $validated['profile_pic'] = $request->file('profile_pic')->store('employee-profiles', 'public');
             }
@@ -87,6 +96,9 @@ class EmployeeController extends Controller
             $employee = User::query()->create($this->attributes($validated));
             if ($roleId) {
                 $employee->syncRoles([Role::query()->findOrFail($roleId)]);
+            }
+            if ($shiftIds !== null) {
+                $employee->shifts()->sync($shiftIds);
             }
         });
         return redirect(url(self::INDEX_URL))->with('success', 'Employee created successfully.');
@@ -109,14 +121,18 @@ class EmployeeController extends Controller
         if ($request->hasFile('profile_pic')) {
             $validated['profile_pic'] = $request->file('profile_pic')->store('employee-profiles', 'public');
         }
+        $shiftIds = $this->extractShiftIds($validated);
         $roleId = $validated['role_id'] ?? null;
         unset($validated['role_id']);
         if (($validated['password'] ?? '') === '') {
             unset($validated['password']);
         }
-        DB::transaction(function () use ($employee, $validated, $roleId): void {
+        DB::transaction(function () use ($employee, $validated, $roleId, $shiftIds): void {
             $employee->update($this->attributes($validated));
             $employee->syncRoles($roleId ? [Role::query()->findOrFail($roleId)] : []);
+            if ($shiftIds !== null) {
+                $employee->shifts()->sync($shiftIds);
+            }
         });
         return redirect(url(self::INDEX_URL))->with('success', 'Employee updated successfully.');
     }
@@ -180,8 +196,16 @@ class EmployeeController extends Controller
             'teams' => Team::query()->where('status', 1)->orderBy('name')->get(),
             'canteenFacilities' => CanteenFacility::query()->where('status', 1)->orderBy('name')->get(),
             'passwordPolicies' => PasswordPolicy::query()->orderBy('policy_name')->get(),
+            'shifts' => Shift::query()->where('status', 1)->orderBy('name')->get(),
+            'shiftRotations' => ShiftRotation::query()->where('status', 1)->orderBy('code')->get(),
             'dataPolicies' => DataPolicy::query()->where('status', 1)->orderBy('name')->get(),
             'roles' => Role::query()->where('guard_name', 'tenant')->where('status', 1)->orderBy('name')->get(),
+            'approvalFlows' => ApprovalFlow::query()->orderBy('approval_flow_code')->get(),
+            'lateComingRules' => LateComingRule::query()->where('status', 1)->orderBy('code')->get(),
+            'earlyGoingRules' => EarlyGoingRule::query()->where('status', 1)->orderBy('code')->get(),
+            'halfDayRules' => HalfDayRule::query()->where('status', 1)->orderBy('code')->get(),
+            'absentRules' => AbsentRule::query()->where('status', 1)->orderBy('code')->get(),
+            'overtimeRules' => OvertimeRule::query()->where('status', 1)->orderBy('code')->get(),
         ]);
     }
 
@@ -230,6 +254,11 @@ class EmployeeController extends Controller
             'last_active_at',
             'last_login_at',
             'shift_status',
+            'late_coming_rule_id',
+            'early_going_rule_id',
+            'half_day_rule_id',
+            'absent_rule_id',
+            'overtime_rule_id',
             'shift_rotation_id',
             'shift_change_id',
             'week_off_change_id',
@@ -265,5 +294,28 @@ class EmployeeController extends Controller
         $attributes['name'] = trim(($validated['fname'] ?? '') . ' ' . ($validated['lname'] ?? ''));
 
         return $attributes;
+    }
+
+    private function extractShiftIds(array &$validated): ?array
+    {
+        $shiftType = $validated['shift_type'] ?? null;
+        if ($shiftType === null) {
+            return null;
+        }
+
+        $shiftIds = $this->normalizeShiftIds($shiftType, $validated['shift_ids'] ?? []);
+        unset($validated['shift_ids']);
+        $validated['shift_rotation_id'] = $shiftType === 'rotational' ? ($validated['shift_rotation_id'] ?? null) : null;
+
+        return $shiftIds;
+    }
+
+    private function normalizeShiftIds(string $shiftType, array $shiftIds): array
+    {
+        if ($shiftType === 'rotational') {
+            return [];
+        }
+
+        return $shiftType === 'fixed' ? array_slice($shiftIds, 0, 1) : $shiftIds;
     }
 }

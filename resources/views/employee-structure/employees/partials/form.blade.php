@@ -5,6 +5,8 @@
     $profilePic = $value('profile_pic');
     $profilePicUrl = $profilePic ? (\Illuminate\Support\Str::startsWith($profilePic, ['http://', 'https://']) ? $profilePic : tenant_asset($profilePic)) : '';
     $selected = fn (string $field): array => array_map('strval', (array) $value($field, []));
+    $selectedShiftIds = array_map('strval', (array) old('shift_ids', $employee?->shifts?->pluck('id')->all() ?? []));
+    $shiftType = $value('shift_type');
     $singleSelectFields = ['category_id', 'designation_id'];
     $relationFields = [
         'location_id' => ['label' => 'Location', 'options' => $locations],
@@ -21,16 +23,25 @@
     $approvalFields = [
         'shift_change_id' => 'Shift Change ID',
         'week_off_change_id' => 'Week Off Change ID',
-        'shift_change_approval_flow_id' => 'Shift Change Approval Flow ID',
-        'week_off_change_approval_flow_id' => 'Week Off Change Approval Flow ID',
-        'week_off_swap_approval_flow_id' => 'Week Off Swap Approval Flow ID',
-        'manual_punch_approval_flow_id' => 'Manual Punch Approval Flow ID',
-        'manual_attendance_approval_flow_id' => 'Manual Attendance Approval Flow ID',
-        'leave_approval_flow_id' => 'Leave Approval Flow ID',
-        'short_leave_approval_flow_id' => 'Short Leave Approval Flow ID',
         'grade_wise_leave_id' => 'Grade Wise Leave ID',
-        'coff_approval_flow_id' => 'COFF Approval Flow ID',
-        'od_approval_flow_id' => 'OD Approval Flow ID',
+    ];
+    $approvalFlowFields = [
+        'shift_change_approval_flow_id' => 'Shift Change',
+        'week_off_change_approval_flow_id' => 'Week Off Change',
+        'week_off_swap_approval_flow_id' => 'Week Off Swap',
+        'manual_punch_approval_flow_id' => 'Manual Punch',
+        'manual_attendance_approval_flow_id' => 'Manual Attendance',
+        'leave_approval_flow_id' => 'Leave',
+        'short_leave_approval_flow_id' => 'Short Leave',
+        'coff_approval_flow_id' => 'COFF',
+        'od_approval_flow_id' => 'OD',
+    ];
+    $timingRuleFields = [
+        'late_coming_rule_id' => ['label' => 'Late Coming Rule', 'options' => $lateComingRules],
+        'early_going_rule_id' => ['label' => 'Early Going Rule', 'options' => $earlyGoingRules],
+        'half_day_rule_id' => ['label' => 'Half Day Rule', 'options' => $halfDayRules],
+        'absent_rule_id' => ['label' => 'Absent Rule', 'options' => $absentRules],
+        'overtime_rule_id' => ['label' => 'Overtime Rule', 'options' => $overtimeRules],
     ];
 @endphp
 
@@ -45,6 +56,16 @@
             <li class="nav-item flex-fill" role="presentation">
                 <a class="nav-link rounded mx-auto d-flex align-items-center justify-content-center" href="#employee-step-3" id="employee-step-3-tab" data-bs-toggle="tab" role="tab" aria-controls="employee-step-3" aria-selected="false">
                     <div class="step-icon"><i class="fas fa-building"></i></div>
+                </a>
+            </li>
+            <li class="nav-item flex-fill" role="presentation">
+                <a class="nav-link rounded mx-auto d-flex align-items-center justify-content-center" href="#employee-step-6" id="employee-step-6-tab" data-bs-toggle="tab" role="tab" aria-controls="employee-step-6" aria-selected="false">
+                    <div class="step-icon"><i class="fas fa-sitemap"></i></div>
+                </a>
+            </li>
+            <li class="nav-item flex-fill" role="presentation">
+                <a class="nav-link rounded mx-auto d-flex align-items-center justify-content-center" href="#employee-step-7" id="employee-step-7-tab" data-bs-toggle="tab" role="tab" aria-controls="employee-step-7" aria-selected="false">
+                    <div class="step-icon"><i class="fas fa-clock"></i></div>
                 </a>
             </li>
             <li class="nav-item flex-fill" role="presentation">
@@ -119,6 +140,58 @@
                 </div>
             </div>
 
+            <div class="tab-pane fade" id="employee-step-6" role="tabpanel" aria-labelledby="employee-step-6-tab">
+                <div class="card mb-4">
+                    <div class="card-header"><h5 class="mb-0">Approval Flows</h5></div>
+                    <div class="card-body">
+                        <div class="row">
+                            @foreach($approvalFlowFields as $field => $label)
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label" for="{{ $field }}">{{ $label }} Approval Flow</label>
+                                    <select id="{{ $field }}" name="{{ $field }}" class="form-control">
+                                        <option value="">Select</option>
+                                        @foreach($approvalFlows as $approvalFlow)
+                                            <option value="{{ $approvalFlow->id }}" @selected((string) $value($field) === (string) $approvalFlow->id)>{{ $approvalFlow->approval_flow_code }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error($field)<small class="text-danger">{{ $message }}</small>@enderror
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <button type="button" class="btn btn-light previous">Previous</button>
+                    <button type="button" class="btn btn-primary next">Next</button>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="employee-step-7" role="tabpanel" aria-labelledby="employee-step-7-tab">
+                <div class="card mb-4">
+                    <div class="card-header"><h5 class="mb-0">Timing Rules</h5></div>
+                    <div class="card-body">
+                        <div class="row">
+                            @foreach($timingRuleFields as $field => $rule)
+                                <div class="{{ in_array($field, ['late_coming_rule_id', 'early_going_rule_id'], true) ? 'col-md-6' : 'col-md-4' }} mb-3">
+                                    <label class="form-label" for="{{ $field }}">{{ $rule['label'] }}</label>
+                                    <select id="{{ $field }}" name="{{ $field }}" class="form-control">
+                                        <option value="">Select</option>
+                                        @foreach($rule['options'] as $option)
+                                            <option value="{{ $option->id }}" @selected((string) $value($field) === (string) $option->id)>{{ $option->code }}{{ $option->description ? ' - ' . $option->description : '' }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error($field)<small class="text-danger">{{ $message }}</small>@enderror
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <button type="button" class="btn btn-light previous">Previous</button>
+                    <button type="button" class="btn btn-primary next">Next</button>
+                </div>
+            </div>
+
             <div class="tab-pane fade" id="employee-step-2" role="tabpanel" aria-labelledby="employee-step-2-tab">
                 <div class="card mb-4">
                     <div class="card-header"><h5 class="mb-0">Contact & Personal</h5></div>
@@ -146,9 +219,10 @@
                             <div class="col-md-6 mb-3"><label class="form-label">Leave Group</label><select name="leave_group_id" class="form-control"><option value="">Select</option>@foreach($leaveGroups as $leaveGroup)<option value="{{ $leaveGroup->id }}" @selected((string) $value('leave_group_id') === (string) $leaveGroup->id)>{{ $leaveGroup->code }}{{ $leaveGroup->description ? ' - ' . $leaveGroup->description : '' }}</option>@endforeach</select></div>
                             <div class="col-md-6 mb-3"><label class="form-label">Team</label><select name="team_id" class="form-control"><option value="">Select</option>@foreach($teams as $team)<option value="{{ $team->id }}" @selected((string) $value('team_id') === (string) $team->id)>{{ $team->name }}{{ $team->code ? ' - ' . $team->code : '' }}</option>@endforeach</select></div>
                             <div class="col-md-6 mb-3"><label class="form-label">Canteen Facility</label><select name="canteen_facility_id" class="form-control"><option value="">Select</option>@foreach($canteenFacilities as $canteenFacility)<option value="{{ $canteenFacility->id }}" @selected((string) $value('canteen_facility_id') === (string) $canteenFacility->id)>{{ $canteenFacility->name }}{{ $canteenFacility->code ? ' - ' . $canteenFacility->code : '' }}</option>@endforeach</select></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Shift Type</label><input name="shift_type" class="form-control" value="{{ $value('shift_type') }}"></div>
-                            <div class="col-md-4 mb-3 login-dependent-field @class(['d-none' => !$allowLogin])"><label class="form-label">Password Policy</label><select name="password_policy_id" class="form-control" @disabled(!$allowLogin)><option value="">Select</option>@foreach($passwordPolicies as $passwordPolicy)<option value="{{ $passwordPolicy->id }}" @selected((string) $value('password_policy_id') === (string) $passwordPolicy->id)>{{ $passwordPolicy->policy_name }}</option>@endforeach</select></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Shift Rotation ID</label><input type="number" name="shift_rotation_id" class="form-control" value="{{ $value('shift_rotation_id') }}"></div>
+                            <div class="col-md-6 mb-3"><label class="form-label" for="shift_type">Shift Type</label><select id="shift_type" name="shift_type" class="form-control"><option value="">Select</option>@foreach(['auto' => 'Auto', 'fixed' => 'Fixed', 'rotational' => 'Rotational'] as $key => $label)<option value="{{ $key }}" @selected($shiftType === $key)>{{ $label }}</option>@endforeach</select>@error('shift_type')<small class="text-danger">{{ $message }}</small>@enderror</div>
+                            <div class="col-md-6 mb-3 shift-selection-field @class(['d-none' => !in_array($shiftType, ['auto', 'fixed'], true)])"><label class="form-label" for="shift_ids">Shift</label><select id="shift_ids" name="shift_ids[]" class="form-control" @if($shiftType === 'auto') multiple @endif><option value="" disabled hidden @selected(!$selectedShiftIds)>Select</option>@foreach($shifts as $shift)<option value="{{ $shift->id }}" @selected(in_array((string) $shift->id, $selectedShiftIds, true))>{{ $shift->name }} ({{ $shift->code }})</option>@endforeach</select>@error('shift_ids')<small class="text-danger">{{ $message }}</small>@enderror</div>
+                            <div class="col-md-6 mb-3 shift-rotation-field @class(['d-none' => $shiftType !== 'rotational'])"><label class="form-label" for="shift_rotation_id">Shift Rotation</label><select id="shift_rotation_id" name="shift_rotation_id" class="form-control"><option value="">Select</option>@foreach($shiftRotations as $rotation)<option value="{{ $rotation->id }}" @selected((string) $value('shift_rotation_id') === (string) $rotation->id)>{{ $rotation->code }}</option>@endforeach</select>@error('shift_rotation_id')<small class="text-danger">{{ $message }}</small>@enderror</div>
+                            <div class="col-md-6 mb-3 login-dependent-field @class(['d-none' => !$allowLogin])"><label class="form-label">Password Policy</label><select name="password_policy_id" class="form-control" @disabled(!$allowLogin)><option value="">Select</option>@foreach($passwordPolicies as $passwordPolicy)<option value="{{ $passwordPolicy->id }}" @selected((string) $value('password_policy_id') === (string) $passwordPolicy->id)>{{ $passwordPolicy->policy_name }}</option>@endforeach</select></div>
                         </div>
                     </div>
                 </div>
@@ -253,6 +327,36 @@
             leftToggle.addEventListener('change', updateLeftFields);
             updateLeftFields();
         }
+
+        const shiftTypeSelect = wizardRoot.querySelector('#shift_type');
+        const shiftSelect = wizardRoot.querySelector('#shift_ids');
+        const shiftSelectionField = wizardRoot.querySelector('.shift-selection-field');
+        const shiftRotationSelect = wizardRoot.querySelector('#shift_rotation_id');
+        const shiftRotationField = wizardRoot.querySelector('.shift-rotation-field');
+        const updateShiftFields = function () {
+            const shiftType = shiftTypeSelect.value;
+            const showShifts = shiftType === 'auto' || shiftType === 'fixed';
+            const showRotation = shiftType === 'rotational';
+
+            shiftSelectionField.classList.toggle('d-none', !showShifts);
+            shiftRotationField.classList.toggle('d-none', !showRotation);
+            shiftSelect.disabled = !showShifts;
+            shiftSelect.multiple = shiftType === 'auto';
+            shiftSelect.required = showShifts;
+            shiftRotationSelect.disabled = !showRotation;
+            shiftRotationSelect.required = showRotation;
+
+            if (shiftType === 'fixed') {
+                let selectedOne = false;
+                Array.from(shiftSelect.options).forEach(function (option) {
+                    if (!option.selected) return;
+                    if (selectedOne) option.selected = false;
+                    selectedOne = true;
+                });
+            }
+        };
+        shiftTypeSelect.addEventListener('change', updateShiftFields);
+        updateShiftFields();
 
         const profileInput = wizardRoot.querySelector('#profile_pic');
         const profilePreview = wizardRoot.querySelector('#profile_pic_preview');
