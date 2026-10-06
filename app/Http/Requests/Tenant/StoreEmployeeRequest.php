@@ -19,6 +19,17 @@ class StoreEmployeeRequest extends FormRequest
         foreach (['location_id', 'company_id', 'department_id', 'sub_department_id', 'category_id', 'sub_category_id', 'designation_id', 'grade_id', 'unit_id', 'bus_route_id'] as $field) {
             $this->merge([$field => array_values(array_filter((array) $this->input($field, []), static fn($id): bool => $id !== ''))]);
         }
+
+        foreach (['languages', 'hobbies'] as $field) {
+            $items = $this->input($field);
+            if (is_string($items)) {
+                $items = preg_split('/[\r\n,]+/', $items, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+            }
+
+            if (is_array($items)) {
+                $this->merge([$field => array_values($items)]);
+            }
+        }
     }
 
     public function rules(): array
@@ -71,8 +82,10 @@ class StoreEmployeeRequest extends FormRequest
             'overtime_rule_id' => ['nullable', 'integer', 'exists:overtime_rules,id'],
             'height' => ['nullable', 'numeric', 'min:0', 'max:300'],
             'weight' => ['nullable', 'numeric', 'min:0', 'max:500'],
-            'languages' => ['nullable', 'string', 'max:2000'],
-            'hobbies' => ['nullable', 'string', 'max:2000'],
+            'languages' => ['nullable', 'array'],
+            'languages.*' => ['nullable', 'string', 'max:2000'],
+            'hobbies' => ['nullable', 'array'],
+            'hobbies.*' => ['nullable', 'string', 'max:2000'],
             'emergency_name' => ['nullable', 'string', 'max:255'],
             'emergency_number' => ['nullable', 'string', 'max:255'],
             'emergency_address' => ['nullable', 'string', 'max:255'],

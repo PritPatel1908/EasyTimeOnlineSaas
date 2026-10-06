@@ -314,8 +314,8 @@ class EmployeeController extends Controller
         ];
 
         foreach (['languages', 'hobbies'] as $field) {
-            $items = preg_split('/[\r\n,]+/', $validated[$field] ?? '', -1, PREG_SPLIT_NO_EMPTY) ?: [];
-            $attributes[$field] = array_values(array_filter(array_map('trim', $items), static fn(string $item): bool => $item !== '')) ?: null;
+            $items = array_map('trim', $validated[$field] ?? []);
+            $attributes[$field] = array_values(array_filter($items, static fn (string $item): bool => $item !== '')) ?: null;
         }
 
         $hasValues = collect($attributes)->contains(static fn($value): bool => $value !== null && $value !== '');

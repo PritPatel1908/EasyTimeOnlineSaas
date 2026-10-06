@@ -5,7 +5,17 @@
     $profilePic = $value('profile_pic');
     $personalInfo = $employee?->personalInfo;
     $personalValue = fn (string $field, mixed $default = '') => old($field, data_get($personalInfo, $field, $default));
-    $listValue = fn (string $field): string => implode(",\n", (array) $personalValue($field, []));
+    $listValues = function (string $field) use ($personalInfo): array {
+        $items = old($field, data_get($personalInfo, $field, []));
+        if (is_string($items)) {
+            $items = preg_split('/[\r\n,]+/', $items, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        }
+
+        return array_values(array_filter(array_map(
+            static fn ($item): string => is_scalar($item) ? trim((string) $item) : '',
+            (array) $items
+        ), static fn (string $item): bool => $item !== ''));
+    };
     $address = $employee?->addresses?->firstWhere('is_current_address', true) ?? $employee?->addresses?->first();
     $addressValue = fn (string $field, mixed $default = '') => old($field, data_get($address, $field, $default));
     $profilePicUrl = $profilePic ? (\Illuminate\Support\Str::startsWith($profilePic, ['http://', 'https://']) ? $profilePic : tenant_asset($profilePic)) : '';
@@ -209,8 +219,52 @@
                             <div class="col-md-4 mb-3"><label class="form-label" for="blood_group_id">Blood Group</label><select id="blood_group_id" name="blood_group_id" class="form-control"><option value="">Select</option>@foreach($bloodGroups as $bloodGroup)<option value="{{ $bloodGroup->id }}" @selected((string) $value('blood_group_id') === (string) $bloodGroup->id)>{{ $bloodGroup->name }}</option>@endforeach</select>@error('blood_group_id')<small class="text-danger">{{ $message }}</small>@enderror</div>
                             <div class="col-md-4 mb-3"><label class="form-label" for="height">Height</label><input type="number" step="0.01" min="0" max="300" id="height" name="height" class="form-control" value="{{ $personalValue('height') }}">@error('height')<small class="text-danger">{{ $message }}</small>@enderror</div>
                             <div class="col-md-4 mb-3"><label class="form-label" for="weight">Weight</label><input type="number" step="0.01" min="0" max="500" id="weight" name="weight" class="form-control" value="{{ $personalValue('weight') }}">@error('weight')<small class="text-danger">{{ $message }}</small>@enderror</div>
-                            <div class="col-md-6 mb-3"><label class="form-label" for="languages">Languages</label><textarea id="languages" name="languages" class="form-control" rows="3" maxlength="2000">{{ $listValue('languages') }}</textarea><small class="text-muted">Separate entries with commas or new lines.</small>@error('languages')<small class="text-danger d-block">{{ $message }}</small>@enderror</div>
-                            <div class="col-md-6 mb-3"><label class="form-label" for="hobbies">Hobbies</label><textarea id="hobbies" name="hobbies" class="form-control" rows="3" maxlength="2000">{{ $listValue('hobbies') }}</textarea><small class="text-muted">Separate entries with commas or new lines.</small>@error('hobbies')<small class="text-danger d-block">{{ $message }}</small>@enderror</div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="languages">Languages</label>
+                                <div data-list-input data-field-label="Language" data-field-name="languages[]">
+                                    @forelse($listValues('languages') as $language)
+                                        <div class="input-group mb-2" data-list-item>
+                                            <input @if($loop->first) id="languages" @endif name="languages[]" class="form-control" maxlength="2000" value="{{ $language }}" aria-label="Language">
+                                            <button type="button" class="btn btn-outline-danger" data-remove-item>Remove</button>
+                                        </div>
+                                    @empty
+                                        <div class="input-group mb-2" data-list-item>
+                                            <input id="languages" name="languages[]" class="form-control" maxlength="2000" aria-label="Language">
+                                            <button type="button" class="btn btn-outline-danger" data-remove-item>Remove</button>
+                                        </div>
+                                    @endforelse
+                                    <button type="button" class="btn btn-outline-primary btn-sm" data-add-item>Add New</button>
+                                </div>
+                                @error('languages')<small class="text-danger d-block">{{ $message }}</small>@enderror
+                                @foreach($errors->getMessages() as $key => $messages)
+                                    @if(str_starts_with($key, 'languages.'))
+                                        @foreach($messages as $message)<small class="text-danger d-block">{{ $message }}</small>@endforeach
+                                    @endif
+                                @endforeach
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="hobbies">Hobbies</label>
+                                <div data-list-input data-field-label="Hobby" data-field-name="hobbies[]">
+                                    @forelse($listValues('hobbies') as $hobby)
+                                        <div class="input-group mb-2" data-list-item>
+                                            <input @if($loop->first) id="hobbies" @endif name="hobbies[]" class="form-control" maxlength="2000" value="{{ $hobby }}" aria-label="Hobby">
+                                            <button type="button" class="btn btn-outline-danger" data-remove-item>Remove</button>
+                                        </div>
+                                    @empty
+                                        <div class="input-group mb-2" data-list-item>
+                                            <input id="hobbies" name="hobbies[]" class="form-control" maxlength="2000" aria-label="Hobby">
+                                            <button type="button" class="btn btn-outline-danger" data-remove-item>Remove</button>
+                                        </div>
+                                    @endforelse
+                                    <button type="button" class="btn btn-outline-primary btn-sm" data-add-item>Add New</button>
+                                </div>
+                                @error('hobbies')<small class="text-danger d-block">{{ $message }}</small>@enderror
+                                @foreach($errors->getMessages() as $key => $messages)
+                                    @if(str_starts_with($key, 'hobbies.'))
+                                        @foreach($messages as $message)<small class="text-danger d-block">{{ $message }}</small>@endforeach
+                                    @endif
+                                @endforeach
+                            </div>
                             <div class="col-md-6 mb-3"><label class="form-label" for="emergency_name">Emergency Contact Name</label><input id="emergency_name" name="emergency_name" class="form-control" maxlength="255" value="{{ $personalValue('emergency_name') }}">@error('emergency_name')<small class="text-danger">{{ $message }}</small>@enderror</div>
                             <div class="col-md-6 mb-3"><label class="form-label" for="emergency_number">Emergency Contact Number</label><input id="emergency_number" name="emergency_number" class="form-control" maxlength="255" value="{{ $personalValue('emergency_number') }}">@error('emergency_number')<small class="text-danger">{{ $message }}</small>@enderror</div>
                             <div class="col-md-12 mb-3"><label class="form-label" for="emergency_address">Emergency Contact Address</label><textarea id="emergency_address" name="emergency_address" class="form-control" rows="2" maxlength="255">{{ $personalValue('emergency_address') }}</textarea>@error('emergency_address')<small class="text-danger">{{ $message }}</small>@enderror</div>
@@ -314,6 +368,38 @@
     document.addEventListener('DOMContentLoaded', function () {
         const wizardRoot = document.querySelector('.employee-form-wizard');
         if (!wizardRoot || typeof bootstrap === 'undefined') return;
+
+        wizardRoot.querySelectorAll('[data-list-input]').forEach(function (list) {
+            const addButton = list.querySelector('[data-add-item]');
+            const fieldLabel = list.dataset.fieldLabel;
+
+            addButton.addEventListener('click', function () {
+                const item = document.createElement('div');
+                item.className = 'input-group mb-2';
+                item.dataset.listItem = '';
+
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.name = list.dataset.fieldName;
+                input.className = 'form-control';
+                input.maxLength = 2000;
+                input.setAttribute('aria-label', fieldLabel);
+
+                const removeButton = document.createElement('button');
+                removeButton.type = 'button';
+                removeButton.className = 'btn btn-outline-danger';
+                removeButton.dataset.removeItem = '';
+                removeButton.textContent = 'Remove';
+
+                item.append(input, removeButton);
+                list.insertBefore(item, addButton);
+            });
+
+            list.addEventListener('click', function (event) {
+                const removeButton = event.target.closest('[data-remove-item]');
+                if (removeButton) removeButton.closest('[data-list-item]').remove();
+            });
+        });
 
         const loginToggle = wizardRoot.querySelector('#is_locked');
         const loginFields = wizardRoot.querySelectorAll('.login-dependent-field');
