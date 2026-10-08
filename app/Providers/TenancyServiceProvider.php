@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use App\Http\Middleware\EnsureActiveDomain;
-use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -13,7 +11,6 @@ use Stancl\JobPipeline\JobPipeline;
 use Stancl\Tenancy\Events;
 use Stancl\Tenancy\Jobs;
 use Stancl\Tenancy\Listeners;
-use Stancl\Tenancy\Middleware;
 
 class TenancyServiceProvider extends ServiceProvider
 {
@@ -84,15 +81,15 @@ class TenancyServiceProvider extends ServiceProvider
 
     public function register()
     {
-        //
+        // Tenancy bootstrapping is intentionally scoped to tenant routes in routes/tenant.php.
+        // Registering the Stancl middleware globally causes central admin routes to initialize
+        // a tenant context and query the wrong database.
     }
 
     public function boot()
     {
         $this->bootEvents();
         $this->mapRoutes();
-
-        $this->makeTenancyMiddlewareHighestPriority();
     }
 
     protected function bootEvents()
@@ -118,23 +115,4 @@ class TenancyServiceProvider extends ServiceProvider
         });
     }
 
-    protected function makeTenancyMiddlewareHighestPriority()
-    {
-        $tenancyMiddleware = [
-            EnsureActiveDomain::class,
-
-            // Even higher priority than the initialization middleware
-            Middleware\PreventAccessFromCentralDomains::class,
-
-            Middleware\InitializeTenancyByDomain::class,
-            Middleware\InitializeTenancyBySubdomain::class,
-            Middleware\InitializeTenancyByDomainOrSubdomain::class,
-            Middleware\InitializeTenancyByPath::class,
-            Middleware\InitializeTenancyByRequestData::class,
-        ];
-
-        foreach (array_reverse($tenancyMiddleware) as $middleware) {
-            $this->app[Kernel::class]->prependToMiddlewarePriority($middleware);
-        }
-    }
 }
