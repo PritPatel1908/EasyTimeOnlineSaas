@@ -1,6 +1,8 @@
 <?php
 
 use App\Exceptions\DeleteBlockedException;
+use App\Http\Middleware\EnsureActiveDomain;
+use App\Http\Middleware\EnsureValidTenantLicense;
 use App\Http\Middleware\TenantModulePermission;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -15,6 +17,22 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->redirectGuestsTo(fn (Request $request): string => route('login', absolute: false));
+        $middleware->prependToPriorityList(
+            \Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests::class,
+            \Stancl\Tenancy\Middleware\InitializeTenancyByDomain::class,
+        );
+        $middleware->appendToPriorityList(
+            \Stancl\Tenancy\Middleware\InitializeTenancyByDomain::class,
+            \Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains::class,
+        );
+        $middleware->appendToPriorityList(
+            \Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains::class,
+            EnsureActiveDomain::class,
+        );
+        $middleware->appendToPriorityList(
+            EnsureActiveDomain::class,
+            EnsureValidTenantLicense::class,
+        );
         $middleware->alias([
             'tenant.permission' => TenantModulePermission::class,
         ]);
