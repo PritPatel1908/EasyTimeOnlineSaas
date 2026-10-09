@@ -39,7 +39,7 @@
                         </h5>
                     </div>
                     <div class="card-body">
-                        <form action="{{ url('company-structure/companies') }}" method="POST">
+                        <form action="{{ url('company-structure/companies') }}" method="POST" class="company-form" novalidate>
                             @csrf
 
                             @include('company-structure.companies.partials.form-fields', [

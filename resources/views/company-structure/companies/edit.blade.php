@@ -44,7 +44,9 @@
                     <div class="card-body">
                         <form
                             action="{{ url('company-structure/companies/'.$company->id) }}"
-                            method="POST">
+                            method="POST"
+                            class="company-form"
+                            novalidate>
                             @csrf
                             @method('PUT')
 
