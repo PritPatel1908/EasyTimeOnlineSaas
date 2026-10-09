@@ -34,7 +34,7 @@
                         </h5>
                     </div>
                     <div class="card-body">
-                        <form method="POST" action="{{ url('company-structure/canteen-facilities/' . $canteenFacility->id) }}">
+                        <form method="POST" action="{{ url('company-structure/canteen-facilities/' . $canteenFacility->id) }}" class="canteen-facility-form" novalidate>
                             @csrf
                             @method('PUT')
                             @include('company-structure.canteen-facilities.partials.form-fields')

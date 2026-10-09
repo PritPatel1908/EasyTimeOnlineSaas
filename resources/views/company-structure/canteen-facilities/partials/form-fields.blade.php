@@ -10,14 +10,7 @@
 @endphp
 
 @if ($errors->any())
-    <div class="alert alert-danger alert-dismissible fade show mb-3" role="alert">
-        <ul class="mb-0 ps-3">
-            @foreach ($errors->all() as $error)
-                <li>{{ $error }}</li>
-            @endforeach
-        </ul>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
+    <div class="alert alert-danger mb-3">Please correct the highlighted fields.</div>
 @endif
 
 {{-- Basic Information Section --}}
@@ -30,25 +23,19 @@
             <div class="col-md-6 mb-3">
                 <label class="form-label" for="{{ $isEdit ? 'edit_name' : 'add_name' }}">Name <span class="text-danger">*</span></label>
                 <input type="text" id="{{ $isEdit ? 'edit_name' : 'add_name' }}" name="name" class="form-control @error('name') is-invalid @enderror" value="{{ old('name', $canteenFacility?->name) }}" placeholder="Enter canteen facility name" required>
-                @error('name')
-                    <div class="invalid-feedback">{{ $message }}</div>
-                @enderror
+                <x-validation-error field="name" />
             </div>
 
             <div class="col-md-6 mb-3">
                 <label class="form-label" for="{{ $isEdit ? 'edit_code' : 'add_code' }}">Code <span class="text-danger">*</span></label>
                 <input type="text" id="{{ $isEdit ? 'edit_code' : 'add_code' }}" name="code" class="form-control @error('code') is-invalid @enderror" value="{{ old('code', $canteenFacility?->code) }}" placeholder="e.g. CF1, CAFE" required>
-                @error('code')
-                    <div class="invalid-feedback">{{ $message }}</div>
-                @enderror
+                <x-validation-error field="code" />
             </div>
 
             <div class="col-md-6 mb-3">
                 <label class="form-label" for="{{ $isEdit ? 'edit_total_cfa' : 'add_total_cfa' }}">Total CFA <span class="text-danger">*</span></label>
                 <input type="number" id="{{ $isEdit ? 'edit_total_cfa' : 'add_total_cfa' }}" name="total_cfa" min="0" step="0.01" class="form-control @error('total_cfa') is-invalid @enderror" value="{{ old('total_cfa', $canteenFacility?->total_cfa) }}" placeholder="0.00" required>
-                @error('total_cfa')
-                    <div class="invalid-feedback">{{ $message }}</div>
-                @enderror
+                <x-validation-error field="total_cfa" />
             </div>
         </div>
     </div>
@@ -69,9 +56,7 @@
                         <option value="{{ $location->id }}" @selected(old('location_id', $canteenFacility?->location_id) == $location->id)>{{ $location->name }}</option>
                     @endforeach
                 </select>
-                @error('location_id')
-                    <div class="invalid-feedback">{{ $message }}</div>
-                @enderror
+                <x-validation-error field="location_id" />
             </div>
         </div>
     </div>
@@ -90,9 +75,7 @@
                     <option value="1" @selected(old('status', $canteenFacility?->status ?? 1) == 1)>Active</option>
                     <option value="0" @selected(old('status', $canteenFacility?->status ?? 1) == 0)>Inactive</option>
                 </select>
-                @error('status')
-                    <div class="invalid-feedback">{{ $message }}</div>
-                @enderror
+                <x-validation-error field="status" />
             </div>
         </div>
     </div>
@@ -115,7 +98,7 @@
                     <div class="col-md-6 mb-3">
                         <label class="form-label">Total Absent Days <span class="text-danger">*</span></label>
                         <input type="number" name="rules[{{ $index }}][total_absent_days]" min="0" class="form-control" value="{{ $rule['total_absent_days'] ?? '' }}" placeholder="e.g. 2" required>
-                        @error('rules.' . $index . '.total_absent_days')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                        <x-validation-error field="rules.{{ $index }}.total_absent_days" />
                     </div>
                     <div class="col-md-6 mb-3">
                         <label class="form-label d-block">Company Contribution in Percentage Wise?</label>
@@ -126,12 +109,12 @@
                     <div class="col-md-12 mb-3 rule-fixed-group">
                         <label class="form-label">Company Allowance Contribution in Fixed</label>
                         <input type="number" name="rules[{{ $index }}][company_allowance_contribution_in_fixed]" min="0" step="0.01" class="form-control" value="{{ $rule['company_allowance_contribution_in_fixed'] ?? '' }}" placeholder="0.00">
-                        @error('rules.' . $index . '.company_allowance_contribution_in_fixed')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                        <x-validation-error field="rules.{{ $index }}.company_allowance_contribution_in_fixed" />
                     </div>
                     <div class="col-md-12 mb-3 rule-percentage-group">
                         <label class="form-label">Company Allowance Contribution in Percentage</label>
                         <input type="number" name="rules[{{ $index }}][company_allowance_contribution_in_percentage]" min="0" max="100" step="0.01" class="form-control" value="{{ $rule['company_allowance_contribution_in_percentage'] ?? '' }}" placeholder="e.g. 50.00">
-                        @error('rules.' . $index . '.company_allowance_contribution_in_percentage')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                        <x-validation-error field="rules.{{ $index }}.company_allowance_contribution_in_percentage" />
                     </div>
                 </div>
             </div>
@@ -143,10 +126,10 @@
     <div class="canteen-rule-row border rounded p-3 mb-3" data-rule-index="__INDEX__">
         <div class="d-flex justify-content-between align-items-center mb-3"><h6 class="mb-0">Rule <span class="rule-number"></span></h6><button type="button" class="btn btn-sm btn-outline-danger remove-canteen-rule"><i class="ti ti-trash me-1"></i>Remove</button></div>
         <div class="row">
-            <div class="col-md-6 mb-3"><label class="form-label">Total Absent Days <span class="text-danger">*</span></label><input type="number" name="rules[__INDEX__][total_absent_days]" min="0" class="form-control" placeholder="e.g. 2" required></div>
+            <div class="col-md-6 mb-3"><label class="form-label">Total Absent Days <span class="text-danger">*</span></label><input type="number" name="rules[__INDEX__][total_absent_days]" min="0" class="form-control" placeholder="e.g. 2" required><x-validation-error field="rules.__INDEX__.total_absent_days" /></div>
             <div class="col-md-6 mb-3"><label class="form-label d-block">Company Contribution in Percentage Wise?</label><div class="form-check form-check-lg form-switch"><input class="form-check-input rule-percentage-toggle" type="checkbox" role="switch" name="rules[__INDEX__][company_contribution_in_percentage_wise]" value="1"></div></div>
-            <div class="col-md-12 mb-3 rule-fixed-group"><label class="form-label">Company Allowance Contribution in Fixed</label><input type="number" name="rules[__INDEX__][company_allowance_contribution_in_fixed]" min="0" step="0.01" class="form-control" placeholder="0.00"></div>
-            <div class="col-md-12 mb-3 rule-percentage-group"><label class="form-label">Company Allowance Contribution in Percentage</label><input type="number" name="rules[__INDEX__][company_allowance_contribution_in_percentage]" min="0" max="100" step="0.01" class="form-control" placeholder="e.g. 50.00"></div>
+            <div class="col-md-12 mb-3 rule-fixed-group"><label class="form-label">Company Allowance Contribution in Fixed</label><input type="number" name="rules[__INDEX__][company_allowance_contribution_in_fixed]" min="0" step="0.01" class="form-control" placeholder="0.00"><x-validation-error field="rules.__INDEX__.company_allowance_contribution_in_fixed" /></div>
+            <div class="col-md-12 mb-3 rule-percentage-group"><label class="form-label">Company Allowance Contribution in Percentage</label><input type="number" name="rules[__INDEX__][company_allowance_contribution_in_percentage]" min="0" max="100" step="0.01" class="form-control" placeholder="e.g. 50.00"><x-validation-error field="rules.__INDEX__.company_allowance_contribution_in_percentage" /></div>
         </div>
     </div>
  </template>
@@ -154,6 +137,63 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.canteen-facility-form').forEach(function (form) {
+        form.addEventListener('submit', function (event) {
+            var invalidFields = Array.from(form.elements).filter(function (field) {
+                return field.willValidate && !field.validity.valid;
+            });
+
+            if (invalidFields.length === 0) {
+                return;
+            }
+
+            event.preventDefault();
+
+            invalidFields.forEach(function (field) {
+                var validationField = field.name.replace(/\[(.*?)\]/g, '.$1');
+                var error = Array.from(form.querySelectorAll('[data-validation-error-for]')).find(function (node) {
+                    return node.dataset.validationErrorFor === field.name ||
+                        node.dataset.validationErrorFor === validationField;
+                });
+
+                if (error) {
+                    error.textContent = field.validity.valueMissing ? 'This field is required.' : field.validationMessage;
+                    error.hidden = false;
+                }
+
+                field.classList.add('is-invalid');
+                field.setAttribute('aria-invalid', 'true');
+            });
+
+            invalidFields[0].focus();
+        });
+
+        function clearCanteenFacilityFieldError(event) {
+            var field = event.target;
+
+            if (!field.validity || !field.validity.valid) {
+                return;
+            }
+
+            var validationField = field.name.replace(/\[(.*?)\]/g, '.$1');
+            var error = Array.from(form.querySelectorAll('[data-validation-error-for]')).find(function (node) {
+                return node.dataset.validationErrorFor === field.name ||
+                    node.dataset.validationErrorFor === validationField;
+            });
+
+            if (error) {
+                error.textContent = '';
+                error.hidden = true;
+            }
+
+            field.classList.remove('is-invalid');
+            field.removeAttribute('aria-invalid');
+        }
+
+        form.addEventListener('input', clearCanteenFacilityFieldError);
+        form.addEventListener('change', clearCanteenFacilityFieldError);
+    });
+
     const container = document.getElementById('canteen-rules-container');
     const template = document.getElementById('canteen-rule-template');
     let nextIndex = {{ count($rules) }};
