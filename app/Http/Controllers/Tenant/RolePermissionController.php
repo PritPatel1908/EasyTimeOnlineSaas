@@ -106,7 +106,7 @@ class RolePermissionController extends Controller
 
     public function store(Request $request, string $tenant): RedirectResponse
     {
-        $validated = $request->validate([
+        $validated = $request->validateWithBag('createRole', [
             'name' => [
                 'required',
                 'string',
@@ -132,7 +132,7 @@ class RolePermissionController extends Controller
     {
         $this->ensureTenantRole($role);
 
-        $validated = $request->validate([
+        $validated = $request->validateWithBag('editRole' . $role->id, [
             'name' => [
                 'required',
                 'string',

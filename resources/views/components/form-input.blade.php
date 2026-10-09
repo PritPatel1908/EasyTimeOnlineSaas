@@ -2,5 +2,5 @@
 <div class="form-group">
     <label for="{{ $name }}">{{ $label }}</label>
     <input id="{{ $name }}" name="{{ $name }}" type="{{ $type }}" {{ $attributes->merge(['class' => 'form-control']) }}>
-    @error($name)<small class="text-danger">{{ $message }}</small>@enderror
+    <x-validation-error :field="$name" />
 </div>

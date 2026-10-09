@@ -45,7 +45,7 @@
                             <form method="POST" action="{{ route('tenant.roles.destroy', ['tenant' => $tenant, 'role' => $role]) }}" class="d-inline" onsubmit="return confirm('Delete this role?')">@csrf @method('DELETE')<button type="submit" class="btn btn-link p-0 text-danger" title="Delete role"><i class="ti ti-trash"></i></button></form>
                         </div></td>
                     </tr>
-                    <div class="modal fade" id="edit_role_{{ $role->id }}" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Edit role</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div><form method="POST" action="{{ route('tenant.roles.update', ['tenant' => $tenant, 'role' => $role]) }}">@csrf @method('PUT')<div class="modal-body"><label for="role_name_{{ $role->id }}" class="form-label">Role name</label><input id="role_name_{{ $role->id }}" name="name" value="{{ $role->name }}" class="form-control" required maxlength="100"><label for="role_status_{{ $role->id }}" class="form-label mt-3">Status</label><select id="role_status_{{ $role->id }}" name="status" class="form-control select" required><option value="1" @selected($role->status)>Active</option><option value="0" @selected(! $role->status)>Inactive</option></select></div><div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Save changes</button></div></form></div></div></div>
+                    <div class="modal fade" id="edit_role_{{ $role->id }}" data-validation-errors="{{ $errors->getBag('editRole' . $role->id)->any() ? 'true' : 'false' }}" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Edit role</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div><form method="POST" action="{{ route('tenant.roles.update', ['tenant' => $tenant, 'role' => $role]) }}" novalidate>@csrf @method('PUT')<div class="modal-body"><label for="role_name_{{ $role->id }}" class="form-label">Role name <span class="text-danger" aria-hidden="true">*</span></label><input id="role_name_{{ $role->id }}" name="name" value="{{ $role->name }}" class="form-control" required maxlength="100"><x-validation-error field="name" :bag="'editRole' . $role->id" /><label for="role_status_{{ $role->id }}" class="form-label mt-3">Status</label><select id="role_status_{{ $role->id }}" name="status" class="form-control select" required><option value="1" @selected($role->status)>Active</option><option value="0" @selected(! $role->status)>Inactive</option></select><x-validation-error field="status" :bag="'editRole' . $role->id" /></div><div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Save changes</button></div></form></div></div></div>
                 @empty
                     <tr><td colspan="6" class="text-center py-5"><span class="avatar avatar-xl bg-light text-muted mb-3"><i class="ti ti-shield-off fs-28"></i></span><h6>No roles created yet</h6><p class="text-muted mb-0">Create the first role for this tenant workspace.</p></td></tr>
                 @endforelse
@@ -57,9 +57,68 @@
     @include('partials.footer')
 </div>
 
-<div class="modal fade" id="add_role" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Create role</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div><form method="POST" action="{{ route('tenant.roles.store') }}">@csrf<div class="modal-body"><label for="role_name" class="form-label">Role name</label><input id="role_name" name="name" class="form-control" placeholder="e.g. HR Manager" required maxlength="100"><label for="role_status" class="form-label mt-3">Status</label><select id="role_status" name="status" class="form-control select" required><option value="1" selected>Active</option><option value="0">Inactive</option></select><p class="text-muted fs-12 mt-2 mb-0">You can assign module permissions after creating the role.</p></div><div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Create role</button></div></form></div></div></div>
+<div class="modal fade" id="add_role" data-validation-errors="{{ $errors->getBag('createRole')->any() ? 'true' : 'false' }}" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Create role</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div><form method="POST" action="{{ route('tenant.roles.store') }}" novalidate>@csrf<div class="modal-body"><label for="role_name" class="form-label">Role name <span class="text-danger" aria-hidden="true">*</span></label><input id="role_name" name="name" class="form-control" placeholder="e.g. HR Manager" required maxlength="100"><x-validation-error field="name" bag="createRole" /><label for="role_status" class="form-label mt-3">Status</label><select id="role_status" name="status" class="form-control select" required><option value="1" selected>Active</option><option value="0">Inactive</option></select><x-validation-error field="status" bag="createRole" /><p class="text-muted fs-12 mt-2 mb-0">You can assign module permissions after creating the role.</p></div><div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Create role</button></div></form></div></div></div>
 @push('scripts')
 <script>
+    document.querySelectorAll('#add_role form, [id^="edit_role_"] form').forEach(function (form) {
+        form.addEventListener('submit', function (event) {
+            var invalidFields = Array.from(form.elements).filter(function (field) {
+                return field.willValidate && !field.validity.valid;
+            });
+
+            if (invalidFields.length === 0) {
+                return;
+            }
+
+            event.preventDefault();
+
+            invalidFields.forEach(function (field) {
+                var error = Array.from(form.querySelectorAll('[data-validation-error-for]')).find(function (node) {
+                    return node.dataset.validationErrorFor === field.name;
+                });
+
+                if (error) {
+                    error.textContent = field.validity.valueMissing ? 'This field is required.' : field.validationMessage;
+                    error.hidden = false;
+                }
+
+                field.classList.add('is-invalid');
+                field.setAttribute('aria-invalid', 'true');
+            });
+
+            invalidFields[0].focus();
+        });
+
+        form.addEventListener('input', clearRoleFieldError);
+        form.addEventListener('change', clearRoleFieldError);
+    });
+
+    function clearRoleFieldError(event) {
+        var field = event.target;
+
+        if (!field.validity || !field.validity.valid) {
+            return;
+        }
+
+        var error = Array.from(field.form.querySelectorAll('[data-validation-error-for]')).find(function (node) {
+            return node.dataset.validationErrorFor === field.name;
+        });
+
+        if (error) {
+            error.textContent = '';
+            error.hidden = true;
+        }
+
+        field.classList.remove('is-invalid');
+        field.removeAttribute('aria-invalid');
+    }
+
+    document.querySelectorAll('[data-validation-errors="true"]').forEach(function (modal) {
+        if (window.bootstrap) {
+            window.bootstrap.Modal.getOrCreateInstance(modal).show();
+        }
+    });
+
     document.querySelectorAll('.auto-dismiss-alert').forEach(function (alert) {
         var remaining = 5000;
         var timer;

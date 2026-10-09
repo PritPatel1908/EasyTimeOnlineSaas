@@ -1,3 +1,54 @@
+function getValidationError(field) {
+	if (!field.form || !field.name) {
+		return null;
+	}
+
+	return Array.from(field.form.querySelectorAll('[data-validation-error-for]'))
+		.find((error) => error.dataset.validationErrorFor === field.name);
+}
+
+document.addEventListener('invalid', (event) => {
+	const field = event.target;
+	const error = getValidationError(field);
+
+	if (!error) {
+		return;
+	}
+
+	event.preventDefault();
+	error.textContent = field.validationMessage;
+	error.hidden = false;
+	field.classList.add('is-invalid');
+	field.setAttribute('aria-invalid', 'true');
+}, true);
+
+function clearValidationError(event) {
+	const field = event.target;
+	const error = getValidationError(field);
+
+	if (!error || !field.validity.valid) {
+		return;
+	}
+
+	error.textContent = '';
+	error.hidden = true;
+	field.classList.remove('is-invalid');
+	field.removeAttribute('aria-invalid');
+}
+
+document.addEventListener('input', clearValidationError);
+document.addEventListener('change', clearValidationError);
+
+document.addEventListener('DOMContentLoaded', () => {
+	if (typeof bootstrap === 'undefined') {
+		return;
+	}
+
+	document.querySelectorAll('[data-validation-errors="true"]').forEach((modal) => {
+		bootstrap.Modal.getOrCreateInstance(modal).show();
+	});
+});
+
 document.addEventListener('submit', async (event) => {
 	const form = event.target.closest('[data-ajax-pagination]');
 

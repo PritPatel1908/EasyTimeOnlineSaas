@@ -58980,7 +58980,7 @@
 							<div class="col-md-12">
 								<div class="mb-3">
 									<label class="form-label">Role Name</label>
-									<input type="text" class="form-control">
+									<input type="text" class="form-control" required>
 								</div>
 							</div>
 							<div class="col-md-12">
@@ -59022,7 +59022,7 @@
 							<div class="col-md-12">
 								<div class="mb-3">
 									<label class="form-label">Role Name</label>
-									<input type="text" class="form-control" value="Office Furnitures">
+									<input type="text" class="form-control" value="Office Furnitures" required>
 								</div>
 							</div>
 							<div class="col-md-12">
@@ -63231,7 +63231,7 @@
 							<div class="col-md-12">
 								<div class="mb-3">
 									<label class="form-label">Role Name</label>
-									<input type="text" class="form-control">
+									<input type="text" class="form-control" required>
 								</div>
 							</div>
 							<div class="col-md-12">
@@ -63273,7 +63273,7 @@
 							<div class="col-md-12">
 								<div class="mb-3">
 									<label class="form-label">Role Name</label>
-									<input type="text" class="form-control" value="Office Furnitures">
+									<input type="text" class="form-control" value="Office Furnitures" required>
 								</div>
 							</div>
 							<div class="col-md-12">
