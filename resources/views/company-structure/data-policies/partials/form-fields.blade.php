@@ -23,13 +23,13 @@
         <label class="form-label" for="code">Code <span class="text-danger">*</span></label>
         <input id="code" name="code" type="text" class="form-control @error('code') is-invalid @enderror"
             value="{{ old('code', $dataPolicy?->code) }}" required>
-        @error('code') <div class="invalid-feedback">{{ $message }}</div> @enderror
+        <x-validation-error field="code" />
     </div>
     <div class="col-md-6 mb-3">
         <label class="form-label" for="name">Name <span class="text-danger">*</span></label>
         <input id="name" name="name" type="text" class="form-control @error('name') is-invalid @enderror"
             value="{{ old('name', $dataPolicy?->name) }}" required>
-        @error('name') <div class="invalid-feedback">{{ $message }}</div> @enderror
+        <x-validation-error field="name" />
     </div>
     <div class="col-md-6 mb-3">
         <label class="form-label" for="status">Status</label>
@@ -90,6 +90,59 @@
 
 @push('scripts')
 <script>
+    document.querySelectorAll('.data-policy-form').forEach(function (form) {
+        form.addEventListener('submit', function (event) {
+            var invalidFields = Array.from(form.elements).filter(function (field) {
+                return field.willValidate && !field.validity.valid;
+            });
+
+            if (invalidFields.length === 0) {
+                return;
+            }
+
+            event.preventDefault();
+
+            invalidFields.forEach(function (field) {
+                var error = Array.from(form.querySelectorAll('[data-validation-error-for]')).find(function (node) {
+                    return node.dataset.validationErrorFor === field.name;
+                });
+
+                if (error) {
+                    error.textContent = field.validity.valueMissing ? 'This field is required.' : field.validationMessage;
+                    error.hidden = false;
+                }
+
+                field.classList.add('is-invalid');
+                field.setAttribute('aria-invalid', 'true');
+            });
+
+            invalidFields[0].focus();
+        });
+
+        form.addEventListener('input', clearDataPolicyFieldError);
+        form.addEventListener('change', clearDataPolicyFieldError);
+    });
+
+    function clearDataPolicyFieldError(event) {
+        var field = event.target;
+
+        if (!field.validity || !field.validity.valid) {
+            return;
+        }
+
+        var error = Array.from(field.form.querySelectorAll('[data-validation-error-for]')).find(function (node) {
+            return node.dataset.validationErrorFor === field.name;
+        });
+
+        if (error) {
+            error.textContent = '';
+            error.hidden = true;
+        }
+
+        field.classList.remove('is-invalid');
+        field.removeAttribute('aria-invalid');
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         var selfOnlySwitch = document.getElementById('self_only');
         var relationSection = document.getElementById('data-policy-relations');
