@@ -57,6 +57,19 @@
     };
     $address = $employee?->addresses?->firstWhere('is_current_address', true) ?? $employee?->addresses?->first();
     $addressValue = fn(string $field, mixed $default = '') => old($field, data_get($address, $field, $default));
+    $educationRows = old('educations');
+    if (!is_array($educationRows)) {
+        $educationRows = $employee?->education?->map(fn($education) => $education->only(['education', 'year', 'university_name']))->all() ?? [];
+    }
+    $educationRows = $educationRows ?: [[]];
+    $experienceRows = old('experiences');
+    if (!is_array($experienceRows)) {
+        $experienceRows = $employee?->experiences?->map(fn($experience) => $experience->only(['previous_employeer', 'designation', 'join_date', 'left_date', 'ctc']))->all() ?? [];
+    }
+    $experienceRows = $experienceRows ?: [[]];
+    $rowDateValue = fn($row, string $field): string => ($date = data_get($row, $field))
+        ? \Illuminate\Support\Carbon::parse($date)->format('Y-m-d')
+        : '';
     $profilePicUrl = $profilePic
         ? (\Illuminate\Support\Str::startsWith($profilePic, ['http://', 'https://'])
             ? $profilePic
@@ -152,6 +165,12 @@
         border-color: #c8edf1 !important;
     }
 
+    #employee-step-10-tab,
+    #employee-step-10-tab:not(.active):not(:hover) {
+        background-color: #fff8e8 !important;
+        border-color: #f2dfb0 !important;
+    }
+
     #employee-step-8-tab:hover,
     #employee-step-8-tab.active {
         background-color: #7952cc !important;
@@ -177,6 +196,13 @@
     #employee-step-5-tab.active {
         background-color: #198d9c !important;
         border-color: #198d9c !important;
+        color: #fff !important;
+    }
+
+    #employee-step-10-tab:hover,
+    #employee-step-10-tab.active {
+        background-color: #b58422 !important;
+        border-color: #b58422 !important;
         color: #fff !important;
     }
 </style>
@@ -225,6 +251,14 @@
                     aria-controls="employee-step-9" aria-label="Bank Details" title="Bank Details"
                     aria-selected="false">
                     <div class="step-icon"><i class="fas fa-university"></i></div>
+                </a>
+            </li>
+            <li class="nav-item flex-fill" role="presentation">
+                <a class="nav-link rounded mx-auto d-flex align-items-center justify-content-center"
+                    href="#employee-step-10" id="employee-step-10-tab" data-bs-toggle="tab" role="tab"
+                    aria-controls="employee-step-10" aria-label="Education & Experience"
+                    title="Education & Experience" aria-selected="false">
+                    <div class="step-icon"><i class="fas fa-graduation-cap"></i></div>
                 </a>
             </li>
             <li class="nav-item flex-fill" role="presentation">
@@ -830,6 +864,185 @@
                 </div>
             </div>
 
+            <div class="tab-pane fade" id="employee-step-10" role="tabpanel"
+                aria-labelledby="employee-step-10-tab">
+                <div class="card mb-4">
+                    <div class="card-header d-flex align-items-center justify-content-between">
+                        <h5 class="mb-0">Education</h5>
+                        <button type="button" class="btn btn-sm btn-primary" data-add-row="educations">
+                            <i class="ti ti-plus me-1"></i>Add Education
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <input type="hidden" name="educations_submitted" value="1">
+                        <div class="table-responsive">
+                            <table class="table table-bordered align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Education</th>
+                                        <th>Year</th>
+                                        <th>University Name</th>
+                                        <th class="text-center">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody data-repeatable-rows="educations">
+                                    @foreach ($educationRows as $index => $row)
+                                        <tr data-repeatable-row>
+                                            <td>
+                                                <input name="educations[{{ $index }}][education]"
+                                                    class="form-control" maxlength="255"
+                                                    value="{{ data_get($row, 'education') }}">
+                                                @error("educations.$index.education")
+                                                    <small class="text-danger">{{ $message }}</small>
+                                                @enderror
+                                            </td>
+                                            <td>
+                                                <input name="educations[{{ $index }}][year]"
+                                                    class="form-control" maxlength="20"
+                                                    value="{{ data_get($row, 'year') }}">
+                                                @error("educations.$index.year")
+                                                    <small class="text-danger">{{ $message }}</small>
+                                                @enderror
+                                            </td>
+                                            <td>
+                                                <input name="educations[{{ $index }}][university_name]"
+                                                    class="form-control" maxlength="255"
+                                                    value="{{ data_get($row, 'university_name') }}">
+                                                @error("educations.$index.university_name")
+                                                    <small class="text-danger">{{ $message }}</small>
+                                                @enderror
+                                            </td>
+                                            <td class="text-center">
+                                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                                    data-remove-row aria-label="Remove education">
+                                                    <i class="ti ti-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                        <template data-row-template="educations">
+                            <tr data-repeatable-row>
+                                <td><input name="educations[__INDEX__][education]" class="form-control"
+                                        maxlength="255"></td>
+                                <td><input name="educations[__INDEX__][year]" class="form-control"
+                                        maxlength="20"></td>
+                                <td><input name="educations[__INDEX__][university_name]" class="form-control"
+                                        maxlength="255"></td>
+                                <td class="text-center">
+                                    <button type="button" class="btn btn-sm btn-outline-danger"
+                                        data-remove-row aria-label="Remove education">
+                                        <i class="ti ti-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </template>
+                    </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-header d-flex align-items-center justify-content-between">
+                        <h5 class="mb-0">Experience</h5>
+                        <button type="button" class="btn btn-sm btn-primary" data-add-row="experiences">
+                            <i class="ti ti-plus me-1"></i>Add Experience
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <input type="hidden" name="experiences_submitted" value="1">
+                        <div class="table-responsive">
+                            <table class="table table-bordered align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Previous Employer</th>
+                                        <th>Designation</th>
+                                        <th>Join Date</th>
+                                        <th>Left Date</th>
+                                        <th>CTC</th>
+                                        <th class="text-center">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody data-repeatable-rows="experiences">
+                                    @foreach ($experienceRows as $index => $row)
+                                        <tr data-repeatable-row>
+                                            <td>
+                                                <input name="experiences[{{ $index }}][previous_employeer]"
+                                                    class="form-control" maxlength="255"
+                                                    value="{{ data_get($row, 'previous_employeer') }}">
+                                                @error("experiences.$index.previous_employeer")
+                                                    <small class="text-danger">{{ $message }}</small>
+                                                @enderror
+                                            </td>
+                                            <td>
+                                                <input name="experiences[{{ $index }}][designation]"
+                                                    class="form-control" maxlength="255"
+                                                    value="{{ data_get($row, 'designation') }}">
+                                                @error("experiences.$index.designation")
+                                                    <small class="text-danger">{{ $message }}</small>
+                                                @enderror
+                                            </td>
+                                            <td>
+                                                <input type="date" name="experiences[{{ $index }}][join_date]"
+                                                    class="form-control" value="{{ $rowDateValue($row, 'join_date') }}">
+                                                @error("experiences.$index.join_date")
+                                                    <small class="text-danger">{{ $message }}</small>
+                                                @enderror
+                                            </td>
+                                            <td>
+                                                <input type="date" name="experiences[{{ $index }}][left_date]"
+                                                    class="form-control" value="{{ $rowDateValue($row, 'left_date') }}">
+                                                @error("experiences.$index.left_date")
+                                                    <small class="text-danger">{{ $message }}</small>
+                                                @enderror
+                                            </td>
+                                            <td>
+                                                <input type="number" name="experiences[{{ $index }}][ctc]"
+                                                    class="form-control" min="0" step="0.01"
+                                                    value="{{ data_get($row, 'ctc') }}">
+                                                @error("experiences.$index.ctc")
+                                                    <small class="text-danger">{{ $message }}</small>
+                                                @enderror
+                                            </td>
+                                            <td class="text-center">
+                                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                                    data-remove-row aria-label="Remove experience">
+                                                    <i class="ti ti-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                        <template data-row-template="experiences">
+                            <tr data-repeatable-row>
+                                <td><input name="experiences[__INDEX__][previous_employeer]" class="form-control"
+                                        maxlength="255"></td>
+                                <td><input name="experiences[__INDEX__][designation]" class="form-control"
+                                        maxlength="255"></td>
+                                <td><input type="date" name="experiences[__INDEX__][join_date]" class="form-control">
+                                </td>
+                                <td><input type="date" name="experiences[__INDEX__][left_date]" class="form-control">
+                                </td>
+                                <td><input type="number" name="experiences[__INDEX__][ctc]" class="form-control"
+                                        min="0" step="0.01"></td>
+                                <td class="text-center">
+                                    <button type="button" class="btn btn-sm btn-outline-danger"
+                                        data-remove-row aria-label="Remove experience">
+                                        <i class="ti ti-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </template>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <button type="button" class="btn btn-light previous">Previous</button>
+                    <button type="button" class="btn btn-primary next">Next</button>
+                </div>
+            </div>
+
             <div class="tab-pane fade" id="employee-step-3" role="tabpanel" aria-labelledby="employee-step-3-tab">
                 <div class="card mb-4">
                     <div class="card-header">
@@ -1142,6 +1355,30 @@
                 const removeButton = event.target.closest('[data-remove-emergency]');
                 if (removeButton) removeButton.closest('[data-emergency-row]').remove();
             });
+        });
+
+        wizardRoot.addEventListener('click', function(event) {
+            const addButton = event.target.closest('[data-add-row]');
+            if (addButton) {
+                const key = addButton.dataset.addRow;
+                const rows = wizardRoot.querySelector('[data-repeatable-rows="' + key + '"]');
+                const template = wizardRoot.querySelector('[data-row-template="' + key + '"]');
+                if (!rows || !template) return;
+
+                const nextIndex = Array.from(rows.querySelectorAll('input[name]')).reduce(function(maximum, input) {
+                    const match = input.name.match(/\[(\d+)\]/);
+                    return match ? Math.max(maximum, Number(match[1])) : maximum;
+                }, -1) + 1;
+                const row = template.content.firstElementChild.cloneNode(true);
+                row.querySelectorAll('[name]').forEach(function(input) {
+                    input.name = input.name.replace('__INDEX__', String(nextIndex));
+                });
+                rows.appendChild(row);
+                return;
+            }
+
+            const removeButton = event.target.closest('[data-remove-row]');
+            if (removeButton) removeButton.closest('[data-repeatable-row]').remove();
         });
 
         const loginToggle = wizardRoot.querySelector('#is_locked');

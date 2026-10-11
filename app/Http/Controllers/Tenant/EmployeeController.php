@@ -103,6 +103,7 @@ class EmployeeController extends Controller
             }
             $this->savePersonalInfo($employee, $validated);
             $this->saveAddress($employee, $validated);
+            $this->saveEducationAndExperience($employee, $validated);
         });
         return redirect(url(self::INDEX_URL))->with('success', 'Employee created successfully.');
     }
@@ -138,6 +139,7 @@ class EmployeeController extends Controller
             }
             $this->savePersonalInfo($employee, $validated);
             $this->saveAddress($employee, $validated);
+            $this->saveEducationAndExperience($employee, $validated);
         });
         return redirect(url(self::INDEX_URL))->with('success', 'Employee updated successfully.');
     }
@@ -392,6 +394,43 @@ class EmployeeController extends Controller
             $address->update($attributes);
         } elseif ($hasAddress) {
             $employee->addresses()->create($attributes);
+        }
+    }
+
+    private function saveEducationAndExperience(User $employee, array $validated): void
+    {
+        foreach ([
+            'educations' => [
+                'relation' => 'education',
+                'fields' => ['education', 'year', 'university_name'],
+                'submitted' => 'educations_submitted',
+            ],
+            'experiences' => [
+                'relation' => 'experiences',
+                'fields' => ['previous_employeer', 'designation', 'join_date', 'left_date', 'ctc'],
+                'submitted' => 'experiences_submitted',
+            ],
+        ] as $input => $definition) {
+            if (! array_key_exists($input, $validated) && ! ($validated[$definition['submitted']] ?? false)) {
+                continue;
+            }
+
+            $relation = $employee->{$definition['relation']}();
+            $relation->delete();
+
+            foreach ($validated[$input] ?? [] as $row) {
+                $attributes = array_intersect_key($row, array_flip($definition['fields']));
+                $attributes = array_map(
+                    static fn($value) => is_string($value) ? trim($value) : $value,
+                    $attributes,
+                );
+
+                if (collect($attributes)->every(static fn($value): bool => $value === null || $value === '')) {
+                    continue;
+                }
+
+                $relation->create($attributes);
+            }
         }
     }
 
