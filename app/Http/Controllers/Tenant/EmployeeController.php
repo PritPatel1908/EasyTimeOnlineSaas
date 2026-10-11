@@ -104,6 +104,7 @@ class EmployeeController extends Controller
             $this->savePersonalInfo($employee, $validated);
             $this->saveAddress($employee, $validated);
             $this->saveEducationAndExperience($employee, $validated);
+            $this->saveFamilyDetails($employee, $validated);
         });
         return redirect(url(self::INDEX_URL))->with('success', 'Employee created successfully.');
     }
@@ -140,6 +141,7 @@ class EmployeeController extends Controller
             $this->savePersonalInfo($employee, $validated);
             $this->saveAddress($employee, $validated);
             $this->saveEducationAndExperience($employee, $validated);
+            $this->saveFamilyDetails($employee, $validated);
         });
         return redirect(url(self::INDEX_URL))->with('success', 'Employee updated successfully.');
     }
@@ -431,6 +433,35 @@ class EmployeeController extends Controller
 
                 $relation->create($attributes);
             }
+        }
+    }
+
+    private function saveFamilyDetails(User $employee, array $validated): void
+    {
+        if (! array_key_exists('family_details', $validated) && ! ($validated['family_details_submitted'] ?? false)) {
+            return;
+        }
+
+        $relation = $employee->family_details();
+        $relation->delete();
+
+        foreach ($validated['family_details'] ?? [] as $row) {
+            $attributes = array_intersect_key($row, array_flip(['relation', 'name', 'dob', 'is_nominee', 'occupation']));
+            $attributes = array_map(
+                static fn($value) => is_string($value) ? trim($value) : $value,
+                $attributes,
+            );
+
+            $hasFamilyDetails = collect($attributes)
+                ->except('is_nominee')
+                ->contains(static fn($value): bool => $value !== null && $value !== '');
+
+            if (! $hasFamilyDetails) {
+                continue;
+            }
+
+            $attributes['is_nominee'] = (bool) ($attributes['is_nominee'] ?? false);
+            $relation->create($attributes);
         }
     }
 

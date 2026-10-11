@@ -62,6 +62,11 @@
         $educationRows = $employee?->education?->map(fn($education) => $education->only(['education', 'year', 'university_name']))->all() ?? [];
     }
     $educationRows = $educationRows ?: [[]];
+    $familyDetailRows = old('family_details');
+    if (!is_array($familyDetailRows)) {
+        $familyDetailRows = $employee?->family_details?->map(fn($familyDetail) => $familyDetail->only(['relation', 'name', 'dob', 'is_nominee', 'occupation']))->all() ?? [];
+    }
+    $familyDetailRows = $familyDetailRows ?: [[]];
     $experienceRows = old('experiences');
     if (!is_array($experienceRows)) {
         $experienceRows = $employee?->experiences?->map(fn($experience) => $experience->only(['previous_employeer', 'designation', 'join_date', 'left_date', 'ctc']))->all() ?? [];
@@ -171,6 +176,12 @@
         border-color: #f2dfb0 !important;
     }
 
+    #employee-step-11-tab,
+    #employee-step-11-tab:not(.active):not(:hover) {
+        background-color: #eaf2ff !important;
+        border-color: #cbdcf7 !important;
+    }
+
     #employee-step-8-tab:hover,
     #employee-step-8-tab.active {
         background-color: #7952cc !important;
@@ -203,6 +214,13 @@
     #employee-step-10-tab.active {
         background-color: #b58422 !important;
         border-color: #b58422 !important;
+        color: #fff !important;
+    }
+
+    #employee-step-11-tab:hover,
+    #employee-step-11-tab.active {
+        background-color: #3f6fb5 !important;
+        border-color: #3f6fb5 !important;
         color: #fff !important;
     }
 
@@ -260,6 +278,14 @@
                     aria-controls="employee-step-10" aria-label="Education & Experience"
                     title="Education & Experience" aria-selected="false">
                     <div class="step-icon"><i class="fas fa-graduation-cap"></i></div>
+                </a>
+            </li>
+            <li class="nav-item flex-fill" role="presentation">
+                <a class="nav-link rounded mx-auto d-flex align-items-center justify-content-center"
+                    href="#employee-step-11" id="employee-step-11-tab" data-bs-toggle="tab" role="tab"
+                    aria-controls="employee-step-11" aria-label="Family Details" title="Family Details"
+                    aria-selected="false">
+                    <div class="step-icon"><i class="fas fa-users"></i></div>
                 </a>
             </li>
             <li class="nav-item flex-fill" role="presentation">
@@ -1028,6 +1054,118 @@
                             </div>
                         </template>
                         <button type="button" class="btn btn-outline-primary btn-sm" data-add-row="experiences">
+                            Add New
+                        </button>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <button type="button" class="btn btn-light previous">Previous</button>
+                    <button type="button" class="btn btn-primary next">Next</button>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="employee-step-11" role="tabpanel"
+                aria-labelledby="employee-step-11-tab">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Family Details</h5>
+                    </div>
+                    <div class="card-body">
+                        <input type="hidden" name="family_details_submitted" value="1">
+                        <div data-repeatable-rows="family_details">
+                            @foreach ($familyDetailRows as $index => $row)
+                                <div class="row align-items-end mb-3" data-repeatable-row>
+                                    <div class="col-md-2 mb-2">
+                                        <label class="form-label">Relation</label>
+                                        <input name="family_details[{{ $index }}][relation]" class="form-control"
+                                            maxlength="255" value="{{ data_get($row, 'relation') }}">
+                                        @error("family_details.$index.relation")
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
+                                    </div>
+                                    <div class="col-md-3 mb-2">
+                                        <label class="form-label">Name</label>
+                                        <input name="family_details[{{ $index }}][name]" class="form-control"
+                                            maxlength="255" value="{{ data_get($row, 'name') }}">
+                                        @error("family_details.$index.name")
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
+                                    </div>
+                                    <div class="col-md-2 mb-2">
+                                        <label class="form-label">Date of Birth</label>
+                                        <input type="date" name="family_details[{{ $index }}][dob]"
+                                            class="form-control" value="{{ $rowDateValue($row, 'dob') }}">
+                                        @error("family_details.$index.dob")
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
+                                    </div>
+                                    <div class="col-md-2 mb-2">
+                                        <input type="hidden" name="family_details[{{ $index }}][is_nominee]"
+                                            value="0">
+                                        <div class="form-check form-switch mb-2">
+                                            <input type="checkbox" id="family_details_{{ $index }}_is_nominee"
+                                                name="family_details[{{ $index }}][is_nominee]"
+                                                class="form-check-input" role="switch" value="1"
+                                                @checked((bool) data_get($row, 'is_nominee'))>
+                                            <label class="form-check-label"
+                                                for="family_details_{{ $index }}_is_nominee">Nominee</label>
+                                        </div>
+                                        @error("family_details.$index.is_nominee")
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
+                                    </div>
+                                    <div class="col-md-2 mb-2">
+                                        <label class="form-label">Occupation</label>
+                                        <input name="family_details[{{ $index }}][occupation]" class="form-control"
+                                            maxlength="255" value="{{ data_get($row, 'occupation') }}">
+                                        @error("family_details.$index.occupation")
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
+                                    </div>
+                                    <div class="col-md-1 mb-2">
+                                        <button type="button" class="btn btn-outline-danger w-100"
+                                            data-remove-row>Remove</button>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                        <template data-row-template="family_details">
+                            <div class="row align-items-end mb-3" data-repeatable-row>
+                                <div class="col-md-2 mb-2">
+                                    <label class="form-label">Relation</label>
+                                    <input name="family_details[__INDEX__][relation]" class="form-control"
+                                        maxlength="255">
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <label class="form-label">Name</label>
+                                    <input name="family_details[__INDEX__][name]" class="form-control" maxlength="255">
+                                </div>
+                                <div class="col-md-2 mb-2">
+                                    <label class="form-label">Date of Birth</label>
+                                    <input type="date" name="family_details[__INDEX__][dob]" class="form-control">
+                                </div>
+                                <div class="col-md-2 mb-2">
+                                    <input type="hidden" name="family_details[__INDEX__][is_nominee]" value="0">
+                                    <div class="form-check form-switch mb-2">
+                                        <input type="checkbox" id="family_details___INDEX___is_nominee"
+                                            name="family_details[__INDEX__][is_nominee]"
+                                            class="form-check-input" role="switch" value="1">
+                                        <label class="form-check-label"
+                                            for="family_details___INDEX___is_nominee">Nominee</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-2 mb-2">
+                                    <label class="form-label">Occupation</label>
+                                    <input name="family_details[__INDEX__][occupation]" class="form-control"
+                                        maxlength="255">
+                                </div>
+                                <div class="col-md-1 mb-2">
+                                    <button type="button" class="btn btn-outline-danger w-100"
+                                        data-remove-row>Remove</button>
+                                </div>
+                            </div>
+                        </template>
+                        <button type="button" class="btn btn-outline-primary btn-sm" data-add-row="family_details">
                             Add New
                         </button>
                     </div>
