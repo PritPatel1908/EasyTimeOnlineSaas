@@ -158,18 +158,6 @@
         border-color: #cfe9d7 !important;
     }
 
-    #employee-step-4-tab,
-    #employee-step-4-tab:not(.active):not(:hover) {
-        background-color: #fff0f3 !important;
-        border-color: #ffd1dc !important;
-    }
-
-    #employee-step-5-tab,
-    #employee-step-5-tab:not(.active):not(:hover) {
-        background-color: #eaf9fb !important;
-        border-color: #c8edf1 !important;
-    }
-
     #employee-step-10-tab,
     #employee-step-10-tab:not(.active):not(:hover) {
         background-color: #fff8e8 !important;
@@ -196,20 +184,6 @@
         color: #fff !important;
     }
 
-    #employee-step-4-tab:hover,
-    #employee-step-4-tab.active {
-        background-color: #e55375 !important;
-        border-color: #e55375 !important;
-        color: #fff !important;
-    }
-
-    #employee-step-5-tab:hover,
-    #employee-step-5-tab.active {
-        background-color: #198d9c !important;
-        border-color: #198d9c !important;
-        color: #fff !important;
-    }
-
     #employee-step-10-tab:hover,
     #employee-step-10-tab.active {
         background-color: #b58422 !important;
@@ -227,6 +201,8 @@
 </style>
 
 <div class="employee-form-wizard twitter-bs-wizard">
+    <input type="hidden" name="user_type" value="{{ $value('user_type', 'employee') }}">
+    <input type="hidden" name="status" value="{{ $value('status', 1) }}">
     <div class="wizard twitter-bs-wizard-nav mb-4">
         <ul class="nav nav-tabs form-tab justify-content-center mb-3" role="tablist">
             <li class="nav-item flex-fill" role="presentation">
@@ -286,20 +262,6 @@
                     aria-controls="employee-step-11" aria-label="Family Details" title="Family Details"
                     aria-selected="false">
                     <div class="step-icon"><i class="fas fa-users"></i></div>
-                </a>
-            </li>
-            <li class="nav-item flex-fill" role="presentation">
-                <a class="nav-link rounded mx-auto d-flex align-items-center justify-content-center"
-                    href="#employee-step-4" id="employee-step-4-tab" data-bs-toggle="tab" role="tab"
-                    aria-controls="employee-step-4" aria-selected="false">
-                    <div class="step-icon"><i class="fas fa-clipboard-check"></i></div>
-                </a>
-            </li>
-            <li class="nav-item flex-fill" role="presentation">
-                <a class="nav-link rounded mx-auto d-flex align-items-center justify-content-center"
-                    href="#employee-step-5" id="employee-step-5-tab" data-bs-toggle="tab" role="tab"
-                    aria-controls="employee-step-5" aria-selected="false">
-                    <div class="step-icon"><i class="fas fa-user-shield"></i></div>
                 </a>
             </li>
         </ul>
@@ -1172,7 +1134,7 @@
                 </div>
                 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
                     <button type="button" class="btn btn-light previous">Previous</button>
-                    <button type="button" class="btn btn-primary next">Next</button>
+                    <button type="submit" class="btn btn-primary">Save Employee</button>
                 </div>
             </div>
 
@@ -1301,140 +1263,6 @@
                 </div>
             </div>
 
-            <div class="tab-pane fade" id="employee-step-4" role="tabpanel" aria-labelledby="employee-step-4-tab">
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0">Employment Details</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-4 mb-3"><label class="form-label">Rejoin Date</label><input
-                                    type="date" name="rejoin_date" class="form-control"
-                                    value="{{ $dateValue('rejoin_date') }}"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Rejoin Reason</label><input
-                                    name="rejoin_reason" class="form-control"
-                                    value="{{ $value('rejoin_reason') }}"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Inactive Date</label><input
-                                    type="date" name="inactive_date" class="form-control"
-                                    value="{{ $dateValue('inactive_date') }}"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Inactive Days</label><input
-                                    type="number" name="inactive_days" class="form-control"
-                                    value="{{ $value('inactive_days', 10) }}"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Reference Name</label><input
-                                    name="reference_name" class="form-control"
-                                    value="{{ $value('reference_name') }}"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Reference Number</label><input
-                                    name="reference_number" class="form-control"
-                                    value="{{ $value('reference_number') }}"></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0">Attendance Tracking</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-4 mb-3"><label class="form-label">Short Leave Minutes</label><input
-                                    type="number" name="short_leave_minutes" class="form-control"
-                                    value="{{ $value('short_leave_minutes') }}"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Last Check ID</label><input
-                                    type="number" name="last_check_id" class="form-control"
-                                    value="{{ $value('last_check_id') }}"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Last Check Date</label><input
-                                    type="date" name="last_check_date" class="form-control"
-                                    value="{{ $dateValue('last_check_date') }}"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Last Active At</label><input
-                                    type="datetime-local" name="last_active_at" class="form-control"
-                                    value="{{ $value('last_active_at') ? \Illuminate\Support\Carbon::parse($value('last_active_at'))->format('Y-m-d\\TH:i') : '' }}">
-                            </div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Last Login At</label><input
-                                    type="datetime-local" name="last_login_at" class="form-control"
-                                    value="{{ $value('last_login_at') ? \Illuminate\Support\Carbon::parse($value('last_login_at'))->format('Y-m-d\\TH:i') : '' }}">
-                            </div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Shift Status</label>
-                                <div class="form-check mt-2"><input type="hidden" name="shift_status"
-                                        value="0"><input type="checkbox" name="shift_status" value="1"
-                                        class="form-check-input" @checked($value('shift_status'))><label
-                                        class="form-check-label">Shift is active</label></div>
-                            </div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Inactive</label>
-                                <div class="form-check mt-2"><input type="hidden" name="is_inactive"
-                                        value="0"><input type="checkbox" name="is_inactive" value="1"
-                                        class="form-check-input" @checked($value('is_inactive'))><label
-                                        class="form-check-label">Mark as inactive</label></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0">Approval Configuration</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            @foreach ($approvalFields as $field => $label)
-                                <div class="col-md-4 mb-3"><label
-                                        class="form-label">{{ $label }}</label><input type="number"
-                                        name="{{ $field }}" class="form-control"
-                                        value="{{ $value($field) }}"></div>
-                            @endforeach
-                        </div>
-                    </div>
-                </div>
-                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                    <button type="button" class="btn btn-light previous">Previous</button>
-                    <button type="button" class="btn btn-primary next">Next</button>
-                </div>
-            </div>
-
-            <div class="tab-pane fade" id="employee-step-5" role="tabpanel" aria-labelledby="employee-step-5-tab">
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0">Account Details</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-4 mb-3"><label class="form-label">User Type *</label><select
-                                    name="user_type" class="form-control" required>
-                                    <option value="employee" @selected($value('user_type', 'employee') === 'employee')>Employee</option>
-                                    <option value="guest" @selected($value('user_type') === 'guest')>Guest</option>
-                                </select></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">DMS User ID</label><input
-                                    name="dms_user_id" class="form-control" value="{{ $value('dms_user_id') }}">
-                            </div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Status *</label><select
-                                    name="status" class="form-control" required>
-                                    <option value="1" @selected((string) $value('status', 1) === '1')>Active</option>
-                                    <option value="0" @selected((string) $value('status') === '0')>Inactive</option>
-                                </select></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0">Login & Audit</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-4 mb-3"><label class="form-label">Approval Flow ID</label><input
-                                    type="number" name="approval_flow_id" class="form-control"
-                                    value="{{ $value('approval_flow_id') }}"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Login Attempts</label><input
-                                    type="number" name="login_attempts" class="form-control"
-                                    value="{{ $value('login_attempts', 0) }}"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Password Changed At</label><input
-                                    type="datetime-local" name="password_changed_at" class="form-control"
-                                    value="{{ $value('password_changed_at') ? \Illuminate\Support\Carbon::parse($value('password_changed_at'))->format('Y-m-d\\TH:i') : '' }}">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                    <button type="button" class="btn btn-light previous">Previous</button>
-                    <button type="submit" class="btn btn-primary">Save Employee</button>
-                </div>
-            </div>
         </div>
     </div>
 </div>
