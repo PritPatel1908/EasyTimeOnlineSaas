@@ -205,6 +205,7 @@
         border-color: #b58422 !important;
         color: #fff !important;
     }
+
 </style>
 
 <div class="employee-form-wizard twitter-bs-wizard">
@@ -867,174 +868,168 @@
             <div class="tab-pane fade" id="employee-step-10" role="tabpanel"
                 aria-labelledby="employee-step-10-tab">
                 <div class="card mb-4">
-                    <div class="card-header d-flex align-items-center justify-content-between">
+                    <div class="card-header">
                         <h5 class="mb-0">Education</h5>
-                        <button type="button" class="btn btn-sm btn-primary" data-add-row="educations">
-                            <i class="ti ti-plus me-1"></i>Add Education
-                        </button>
                     </div>
                     <div class="card-body">
                         <input type="hidden" name="educations_submitted" value="1">
-                        <div class="table-responsive">
-                            <table class="table table-bordered align-middle mb-0">
-                                <thead>
-                                    <tr>
-                                        <th>Education</th>
-                                        <th>Year</th>
-                                        <th>University Name</th>
-                                        <th class="text-center">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody data-repeatable-rows="educations">
-                                    @foreach ($educationRows as $index => $row)
-                                        <tr data-repeatable-row>
-                                            <td>
-                                                <input name="educations[{{ $index }}][education]"
-                                                    class="form-control" maxlength="255"
-                                                    value="{{ data_get($row, 'education') }}">
-                                                @error("educations.$index.education")
-                                                    <small class="text-danger">{{ $message }}</small>
-                                                @enderror
-                                            </td>
-                                            <td>
-                                                <input name="educations[{{ $index }}][year]"
-                                                    class="form-control" maxlength="20"
-                                                    value="{{ data_get($row, 'year') }}">
-                                                @error("educations.$index.year")
-                                                    <small class="text-danger">{{ $message }}</small>
-                                                @enderror
-                                            </td>
-                                            <td>
-                                                <input name="educations[{{ $index }}][university_name]"
-                                                    class="form-control" maxlength="255"
-                                                    value="{{ data_get($row, 'university_name') }}">
-                                                @error("educations.$index.university_name")
-                                                    <small class="text-danger">{{ $message }}</small>
-                                                @enderror
-                                            </td>
-                                            <td class="text-center">
-                                                <button type="button" class="btn btn-sm btn-outline-danger"
-                                                    data-remove-row aria-label="Remove education">
-                                                    <i class="ti ti-trash"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
+                        <div data-repeatable-rows="educations">
+                            @foreach ($educationRows as $index => $row)
+                                <div class="row align-items-end mb-3" data-repeatable-row>
+                                    <div class="col-md-4 mb-2">
+                                        <label class="form-label">Education</label>
+                                        <input name="educations[{{ $index }}][education]" class="form-control"
+                                            maxlength="255" value="{{ data_get($row, 'education') }}">
+                                        @error("educations.$index.education")
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
+                                    </div>
+                                    <div class="col-md-3 mb-2">
+                                        <label class="form-label">Year</label>
+                                        <input name="educations[{{ $index }}][year]" class="form-control"
+                                            maxlength="20" value="{{ data_get($row, 'year') }}">
+                                        @error("educations.$index.year")
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
+                                    </div>
+                                    <div class="col-md-3 mb-2">
+                                        <label class="form-label">University Name</label>
+                                        <input name="educations[{{ $index }}][university_name]"
+                                            class="form-control" maxlength="255"
+                                            value="{{ data_get($row, 'university_name') }}">
+                                        @error("educations.$index.university_name")
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
+                                    </div>
+                                    <div class="col-md-2 mb-2">
+                                        <button type="button" class="btn btn-outline-danger w-100"
+                                            data-remove-row>Remove</button>
+                                    </div>
+                                </div>
+                            @endforeach
                         </div>
                         <template data-row-template="educations">
-                            <tr data-repeatable-row>
-                                <td><input name="educations[__INDEX__][education]" class="form-control"
-                                        maxlength="255"></td>
-                                <td><input name="educations[__INDEX__][year]" class="form-control"
-                                        maxlength="20"></td>
-                                <td><input name="educations[__INDEX__][university_name]" class="form-control"
-                                        maxlength="255"></td>
-                                <td class="text-center">
-                                    <button type="button" class="btn btn-sm btn-outline-danger"
-                                        data-remove-row aria-label="Remove education">
-                                        <i class="ti ti-trash"></i>
-                                    </button>
-                                </td>
-                            </tr>
+                            <div class="row align-items-end mb-3" data-repeatable-row>
+                                <div class="col-md-4 mb-2">
+                                    <label class="form-label">Education</label>
+                                    <input name="educations[__INDEX__][education]" class="form-control"
+                                        maxlength="255">
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <label class="form-label">Year</label>
+                                    <input name="educations[__INDEX__][year]" class="form-control" maxlength="20">
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <label class="form-label">University Name</label>
+                                    <input name="educations[__INDEX__][university_name]" class="form-control"
+                                        maxlength="255">
+                                </div>
+                                <div class="col-md-2 mb-2">
+                                    <button type="button" class="btn btn-outline-danger w-100"
+                                        data-remove-row>Remove</button>
+                                </div>
+                            </div>
                         </template>
+                        <button type="button" class="btn btn-outline-primary btn-sm" data-add-row="educations">
+                            Add New
+                        </button>
                     </div>
                 </div>
 
                 <div class="card mb-4">
-                    <div class="card-header d-flex align-items-center justify-content-between">
+                    <div class="card-header">
                         <h5 class="mb-0">Experience</h5>
-                        <button type="button" class="btn btn-sm btn-primary" data-add-row="experiences">
-                            <i class="ti ti-plus me-1"></i>Add Experience
-                        </button>
                     </div>
                     <div class="card-body">
                         <input type="hidden" name="experiences_submitted" value="1">
-                        <div class="table-responsive">
-                            <table class="table table-bordered align-middle mb-0">
-                                <thead>
-                                    <tr>
-                                        <th>Previous Employer</th>
-                                        <th>Designation</th>
-                                        <th>Join Date</th>
-                                        <th>Left Date</th>
-                                        <th>CTC</th>
-                                        <th class="text-center">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody data-repeatable-rows="experiences">
-                                    @foreach ($experienceRows as $index => $row)
-                                        <tr data-repeatable-row>
-                                            <td>
-                                                <input name="experiences[{{ $index }}][previous_employeer]"
-                                                    class="form-control" maxlength="255"
-                                                    value="{{ data_get($row, 'previous_employeer') }}">
-                                                @error("experiences.$index.previous_employeer")
-                                                    <small class="text-danger">{{ $message }}</small>
-                                                @enderror
-                                            </td>
-                                            <td>
-                                                <input name="experiences[{{ $index }}][designation]"
-                                                    class="form-control" maxlength="255"
-                                                    value="{{ data_get($row, 'designation') }}">
-                                                @error("experiences.$index.designation")
-                                                    <small class="text-danger">{{ $message }}</small>
-                                                @enderror
-                                            </td>
-                                            <td>
-                                                <input type="date" name="experiences[{{ $index }}][join_date]"
-                                                    class="form-control" value="{{ $rowDateValue($row, 'join_date') }}">
-                                                @error("experiences.$index.join_date")
-                                                    <small class="text-danger">{{ $message }}</small>
-                                                @enderror
-                                            </td>
-                                            <td>
-                                                <input type="date" name="experiences[{{ $index }}][left_date]"
-                                                    class="form-control" value="{{ $rowDateValue($row, 'left_date') }}">
-                                                @error("experiences.$index.left_date")
-                                                    <small class="text-danger">{{ $message }}</small>
-                                                @enderror
-                                            </td>
-                                            <td>
-                                                <input type="number" name="experiences[{{ $index }}][ctc]"
-                                                    class="form-control" min="0" step="0.01"
-                                                    value="{{ data_get($row, 'ctc') }}">
-                                                @error("experiences.$index.ctc")
-                                                    <small class="text-danger">{{ $message }}</small>
-                                                @enderror
-                                            </td>
-                                            <td class="text-center">
-                                                <button type="button" class="btn btn-sm btn-outline-danger"
-                                                    data-remove-row aria-label="Remove experience">
-                                                    <i class="ti ti-trash"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
+                        <div data-repeatable-rows="experiences">
+                            @foreach ($experienceRows as $index => $row)
+                                <div class="row align-items-end mb-3" data-repeatable-row>
+                                    <div class="col-md-3 mb-2">
+                                        <label class="form-label">Previous Employer</label>
+                                        <input name="experiences[{{ $index }}][previous_employeer]"
+                                            class="form-control" maxlength="255"
+                                            value="{{ data_get($row, 'previous_employeer') }}">
+                                        @error("experiences.$index.previous_employeer")
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
+                                    </div>
+                                    <div class="col-md-2 mb-2">
+                                        <label class="form-label">Designation</label>
+                                        <input name="experiences[{{ $index }}][designation]" class="form-control"
+                                            maxlength="255" value="{{ data_get($row, 'designation') }}">
+                                        @error("experiences.$index.designation")
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
+                                    </div>
+                                    <div class="col-md-2 mb-2">
+                                        <label class="form-label">Join Date</label>
+                                        <input type="date" name="experiences[{{ $index }}][join_date]"
+                                            class="form-control" value="{{ $rowDateValue($row, 'join_date') }}">
+                                        @error("experiences.$index.join_date")
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
+                                    </div>
+                                    <div class="col-md-2 mb-2">
+                                        <label class="form-label">Left Date</label>
+                                        <input type="date" name="experiences[{{ $index }}][left_date]"
+                                            class="form-control" value="{{ $rowDateValue($row, 'left_date') }}">
+                                        @error("experiences.$index.left_date")
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
+                                    </div>
+                                    <div class="col-md-1 mb-2">
+                                        <label class="form-label">CTC</label>
+                                        <input type="number" name="experiences[{{ $index }}][ctc]"
+                                            class="form-control" min="0" step="0.01"
+                                            value="{{ data_get($row, 'ctc') }}">
+                                        @error("experiences.$index.ctc")
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
+                                    </div>
+                                    <div class="col-md-2 mb-2">
+                                        <button type="button" class="btn btn-outline-danger w-100"
+                                            data-remove-row>Remove</button>
+                                    </div>
+                                </div>
+                            @endforeach
                         </div>
                         <template data-row-template="experiences">
-                            <tr data-repeatable-row>
-                                <td><input name="experiences[__INDEX__][previous_employeer]" class="form-control"
-                                        maxlength="255"></td>
-                                <td><input name="experiences[__INDEX__][designation]" class="form-control"
-                                        maxlength="255"></td>
-                                <td><input type="date" name="experiences[__INDEX__][join_date]" class="form-control">
-                                </td>
-                                <td><input type="date" name="experiences[__INDEX__][left_date]" class="form-control">
-                                </td>
-                                <td><input type="number" name="experiences[__INDEX__][ctc]" class="form-control"
-                                        min="0" step="0.01"></td>
-                                <td class="text-center">
-                                    <button type="button" class="btn btn-sm btn-outline-danger"
-                                        data-remove-row aria-label="Remove experience">
-                                        <i class="ti ti-trash"></i>
-                                    </button>
-                                </td>
-                            </tr>
+                            <div class="row align-items-end mb-3" data-repeatable-row>
+                                <div class="col-md-3 mb-2">
+                                    <label class="form-label">Previous Employer</label>
+                                    <input name="experiences[__INDEX__][previous_employeer]" class="form-control"
+                                        maxlength="255">
+                                </div>
+                                <div class="col-md-2 mb-2">
+                                    <label class="form-label">Designation</label>
+                                    <input name="experiences[__INDEX__][designation]" class="form-control"
+                                        maxlength="255">
+                                </div>
+                                <div class="col-md-2 mb-2">
+                                    <label class="form-label">Join Date</label>
+                                    <input type="date" name="experiences[__INDEX__][join_date]"
+                                        class="form-control">
+                                </div>
+                                <div class="col-md-2 mb-2">
+                                    <label class="form-label">Left Date</label>
+                                    <input type="date" name="experiences[__INDEX__][left_date]"
+                                        class="form-control">
+                                </div>
+                                <div class="col-md-1 mb-2">
+                                    <label class="form-label">CTC</label>
+                                    <input type="number" name="experiences[__INDEX__][ctc]" class="form-control"
+                                        min="0" step="0.01">
+                                </div>
+                                <div class="col-md-2 mb-2">
+                                    <button type="button" class="btn btn-outline-danger w-100"
+                                        data-remove-row>Remove</button>
+                                </div>
+                            </div>
                         </template>
+                        <button type="button" class="btn btn-outline-primary btn-sm" data-add-row="experiences">
+                            Add New
+                        </button>
                     </div>
                 </div>
                 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
