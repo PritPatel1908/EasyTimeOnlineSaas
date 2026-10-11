@@ -17,9 +17,9 @@ return new class extends Migration
             $table->float('weight')->nullable();
             $table->json('languages')->nullable();
             $table->json('hobbies')->nullable();
-            $table->string('emergency_name')->nullable();
-            $table->string('emergency_number')->nullable();
-            $table->string('emergency_address')->nullable();
+            $table->longText('emergency_name')->nullable();
+            $table->longText('emergency_number')->nullable();
+            $table->longText('emergency_address')->nullable();
             $table->foreignId('user_id')->nullable()->constrained();
             $table->softDeletes();
             $table->foreignId('created_by')->nullable()->constrained('users', 'id');

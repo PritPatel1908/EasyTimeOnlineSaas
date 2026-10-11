@@ -525,7 +525,7 @@
                         <div class="row">
                             <div class="col-md-6 mb-3"><label class="form-label" for="emergency_name">Emergency
                                     Contact Name</label><input id="emergency_name" name="emergency_name"
-                                    class="form-control" maxlength="255"
+                                    class="form-control"
                                     value="{{ $personalValue('emergency_name') }}">
                                 @error('emergency_name')
                                     <small class="text-danger">{{ $message }}</small>
@@ -533,7 +533,7 @@
                             </div>
                             <div class="col-md-6 mb-3"><label class="form-label" for="emergency_number">Emergency
                                     Contact Number</label><input id="emergency_number" name="emergency_number"
-                                    class="form-control" maxlength="255"
+                                    class="form-control"
                                     value="{{ $personalValue('emergency_number') }}">
                                 @error('emergency_number')
                                     <small class="text-danger">{{ $message }}</small>
@@ -541,7 +541,7 @@
                             </div>
                             <div class="col-md-12 mb-3"><label class="form-label" for="emergency_address">Emergency
                                     Contact Address</label>
-                                <textarea id="emergency_address" name="emergency_address" class="form-control" rows="2" maxlength="255">{{ $personalValue('emergency_address') }}</textarea>
+                                <textarea id="emergency_address" name="emergency_address" class="form-control" rows="2">{{ $personalValue('emergency_address') }}</textarea>
                                 @error('emergency_address')
                                     <small class="text-danger">{{ $message }}</small>
                                 @enderror
