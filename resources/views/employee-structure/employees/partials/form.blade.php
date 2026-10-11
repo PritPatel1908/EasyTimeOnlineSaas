@@ -248,6 +248,9 @@
 </style>
 
 <div class="employee-form-wizard twitter-bs-wizard">
+    @if ($errors->any())
+        <div class="alert alert-danger mb-3" role="alert">Please correct the highlighted fields.</div>
+    @endif
     <input type="hidden" name="user_type" value="{{ $value('user_type', 'employee') }}">
     <input type="hidden" name="status" value="{{ $value('status', 1) }}">
     <div class="wizard twitter-bs-wizard-nav mb-4">
@@ -332,16 +335,27 @@
                     </div>
                     <div class="card-body">
                         <div class="row">
-                            <div class="col-md-6 mb-3"><label class="form-label">Employee Code *</label><input
-                                    name="code" class="form-control" value="{{ $value('code') }}" required>
-                                @error('code')
-                                    <small class="text-danger">{{ $message }}</small>
-                                @enderror
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="employee_code">Employee Code <span class="text-danger">*</span></label>
+                                <input id="employee_code" name="code"
+                                    class="form-control @error('code') is-invalid @enderror"
+                                    value="{{ $value('code') }}" required>
+                                <x-validation-error field="code" />
                             </div>
-                            <div class="col-md-6 mb-3"><label class="form-label">Employee Card</label><input
-                                    name="card" class="form-control" value="{{ $value('card') }}"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">First Name *</label><input
-                                    name="fname" class="form-control" value="{{ $value('fname') }}" required></div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="employee_card">Employee Card <span class="text-danger">*</span></label>
+                                <input id="employee_card" name="card"
+                                    class="form-control @error('card') is-invalid @enderror"
+                                    value="{{ $value('card') }}" required>
+                                <x-validation-error field="card" />
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label" for="employee_fname">First Name <span class="text-danger">*</span></label>
+                                <input id="employee_fname" name="fname"
+                                    class="form-control @error('fname') is-invalid @enderror"
+                                    value="{{ $value('fname') }}" required>
+                                <x-validation-error field="fname" />
+                            </div>
                             <div class="col-md-4 mb-3"><label class="form-label">Middle Name</label><input
                                     name="mname" class="form-control" value="{{ $value('mname') }}"></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Last Name</label><input
@@ -421,9 +435,13 @@
                             </div>
                             <div class="col-md-3 mb-3"><label class="form-label">PAN No</label><input
                                     name="pan_number" class="form-control" value="{{ $value('pan_number') }}"></div>
-                            <div class="col-md-3 mb-3"><label class="form-label">Joining Date</label><input
-                                    type="date" name="join_date" class="form-control"
-                                    value="{{ $dateValue('join_date') }}"></div>
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label" for="join_date">Joining Date <span class="text-danger">*</span></label>
+                                <input type="date" id="join_date" name="join_date"
+                                    class="form-control @error('join_date') is-invalid @enderror"
+                                    value="{{ $dateValue('join_date') }}" required>
+                                <x-validation-error field="join_date" />
+                            </div>
                             <div class="col-md-3 mb-3"><label class="form-label d-block" for="is_left">Is
                                     Left?</label>
                                 <div class="form-check form-check-lg form-switch ps-0"><input type="hidden"
@@ -690,12 +708,12 @@
                                     <small class="text-danger">{{ $message }}</small>
                                 @enderror
                             </div>
-                            <div class="col-md-6 mb-3"><label class="form-label" for="dob">Birth
-                                    Date</label><input type="date" id="dob" name="dob"
-                                    class="form-control" value="{{ $dateValue('dob') }}">
-                                @error('dob')
-                                    <small class="text-danger">{{ $message }}</small>
-                                @enderror
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="dob">Birth Date <span class="text-danger">*</span></label>
+                                <input type="date" id="dob" name="dob"
+                                    class="form-control @error('dob') is-invalid @enderror"
+                                    value="{{ $dateValue('dob') }}" required>
+                                <x-validation-error field="dob" />
                             </div>
                             <div class="col-md-4 mb-3"><label class="form-label" for="blood_group_id">Blood
                                     Group</label><select id="blood_group_id" name="blood_group_id"
@@ -1195,7 +1213,7 @@
                 aria-labelledby="employee-step-11-tab">
                 <div class="card mb-4">
                     <div class="card-header">
-                        <h5 class="mb-0">Family Details</h5>
+                        <h5 class="mb-0">Family Details <span class="text-danger">*</span></h5>
                     </div>
                     <div class="card-body">
                         <input type="hidden" name="family_details_submitted" value="1">
@@ -1203,12 +1221,12 @@
                             @foreach ($familyDetailRows as $index => $row)
                                 <div class="row align-items-end mb-3" data-repeatable-row>
                                     <div class="col-md-2 mb-2">
-                                        <label class="form-label">Relation</label>
-                                        <input name="family_details[{{ $index }}][relation]" class="form-control"
-                                            maxlength="255" value="{{ data_get($row, 'relation') }}">
-                                        @error("family_details.$index.relation")
-                                            <small class="text-danger">{{ $message }}</small>
-                                        @enderror
+                                        <label class="form-label" for="family_details_{{ $index }}_relation">Relation <span class="text-danger">*</span></label>
+                                        <input id="family_details_{{ $index }}_relation"
+                                            name="family_details[{{ $index }}][relation]"
+                                            class="form-control @error("family_details.$index.relation") is-invalid @enderror"
+                                            maxlength="255" value="{{ data_get($row, 'relation') }}" required>
+                                        <x-validation-error field="family_details.{{ $index }}.relation" />
                                     </div>
                                     <div class="col-md-3 mb-2">
                                         <label class="form-label">Name</label>
@@ -1259,9 +1277,10 @@
                         <template data-row-template="family_details">
                             <div class="row align-items-end mb-3" data-repeatable-row>
                                 <div class="col-md-2 mb-2">
-                                    <label class="form-label">Relation</label>
-                                    <input name="family_details[__INDEX__][relation]" class="form-control"
-                                        maxlength="255">
+                                    <label class="form-label" for="family_details___INDEX___relation">Relation <span class="text-danger">*</span></label>
+                                    <input id="family_details___INDEX___relation"
+                                        name="family_details[__INDEX__][relation]" class="form-control"
+                                        maxlength="255" required>
                                 </div>
                                 <div class="col-md-3 mb-2">
                                     <label class="form-label">Name</label>
@@ -1292,6 +1311,7 @@
                                 </div>
                             </div>
                         </template>
+                        <x-validation-error field="family_details" />
                         <button type="button" class="btn btn-outline-primary btn-sm" data-add-row="family_details">
                             Add New
                         </button>
@@ -1311,16 +1331,22 @@
                     <div class="card-body">
                         <div class="row">
                             @foreach ($relationFields as $field => $relation)
+                                @php($isRequiredRelation = in_array($field, ['location_id', 'company_id', 'department_id', 'category_id', 'designation_id'], true))
                                 <div class="col-md-6 mb-3"><label
-                                        class="form-label">{{ $relation['label'] }}</label><select
+                                        class="form-label">{{ $relation['label'] }}@if ($isRequiredRelation) <span class="text-danger">*</span>@endif</label><select
                                         name="{{ $field }}{{ in_array($field, $singleSelectFields, true) ? '' : '[]' }}"
-                                        class="form-control" @unless (in_array($field, $singleSelectFields, true)) multiple @endunless>
+                                        class="form-control @error($field) is-invalid @enderror"
+                                        @unless (in_array($field, $singleSelectFields, true)) multiple @endunless
+                                        @if ($isRequiredRelation) required @endif>
                                         <option value="">Select</option>
                                         @foreach ($relation['options'] as $option)
                                             <option value="{{ $option->id }}" @selected(in_array((string) $option->id, $selected($field), true))>
                                                 {{ $option->name }}</option>
                                         @endforeach
                                     </select>
+                                    @if ($isRequiredRelation)
+                                        <x-validation-error field="{{ $field }}" />
+                                    @endif
                                 </div>
                             @endforeach
                             <div class="col-md-6 mb-3"><label class="form-label">Leave Group</label><select
@@ -1362,20 +1388,19 @@
                     <div class="card-body">
                         <div class="row">
                             <div class="col-md-6 mb-3"><label class="form-label" for="shift_type">Shift
-                                    Type</label><select id="shift_type" name="shift_type" class="form-control">
+                                    Type <span class="text-danger">*</span></label><select id="shift_type"
+                                    name="shift_type" class="form-control @error('shift_type') is-invalid @enderror" required>
                                     <option value="">Select</option>
                                     @foreach (['auto' => 'Auto', 'fixed' => 'Fixed', 'rotational' => 'Rotational'] as $key => $label)
                                         <option value="{{ $key }}" @selected($shiftType === $key)>
                                             {{ $label }}</option>
                                     @endforeach
                                 </select>
-                                @error('shift_type')
-                                    <small class="text-danger">{{ $message }}</small>
-                                @enderror
+                                <x-validation-error field="shift_type" />
                             </div>
                             <div class="col-md-6 mb-3 shift-selection-field @class(['d-none' => !in_array($shiftType, ['auto', 'fixed'], true)])"><label
-                                    class="form-label" for="shift_ids">Shift</label><select id="shift_ids"
-                                    name="shift_ids[]" class="form-control"
+                                    class="form-label" for="shift_ids">Shift <span class="text-danger" data-required-indicator hidden>*</span></label><select id="shift_ids"
+                                    name="shift_ids[]" class="form-control @error('shift_ids') is-invalid @enderror"
                                     @if ($shiftType === 'auto') multiple @endif>
                                     <option value="" disabled hidden @selected(!$selectedShiftIds)>Select
                                     </option>
@@ -1384,22 +1409,19 @@
                                             {{ $shift->name }} ({{ $shift->code }})</option>
                                     @endforeach
                                 </select>
-                                @error('shift_ids')
-                                    <small class="text-danger">{{ $message }}</small>
-                                @enderror
+                                <x-validation-error field="shift_ids" />
                             </div>
                             <div class="col-md-6 mb-3 shift-rotation-field @class(['d-none' => $shiftType !== 'rotational'])"><label
-                                    class="form-label" for="shift_rotation_id">Shift Rotation</label><select
-                                    id="shift_rotation_id" name="shift_rotation_id" class="form-control">
+                                    class="form-label" for="shift_rotation_id">Shift Rotation <span class="text-danger" data-required-indicator hidden>*</span></label><select
+                                    id="shift_rotation_id" name="shift_rotation_id"
+                                    class="form-control @error('shift_rotation_id') is-invalid @enderror">
                                     <option value="">Select</option>
                                     @foreach ($shiftRotations as $rotation)
                                         <option value="{{ $rotation->id }}" @selected((string) $value('shift_rotation_id') === (string) $rotation->id)>
                                             {{ $rotation->code }}</option>
                                     @endforeach
                                 </select>
-                                @error('shift_rotation_id')
-                                    <small class="text-danger">{{ $message }}</small>
-                                @enderror
+                                <x-validation-error field="shift_rotation_id" />
                             </div>
                         </div>
                     </div>
@@ -1436,6 +1458,7 @@
     document.addEventListener('DOMContentLoaded', function() {
         const wizardRoot = document.querySelector('.employee-form-wizard');
         if (!wizardRoot || typeof bootstrap === 'undefined') return;
+        const employeeForm = wizardRoot.closest('form');
 
         wizardRoot.querySelectorAll('[data-list-input]').forEach(function(list) {
             const addButton = list.querySelector('[data-add-item]');
@@ -1504,6 +1527,13 @@
                     });
                 });
                 rows.appendChild(row);
+                if (key === 'family_details') {
+                    const error = wizardRoot.querySelector('[data-validation-error-for="family_details"]');
+                    if (error) {
+                        error.textContent = '';
+                        error.hidden = true;
+                    }
+                }
                 return;
             }
 
@@ -1571,6 +1601,8 @@
 
             shiftSelectionField.classList.toggle('d-none', !showShifts);
             shiftRotationField.classList.toggle('d-none', !showRotation);
+            shiftSelectionField.querySelector('[data-required-indicator]').hidden = !showShifts;
+            shiftRotationField.querySelector('[data-required-indicator]').hidden = !showRotation;
             shiftSelect.disabled = !showShifts;
             shiftSelect.multiple = shiftType === 'auto';
             shiftSelect.required = showShifts;
@@ -1617,6 +1649,102 @@
             const activeTab = wizardRoot.querySelector('.form-tab .active');
             return activeTab ? activeTab.closest('li') : null;
         };
+
+        const getValidationError = function(field) {
+            const normalizedName = field.name
+                .replace(/\[(.*?)\]/g, '.$1')
+                .replace(/\.$/, '');
+            return Array.from(wizardRoot.querySelectorAll('[data-validation-error-for]')).find(function(node) {
+                return node.dataset.validationErrorFor === field.name
+                    || node.dataset.validationErrorFor === normalizedName
+                    || node.dataset.validationErrorFor === field.id;
+            });
+        };
+
+        const clearEmployeeFieldError = function(event) {
+            const field = event.target;
+            if (!field.validity || !field.validity.valid) return;
+
+            const error = getValidationError(field);
+            if (error) {
+                error.textContent = '';
+                error.hidden = true;
+            }
+
+            field.classList.remove('is-invalid');
+            field.removeAttribute('aria-invalid');
+        };
+
+        if (employeeForm) {
+            employeeForm.addEventListener('submit', function(event) {
+                const invalidFields = Array.from(employeeForm.elements).filter(function(field) {
+                    return field.willValidate && !field.validity.valid;
+                });
+                const familyRows = wizardRoot.querySelector('[data-repeatable-rows="family_details"]');
+                const missingFamilyDetails = familyRows
+                    && !familyRows.querySelector('[data-repeatable-row]');
+
+                if (invalidFields.length === 0 && !missingFamilyDetails) return;
+
+                event.preventDefault();
+                if (missingFamilyDetails) {
+                    const error = wizardRoot.querySelector('[data-validation-error-for="family_details"]');
+                    error.textContent = 'Add at least one family member.';
+                    error.hidden = false;
+                }
+
+                invalidFields.forEach(function(field) {
+                    let error = getValidationError(field);
+                    if (!error) {
+                        error = document.createElement('div');
+                        error.dataset.validationErrorFor = field.name;
+                        error.className = 'text-danger mt-1 mb-2';
+                        error.setAttribute('role', 'alert');
+                        error.setAttribute('aria-live', 'polite');
+                        field.insertAdjacentElement('afterend', error);
+                    }
+
+                    error.textContent = field.validity.valueMissing
+                        ? 'This field is required.'
+                        : field.validationMessage;
+                    error.hidden = false;
+                    field.classList.add('is-invalid');
+                    field.setAttribute('aria-invalid', 'true');
+                });
+
+                const firstInvalidField = invalidFields[0];
+                if (!firstInvalidField && missingFamilyDetails) {
+                    const familyTab = wizardRoot.querySelector('.form-tab a[href="#employee-step-11"]');
+                    const addFamilyButton = wizardRoot.querySelector('[data-add-row="family_details"]');
+                    if (familyTab && !familyTab.classList.contains('active')) {
+                        familyTab.addEventListener('shown.bs.tab', function() {
+                            addFamilyButton.focus();
+                        }, { once: true });
+                        bootstrap.Tab.getOrCreateInstance(familyTab).show();
+                    } else {
+                        addFamilyButton.focus();
+                    }
+                    return;
+                }
+
+                const pane = firstInvalidField.closest('.tab-pane');
+                const tab = pane
+                    ? wizardRoot.querySelector('.form-tab a[href="#' + pane.id + '"]')
+                    : null;
+
+                if (tab && !tab.classList.contains('active')) {
+                    tab.addEventListener('shown.bs.tab', function() {
+                        firstInvalidField.focus();
+                    }, { once: true });
+                    bootstrap.Tab.getOrCreateInstance(tab).show();
+                } else {
+                    firstInvalidField.focus();
+                }
+            });
+
+            employeeForm.addEventListener('input', clearEmployeeFieldError);
+            employeeForm.addEventListener('change', clearEmployeeFieldError);
+        }
 
         wizardRoot.querySelectorAll('.next').forEach(function(button) {
             button.addEventListener('click', function(event) {

@@ -52,7 +52,7 @@ class StoreEmployeeRequest extends FormRequest
             'lname' => ['nullable', 'string', 'max:100'],
             'email' => ['nullable', 'email', 'max:150'],
             'number' => ['nullable', 'string', 'max:30'],
-            'card' => ['nullable', 'string', 'max:100'],
+            'card' => ['required', 'string', 'max:100'],
             'bank_name' => ['nullable', 'string', 'max:255'],
             'bank_account_number' => ['nullable', 'string', 'max:255'],
             'bank_ifsc_code' => ['nullable', 'string', 'max:255'],
@@ -64,9 +64,9 @@ class StoreEmployeeRequest extends FormRequest
             'educations.*.year' => ['nullable', 'string', 'max:20'],
             'educations.*.university_name' => ['nullable', 'string', 'max:255'],
             'family_details_submitted' => ['nullable', 'boolean'],
-            'family_details' => ['nullable', 'array'],
+            'family_details' => ['required', 'array', 'min:1'],
             'family_details.*' => ['array'],
-            'family_details.*.relation' => ['nullable', 'string', 'max:255'],
+            'family_details.*.relation' => ['required', 'string', 'max:255'],
             'family_details.*.name' => ['nullable', 'string', 'max:255'],
             'family_details.*.dob' => ['nullable', 'date'],
             'family_details.*.is_nominee' => ['nullable', 'boolean'],
@@ -90,9 +90,9 @@ class StoreEmployeeRequest extends FormRequest
             'experiences.*.left_date' => ['nullable', 'date'],
             'experiences.*.ctc' => ['nullable', 'numeric', 'min:0'],
             'gender' => ['nullable', 'string', 'max:30'],
-            'dob' => ['nullable', 'date'],
+            'dob' => ['required', 'date'],
             'blood_group_id' => ['nullable', 'integer', 'exists:blood_groups,id'],
-            'join_date' => ['nullable', 'date'],
+            'join_date' => ['required', 'date'],
             'status' => ['required', 'boolean'],
             'user_type' => ['required', Rule::in(['employee', 'guest'])],
             'password' => ['exclude_unless:is_locked,1', 'nullable', 'string', 'min:8'],
@@ -100,7 +100,7 @@ class StoreEmployeeRequest extends FormRequest
             'profile_pic' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'left_date' => ['nullable', 'date'],
             'left_reason' => ['nullable', 'string', 'max:255'],
-            'shift_type' => ['nullable', Rule::in(['auto', 'fixed', 'rotational'])],
+            'shift_type' => ['required', Rule::in(['auto', 'fixed', 'rotational'])],
             'shift_ids' => ['exclude_unless:shift_type,auto,fixed', 'required', 'array', 'min:1'],
             'shift_ids.*' => ['integer', 'distinct', 'exists:shifts,id'],
             'password_policy_id' => ['exclude_unless:is_locked,1', 'nullable', 'integer', 'exists:password_policies,id'],
@@ -189,11 +189,28 @@ class StoreEmployeeRequest extends FormRequest
 
     private function relationRules(): array
     {
+        $requiredFields = ['location_id', 'company_id', 'department_id', 'category_id', 'designation_id'];
+        $singleSelectFields = ['category_id', 'designation_id'];
+
         return collect(['location_id', 'company_id', 'department_id', 'sub_department_id', 'category_id', 'sub_category_id', 'designation_id', 'grade_id', 'unit_id', 'bus_route_id'])
-            ->mapWithKeys(fn(string $field): array => [
-                $field => ['array'],
-                $field . '.*' => ['integer'],
-            ])
+            ->mapWithKeys(function (string $field) use ($requiredFields, $singleSelectFields): array {
+                if (in_array($field, $singleSelectFields, true)) {
+                    return [
+                        $field => [
+                            in_array($field, $requiredFields, true) ? 'required' : 'nullable',
+                            'integer',
+                            Rule::exists($field === 'category_id' ? 'categories' : 'designations', 'id'),
+                        ],
+                    ];
+                }
+
+                return [
+                    $field => in_array($field, $requiredFields, true)
+                        ? ['required', 'array', 'min:1']
+                        : ['array'],
+                    $field . '.*' => ['integer'],
+                ];
+            })
             ->all();
     }
 }
