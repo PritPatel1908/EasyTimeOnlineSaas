@@ -518,8 +518,7 @@
                         <div>
                             <h5 class="mb-0">Week Off Details</h5>
                             <small class="text-muted">Add one or more weekday rules and select the applicable weeks.</small>
-                            </div>
-                        @endif
+                        </div>
                         <button type="button" class="btn btn-outline-primary btn-sm" data-add-row="week-offs">
                             Add Week Off
                         </button>
@@ -618,6 +617,7 @@
                     <button type="button" class="btn btn-primary next">Next</button>
                 </div>
             </div>
+            @endif
 
             <div class="tab-pane fade" id="employee-step-7" role="tabpanel" aria-labelledby="employee-step-7-tab">
                 @foreach ($timingRuleGroups as $groupLabel => $fields)
