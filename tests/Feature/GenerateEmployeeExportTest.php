@@ -49,18 +49,39 @@ class GenerateEmployeeExportTest extends TestCase
         $row = $orderByExportColumns->invoke($job, [
             'join_date' => '2022-06-01',
             'status' => 'Active',
-            'blood_group_id' => 3,
+            'blood_group' => 'O+',
             'dob' => '1998-04-19',
-            'gender' => 'male',
+            'gender' => 'Male',
             'number' => '0000001067',
             'card' => 'EMP-1067',
             'user_type' => 'employee',
+            'bank_account_number' => '1234567890',
+            'flat_building' => 'A-101',
+            'educations' => '[{"education":"B.Com"}]',
         ]);
 
-        $this->assertSame(count(\App\Models\Tenant\User::IMPORT_EXPORT_COLUMNS), count($row));
-        $this->assertSame('1998-04-19', $row[array_search('dob', \App\Models\Tenant\User::IMPORT_EXPORT_COLUMNS, true)]);
-        $this->assertSame(3, $row[array_search('blood_group_id', \App\Models\Tenant\User::IMPORT_EXPORT_COLUMNS, true)]);
-        $this->assertSame('2022-06-01', $row[array_search('join_date', \App\Models\Tenant\User::IMPORT_EXPORT_COLUMNS, true)]);
-        $this->assertSame('Active', $row[array_search('status', \App\Models\Tenant\User::IMPORT_EXPORT_COLUMNS, true)]);
+        $columns = \App\Models\Tenant\User::EMPLOYEE_EXPORT_COLUMNS;
+        $this->assertSame(count($columns), count($row));
+        $this->assertSame('1998-04-19', $row[array_search('dob', $columns, true)]);
+        $this->assertSame('O+', $row[array_search('blood_group', $columns, true)]);
+        $this->assertSame('2022-06-01', $row[array_search('join_date', $columns, true)]);
+        $this->assertSame('Active', $row[array_search('status', $columns, true)]);
+        $this->assertSame('1234567890', $row[array_search('bank_account_number', $columns, true)]);
+        $this->assertSame('A-101', $row[array_search('flat_building', $columns, true)]);
+        $this->assertSame('[{"education":"B.Com"}]', $row[array_search('educations', $columns, true)]);
+    }
+
+    public function test_employee_export_headers_cover_employee_form_sections_without_changing_import_template(): void
+    {
+        $exportColumns = \App\Models\Tenant\User::EMPLOYEE_EXPORT_COLUMNS;
+        $importColumns = \App\Models\Tenant\User::IMPORT_EXPORT_COLUMNS;
+
+        $this->assertContains('bank_account_number', $exportColumns);
+        $this->assertContains('aadhar_number', $exportColumns);
+        $this->assertContains('blood_group', $exportColumns);
+        $this->assertContains('family_details', $exportColumns);
+        $this->assertContains('week_offs', $exportColumns);
+        $this->assertNotContains('blood_group', $importColumns);
+        $this->assertContains('blood_group_id', $importColumns);
     }
 }
