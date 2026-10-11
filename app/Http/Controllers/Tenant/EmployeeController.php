@@ -105,6 +105,7 @@ class EmployeeController extends Controller
             $this->saveAddress($employee, $validated);
             $this->saveEducationAndExperience($employee, $validated);
             $this->saveFamilyDetails($employee, $validated);
+            $this->saveWeekOffs($employee, $validated);
         });
         return redirect(url(self::INDEX_URL))->with('success', 'Employee created successfully.');
     }
@@ -462,6 +463,41 @@ class EmployeeController extends Controller
 
             $attributes['is_nominee'] = (bool) ($attributes['is_nominee'] ?? false);
             $relation->create($attributes);
+        }
+    }
+
+    private function saveWeekOffs(User $employee, array $validated): void
+    {
+        if (! ($validated['week_offs_submitted'] ?? false)) {
+            return;
+        }
+
+        $relation = $employee->user_week_offs();
+        $relation->delete();
+
+        foreach ($validated['week_offs'] ?? [] as $weekOff) {
+            $weekDays = $weekOff['week_days'] ?? null;
+            $weekFlags = array_intersect_key($weekOff, array_flip([
+                'first_week',
+                'second_week',
+                'third_week',
+                'fourth_week',
+                'fifth_week',
+            ]));
+
+            if ($weekDays === null || ! collect($weekFlags)->contains(static fn($enabled): bool => (bool) $enabled)) {
+                continue;
+            }
+
+            $relation->create([
+                'week_days' => $weekDays,
+                'wo_type' => $weekOff['wo_type'] ?? 1,
+                'first_week' => (bool) ($weekOff['first_week'] ?? false),
+                'second_week' => (bool) ($weekOff['second_week'] ?? false),
+                'third_week' => (bool) ($weekOff['third_week'] ?? false),
+                'fourth_week' => (bool) ($weekOff['fourth_week'] ?? false),
+                'fifth_week' => (bool) ($weekOff['fifth_week'] ?? false),
+            ]);
         }
     }
 

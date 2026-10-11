@@ -82,6 +82,27 @@
         : '';
     $selected = fn(string $field): array => array_map('strval', (array) $value($field, []));
     $selectedShiftIds = array_map('strval', (array) old('shift_ids', $employee?->shifts?->pluck('id')->all() ?? []));
+    $weekOffRows = old('week_offs');
+    if (!is_array($weekOffRows)) {
+        $weekOffRows = $employee?->user_week_offs?->map(fn($weekOff) => $weekOff->only([
+            'week_days',
+            'wo_type',
+            'first_week',
+            'second_week',
+            'third_week',
+            'fourth_week',
+            'fifth_week',
+        ]))->all() ?? [];
+    }
+    $weekOffRows = $weekOffRows ?: [[]];
+    $weekDays = [0 => 'Sunday', 1 => 'Monday', 2 => 'Tuesday', 3 => 'Wednesday', 4 => 'Thursday', 5 => 'Friday', 6 => 'Saturday'];
+    $weekOffWeekFields = [
+        'first_week' => '1st Week',
+        'second_week' => '2nd Week',
+        'third_week' => '3rd Week',
+        'fourth_week' => '4th Week',
+        'fifth_week' => '5th Week',
+    ];
     $shiftType = $value('shift_type');
     $singleSelectFields = ['category_id', 'designation_id'];
     $relationFields = [
@@ -146,6 +167,32 @@
 @endphp
 
 <style>
+    #employee-step-7-tab,
+    #employee-step-7-tab:not(.active):not(:hover) {
+        background-color: #eaf2ff !important;
+        border-color: #cbdcf7 !important;
+    }
+
+    #employee-step-7-tab:hover,
+    #employee-step-7-tab.active {
+        background-color: #3f6fb5 !important;
+        border-color: #3f6fb5 !important;
+        color: #fff !important;
+    }
+
+    #employee-step-12-tab,
+    #employee-step-12-tab:not(.active):not(:hover) {
+        background-color: #fff8e8 !important;
+        border-color: #f2dfb0 !important;
+    }
+
+    #employee-step-12-tab:hover,
+    #employee-step-12-tab.active {
+        background-color: #b58422 !important;
+        border-color: #b58422 !important;
+        color: #fff !important;
+    }
+
     #employee-step-8-tab,
     #employee-step-8-tab:not(.active):not(:hover) {
         background-color: #f5f0ff !important;
@@ -226,6 +273,16 @@
                     <div class="step-icon"><i class="fas fa-sitemap"></i></div>
                 </a>
             </li>
+            @if (!$employee)
+                <li class="nav-item flex-fill" role="presentation">
+                    <a class="nav-link rounded mx-auto d-flex align-items-center justify-content-center"
+                        href="#employee-step-12" id="employee-step-12-tab" data-bs-toggle="tab" role="tab"
+                        aria-controls="employee-step-12" aria-label="Week Off Details" title="Week Off Details"
+                        aria-selected="false">
+                        <div class="step-icon"><i class="fas fa-calendar-minus"></i></div>
+                    </a>
+                </li>
+            @endif
             <li class="nav-item flex-fill" role="presentation">
                 <a class="nav-link rounded mx-auto d-flex align-items-center justify-content-center"
                     href="#employee-step-7" id="employee-step-7-tab" data-bs-toggle="tab" role="tab"
@@ -448,6 +505,114 @@
                         </div>
                     </div>
                 @endforeach
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <button type="button" class="btn btn-light previous">Previous</button>
+                    <button type="button" class="btn btn-primary next">Next</button>
+                </div>
+            </div>
+
+            @if (!$employee)
+                <div class="tab-pane fade" id="employee-step-12" role="tabpanel" aria-labelledby="employee-step-12-tab">
+                <div class="card mb-4">
+                    <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <div>
+                            <h5 class="mb-0">Week Off Details</h5>
+                            <small class="text-muted">Add one or more weekday rules and select the applicable weeks.</small>
+                            </div>
+                        @endif
+                        <button type="button" class="btn btn-outline-primary btn-sm" data-add-row="week-offs">
+                            Add Week Off
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <input type="hidden" name="week_offs_submitted" value="1">
+                        <div data-repeatable-rows="week-offs">
+                            @foreach ($weekOffRows as $index => $weekOff)
+                                <div class="border rounded p-3 mb-3" data-repeatable-row>
+                                    <div class="row align-items-end">
+                                        <div class="col-md-4 mb-3">
+                                            <label class="form-label" for="week_off_{{ $index }}_day">Week Day</label>
+                                            <select id="week_off_{{ $index }}_day" name="week_offs[{{ $index }}][week_days]" class="form-control">
+                                                <option value="">Select day</option>
+                                                @foreach ($weekDays as $day => $label)
+                                                    <option value="{{ $day }}" @selected((string) data_get($weekOff, 'week_days') === (string) $day)>{{ $label }}</option>
+                                                @endforeach
+                                            </select>
+                                            @error("week_offs.$index.week_days")
+                                                <small class="text-danger">{{ $message }}</small>
+                                            @enderror
+                                        </div>
+                                        <div class="col-md-4 mb-3">
+                                            <label class="form-label" for="week_off_{{ $index }}_type">Week Off Type</label>
+                                            <select id="week_off_{{ $index }}_type" name="week_offs[{{ $index }}][wo_type]" class="form-control">
+                                                @foreach ([1 => 'Full Day', 2 => 'First Half', 3 => 'Second Half'] as $type => $label)
+                                                    <option value="{{ $type }}" @selected((string) data_get($weekOff, 'wo_type', 1) === (string) $type)>{{ $label }}</option>
+                                                @endforeach
+                                            </select>
+                                            @error("week_offs.$index.wo_type")
+                                                <small class="text-danger">{{ $message }}</small>
+                                            @enderror
+                                        </div>
+                                        <div class="col-md-4 mb-3 text-end">
+                                            <button type="button" class="btn btn-outline-danger btn-sm" data-remove-row>Remove</button>
+                                        </div>
+                                        @foreach ($weekOffWeekFields as $field => $label)
+                                            <div class="col-md-4 col-lg mb-2">
+                                                <div class="form-check form-switch">
+                                                    <input type="hidden" name="week_offs[{{ $index }}][{{ $field }}]" value="0">
+                                                    <input type="checkbox" id="week_off_{{ $index }}_{{ $field }}"
+                                                        name="week_offs[{{ $index }}][{{ $field }}]" value="1"
+                                                        class="form-check-input" role="switch"
+                                                        @checked((bool) data_get($weekOff, $field, false))>
+                                                    <label class="form-check-label" for="week_off_{{ $index }}_{{ $field }}">{{ $label }}</label>
+                                                </div>
+                                                @error("week_offs.$index.$field")
+                                                    <small class="text-danger">{{ $message }}</small>
+                                                @enderror
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                    <template data-row-template="week-offs">
+                        <div class="border rounded p-3 mb-3" data-repeatable-row>
+                            <div class="row align-items-end">
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label" for="week_off___INDEX___day">Week Day</label>
+                                    <select id="week_off___INDEX___day" name="week_offs[__INDEX__][week_days]" class="form-control">
+                                        <option value="">Select day</option>
+                                        @foreach ($weekDays as $day => $label)
+                                            <option value="{{ $day }}">{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label" for="week_off___INDEX___type">Week Off Type</label>
+                                    <select id="week_off___INDEX___type" name="week_offs[__INDEX__][wo_type]" class="form-control">
+                                        <option value="1">Full Day</option>
+                                        <option value="2">First Half</option>
+                                        <option value="3">Second Half</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4 mb-3 text-end">
+                                    <button type="button" class="btn btn-outline-danger btn-sm" data-remove-row>Remove</button>
+                                </div>
+                                @foreach ($weekOffWeekFields as $field => $label)
+                                    <div class="col-md-4 col-lg mb-2">
+                                        <div class="form-check form-switch">
+                                            <input type="hidden" name="week_offs[__INDEX__][{{ $field }}]" value="0">
+                                            <input type="checkbox" id="week_off___INDEX___{{ $field }}" name="week_offs[__INDEX__][{{ $field }}]" value="1"
+                                                class="form-check-input" role="switch">
+                                            <label class="form-check-label" for="week_off___INDEX___{{ $field }}">{{ $label }}</label>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </template>
+                </div>
                 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
                     <button type="button" class="btn btn-light previous">Previous</button>
                     <button type="button" class="btn btn-primary next">Next</button>
@@ -1326,13 +1491,17 @@
                 const template = wizardRoot.querySelector('[data-row-template="' + key + '"]');
                 if (!rows || !template) return;
 
-                const nextIndex = Array.from(rows.querySelectorAll('input[name]')).reduce(function(maximum, input) {
-                    const match = input.name.match(/\[(\d+)\]/);
+                const controls = rows.querySelectorAll('[name]');
+                const nextIndex = Array.from(controls).reduce(function(maximum, control) {
+                    const match = control.name.match(/\[(\d+)\]/);
                     return match ? Math.max(maximum, Number(match[1])) : maximum;
                 }, -1) + 1;
                 const row = template.content.firstElementChild.cloneNode(true);
-                row.querySelectorAll('[name]').forEach(function(input) {
-                    input.name = input.name.replace('__INDEX__', String(nextIndex));
+                row.querySelectorAll('[name], [id], label[for]').forEach(function(element) {
+                    ['name', 'id', 'for'].forEach(function(attribute) {
+                        const value = element.getAttribute(attribute);
+                        if (value) element.setAttribute(attribute, value.replace(/__INDEX__/g, String(nextIndex)));
+                    });
                 });
                 rows.appendChild(row);
                 return;
