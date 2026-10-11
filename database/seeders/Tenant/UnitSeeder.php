@@ -14,5 +14,11 @@ class UnitSeeder extends Seeder
             'code' => 'Default Unit 1',
             'location_id' => '1',
         ]);
+
+        Unit::create([
+            'name' => 'Default Unit 2',
+            'code' => 'Default Unit 2',
+            'location_id' => '2',
+        ]);
     }
 }

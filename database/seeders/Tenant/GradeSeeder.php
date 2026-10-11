@@ -14,5 +14,11 @@ class GradeSeeder extends Seeder
             'code' => 'Default Grade',
             'location_id' => '1',
         ]);
+
+        Grade::create([
+            'name' => 'Default Grade 2',
+            'code' => 'Default Grade 2',
+            'location_id' => '2',
+        ]);
     }
 }

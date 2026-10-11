@@ -275,6 +275,7 @@ class User extends Authenticatable implements FilamentUser, HasTenants
         'is_locked' => 'bool',
         'allow_mobile_login' => 'bool',
         'allow_mobile_punch' => 'bool',
+        'blood_group_id' => 'int',
         'dob' => 'datetime',
         'join_date' => 'datetime',
         'left_date' => 'datetime',
@@ -379,6 +380,7 @@ class User extends Authenticatable implements FilamentUser, HasTenants
         'absent_rule_id',
         'overtime_rule_id',
         'gender',
+        'blood_group_id',
         'password_policy_id',
         'is_inactive',
         'inactive_days',
@@ -554,7 +556,7 @@ class User extends Authenticatable implements FilamentUser, HasTenants
         return $this->hasMany(LeaveGroup::class);
     }
 
-    public function personal_info()
+    public function personalInfo()
     {
         return $this->hasOne(PersonalInfo::class);
     }

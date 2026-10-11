@@ -25,6 +25,21 @@ class ShiftSeeder extends Seeder
             'cutoff_time' => '22:00:00',
         ]);
 
+        Shift::create([
+            'name' => 'Shift 2',
+            'code' => 'SF2',
+            'location_id' => '2',
+            'company_id' => '2',
+            'in_time' => '08:00:00',
+            'out_time' => '17:00:00',
+            'first_half_end_time' => '12:29:59',
+            'second_half_start_time' => '12:30:00',
+            'auto_from' => '07:45:00',
+            'auto_to' => '17:14:59',
+            'set_cutoff' => true,
+            'cutoff_time' => '21:00:00',
+        ]);
+
         $rotation = ShiftRotation::create([
             'code' => 'Shift Rotation 1',
             'start_date' => '2024-11-01',
