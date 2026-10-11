@@ -134,6 +134,12 @@
         border-color: #e0d2ff !important;
     }
 
+    #employee-step-9-tab,
+    #employee-step-9-tab:not(.active):not(:hover) {
+        background-color: #eef8f1 !important;
+        border-color: #cfe9d7 !important;
+    }
+
     #employee-step-4-tab,
     #employee-step-4-tab:not(.active):not(:hover) {
         background-color: #fff0f3 !important;
@@ -150,6 +156,13 @@
     #employee-step-8-tab.active {
         background-color: #7952cc !important;
         border-color: #7952cc !important;
+        color: #fff !important;
+    }
+
+    #employee-step-9-tab:hover,
+    #employee-step-9-tab.active {
+        background-color: #388e5a !important;
+        border-color: #388e5a !important;
         color: #fff !important;
     }
 
@@ -204,6 +217,14 @@
                     href="#employee-step-8" id="employee-step-8-tab" data-bs-toggle="tab" role="tab"
                     aria-controls="employee-step-8" aria-selected="false">
                     <div class="step-icon"><i class="fas fa-heart"></i></div>
+                </a>
+            </li>
+            <li class="nav-item flex-fill" role="presentation">
+                <a class="nav-link rounded mx-auto d-flex align-items-center justify-content-center"
+                    href="#employee-step-9" id="employee-step-9-tab" data-bs-toggle="tab" role="tab"
+                    aria-controls="employee-step-9" aria-label="Bank Details" title="Bank Details"
+                    aria-selected="false">
+                    <div class="step-icon"><i class="fas fa-university"></i></div>
                 </a>
             </li>
             <li class="nav-item flex-fill" role="presentation">
@@ -769,6 +790,37 @@
                                     </div>
                                 @endforeach
                             </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <button type="button" class="btn btn-light previous">Previous</button>
+                    <button type="button" class="btn btn-primary next">Next</button>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="employee-step-9" role="tabpanel" aria-labelledby="employee-step-9-tab">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Bank Details</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            @foreach ([
+                                'bank_name' => 'Bank Name',
+                                'bank_account_number' => 'Bank Account Number',
+                                'bank_ifsc_code' => 'Bank IFSC Code',
+                                'bank_account_branch_name' => 'Bank Account Branch Name',
+                            ] as $field => $label)
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label" for="{{ $field }}">{{ $label }}</label>
+                                    <input id="{{ $field }}" name="{{ $field }}" class="form-control"
+                                        maxlength="255" value="{{ $value($field) }}">
+                                    @error($field)
+                                        <small class="text-danger">{{ $message }}</small>
+                                    @enderror
+                                </div>
+                            @endforeach
                         </div>
                     </div>
                 </div>
