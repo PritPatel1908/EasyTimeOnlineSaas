@@ -308,14 +308,45 @@ class EmployeeController extends Controller
         $attributes = [
             'height' => $validated['height'] ?? null,
             'weight' => $validated['weight'] ?? null,
-            'emergency_name' => $validated['emergency_name'] ?? null,
-            'emergency_number' => $validated['emergency_number'] ?? null,
-            'emergency_address' => $validated['emergency_address'] ?? null,
         ];
 
         foreach (['languages', 'hobbies'] as $field) {
             $items = array_map('trim', $validated[$field] ?? []);
             $attributes[$field] = array_values(array_filter($items, static fn (string $item): bool => $item !== '')) ?: null;
+        }
+
+        $emergencyFields = ['emergency_name', 'emergency_number', 'emergency_address'];
+        $emergencyItems = [];
+        $rowCount = 0;
+
+        foreach ($emergencyFields as $field) {
+            $emergencyItems[$field] = array_map(
+                static fn(?string $item): string => trim($item ?? ''),
+                $validated[$field] ?? [],
+            );
+            $rowCount = max($rowCount, count($emergencyItems[$field]));
+        }
+
+        $emergencyValues = array_fill_keys($emergencyFields, []);
+        for ($index = 0; $index < $rowCount; $index++) {
+            $row = array_map(
+                static fn (string $field): string => $emergencyItems[$field][$index] ?? '',
+                $emergencyFields,
+            );
+
+            if (count(array_filter($row, static fn (string $value): bool => $value !== '')) === 0) {
+                continue;
+            }
+
+            foreach ($emergencyFields as $field) {
+                $emergencyValues[$field][] = $emergencyItems[$field][$index] ?? '';
+            }
+        }
+
+        foreach ($emergencyFields as $field) {
+            $attributes[$field] = $emergencyValues[$field] !== []
+                ? json_encode($emergencyValues[$field], JSON_THROW_ON_ERROR)
+                : null;
         }
 
         $hasValues = collect($attributes)->contains(static fn($value): bool => $value !== null && $value !== '');

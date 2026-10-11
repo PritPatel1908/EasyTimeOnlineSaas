@@ -20,6 +20,41 @@
             ),
         );
     };
+    $emergencyRows = function () use ($personalInfo): array {
+        $fields = ['emergency_name', 'emergency_number', 'emergency_address'];
+        $values = [];
+
+        foreach ($fields as $field) {
+            $items = old($field, data_get($personalInfo, $field));
+            if (is_string($items)) {
+                $decoded = json_decode($items, true);
+                $items = is_array($decoded) ? $decoded : ($items !== '' ? [$items] : []);
+            }
+
+            $values[$field] = array_map(
+                static fn($item): string => is_scalar($item) ? trim((string) $item) : '',
+                is_array($items) ? $items : [],
+            );
+        }
+
+        $rowCount = 1;
+        foreach ($values as $items) {
+            $rowCount = max($rowCount, count($items));
+        }
+        $rows = [];
+
+        for ($index = 0; $index < $rowCount; $index++) {
+            $rows[] = array_combine(
+                $fields,
+                array_map(
+                    static fn(string $field): string => $values[$field][$index] ?? '',
+                    $fields,
+                ),
+            );
+        }
+
+        return $rows;
+    };
     $address = $employee?->addresses?->firstWhere('is_current_address', true) ?? $employee?->addresses?->first();
     $addressValue = fn(string $field, mixed $default = '') => old($field, data_get($address, $field, $default));
     $profilePicUrl = $profilePic
@@ -522,31 +557,67 @@
                         <h5 class="mb-0">Emergency Contact</h5>
                     </div>
                     <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-6 mb-3"><label class="form-label" for="emergency_name">Emergency
-                                    Contact Name</label><input id="emergency_name" name="emergency_name"
-                                    class="form-control"
-                                    value="{{ $personalValue('emergency_name') }}">
-                                @error('emergency_name')
-                                    <small class="text-danger">{{ $message }}</small>
-                                @enderror
+                        <div data-emergency-contacts>
+                            <div data-emergency-rows>
+                                @foreach ($emergencyRows() as $index => $row)
+                                    <div class="row align-items-end mb-3" data-emergency-row>
+                                        <div class="col-md-3 mb-2">
+                                            <label class="form-label" for="emergency_name_{{ $index }}">Emergency
+                                                Contact Name</label>
+                                            <input id="emergency_name_{{ $index }}" name="emergency_name[]"
+                                                class="form-control" value="{{ $row['emergency_name'] }}">
+                                        </div>
+                                        <div class="col-md-3 mb-2">
+                                            <label class="form-label" for="emergency_number_{{ $index }}">Emergency
+                                                Contact Number</label>
+                                            <input id="emergency_number_{{ $index }}" name="emergency_number[]"
+                                                class="form-control" value="{{ $row['emergency_number'] }}">
+                                        </div>
+                                        <div class="col-md-4 mb-2">
+                                            <label class="form-label" for="emergency_address_{{ $index }}">Emergency
+                                                Contact Address</label>
+                                            <input id="emergency_address_{{ $index }}" name="emergency_address[]"
+                                                class="form-control" value="{{ $row['emergency_address'] }}">
+                                        </div>
+                                        <div class="col-md-2 mb-2">
+                                            <button type="button" class="btn btn-outline-danger w-100"
+                                                data-remove-emergency>Remove</button>
+                                        </div>
+                                    </div>
+                                @endforeach
                             </div>
-                            <div class="col-md-6 mb-3"><label class="form-label" for="emergency_number">Emergency
-                                    Contact Number</label><input id="emergency_number" name="emergency_number"
-                                    class="form-control"
-                                    value="{{ $personalValue('emergency_number') }}">
-                                @error('emergency_number')
-                                    <small class="text-danger">{{ $message }}</small>
-                                @enderror
-                            </div>
-                            <div class="col-md-12 mb-3"><label class="form-label" for="emergency_address">Emergency
-                                    Contact Address</label>
-                                <textarea id="emergency_address" name="emergency_address" class="form-control" rows="2">{{ $personalValue('emergency_address') }}</textarea>
-                                @error('emergency_address')
-                                    <small class="text-danger">{{ $message }}</small>
-                                @enderror
-                            </div>
+                            <template data-emergency-template>
+                                <div class="row align-items-end mb-3" data-emergency-row>
+                                    <div class="col-md-3 mb-2">
+                                        <label class="form-label">Emergency Contact Name</label>
+                                        <input name="emergency_name[]" class="form-control">
+                                    </div>
+                                    <div class="col-md-3 mb-2">
+                                        <label class="form-label">Emergency Contact Number</label>
+                                        <input name="emergency_number[]" class="form-control">
+                                    </div>
+                                    <div class="col-md-4 mb-2">
+                                        <label class="form-label">Emergency Contact Address</label>
+                                        <input name="emergency_address[]" class="form-control">
+                                    </div>
+                                    <div class="col-md-2 mb-2">
+                                        <button type="button" class="btn btn-outline-danger w-100"
+                                            data-remove-emergency>Remove</button>
+                                    </div>
+                                </div>
+                            </template>
+                            <button type="button" class="btn btn-outline-primary btn-sm" data-add-emergency>Add New</button>
                         </div>
+                        @foreach ($errors->getMessages() as $key => $messages)
+                            @if (in_array($key, ['emergency_name', 'emergency_number', 'emergency_address'], true) ||
+                                    str_starts_with($key, 'emergency_name.') ||
+                                    str_starts_with($key, 'emergency_number.') ||
+                                    str_starts_with($key, 'emergency_address.'))
+                                @foreach ($messages as $message)
+                                    <small class="text-danger d-block">{{ $message }}</small>
+                                @endforeach
+                            @endif
+                        @endforeach
                     </div>
                 </div>
                 <div class="card mb-4">
@@ -935,6 +1006,20 @@
             list.addEventListener('click', function(event) {
                 const removeButton = event.target.closest('[data-remove-item]');
                 if (removeButton) removeButton.closest('[data-list-item]').remove();
+            });
+        });
+
+        wizardRoot.querySelectorAll('[data-emergency-contacts]').forEach(function(contacts) {
+            const rows = contacts.querySelector('[data-emergency-rows]');
+            const template = contacts.querySelector('[data-emergency-template]');
+
+            contacts.querySelector('[data-add-emergency]').addEventListener('click', function() {
+                rows.appendChild(template.content.cloneNode(true));
+            });
+
+            contacts.addEventListener('click', function(event) {
+                const removeButton = event.target.closest('[data-remove-emergency]');
+                if (removeButton) removeButton.closest('[data-emergency-row]').remove();
             });
         });
 

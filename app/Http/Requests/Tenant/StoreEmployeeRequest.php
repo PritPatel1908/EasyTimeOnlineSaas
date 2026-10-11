@@ -30,6 +30,17 @@ class StoreEmployeeRequest extends FormRequest
                 $this->merge([$field => array_values($items)]);
             }
         }
+
+        foreach (['emergency_name', 'emergency_number', 'emergency_address'] as $field) {
+            $items = $this->input($field);
+            if (is_string($items)) {
+                $items = [$items];
+            }
+
+            if (is_array($items)) {
+                $this->merge([$field => array_values($items)]);
+            }
+        }
     }
 
     public function rules(): array
@@ -86,9 +97,12 @@ class StoreEmployeeRequest extends FormRequest
             'languages.*' => ['nullable', 'string', 'max:2000'],
             'hobbies' => ['nullable', 'array'],
             'hobbies.*' => ['nullable', 'string', 'max:2000'],
-            'emergency_name' => ['nullable', 'string'],
-            'emergency_number' => ['nullable', 'string'],
-            'emergency_address' => ['nullable', 'string'],
+            'emergency_name' => ['nullable', 'array'],
+            'emergency_name.*' => ['nullable', 'string'],
+            'emergency_number' => ['nullable', 'array'],
+            'emergency_number.*' => ['nullable', 'string'],
+            'emergency_address' => ['nullable', 'array'],
+            'emergency_address.*' => ['nullable', 'string'],
             'flat_building' => ['nullable', 'string', 'max:255'],
             'house_no' => ['nullable', 'string', 'max:255'],
             'flore' => ['nullable', 'string', 'max:255'],
