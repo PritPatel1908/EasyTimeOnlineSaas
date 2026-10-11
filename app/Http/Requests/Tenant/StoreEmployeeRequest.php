@@ -16,7 +16,7 @@ class StoreEmployeeRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        foreach (['location_id', 'company_id', 'department_id', 'sub_department_id', 'category_id', 'sub_category_id', 'designation_id', 'grade_id', 'unit_id', 'bus_route_id'] as $field) {
+        foreach (['location_id', 'company_id', 'department_id', 'sub_department_id', 'sub_category_id', 'grade_id', 'unit_id', 'bus_route_id'] as $field) {
             $this->merge([$field => array_values(array_filter((array) $this->input($field, []), static fn($id): bool => $id !== ''))]);
         }
 

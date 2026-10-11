@@ -167,6 +167,45 @@
 @endphp
 
 <style>
+    #employee-step-1-tab,
+    #employee-step-1-tab:not(.active):not(:hover) {
+        background-color: #eaf2ff !important;
+        border-color: #cbdcf7 !important;
+    }
+
+    #employee-step-1-tab:hover,
+    #employee-step-1-tab.active {
+        background-color: #3f6fb5 !important;
+        border-color: #3f6fb5 !important;
+        color: #fff !important;
+    }
+
+    #employee-step-3-tab,
+    #employee-step-3-tab:not(.active):not(:hover) {
+        background-color: #eef8f1 !important;
+        border-color: #cfe9d7 !important;
+    }
+
+    #employee-step-3-tab:hover,
+    #employee-step-3-tab.active {
+        background-color: #388e5a !important;
+        border-color: #388e5a !important;
+        color: #fff !important;
+    }
+
+    #employee-step-6-tab,
+    #employee-step-6-tab:not(.active):not(:hover) {
+        background-color: #fff8e8 !important;
+        border-color: #f2dfb0 !important;
+    }
+
+    #employee-step-6-tab:hover,
+    #employee-step-6-tab.active {
+        background-color: #b58422 !important;
+        border-color: #b58422 !important;
+        color: #fff !important;
+    }
+
     #employee-step-7-tab,
     #employee-step-7-tab:not(.active):not(:hover) {
         background-color: #eaf2ff !important;
@@ -1332,13 +1371,16 @@
                         <div class="row">
                             @foreach ($relationFields as $field => $relation)
                                 @php($isRequiredRelation = in_array($field, ['location_id', 'company_id', 'department_id', 'category_id', 'designation_id'], true))
+                                @php($isSingleSelect = in_array($field, $singleSelectFields, true))
                                 <div class="col-md-6 mb-3"><label
                                         class="form-label">{{ $relation['label'] }}@if ($isRequiredRelation) <span class="text-danger">*</span>@endif</label><select
-                                        name="{{ $field }}{{ in_array($field, $singleSelectFields, true) ? '' : '[]' }}"
+                                        name="{{ $field }}{{ $isSingleSelect ? '' : '[]' }}"
                                         class="form-control @error($field) is-invalid @enderror"
-                                        @unless (in_array($field, $singleSelectFields, true)) multiple @endunless
+                                        @unless ($isSingleSelect) placeholder="Select" multiple @endunless
                                         @if ($isRequiredRelation) required @endif>
-                                        <option value="">Select</option>
+                                        @if ($isSingleSelect)
+                                            <option value="">Select</option>
+                                        @endif
                                         @foreach ($relation['options'] as $option)
                                             <option value="{{ $option->id }}" @selected(in_array((string) $option->id, $selected($field), true))>
                                                 {{ $option->name }}</option>
@@ -1459,6 +1501,17 @@
         const wizardRoot = document.querySelector('.employee-form-wizard');
         if (!wizardRoot || typeof bootstrap === 'undefined') return;
         const employeeForm = wizardRoot.closest('form');
+        const initializeEmployeeSelect = function(select) {
+            if (select.tomselect) return select.tomselect;
+
+            const options = select.multiple
+                ? { placeholder: select.getAttribute('placeholder') || 'Select', plugins: ['remove_button'] }
+                : { width: '100%', controlInput: null };
+
+            return new TomSelect(select, options);
+        };
+
+        wizardRoot.querySelectorAll('select').forEach(initializeEmployeeSelect);
 
         wizardRoot.querySelectorAll('[data-list-input]').forEach(function(list) {
             const addButton = list.querySelector('[data-add-item]');
@@ -1527,6 +1580,7 @@
                     });
                 });
                 rows.appendChild(row);
+                row.querySelectorAll('select').forEach(initializeEmployeeSelect);
                 if (key === 'family_details') {
                     const error = wizardRoot.querySelector('[data-validation-error-for="family_details"]');
                     if (error) {
@@ -1548,6 +1602,13 @@
                 field.classList.toggle('d-none', !loginToggle.checked);
                 field.querySelectorAll('input, select, textarea').forEach(function(control) {
                     control.disabled = !loginToggle.checked;
+                    if (control.tomselect) {
+                        if (loginToggle.checked) {
+                            control.tomselect.enable();
+                        } else {
+                            control.tomselect.disable();
+                        }
+                    }
                 });
             });
         };
@@ -1598,13 +1659,18 @@
             const shiftType = shiftTypeSelect.value;
             const showShifts = shiftType === 'auto' || shiftType === 'fixed';
             const showRotation = shiftType === 'rotational';
+            const multipleShifts = shiftType === 'auto';
+
+            if (shiftSelect.multiple !== multipleShifts) {
+                if (shiftSelect.tomselect) shiftSelect.tomselect.destroy();
+                shiftSelect.multiple = multipleShifts;
+            }
 
             shiftSelectionField.classList.toggle('d-none', !showShifts);
             shiftRotationField.classList.toggle('d-none', !showRotation);
             shiftSelectionField.querySelector('[data-required-indicator]').hidden = !showShifts;
             shiftRotationField.querySelector('[data-required-indicator]').hidden = !showRotation;
             shiftSelect.disabled = !showShifts;
-            shiftSelect.multiple = shiftType === 'auto';
             shiftSelect.required = showShifts;
             shiftRotationSelect.disabled = !showRotation;
             shiftRotationSelect.required = showRotation;
@@ -1616,6 +1682,21 @@
                     if (selectedOne) option.selected = false;
                     selectedOne = true;
                 });
+            }
+
+            const shiftSelectControl = initializeEmployeeSelect(shiftSelect);
+            if (showShifts) {
+                shiftSelectControl.enable();
+            } else {
+                shiftSelectControl.disable();
+            }
+
+            if (shiftRotationSelect.tomselect) {
+                if (showRotation) {
+                    shiftRotationSelect.tomselect.enable();
+                } else {
+                    shiftRotationSelect.tomselect.disable();
+                }
             }
         };
         shiftTypeSelect.addEventListener('change', updateShiftFields);
