@@ -65,6 +65,7 @@ class NotificationController extends Controller
             preg_match('/\Ateams_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'team-exports/' . $fileName,
             preg_match('/\Acategories_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'category-exports/' . $fileName,
             preg_match('/\Adesignations_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'designation-exports/' . $fileName,
+            preg_match('/\Aemployees_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'employee-exports/' . $fileName,
             preg_match('/\Aunits_\d+_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'unit-exports/' . $fileName,
             default => null,
         };

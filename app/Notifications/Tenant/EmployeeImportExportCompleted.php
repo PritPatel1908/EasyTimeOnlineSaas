@@ -3,22 +3,31 @@
 namespace App\Notifications\Tenant;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Notifications\Messages\DatabaseMessage;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 
-class EmployeeImportExportCompleted extends Notification
+class EmployeeImportExportCompleted extends Notification implements ShouldQueue
 {
     use Queueable;
 
-    public function __construct(private string $type, private string $message, private ?string $url = null) {}
+    public function __construct(public string $operation, public string $message, public ?string $downloadUrl = null)
+    {
+        $this->onConnection('database_tenant')->onQueue('notifications');
+    }
 
     public function via(object $notifiable): array
     {
         return ['database'];
     }
 
-    public function toDatabase(object $notifiable): DatabaseMessage
+    public function toArray(object $notifiable): array
     {
-        return new DatabaseMessage(['type' => $this->type, 'message' => $this->message, 'url' => $this->url]);
+        return [
+            'title' => $this->operation === 'export' ? 'Employee export completed' : 'Employee import completed',
+            'message' => $this->message,
+            'url' => '/employee-structure/employees',
+            'download_url' => $this->downloadUrl,
+            'type' => $this->operation,
+        ];
     }
 }

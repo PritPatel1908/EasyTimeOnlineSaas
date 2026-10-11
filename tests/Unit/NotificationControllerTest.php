@@ -45,4 +45,23 @@ class NotificationControllerTest extends TestCase
         $this->assertSame(['name', 'code', 'status'], $preview['headers']);
         $this->assertCount(1, $preview['rows']);
     }
+
+    public function test_it_reads_preview_for_employee_export(): void
+    {
+        Storage::fake('local');
+
+        $fileName = 'employees_20240601_120000.csv';
+        $path = 'employee-exports/' . $fileName;
+        Storage::disk('local')->put($path, "code,name,email\nE001,Alex,alex@example.test\n");
+
+        $controller = new NotificationController();
+        $method = new \ReflectionMethod($controller, 'readExportPreview');
+        $method->setAccessible(true);
+
+        [$preview, $error] = $method->invoke($controller, '/employee-structure/employees/export/download/' . $fileName);
+
+        $this->assertNull($error);
+        $this->assertSame(['code', 'name', 'email'], $preview['headers']);
+        $this->assertSame([['E001', 'Alex', 'alex@example.test']], $preview['rows']);
+    }
 }

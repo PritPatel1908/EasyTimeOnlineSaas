@@ -33,36 +33,38 @@ class GenerateEmployeeExport implements ShouldQueue
         if ($handle === false) return;
         fputcsv($handle, User::IMPORT_EXPORT_COLUMNS);
         foreach (User::query()->where('user_type', 'employee')->orderBy('name')->get() as $employee) {
-            fputcsv($handle, [
-                $employee->code,
-                $employee->fname,
-                $employee->mname,
-                $employee->lname,
-                $employee->name,
-                $employee->email,
-                $employee->number,
-                $employee->card,
-                $employee->gender,
-                $employee->dob?->format('Y-m-d'),
-                $employee->join_date?->format('Y-m-d'),
-                $employee->status ? 'Active' : 'Inactive',
-                $employee->user_type,
-                $this->names($employee->company_id, 'Company'),
-                $this->names($employee->location_id, 'Location'),
-                $this->names($employee->department_id, 'Department'),
-                $this->names($employee->sub_department_id, 'SubDepartment'),
-                $this->names($employee->category_id, 'Category'),
-                $this->names($employee->sub_category_id, 'SubCategory'),
-                $this->names($employee->designation_id, 'Designation'),
-                $this->names($employee->grade_id, 'Grade'),
-                $this->names($employee->unit_id, 'Unit'),
-                $this->names($employee->bus_route_id, 'BusRoute'),
-                $employee->data_policy?->name ?? '',
-                $employee->roles->pluck('name')->join(', '),
-                $employee->is_locked ? 'Yes' : 'No',
-                $employee->allow_mobile_login ? 'Yes' : 'No',
-                $employee->allow_mobile_punch ? 'Yes' : 'No',
-            ]);
+            $values = [
+                'code' => $employee->code,
+                'fname' => $employee->fname,
+                'mname' => $employee->mname,
+                'lname' => $employee->lname,
+                'name' => $employee->name,
+                'email' => $employee->email,
+                'number' => $employee->number,
+                'card' => $employee->card,
+                'gender' => $employee->gender,
+                'dob' => $employee->dob?->format('Y-m-d'),
+                'blood_group_id' => $employee->blood_group_id,
+                'join_date' => $employee->join_date?->format('Y-m-d'),
+                'status' => $employee->status ? 'Active' : 'Inactive',
+                'user_type' => $employee->user_type,
+                'company' => $this->names($employee->company_id, 'Company'),
+                'location' => $this->names($employee->location_id, 'Location'),
+                'department' => $this->names($employee->department_id, 'Department'),
+                'sub_department' => $this->names($employee->sub_department_id, 'SubDepartment'),
+                'category' => $this->names($employee->category_id, 'Category'),
+                'sub_category' => $this->names($employee->sub_category_id, 'SubCategory'),
+                'designation' => $this->names($employee->designation_id, 'Designation'),
+                'grade' => $this->names($employee->grade_id, 'Grade'),
+                'unit' => $this->names($employee->unit_id, 'Unit'),
+                'bus_route' => $this->names($employee->bus_route_id, 'BusRoute'),
+                'data_policy' => $employee->data_policy?->name ?? '',
+                'role' => $employee->roles->pluck('name')->join(', '),
+                'is_locked' => $employee->is_locked ? 'Yes' : 'No',
+                'allow_mobile_login' => $employee->allow_mobile_login ? 'Yes' : 'No',
+                'allow_mobile_punch' => $employee->allow_mobile_punch ? 'Yes' : 'No',
+            ];
+            fputcsv($handle, $this->orderByExportColumns($values));
         }
         rewind($handle);
         $contents = stream_get_contents($handle);
@@ -74,7 +76,20 @@ class GenerateEmployeeExport implements ShouldQueue
     private function names(mixed $value, string $model): string
     {
         $ids = is_array($value) ? $value : (json_decode((string) $value, true) ?: [$value]);
+        $ids = (array) $ids;
         $class = 'App\\Models\\Tenant\\' . $model;
         return $class::query()->whereIn('id', array_filter($ids))->pluck('name')->join(', ');
+    }
+
+    /**
+     * @param array<string, mixed> $values
+     * @return array<int, mixed>
+     */
+    private function orderByExportColumns(array $values): array
+    {
+        return array_map(
+            static fn (string $column): mixed => $values[$column] ?? '',
+            User::IMPORT_EXPORT_COLUMNS,
+        );
     }
 }
