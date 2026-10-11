@@ -367,6 +367,15 @@ class EmployeeController extends Controller
             'state' => $validated['state'] ?? null,
             'city' => $validated['city'] ?? null,
             'pincode' => $validated['pincode'] ?? null,
+            'current_flat_building' => $validated['current_flat_building'] ?? null,
+            'current_house_no' => $validated['current_house_no'] ?? null,
+            'current_flore' => $validated['current_flore'] ?? null,
+            'current_street' => $validated['current_street'] ?? null,
+            'current_landmark' => $validated['current_landmark'] ?? null,
+            'current_country' => $validated['current_country'] ?? null,
+            'current_state' => $validated['current_state'] ?? null,
+            'current_city' => $validated['current_city'] ?? null,
+            'current_pincode' => $validated['current_pincode'] ?? null,
             'is_current_address' => (bool) ($validated['is_current_address'] ?? false),
         ];
 

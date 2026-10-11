@@ -127,6 +127,47 @@
     ];
 @endphp
 
+<style>
+    #employee-step-8-tab,
+    #employee-step-8-tab:not(.active):not(:hover) {
+        background-color: #f5f0ff !important;
+        border-color: #e0d2ff !important;
+    }
+
+    #employee-step-4-tab,
+    #employee-step-4-tab:not(.active):not(:hover) {
+        background-color: #fff0f3 !important;
+        border-color: #ffd1dc !important;
+    }
+
+    #employee-step-5-tab,
+    #employee-step-5-tab:not(.active):not(:hover) {
+        background-color: #eaf9fb !important;
+        border-color: #c8edf1 !important;
+    }
+
+    #employee-step-8-tab:hover,
+    #employee-step-8-tab.active {
+        background-color: #7952cc !important;
+        border-color: #7952cc !important;
+        color: #fff !important;
+    }
+
+    #employee-step-4-tab:hover,
+    #employee-step-4-tab.active {
+        background-color: #e55375 !important;
+        border-color: #e55375 !important;
+        color: #fff !important;
+    }
+
+    #employee-step-5-tab:hover,
+    #employee-step-5-tab.active {
+        background-color: #198d9c !important;
+        border-color: #198d9c !important;
+        color: #fff !important;
+    }
+</style>
+
 <div class="employee-form-wizard twitter-bs-wizard">
     <div class="wizard twitter-bs-wizard-nav mb-4">
         <ul class="nav nav-tabs form-tab justify-content-center mb-3" role="tablist">
@@ -691,14 +732,42 @@
                                 @enderror
                             </div>
                             <div class="col-md-6 mb-3">
-                                <div class="form-check mt-2"><input type="hidden" name="is_current_address"
-                                        value="0"><input id="is_current_address" type="checkbox"
-                                        name="is_current_address" value="1" class="form-check-input"
-                                        @checked($addressValue('is_current_address'))><label class="form-check-label"
-                                        for="is_current_address">This is my current address</label></div>
+                                <div class="form-check form-check-lg form-switch d-flex align-items-center gap-2 ps-0 mt-2">
+                                    <input type="hidden" name="is_current_address" value="0">
+                                    <input id="is_current_address" type="checkbox" name="is_current_address"
+                                        value="1" class="form-check-input ms-0" role="switch"
+                                        @checked($addressValue('is_current_address'))>
+                                    <label class="form-check-label" for="is_current_address">This is my current address</label>
+                                </div>
                                 @error('is_current_address')
                                     <small class="text-danger">{{ $message }}</small>
                                 @enderror
+                            </div>
+                        </div>
+                        <div class="current-address-fields" @class(['d-none' => (bool) $addressValue('is_current_address')])>
+                            <h6 class="mt-3 mb-3">Current Address</h6>
+                            <div class="row">
+                                @foreach ([
+                                    'flat_building' => 'Flat / Building',
+                                    'house_no' => 'House Number',
+                                    'flore' => 'Floor',
+                                    'street' => 'Street',
+                                    'landmark' => 'Landmark',
+                                    'city' => 'City',
+                                    'pincode' => 'Pincode',
+                                    'state' => 'State',
+                                    'country' => 'Country',
+                                ] as $field => $label)
+                                    @php($currentField = 'current_' . $field)
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label" for="{{ $currentField }}">{{ $label }}</label>
+                                        <input id="{{ $currentField }}" name="{{ $currentField }}" class="form-control"
+                                            maxlength="255" value="{{ $addressValue($currentField) }}">
+                                        @error($currentField)
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
+                                    </div>
+                                @endforeach
                             </div>
                         </div>
                     </div>
@@ -1037,6 +1106,17 @@
         if (loginToggle) {
             loginToggle.addEventListener('change', updateLoginFields);
             updateLoginFields();
+        }
+
+        const currentAddressToggle = wizardRoot.querySelector('#is_current_address');
+        const currentAddressFields = wizardRoot.querySelector('.current-address-fields');
+        if (currentAddressToggle && currentAddressFields) {
+            const updateCurrentAddressFields = function() {
+                currentAddressFields.classList.toggle('d-none', currentAddressToggle.checked);
+            };
+
+            currentAddressToggle.addEventListener('change', updateCurrentAddressFields);
+            updateCurrentAddressFields();
         }
 
         const leftToggle = wizardRoot.querySelector('#is_left');

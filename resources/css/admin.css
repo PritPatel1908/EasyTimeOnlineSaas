@@ -7,3 +7,39 @@
 	left: var(--sidebar-submenu-left, 140px);
 	top: var(--sidebar-submenu-top, 0px);
 }
+
+.employee-form-wizard .form-tab > .nav-item:nth-child(5) > .nav-link {
+	background: #f5f0ff;
+	border-color: #e0d2ff;
+}
+
+.employee-form-wizard .form-tab > .nav-item:nth-child(6) > .nav-link {
+	background: #fff0f3;
+	border-color: #ffd1dc;
+}
+
+.employee-form-wizard .form-tab > .nav-item:nth-child(7) > .nav-link {
+	background: #eaf9fb;
+	border-color: #c8edf1;
+}
+
+.employee-form-wizard .form-tab > .nav-item:nth-child(5) > .nav-link:hover,
+.employee-form-wizard .form-tab > .nav-item:nth-child(5) > .nav-link.active {
+	background: #7952cc;
+	border-color: #7952cc;
+	color: #fff;
+}
+
+.employee-form-wizard .form-tab > .nav-item:nth-child(6) > .nav-link:hover,
+.employee-form-wizard .form-tab > .nav-item:nth-child(6) > .nav-link.active {
+	background: #e55375;
+	border-color: #e55375;
+	color: #fff;
+}
+
+.employee-form-wizard .form-tab > .nav-item:nth-child(7) > .nav-link:hover,
+.employee-form-wizard .form-tab > .nav-item:nth-child(7) > .nav-link.active {
+	background: #198d9c;
+	border-color: #198d9c;
+	color: #fff;
+}

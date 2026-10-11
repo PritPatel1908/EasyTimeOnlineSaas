@@ -22,6 +22,15 @@ use Illuminate\Database\Eloquent\Model;
  * @property string|null $state
  * @property string|null $city
  * @property string|null $pincode
+ * @property string|null $current_flat_building
+ * @property string|null $current_house_no
+ * @property string|null $current_flore
+ * @property string|null $current_street
+ * @property string|null $current_landmark
+ * @property string|null $current_country
+ * @property string|null $current_state
+ * @property string|null $current_city
+ * @property string|null $current_pincode
  * @property bool $is_current_address
  * @property int $user_id
  * @property Carbon|null $created_at
@@ -47,6 +56,15 @@ class Address extends Model
         'state',
         'city',
         'pincode',
+        'current_flat_building',
+        'current_house_no',
+        'current_flore',
+        'current_street',
+        'current_landmark',
+        'current_country',
+        'current_state',
+        'current_city',
+        'current_pincode',
         'is_current_address',
         'user_id',
     ];
