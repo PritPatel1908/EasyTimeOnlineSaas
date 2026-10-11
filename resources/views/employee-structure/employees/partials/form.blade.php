@@ -626,7 +626,7 @@
                     </div>
                     <div class="card-body">
                         <div class="row">
-                            <div class="col-md-6 mb-3"><label class="form-label" for="flat_building">Flat /
+                            <div class="col-md-4 mb-3"><label class="form-label" for="flat_building">Flat /
                                     Building</label><input id="flat_building" name="flat_building"
                                     class="form-control" maxlength="255"
                                     value="{{ $addressValue('flat_building') }}">
@@ -634,59 +634,59 @@
                                     <small class="text-danger">{{ $message }}</small>
                                 @enderror
                             </div>
-                            <div class="col-md-6 mb-3"><label class="form-label" for="house_no">House
+                            <div class="col-md-4 mb-3"><label class="form-label" for="house_no">House
                                     Number</label><input id="house_no" name="house_no" class="form-control"
                                     maxlength="255" value="{{ $addressValue('house_no') }}">
                                 @error('house_no')
                                     <small class="text-danger">{{ $message }}</small>
                                 @enderror
                             </div>
-                            <div class="col-md-6 mb-3"><label class="form-label" for="flore">Floor</label><input
+                            <div class="col-md-4 mb-3"><label class="form-label" for="flore">Floor</label><input
                                     id="flore" name="flore" class="form-control" maxlength="255"
                                     value="{{ $addressValue('flore') }}">
                                 @error('flore')
                                     <small class="text-danger">{{ $message }}</small>
                                 @enderror
                             </div>
-                            <div class="col-md-6 mb-3"><label class="form-label" for="street">Street</label><input
+                            <div class="col-md-4 mb-3"><label class="form-label" for="street">Street</label><input
                                     id="street" name="street" class="form-control" maxlength="255"
                                     value="{{ $addressValue('street') }}">
                                 @error('street')
                                     <small class="text-danger">{{ $message }}</small>
                                 @enderror
                             </div>
-                            <div class="col-md-6 mb-3"><label class="form-label"
+                            <div class="col-md-4 mb-3"><label class="form-label"
                                     for="landmark">Landmark</label><input id="landmark" name="landmark"
                                     class="form-control" maxlength="255" value="{{ $addressValue('landmark') }}">
                                 @error('landmark')
                                     <small class="text-danger">{{ $message }}</small>
                                 @enderror
                             </div>
-                            <div class="col-md-6 mb-3"><label class="form-label" for="country">Country</label><input
-                                    id="country" name="country" class="form-control" maxlength="255"
-                                    value="{{ $addressValue('country') }}">
-                                @error('country')
-                                    <small class="text-danger">{{ $message }}</small>
-                                @enderror
-                            </div>
-                            <div class="col-md-6 mb-3"><label class="form-label" for="state">State</label><input
-                                    id="state" name="state" class="form-control" maxlength="255"
-                                    value="{{ $addressValue('state') }}">
-                                @error('state')
-                                    <small class="text-danger">{{ $message }}</small>
-                                @enderror
-                            </div>
-                            <div class="col-md-6 mb-3"><label class="form-label" for="city">City</label><input
+                            <div class="col-md-4 mb-3"><label class="form-label" for="city">City</label><input
                                     id="city" name="city" class="form-control" maxlength="255"
                                     value="{{ $addressValue('city') }}">
                                 @error('city')
                                     <small class="text-danger">{{ $message }}</small>
                                 @enderror
                             </div>
-                            <div class="col-md-6 mb-3"><label class="form-label" for="pincode">Pincode</label><input
+                            <div class="col-md-4 mb-3"><label class="form-label" for="pincode">Pincode</label><input
                                     id="pincode" name="pincode" class="form-control" maxlength="255"
                                     value="{{ $addressValue('pincode') }}">
                                 @error('pincode')
+                                    <small class="text-danger">{{ $message }}</small>
+                                @enderror
+                            </div>
+                            <div class="col-md-4 mb-3"><label class="form-label" for="state">State</label><input
+                                    id="state" name="state" class="form-control" maxlength="255"
+                                    value="{{ $addressValue('state') }}">
+                                @error('state')
+                                    <small class="text-danger">{{ $message }}</small>
+                                @enderror
+                            </div>
+                            <div class="col-md-4 mb-3"><label class="form-label" for="country">Country</label><input
+                                    id="country" name="country" class="form-control" maxlength="255"
+                                    value="{{ $addressValue('country') }}">
+                                @error('country')
                                     <small class="text-danger">{{ $message }}</small>
                                 @enderror
                             </div>
