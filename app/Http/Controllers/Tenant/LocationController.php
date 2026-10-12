@@ -13,6 +13,7 @@ use App\Models\Tenant\Company;
 use App\Models\Tenant\Department;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\User;
+use App\Support\CsvImportTemplate;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -87,7 +88,14 @@ class LocationController extends Controller
         return response()->streamDownload(function (): void {
             $handle = fopen('php://output', 'w');
             if ($handle !== false) {
-                fputcsv($handle, Location::IMPORT_EXPORT_COLUMNS);
+                CsvImportTemplate::write($handle, Location::IMPORT_EXPORT_COLUMNS, [
+                    'name' => 'Required; text, maximum 255 characters.',
+                    'code' => 'Required; text, maximum 50 characters; use a unique location code.',
+                    'email' => 'Optional; enter a valid email address.',
+                    'latitude' => 'Optional; decimal from -90 to 90.',
+                    'longitude' => 'Optional; decimal from -180 to 180.',
+                    'status' => 'Optional; Active or Inactive; blank defaults to Active.',
+                ]);
                 fclose($handle);
             }
         }, 'locations_import_sample.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
@@ -115,6 +123,7 @@ class LocationController extends Controller
 
         $validated = $request->validate(['file' => ['required', 'file', 'mimes:csv,txt', 'max:2048'], 'update_duplicate_records' => ['nullable', 'boolean']]);
         $file = $request->file('file');
+        $this->validateImportCsv($file, Location::IMPORT_EXPORT_COLUMNS, 'locations_import_sample.csv');
         $storedPath = $file->storeAs('location-imports', 'location_import_' . now()->format('Ymd_His') . '_' . uniqid() . '.' . $file->getClientOriginalExtension());
         ProcessLocationImport::dispatch(Auth::guard('tenant')->id(), $storedPath, (bool) ($validated['update_duplicate_records'] ?? false))->onConnection('database_tenant')->onQueue('import');
 

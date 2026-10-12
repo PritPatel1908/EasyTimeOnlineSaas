@@ -18,6 +18,7 @@ use App\Models\Tenant\SubDepartment;
 use App\Models\Tenant\Unit;
 use App\Models\Tenant\User;
 use App\Notifications\Tenant\EmployeeImportExportCompleted;
+use App\Support\CsvImportTemplate;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -48,7 +49,9 @@ class ProcessEmployeeImport implements ShouldQueue
         $updated = 0;
         $errors = [];
         while (($values = fgetcsv($handle)) !== false) {
-            $row = array_combine($headers, array_pad(array_slice($values, 0, count($headers)), count($headers), ''));
+            $row = CsvImportTemplate::isHintRow($values)
+                ? []
+                : array_combine($headers, array_pad(array_slice($values, 0, count($headers)), count($headers), ''));
             $code = trim((string) ($row['code'] ?? ''));
             if ($code === '') continue;
             $employee = User::query()->where('code', $code)->first();

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Http\Controllers\Tenant\CompanyController;
 use App\Jobs\Tenant\GenerateCompanyExport;
 use App\Jobs\Tenant\ProcessCompanyImport;
+use App\Support\CsvImportTemplate;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
@@ -59,7 +60,11 @@ class TenantCompanyImportExportTest extends TestCase
         ($response->getCallback())();
         $csv = ob_get_clean();
 
-        $this->assertSame("name,code,email,status,location\n", $csv);
+        $rows = array_map('str_getcsv', explode("\n", trim($csv)));
+
+        $this->assertSame(['name', 'code', 'email', 'status', 'location'], $rows[0]);
+        $this->assertTrue(CsvImportTemplate::isHintRow($rows[1]));
+        $this->assertCount(5, $rows[1]);
     }
 
     public function test_import_dispatches_queue_job_with_duplicate_toggle(): void
@@ -73,8 +78,8 @@ class TenantCompanyImportExportTest extends TestCase
         Auth::shouldReceive('guard')->with('tenant')->andReturn($guard);
 
         $file = UploadedFile::fake()->createWithContent(
-            'companies.csv',
-            "name,code,email,status,location_id,location_name,location_code\nUpdated Company,CMP-001,updated@example.com,Active,1,HQ,HQ\n"
+            'companies_import_sample.csv',
+            "name,code,email,status,location\nUpdated Company,CMP-001,updated@example.com,Active,HQ\n"
         );
 
         $request = Request::create('/company-structure/companies/import', 'POST', [

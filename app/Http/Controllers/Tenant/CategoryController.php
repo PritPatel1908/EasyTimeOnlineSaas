@@ -14,6 +14,7 @@ use App\Models\Tenant\Company;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\LeaveType;
 use App\Models\Tenant\User;
+use App\Support\CsvImportTemplate;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -151,7 +152,17 @@ class CategoryController extends Controller
         return response()->streamDownload(function (): void {
             $handle = fopen('php://output', 'w');
             if ($handle !== false) {
-                fputcsv($handle, Category::IMPORT_EXPORT_COLUMNS);
+                CsvImportTemplate::write($handle, Category::IMPORT_EXPORT_COLUMNS, array_merge(
+                    array_fill_keys(Category::IMPORT_EXPORT_COLUMNS, 'Optional; enter a value in the format accepted by this field.'),
+                    [
+                        'name' => 'Required; text, maximum 255 characters.',
+                        'code' => 'Required; text, maximum 50 characters; use a unique category code.',
+                        'email' => 'Optional; enter a valid email address.',
+                        'status' => 'Optional; Active or Inactive; blank defaults to Active.',
+                        'company' => 'Optional; comma-separated company ID, name, or code.',
+                        'location' => 'Optional; comma-separated location ID, name, or code.',
+                    ],
+                ));
                 fclose($handle);
             }
         }, 'categories_import_sample.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
@@ -163,6 +174,7 @@ class CategoryController extends Controller
         $validated = $request->validate(['file' => ['required', 'file', 'mimes:csv,txt', 'max:2048'], 'update_duplicate_records' => ['nullable', 'boolean']]);
         /** @var UploadedFile $file */
         $file = $request->file('file');
+        $this->validateImportCsv($file, Category::IMPORT_EXPORT_COLUMNS, 'categories_import_sample.csv');
         $storedPath = $file->storeAs('category-imports', 'category_import_' . now()->format('Ymd_His') . '_' . uniqid() . '.' . $file->getClientOriginalExtension());
         ProcessCategoryImport::dispatch(Auth::guard('tenant')->id(), $storedPath, (bool) ($validated['update_duplicate_records'] ?? false))->onConnection('database_tenant')->onQueue('import');
         return redirect(url(self::INDEX_URL))->with('success', 'Category import has started. You will receive a notification when it finishes.');

@@ -7,6 +7,7 @@ namespace App\Jobs\Tenant;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\User;
 use App\Notifications\Tenant\LocationImportExportCompleted;
+use App\Support\CsvImportTemplate;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -47,9 +48,8 @@ class ProcessLocationImport implements ShouldQueue
         $updated = 0;
         $errors = [];
 
-        foreach ($rows as $rowIndex => $row) {
+        foreach ($rows as $rowNumber => $row) {
             if ($this->isBlankRow($row)) continue;
-            $rowNumber = $rowIndex + 2;
             $validationErrors = $this->validateImportRow($row);
             if ($validationErrors !== []) {
                 $errors[] = 'Row ' . $rowNumber . ': ' . implode(', ', $validationErrors);
@@ -90,10 +90,18 @@ class ProcessLocationImport implements ShouldQueue
         }
         $headers = array_map(fn($header) => $this->normalizeHeader((string) $header), $headers);
         $rows = [];
+        $lineNumber = 1;
+
         while (($row = fgetcsv($handle)) !== false) {
+            $lineNumber++;
+
+            if (CsvImportTemplate::isHintRow($row)) {
+                continue;
+            }
+
             $normalized = [];
             foreach ($headers as $index => $header) $normalized[$header] = trim((string) ($row[$index] ?? ''));
-            $rows[] = $normalized;
+            $rows[$lineNumber] = $normalized;
         }
         fclose($handle);
         return $rows;

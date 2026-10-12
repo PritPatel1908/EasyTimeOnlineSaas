@@ -14,6 +14,7 @@ use App\Models\Tenant\Company;
 use App\Models\Tenant\Designation;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\User;
+use App\Support\CsvImportTemplate;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -117,7 +118,14 @@ class DesignationController extends Controller
         return response()->streamDownload(function (): void {
             $handle = fopen('php://output', 'w');
             if ($handle !== false) {
-                fputcsv($handle, Designation::IMPORT_EXPORT_COLUMNS);
+                CsvImportTemplate::write($handle, Designation::IMPORT_EXPORT_COLUMNS, [
+                    'name' => 'Required; text, maximum 255 characters.',
+                    'code' => 'Required; text, maximum 50 characters; use a unique designation code.',
+                    'status' => 'Optional; Active or Inactive; blank defaults to Active.',
+                    'company' => 'Optional; comma-separated company ID, name, or code.',
+                    'location' => 'Optional; comma-separated location ID, name, or code.',
+                    'category' => 'Optional; comma-separated category ID, name, or code.',
+                ]);
                 fclose($handle);
             }
         }, 'designations_import_sample.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
@@ -132,6 +140,7 @@ class DesignationController extends Controller
         ]);
         /** @var UploadedFile $file */
         $file = $request->file('file');
+        $this->validateImportCsv($file, Designation::IMPORT_EXPORT_COLUMNS, 'designations_import_sample.csv');
         $storedPath = $file->storeAs('designation-imports', 'designation_import_' . now()->format('Ymd_His') . '_' . uniqid() . '.' . $file->getClientOriginalExtension());
         ProcessDesignationImport::dispatch(Auth::guard('tenant')->id(), $storedPath, (bool) ($validated['update_duplicate_records'] ?? false))
             ->onConnection('database_tenant')->onQueue('import');

@@ -13,6 +13,7 @@ use App\Models\Tenant\Department;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\SubDepartment;
 use App\Models\Tenant\User;
+use App\Support\CsvImportTemplate;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -109,7 +110,14 @@ class SubDepartmentController extends Controller
         return response()->streamDownload(function (): void {
             $handle = fopen('php://output', 'w');
             if ($handle !== false) {
-                fputcsv($handle, SubDepartment::IMPORT_EXPORT_COLUMNS);
+                CsvImportTemplate::write($handle, SubDepartment::IMPORT_EXPORT_COLUMNS, [
+                    'name' => 'Required; text, maximum 255 characters.',
+                    'code' => 'Required; text, maximum 50 characters; use a unique sub-department code.',
+                    'email' => 'Optional; enter a valid email address.',
+                    'status' => 'Optional; Active or Inactive; blank defaults to Active.',
+                    'department' => 'Optional; comma-separated department ID, name, or code.',
+                    'location' => 'Optional; comma-separated location ID, name, or code.',
+                ]);
                 fclose($handle);
             }
         }, 'sub_departments_import_sample.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
@@ -124,6 +132,7 @@ class SubDepartmentController extends Controller
         ]);
         /** @var UploadedFile $file */
         $file = $request->file('file');
+        $this->validateImportCsv($file, SubDepartment::IMPORT_EXPORT_COLUMNS, 'sub_departments_import_sample.csv');
         $storedPath = $file->storeAs('sub-department-imports', 'sub_department_import_' . now()->format('Ymd_His') . '_' . uniqid() . '.' . $file->getClientOriginalExtension());
         ProcessSubDepartmentImport::dispatch(Auth::guard('tenant')->id(), $storedPath, (bool) ($validated['update_duplicate_records'] ?? false))->onConnection('database_tenant')->onQueue('import');
         return redirect(url(self::INDEX_URL))->with('success', 'Sub Department import has started. You will receive a notification when it finishes.');

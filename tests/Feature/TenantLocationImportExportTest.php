@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Http\Controllers\Tenant\LocationController;
 use App\Jobs\Tenant\GenerateLocationExport;
 use App\Jobs\Tenant\ProcessLocationImport;
+use App\Support\CsvImportTemplate;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
@@ -25,7 +26,11 @@ class TenantLocationImportExportTest extends TestCase
         ($response->getCallback())();
         $csv = ob_get_clean();
 
-        $this->assertSame("name,code,email,latitude,longitude,status\n", $csv);
+        $rows = array_map('str_getcsv', explode("\n", trim($csv)));
+
+        $this->assertSame(['name', 'code', 'email', 'latitude', 'longitude', 'status'], $rows[0]);
+        $this->assertTrue(CsvImportTemplate::isHintRow($rows[1]));
+        $this->assertCount(6, $rows[1]);
     }
 
     public function test_export_dispatches_location_queue_job(): void
@@ -55,7 +60,7 @@ class TenantLocationImportExportTest extends TestCase
         $guard->shouldReceive('id')->andReturn(17);
         Auth::shouldReceive('guard')->with('tenant')->andReturn($guard);
         $file = UploadedFile::fake()->createWithContent(
-            'locations.csv',
+            'locations_import_sample.csv',
             "name,code,email,latitude,longitude,status\nHQ,LOC-001,hq@example.com,23.02,72.57,Active\n",
         );
         $request = Request::create('/company-structure/locations/import', 'POST', [], [], ['file' => $file]);

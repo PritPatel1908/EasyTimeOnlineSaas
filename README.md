@@ -70,3 +70,10 @@ QUEUE_NAMES=notifications,import,export,activity-log,processing,low bash queue-w
 # Alternative explicit command
 
 php artisan queue:work database_tenant --queue=notifications,import,export,activity-log,processing,low --sleep=3 --tries=3
+
+The default SQLite setup enables WAL and waits up to 5 seconds for a busy database
+writer (`DB_SQLITE_JOURNAL_MODE` and `DB_SQLITE_BUSY_TIMEOUT`). Queue tables use
+`DB_QUEUE_CONNECTION`, which defaults to `DB_CONNECTION`; point it at another
+configured database connection to keep queue writes off the application SQLite file.
+For production or sustained concurrent queue workloads, use MySQL/PostgreSQL for
+the application and queue tables instead of relying on SQLite locking behavior.

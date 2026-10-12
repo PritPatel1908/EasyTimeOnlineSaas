@@ -17,8 +17,8 @@ return [
     |
     | ARCHITECTURE — Central vs Tenant Queue Isolation:
     |
-    | Both central and tenant jobs use the SAME 'database' queue connection
-    | (central SQLite jobs table). Isolation is achieved through:
+    | Both central and tenant jobs use the same queue database by default
+    | (DB_QUEUE_CONNECTION, falling back to DB_CONNECTION). Isolation is achieved through:
     |
     |   1. QUEUE NAMES  — central jobs → 'default' queue name
     |                      tenant jobs  → 'tenant' queue name (+ processing, low)
@@ -33,9 +33,8 @@ return [
     | context WILL have tenant_id injected (because the queue name, not the
     | connection, determines which payload goes where).
     |
-    | Wait — the 'central' flag applies to the CONNECTION, not the queue name.
-    | So we need a separate connection WITHOUT 'central' => true that still
-    | writes to the same SQLite jobs table, used only for tenant job dispatch.
+    | The 'central' flag applies to the CONNECTION, not the queue name, so
+    | tenant dispatch uses a separate connection without the central flag.
     |
     |   CENTRAL jobs  → dispatch()->onConnection('database')         (central flag suppresses tenant_id)
     |   TENANT  jobs  → dispatch()->onConnection('database_tenant')  (no flag → tenant_id injected)
@@ -44,7 +43,7 @@ return [
     |   Central:  php artisan queue:work database  --queue=default
     |   Tenant:   php artisan queue:work database_tenant --queue=tenant,processing,low
     |
-    | Both workers read from the same physical SQLite jobs table.
+    | Both workers read from the same physical jobs table.
     | The worker handles context switching automatically via QueueTenancyBootstrapper.
     */
 
@@ -68,7 +67,7 @@ return [
         */
         'database' => [
             'driver'       => 'database',
-            'connection'   => 'sqlite',
+            'connection'   => env('DB_QUEUE_CONNECTION', env('DB_CONNECTION', 'sqlite')),
             'table'        => env('DB_QUEUE_TABLE', 'jobs'),
             'queue'        => 'default',
             'retry_after'  => (int) env('DB_QUEUE_RETRY_AFTER', 90),
@@ -81,7 +80,7 @@ return [
         | Tenant Queue Connection
         |----------------------------------------------------------------------
         | For jobs dispatched from a tenant HTTP request or tenant Artisan
-        | command. Uses the same central SQLite jobs table but has NO 'central'
+        | command. Uses the same queue database but has NO 'central'
         | flag, so QueueTenancyBootstrapper injects tenant_id into the payload.
         |
         | The worker reads tenant_id from each job's payload and automatically
@@ -93,7 +92,7 @@ return [
         */
         'database_tenant' => [
             'driver'       => 'database',
-            'connection'   => 'sqlite',
+            'connection'   => env('DB_QUEUE_CONNECTION', env('DB_CONNECTION', 'sqlite')),
             'table'        => env('DB_QUEUE_TABLE', 'jobs'),
             'queue'        => 'notifications',
             'retry_after'  => (int) env('DB_QUEUE_RETRY_AFTER', 90),
@@ -156,7 +155,7 @@ return [
     */
 
     'batching' => [
-        'database' => env('DB_CONNECTION', 'sqlite'),
+        'database' => env('DB_QUEUE_CONNECTION', env('DB_CONNECTION', 'sqlite')),
         'table'    => 'job_batches',
     ],
 
@@ -168,7 +167,7 @@ return [
 
     'failed' => [
         'driver'   => env('QUEUE_FAILED_DRIVER', 'database-uuids'),
-        'database' => env('DB_CONNECTION', 'sqlite'),
+        'database' => env('DB_QUEUE_CONNECTION', env('DB_CONNECTION', 'sqlite')),
         'table'    => 'failed_jobs',
     ],
 

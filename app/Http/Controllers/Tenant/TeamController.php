@@ -13,6 +13,7 @@ use App\Models\Tenant\Company;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\Team;
 use App\Models\Tenant\User;
+use App\Support\CsvImportTemplate;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -132,7 +133,14 @@ class TeamController extends Controller
         return response()->streamDownload(function (): void {
             $handle = fopen('php://output', 'w');
             if ($handle !== false) {
-                fputcsv($handle, Team::IMPORT_EXPORT_COLUMNS);
+                CsvImportTemplate::write($handle, Team::IMPORT_EXPORT_COLUMNS, [
+                    'name' => 'Required; text, maximum 255 characters.',
+                    'code' => 'Required; text, maximum 50 characters; use a unique team code.',
+                    'email' => 'Optional; enter a valid email address.',
+                    'status' => 'Optional; Active or Inactive; blank defaults to Active.',
+                    'company' => 'Optional; comma-separated company ID, name, or code.',
+                    'location' => 'Optional; comma-separated location ID, name, or code.',
+                ]);
                 fclose($handle);
             }
         }, 'teams_import_sample.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
@@ -148,6 +156,7 @@ class TeamController extends Controller
 
         /** @var UploadedFile $file */
         $file = $request->file('file');
+        $this->validateImportCsv($file, Team::IMPORT_EXPORT_COLUMNS, 'teams_import_sample.csv');
         $storedPath = $file->storeAs('team-imports', 'team_import_' . now()->format('Ymd_His') . '_' . uniqid() . '.' . $file->getClientOriginalExtension());
 
         ProcessTeamImport::dispatch(Auth::guard('tenant')->id(), $storedPath, (bool) ($validated['update_duplicate_records'] ?? false))

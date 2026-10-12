@@ -12,6 +12,7 @@ use App\Jobs\Tenant\ProcessCompanyImport;
 use App\Models\Tenant\Company;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\User;
+use App\Support\CsvImportTemplate;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -93,7 +94,13 @@ class CompanyController extends Controller
                 return;
             }
 
-            fputcsv($handle, Company::IMPORT_EXPORT_COLUMNS);
+            CsvImportTemplate::write($handle, Company::IMPORT_EXPORT_COLUMNS, [
+                'name' => 'Required; text, maximum 255 characters.',
+                'code' => 'Required; text, maximum 50 characters; use a unique company code.',
+                'email' => 'Optional; enter a valid email address.',
+                'status' => 'Optional; Active, Inactive, 1, or 0; blank defaults to Active.',
+                'location' => 'Optional; comma-separated location ID, name, or code.',
+            ]);
             fclose($handle);
         }, 'companies_import_sample.csv', [
             'Content-Type' => 'text/csv; charset=UTF-8',
@@ -167,6 +174,7 @@ class CompanyController extends Controller
         ]);
 
         $file = $request->file('file');
+        $this->validateImportCsv($file, Company::IMPORT_EXPORT_COLUMNS, 'companies_import_sample.csv');
         $storedPath = $file->storeAs(
             'company-imports',
             'company_import_' . now()->format('Ymd_His') . '_' . uniqid() . '.' . $file->getClientOriginalExtension()

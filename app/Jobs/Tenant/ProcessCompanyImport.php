@@ -8,6 +8,7 @@ use App\Models\Tenant\Company;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\User;
 use App\Notifications\Tenant\CompanyImportExportCompleted;
+use App\Support\CsvImportTemplate;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -64,12 +65,11 @@ class ProcessCompanyImport implements ShouldQueue
         $updated = 0;
         $errors = [];
 
-        foreach ($rows as $rowIndex => $row) {
+        foreach ($rows as $rowNumber => $row) {
             if ($this->isBlankRow($row)) {
                 continue;
             }
 
-            $rowNumber = $rowIndex + 2;
             $validationErrors = $this->validateImportRow($row);
 
             if ($validationErrors !== []) {
@@ -130,15 +130,22 @@ class ProcessCompanyImport implements ShouldQueue
         }
 
         $rows = [];
+        $lineNumber = 1;
 
         while (($row = fgetcsv($handle)) !== false) {
+            $lineNumber++;
+
+            if (CsvImportTemplate::isHintRow($row)) {
+                continue;
+            }
+
             $normalizedRow = [];
 
             foreach ($mappedHeaders as $index => $header) {
                 $normalizedRow[$header] = trim((string) ($row[$index] ?? ''));
             }
 
-            $rows[] = $normalizedRow;
+            $rows[$lineNumber] = $normalizedRow;
         }
 
         fclose($handle);

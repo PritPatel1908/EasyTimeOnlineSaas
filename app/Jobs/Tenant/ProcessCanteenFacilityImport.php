@@ -8,6 +8,7 @@ use App\Models\Tenant\CanteenFacility;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\User;
 use App\Notifications\Tenant\CanteenFacilityImportExportCompleted;
+use App\Support\CsvImportTemplate;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -38,6 +39,7 @@ class ProcessCanteenFacilityImport implements ShouldQueue
         $rows = [];
 
         while (($values = fgetcsv($handle)) !== false) {
+            if (CsvImportTemplate::isHintRow($values)) continue;
             $row = array_combine($headers, array_pad(array_slice($values, 0, count($headers)), count($headers), ''));
             if (! is_array($row) || trim((string) ($row['code'] ?? '')) === '') {
                 continue;

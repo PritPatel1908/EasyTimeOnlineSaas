@@ -12,6 +12,7 @@ use App\Jobs\Tenant\ProcessCanteenFacilityImport;
 use App\Models\Tenant\CanteenFacility;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\User;
+use App\Support\CsvImportTemplate;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -139,7 +140,17 @@ class CanteenFacilityController extends Controller
         return response()->streamDownload(function (): void {
             $handle = fopen('php://output', 'w');
             if ($handle !== false) {
-                fputcsv($handle, CanteenFacility::IMPORT_EXPORT_COLUMNS);
+                CsvImportTemplate::write($handle, CanteenFacility::IMPORT_EXPORT_COLUMNS, [
+                    'name' => 'Required on the first row for each code; facility name, maximum 255 characters.',
+                    'code' => 'Required; repeat the same facility code for each contribution-rule row.',
+                    'total_cfa' => 'Required on the first row for each code; number greater than or equal to 0.',
+                    'status' => 'Optional on the first row for each code; Active or Inactive; blank defaults to Active.',
+                    'location' => 'Required on the first row for each code; existing location ID, name, or code.',
+                    'total_absent_days' => 'Required for each rule; whole number greater than or equal to 0.',
+                    'company_contribution_in_percentage_wise' => 'Optional for each rule; Yes/No, True/False, or 1/0; blank defaults to No.',
+                    'company_allowance_contribution_in_fixed' => 'Required when percentage-wise is No; number greater than or equal to 0.',
+                    'company_allowance_contribution_in_percentage' => 'Required when percentage-wise is Yes; number from 0 to 100.',
+                ]);
                 fclose($handle);
             }
         }, 'canteen_facilities_import_sample.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
@@ -151,6 +162,7 @@ class CanteenFacilityController extends Controller
         $validated = $request->validate(['file' => ['required', 'file', 'mimes:csv,txt', 'max:2048'], 'update_duplicate_records' => ['nullable', 'boolean']]);
         /** @var UploadedFile $file */
         $file = $request->file('file');
+        $this->validateImportCsv($file, CanteenFacility::IMPORT_EXPORT_COLUMNS, 'canteen_facilities_import_sample.csv');
         $storedPath = $file->storeAs('canteen-facility-imports', 'canteen_facility_import_' . now()->format('Ymd_His') . '_' . uniqid() . '.' . $file->getClientOriginalExtension());
         ProcessCanteenFacilityImport::dispatch(Auth::guard('tenant')->id(), $storedPath, (bool) ($validated['update_duplicate_records'] ?? false))->onConnection('database_tenant')->onQueue('import');
         return redirect(url(self::INDEX_URL))->with('success', 'Canteen Facility import has started. You will receive a notification when it finishes.');

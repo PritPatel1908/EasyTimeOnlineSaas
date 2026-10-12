@@ -13,6 +13,7 @@ use App\Models\Tenant\Company;
 use App\Models\Tenant\Department;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\User;
+use App\Support\CsvImportTemplate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -113,7 +114,14 @@ class DepartmentController extends Controller
         return response()->streamDownload(function (): void {
             $handle = fopen('php://output', 'w');
             if ($handle !== false) {
-                fputcsv($handle, Department::IMPORT_EXPORT_COLUMNS);
+                CsvImportTemplate::write($handle, Department::IMPORT_EXPORT_COLUMNS, [
+                    'name' => 'Required; text, maximum 255 characters.',
+                    'code' => 'Required; text, maximum 50 characters; use a unique department code.',
+                    'email' => 'Optional; enter a valid email address.',
+                    'status' => 'Optional; Active or Inactive; blank defaults to Active.',
+                    'company' => 'Optional; comma-separated company ID, name, or code.',
+                    'location' => 'Optional; comma-separated location ID, name, or code.',
+                ]);
                 fclose($handle);
             }
         }, 'departments_import_sample.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
@@ -128,6 +136,7 @@ class DepartmentController extends Controller
         ]);
         /** @var UploadedFile $file */
         $file = $request->file('file');
+        $this->validateImportCsv($file, Department::IMPORT_EXPORT_COLUMNS, 'departments_import_sample.csv');
         $storedPath = $file->storeAs('department-imports', 'department_import_' . now()->format('Ymd_His') . '_' . uniqid() . '.' . $file->getClientOriginalExtension());
         ProcessDepartmentImport::dispatch(Auth::guard('tenant')->id(), $storedPath, (bool) ($validated['update_duplicate_records'] ?? false))->onConnection('database_tenant')->onQueue('import');
         return redirect(url('company-structure/departments'))->with('success', 'Department import has started. You will receive a notification when it finishes.');

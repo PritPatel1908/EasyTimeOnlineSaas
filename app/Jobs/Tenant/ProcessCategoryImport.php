@@ -10,6 +10,7 @@ use App\Models\Tenant\LeaveType;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\User;
 use App\Notifications\Tenant\CategoryImportExportCompleted;
+use App\Support\CsvImportTemplate;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -42,6 +43,10 @@ class ProcessCategoryImport implements ShouldQueue
         $updated = 0;
         $errors = [];
         while (($values = fgetcsv($handle)) !== false) {
+            if (CsvImportTemplate::isHintRow($values)) {
+                continue;
+            }
+
             $result = $this->processRow($headers, $values);
             $created += $result['created'];
             $updated += $result['updated'];

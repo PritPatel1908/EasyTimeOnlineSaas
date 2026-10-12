@@ -12,6 +12,7 @@ use App\Jobs\Tenant\ProcessUnitImport;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\Unit;
 use App\Models\Tenant\User;
+use App\Support\CsvImportTemplate;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -111,7 +112,12 @@ class UnitController extends Controller
         return response()->streamDownload(function (): void {
             $handle = fopen('php://output', 'w');
             if ($handle !== false) {
-                fputcsv($handle, Unit::IMPORT_EXPORT_COLUMNS);
+                CsvImportTemplate::write($handle, Unit::IMPORT_EXPORT_COLUMNS, [
+                    'name' => 'Required; text, maximum 255 characters.',
+                    'code' => 'Required; text, maximum 50 characters; use a unique unit code.',
+                    'status' => 'Optional; Active or Inactive; blank defaults to Active.',
+                    'location' => 'Optional; comma-separated location ID, name, or code.',
+                ]);
                 fclose($handle);
             }
         }, 'units_import_sample.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
@@ -126,6 +132,7 @@ class UnitController extends Controller
         ]);
         /** @var UploadedFile $file */
         $file = $request->file('file');
+        $this->validateImportCsv($file, Unit::IMPORT_EXPORT_COLUMNS, 'units_import_sample.csv');
         $storedPath = $file->storeAs('unit-imports', 'unit_import_' . now()->format('Ymd_His') . '_' . uniqid() . '.' . $file->getClientOriginalExtension());
         ProcessUnitImport::dispatch(Auth::guard('tenant')->id(), $storedPath, (bool) ($validated['update_duplicate_records'] ?? false))->onConnection('database_tenant')->onQueue('import');
         return redirect(url('company-structure/units'))->with('success', 'Unit import has started. You will receive a notification when it finishes.');

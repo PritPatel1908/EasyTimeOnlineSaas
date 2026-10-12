@@ -34,6 +34,7 @@ use App\Models\Tenant\HalfDayRule;
 use App\Models\Tenant\LateComingRule;
 use App\Models\Tenant\OvertimeRule;
 use App\Models\Tenant\User;
+use App\Support\CsvImportTemplate;
 use App\Models\Tenant\PasswordPolicy;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
@@ -168,8 +169,21 @@ class EmployeeController extends Controller
     {
         return response()->streamDownload(function (): void {
             $handle = fopen('php://output', 'w');
-            fputcsv($handle, User::IMPORT_EXPORT_COLUMNS);
-            fclose($handle);
+            if ($handle !== false) {
+                CsvImportTemplate::write($handle, User::IMPORT_EXPORT_COLUMNS, array_merge(
+                    array_fill_keys(User::IMPORT_EXPORT_COLUMNS, 'Optional; use a valid ID, name, code, date, or value as appropriate.'),
+                    [
+                        'code' => 'Required; text, maximum 50 characters; use a unique employee code.',
+                        'name' => 'Required; employee full name, maximum 255 characters.',
+                        'email' => 'Optional; enter a valid email address.',
+                        'dob' => 'Optional; use YYYY-MM-DD.',
+                        'join_date' => 'Optional; use YYYY-MM-DD.',
+                        'status' => 'Optional; Active or Inactive; blank defaults to Active.',
+                        'user_type' => 'Optional; defaults to employee.',
+                    ],
+                ));
+                fclose($handle);
+            }
         }, 'employees_import_sample.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
@@ -178,6 +192,7 @@ class EmployeeController extends Controller
         $validated = $request->validate(['file' => ['required', 'file', 'mimes:csv,txt', 'max:2048'], 'update_duplicate_records' => ['nullable', 'boolean']]);
         /** @var UploadedFile $file */
         $file = $request->file('file');
+        $this->validateImportCsv($file, User::IMPORT_EXPORT_COLUMNS, 'employees_import_sample.csv');
         $storedPath = $file->storeAs('employee-imports', 'employee_import_' . now()->format('Ymd_His') . '_' . uniqid() . '.' . $file->getClientOriginalExtension());
         ProcessEmployeeImport::dispatch(Auth::guard('tenant')->id(), $storedPath, (bool) ($validated['update_duplicate_records'] ?? false));
         return redirect(url(self::INDEX_URL))->with('success', 'Employee import has started. You will receive a notification when it finishes.');
