@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Tenant;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tenant\StoreEmployeeRequest;
 use App\Http\Requests\Tenant\UpdateEmployeeRequest;
+use App\Jobs\Tenant\AfterImportUser;
 use App\Jobs\Tenant\GenerateEmployeeExport;
 use App\Jobs\Tenant\ProcessEmployeeImport;
 use App\Models\Tenant\Category;
@@ -89,7 +90,7 @@ class EmployeeController extends Controller
     {
         $validated = $request->validated();
         $shiftIds = $this->extractShiftIds($validated);
-        DB::transaction(function () use ($request, $validated, $shiftIds): void {
+        $employee = DB::transaction(function () use ($request, $validated, $shiftIds): User {
             if ($request->hasFile('profile_pic')) {
                 $validated['profile_pic'] = $request->file('profile_pic')->store('employee-profiles', 'public');
             }
@@ -107,7 +108,15 @@ class EmployeeController extends Controller
             $this->saveEducationAndExperience($employee, $validated);
             $this->saveFamilyDetails($employee, $validated);
             $this->saveWeekOffs($employee, $validated);
+
+            return $employee;
         });
+
+        AfterImportUser::dispatch([$employee->code])
+            ->onConnection('database_tenant')
+            ->onQueue('processing')
+            ->afterCommit();
+
         return redirect(url(self::INDEX_URL))->with('success', 'Employee created successfully.');
     }
 

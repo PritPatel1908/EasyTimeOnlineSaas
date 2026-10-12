@@ -47,6 +47,11 @@ class AfterImportUser implements ShouldBeUnique, ShouldQueue
         $this->users = $users;
     }
 
+    public function uniqueId(): string
+    {
+        return (string) tenant('id') . ':' . implode(',', Arr::wrap($this->users));
+    }
+
     /**
      * Execute the job.
      */
@@ -65,10 +70,15 @@ class AfterImportUser implements ShouldBeUnique, ShouldQueue
             $alreadyShiftMuster = ShiftMuster::where('user_id', $user->id)->where('date', '>=', Carbon::parse($joinDate))->first();
             $alreadyWeekOffMuster = WeekOffMuster::where('user_id', $user->id)->where('date', '>=', Carbon::parse($joinDate))->first();
 
-            if ($alreadyShiftMuster || $alreadyWeekOffMuster) {
+            if ($alreadyShiftMuster && $alreadyWeekOffMuster) {
                 continue;
-            } else {
+            }
+
+            if (! $alreadyShiftMuster) {
                 $this->createShiftMuster($user, $authUser);
+            }
+
+            if (! $alreadyWeekOffMuster) {
                 $this->createWeekOffMuster($user);
             }
 
@@ -190,11 +200,11 @@ class AfterImportUser implements ShouldBeUnique, ShouldQueue
         $shift_change->Users()->sync($user->id);
         $shift_change->areas()->sync($user?->areas()->pluck('area_id')->toArray());
 
-        $shift_change->departments()->sync(is_array($user->department_id) ? $user->department_id : [$user->department_id]);
-        $shift_change->sub_departments()->sync(is_array($user->sub_department_id) ? $user->sub_department_id : [$user->sub_department_id]);
-        $shift_change->categories()->sync(is_array($user->category_id) ? $user->category_id : [$user->category_id]);
-        $shift_change->sub_categories()->sync(is_array($user->sub_category_id) ? $user->sub_category_id : [$user->sub_category_id]);
-        $shift_change->designations()->sync(is_array($user->designation_id) ? $user->designation_id : [$user->designation_id]);
+        $shift_change->departments()->sync(array_values(array_filter(Arr::wrap($user->department_id))));
+        $shift_change->sub_departments()->sync(array_values(array_filter(Arr::wrap($user->sub_department_id))));
+        $shift_change->categories()->sync(array_values(array_filter(Arr::wrap($user->category_id))));
+        $shift_change->sub_categories()->sync(array_values(array_filter(Arr::wrap($user->sub_category_id))));
+        $shift_change->designations()->sync(array_values(array_filter(Arr::wrap($user->designation_id))));
 
         // $shift_change->departments()->sync(Arr::wrap($user->department_id));
         // $shift_change->sub_departments()->sync(Arr::wrap($user->sub_department_id));
@@ -344,7 +354,10 @@ class AfterImportUser implements ShouldBeUnique, ShouldQueue
 
     public function createWeekOffMuster($user)
     {
-        $currentDate = GeneralConfiguration::where('key', 'first_time_muster_date')->first() ? GeneralConfiguration::where('key', 'first_time_muster_date')->first()->value : Carbon::parse($user->join_date);
+        $firstTimeMusterDate = GeneralConfiguration::where('key', 'first_time_muster_date')->value('value');
+        $currentDate = $firstTimeMusterDate
+            ? Carbon::parse($firstTimeMusterDate)
+            : Carbon::parse($user->join_date);
         $financial_year = FinancialYear::where('is_started', true)->orderBy('id', 'desc')->first();
         if ($financial_year) {
             $toDate = $financial_year->end_date;
@@ -442,11 +455,11 @@ class AfterImportUser implements ShouldBeUnique, ShouldQueue
         $week_off_change->Users()->sync($user->id);
         $week_off_change->areas()->sync($user?->areas()->pluck('area_id')->toArray());
 
-        $week_off_change->departments()->sync(is_array($user->department_id) ? $user->department_id : [$user->department_id]);
-        $week_off_change->sub_departments()->sync(is_array($user->sub_department_id) ? $user->sub_department_id : [$user->sub_department_id]);
-        $week_off_change->categories()->sync(is_array($user->category_id) ? $user->category_id : [$user->category_id]);
-        $week_off_change->sub_categories()->sync(is_array($user->sub_category_id) ? $user->sub_category_id : [$user->sub_category_id]);
-        $week_off_change->designations()->sync(is_array($user->designation_id) ? $user->designation_id : [$user->designation_id]);
+        $week_off_change->departments()->sync(array_values(array_filter(Arr::wrap($user->department_id))));
+        $week_off_change->sub_departments()->sync(array_values(array_filter(Arr::wrap($user->sub_department_id))));
+        $week_off_change->categories()->sync(array_values(array_filter(Arr::wrap($user->category_id))));
+        $week_off_change->sub_categories()->sync(array_values(array_filter(Arr::wrap($user->sub_category_id))));
+        $week_off_change->designations()->sync(array_values(array_filter(Arr::wrap($user->designation_id))));
 
         // $week_off_change->departments()->sync(Arr::wrap($user->department_id));
         // $week_off_change->sub_departments()->sync(Arr::wrap($user->sub_department_id));
