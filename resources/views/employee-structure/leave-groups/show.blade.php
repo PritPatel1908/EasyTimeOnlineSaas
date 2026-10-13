@@ -13,16 +13,16 @@
         <div class="col-md-3 mb-3"><small class="text-muted d-block">Assigned Employees</small>{{ $leaveGroup->users()->count() }}</div>
     </div></div></div>
     <div class="card mb-4"><div class="card-header"><h5 class="mb-0">Monthly Leave Rules</h5></div><div class="card-body p-0"><div class="table-responsive"><table class="table mb-0">
-        <thead><tr><th>Leave Type</th><th>Increment</th><th>Max Accumulation</th><th>Paid</th></tr></thead><tbody>
+        <thead><tr><th>Leave Type</th><th>Increment</th><th>Max Accumulation</th><th>Paid?</th><th>Keeps Balance?</th></tr></thead><tbody>
         @forelse($leaveGroup->grade_wise_monthly_leave_details as $detail)
-            <tr><td>{{ $detail->leave_type?->description ?? $detail->leave_type?->name ?? '—' }}</td><td>{{ $detail->increment ?? '—' }}</td><td>{{ $detail->max_accumulation ?? '—' }}</td><td>{{ $detail->is_paid ? 'Yes' : 'No' }}</td></tr>
-        @empty<tr><td colspan="4" class="text-center text-muted py-3">No monthly leave rules are linked.</td></tr>@endforelse
+            <tr><td>{{ $detail->leave_type?->description ?? $detail->leave_type?->name ?? '—' }}</td><td>{{ $detail->increment ?? '—' }}</td><td>{{ $detail->max_accumulation ?? '—' }}</td><td>{{ $detail->is_paid ? 'Yes' : 'No' }}</td><td>{{ $detail->keeps_balance ? 'Yes' : 'No' }}</td></tr>
+        @empty<tr><td colspan="5" class="text-center text-muted py-3">No monthly leave rules are linked.</td></tr>@endforelse
         </tbody></table></div></div></div>
     <div class="card mb-4"><div class="card-header"><h5 class="mb-0">Yearly Leave Rules</h5></div><div class="card-body p-0"><div class="table-responsive"><table class="table mb-0">
-        <thead><tr><th>Leave Type</th><th>Eligible</th><th>Min. Utilization</th><th>Max Accumulation</th><th>Paid</th></tr></thead><tbody>
+        <thead><tr><th>Leave Type</th><th>Eligible</th><th>Min. Utilization</th><th>Max Accumulation</th><th>Paid?</th><th>Keeps Balance?</th></tr></thead><tbody>
         @forelse($leaveGroup->grade_wise_yearly_leave_details as $detail)
-            <tr><td>{{ $detail->leave_type?->description ?? $detail->leave_type?->name ?? '—' }}</td><td>{{ $detail->eligible ?? '—' }}</td><td>{{ $detail->min_utilization ?? '—' }}</td><td>{{ $detail->max_accumulation ?? '—' }}</td><td>{{ $detail->is_paid ? 'Yes' : 'No' }}</td></tr>
-        @empty<tr><td colspan="5" class="text-center text-muted py-3">No yearly leave rules are linked.</td></tr>@endforelse
+            <tr><td>{{ $detail->leave_type?->description ?? $detail->leave_type?->name ?? '—' }}</td><td>{{ $detail->eligible ?? '—' }}</td><td>{{ $detail->min_utilization ?? '—' }}</td><td>{{ $detail->max_accumulation ?? '—' }}</td><td>{{ $detail->is_paid ? 'Yes' : 'No' }}</td><td>{{ $detail->keeps_balance ? 'Yes' : 'No' }}</td></tr>
+        @empty<tr><td colspan="6" class="text-center text-muted py-3">No yearly leave rules are linked.</td></tr>@endforelse
         </tbody></table></div></div></div>
     <a href="{{ url('employee-structure/leave-groups') }}" class="btn btn-light">Back to Leave Groups</a>
 </div>@include('partials.footer')</div>

@@ -123,7 +123,7 @@ class CreditDebitBalance implements ShouldBeUnique, ShouldQueue
                                     false
                                 );
 
-                                if (LeaveAccountDetail::where('leave_type_id', $grade_wise_detail->leave_type_id)?->first()->balance > $grade_wise_detail->max_accumulation) {
+                                if ($grade_wise_detail->max_accumulation > 0 && LeaveAccountDetail::where('leave_type_id', $grade_wise_detail->leave_type_id)?->first()->balance > $grade_wise_detail->max_accumulation) {
                                     GeneralHelper::createOrUpdateTransaction(
                                         $year ? $year : $this->user?->join_date?->format('Y'),
                                         get_class($userLeaveAccount),
@@ -200,7 +200,7 @@ class CreditDebitBalance implements ShouldBeUnique, ShouldQueue
                                     false
                                 );
 
-                                if (LeaveAccountDetail::where('leave_type_id', $grade_wise_detail->leave_type_id)?->first()->balance > $grade_wise_detail->max_accumulation) {
+                                if ($grade_wise_detail->max_accumulation > 0 && LeaveAccountDetail::where('leave_type_id', $grade_wise_detail->leave_type_id)?->first()->balance > $grade_wise_detail->max_accumulation) {
                                     GeneralHelper::createOrUpdateTransaction(
                                         $year ? $year : $this->user?->join_date?->format('Y'),
                                         get_class($userLeaveAccount),

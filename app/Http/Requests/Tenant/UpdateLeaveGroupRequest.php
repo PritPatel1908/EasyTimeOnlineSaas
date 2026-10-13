@@ -4,20 +4,155 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Tenant;
 
+use App\Support\TenantPermissions;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateLeaveGroupRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return TenantPermissions::allows($this->user('tenant'), 'LeaveGroup', 'write');
     }
 
     public function rules(): array
     {
-        return LeaveGroupRequestRules::rules(
-            (int) $this->route('leave_group'),
+        $leaveGroupId = (int) $this->route('leave_group');
+        $monthlyRuleFields = [
+            'leave_type_id',
+            'allow_c_f',
+            'maximum_request_in_a_month',
+            'maximum_request_in_a_year',
+            'eligible_after_days',
+            'increment',
+            'proportionate',
+            'count_weekly_off_as_present',
+            'count_holiday_as_present',
+            'start_credit',
+            'credit_after_days',
+            'start_use_based_on',
+            'start_use_after_days',
+            'allow_sandwich',
+            'sandwich_leave_id',
+            'max_accumulation',
+            'min_avail',
+            'max_avail',
+            'leave_types_not_to_be_clubbed',
+            'leave_credit_type',
+            'is_paid',
+            'keeps_balance',
+            'allow_negative_balance',
+            'negative_balance',
+            'allow_backdate_leave',
+            'backdate_day_limit',
+            'allow_advance_leave',
+            'advance_day_limit',
+            'allow_leave_encashment',
+            'allow_leave_lapse',
+        ];
+        $yearlyRuleFields = [
+            'leave_type_id',
+            'eligible',
+            'allow_c_f',
+            'maximum_request_in_a_month',
+            'maximum_request_in_a_year',
+            'eligible_after_days',
+            'credit_after_days',
+            'opening',
+            'based_on',
+            'allow_sandwich',
+            'sandwich_leave_id',
+            'min_utilization',
+            'max_accumulation',
+            'min_avail',
+            'max_avail',
+            'leave_types_not_to_be_clubbed',
+            'leave_credit_type',
+            'is_paid',
+            'keeps_balance',
+            'allow_negative_balance',
+            'negative_balance',
+            'allow_leave_encashment',
+            'allow_leave_lapse',
+        ];
+
+        return array_merge(LeaveGroupRequestRules::rules(
+            $leaveGroupId,
             $this->integer('financial_year_id') ?: null,
-        );
+        ), [
+            'monthly_rules' => ['sometimes', 'array'],
+            'monthly_rules.*' => ['required', 'array:'.implode(',', array_merge(['id'], $monthlyRuleFields))],
+            'monthly_rules.*.id' => [
+                'required',
+                'integer',
+                'distinct',
+                Rule::exists('grade_wise_monthly_leave_details', 'id')
+                    ->where(fn ($query) => $query->where('grade_wise_leave_id', $leaveGroupId)),
+            ],
+            'monthly_rules.*.leave_type_id' => ['required', 'integer', 'exists:leave_types,id'],
+            'monthly_rules.*.allow_c_f' => ['present', 'nullable', 'boolean'],
+            'monthly_rules.*.maximum_request_in_a_month' => ['present', 'nullable', 'integer', 'min:0'],
+            'monthly_rules.*.maximum_request_in_a_year' => ['present', 'nullable', 'integer', 'min:0'],
+            'monthly_rules.*.eligible_after_days' => ['present', 'nullable', 'integer', 'min:0'],
+            'monthly_rules.*.increment' => ['present', 'nullable', 'integer', 'min:0'],
+            'monthly_rules.*.proportionate' => ['present', 'nullable', 'integer', 'min:0', 'max:127'],
+            'monthly_rules.*.count_weekly_off_as_present' => ['required', 'boolean'],
+            'monthly_rules.*.count_holiday_as_present' => ['required', 'boolean'],
+            'monthly_rules.*.start_credit' => ['present', 'nullable', 'integer', 'min:0', 'max:127'],
+            'monthly_rules.*.credit_after_days' => ['present', 'nullable', 'integer', 'min:0'],
+            'monthly_rules.*.start_use_based_on' => ['present', 'nullable', 'integer', 'min:0', 'max:127'],
+            'monthly_rules.*.start_use_after_days' => ['present', 'nullable', 'integer', 'min:0'],
+            'monthly_rules.*.allow_sandwich' => ['required', 'boolean'],
+            'monthly_rules.*.sandwich_leave_id' => ['present', 'nullable', 'integer', 'exists:leave_types,id'],
+            'monthly_rules.*.max_accumulation' => ['present', 'nullable', 'integer', 'min:0', 'max:127'],
+            'monthly_rules.*.min_avail' => ['present', 'nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            'monthly_rules.*.max_avail' => ['present', 'nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            'monthly_rules.*.leave_types_not_to_be_clubbed' => ['sometimes', 'array'],
+            'monthly_rules.*.leave_types_not_to_be_clubbed.*' => ['integer', 'distinct', 'exists:leave_types,id'],
+            'monthly_rules.*.leave_credit_type' => ['required', Rule::in(['manual', 'monthly', 'yearly', 'based_on_present', 'based_on_working_hours'])],
+            'monthly_rules.*.is_paid' => ['required', 'boolean'],
+            'monthly_rules.*.keeps_balance' => ['required', 'boolean'],
+            'monthly_rules.*.allow_negative_balance' => ['required', 'boolean'],
+            'monthly_rules.*.negative_balance' => ['required', 'numeric', 'decimal:0,2', 'between:-99999999.99,99999999.99'],
+            'monthly_rules.*.allow_backdate_leave' => ['required', 'boolean'],
+            'monthly_rules.*.backdate_day_limit' => ['present', 'nullable', 'integer', 'min:0'],
+            'monthly_rules.*.allow_advance_leave' => ['required', 'boolean'],
+            'monthly_rules.*.advance_day_limit' => ['present', 'nullable', 'integer', 'min:0'],
+            'monthly_rules.*.allow_leave_encashment' => ['required', 'boolean'],
+            'monthly_rules.*.allow_leave_lapse' => ['required', 'boolean'],
+            'yearly_rules' => ['sometimes', 'array'],
+            'yearly_rules.*' => ['required', 'array:'.implode(',', array_merge(['id'], $yearlyRuleFields))],
+            'yearly_rules.*.id' => [
+                'required',
+                'integer',
+                'distinct',
+                Rule::exists('grade_wise_yearly_leave_details', 'id')
+                    ->where(fn ($query) => $query->where('grade_wise_leave_id', $leaveGroupId)),
+            ],
+            'yearly_rules.*.leave_type_id' => ['required', 'integer', 'exists:leave_types,id'],
+            'yearly_rules.*.eligible' => ['present', 'nullable', 'integer', 'min:0'],
+            'yearly_rules.*.allow_c_f' => ['present', 'nullable', 'boolean'],
+            'yearly_rules.*.maximum_request_in_a_month' => ['present', 'nullable', 'integer', 'min:0'],
+            'yearly_rules.*.maximum_request_in_a_year' => ['present', 'nullable', 'integer', 'min:0'],
+            'yearly_rules.*.eligible_after_days' => ['present', 'nullable', 'integer', 'min:0'],
+            'yearly_rules.*.credit_after_days' => ['present', 'nullable', 'integer', 'min:0'],
+            'yearly_rules.*.opening' => ['present', 'nullable', 'integer', 'min:0', 'max:127'],
+            'yearly_rules.*.based_on' => ['present', 'nullable', 'integer', 'min:0', 'max:127'],
+            'yearly_rules.*.allow_sandwich' => ['required', 'boolean'],
+            'yearly_rules.*.sandwich_leave_id' => ['present', 'nullable', 'integer', 'exists:leave_types,id'],
+            'yearly_rules.*.min_utilization' => ['present', 'nullable', 'integer', 'min:0'],
+            'yearly_rules.*.max_accumulation' => ['present', 'nullable', 'integer', 'min:0', 'max:127'],
+            'yearly_rules.*.min_avail' => ['present', 'nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            'yearly_rules.*.max_avail' => ['present', 'nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            'yearly_rules.*.leave_types_not_to_be_clubbed' => ['sometimes', 'array'],
+            'yearly_rules.*.leave_types_not_to_be_clubbed.*' => ['integer', 'distinct', 'exists:leave_types,id'],
+            'yearly_rules.*.leave_credit_type' => ['required', Rule::in(['manual', 'monthly', 'yearly', 'based_on_present', 'based_on_working_hours'])],
+            'yearly_rules.*.is_paid' => ['required', 'boolean'],
+            'yearly_rules.*.keeps_balance' => ['required', 'boolean'],
+            'yearly_rules.*.allow_negative_balance' => ['required', 'boolean'],
+            'yearly_rules.*.negative_balance' => ['required', 'numeric', 'decimal:0,2', 'between:-99999999.99,99999999.99'],
+            'yearly_rules.*.allow_leave_encashment' => ['required', 'boolean'],
+            'yearly_rules.*.allow_leave_lapse' => ['required', 'boolean'],
+        ]);
     }
 }

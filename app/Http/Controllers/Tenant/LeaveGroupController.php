@@ -11,6 +11,7 @@ use App\Jobs\Tenant\GenerateLeaveGroupExport;
 use App\Jobs\Tenant\ProcessLeaveGroupImport;
 use App\Models\Tenant\FinancialYear;
 use App\Models\Tenant\LeaveGroup;
+use App\Models\Tenant\LeaveType;
 use App\Models\Tenant\User;
 use App\Support\CsvImportTemplate;
 use Illuminate\Contracts\View\View;
@@ -18,6 +19,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -93,16 +95,51 @@ class LeaveGroupController extends Controller
 
     public function edit(Request $request): View
     {
+        $leaveGroup = LeaveGroup::query()
+            ->with([
+                'grade_wise_monthly_leave_details.leave_type',
+                'grade_wise_monthly_leave_details.sandwich_leave',
+                'grade_wise_yearly_leave_details.leave_type',
+                'grade_wise_yearly_leave_details.sandwich_leave',
+            ])
+            ->findOrFail($request->route('leave_group'));
+
         return view('employee-structure.leave-groups.edit', [
-            'leaveGroup' => LeaveGroup::query()->findOrFail($request->route('leave_group')),
+            'leaveGroup' => $leaveGroup,
             'financialYears' => FinancialYear::query()->orderByDesc('id')->get(),
+            'leaveTypes' => LeaveType::withTrashed()->orderBy('description')->get(),
         ]);
     }
 
     public function update(UpdateLeaveGroupRequest $request): RedirectResponse
     {
-        $leaveGroup = LeaveGroup::query()->findOrFail($request->route('leave_group'));
-        $leaveGroup->update($request->validated());
+        $validated = $request->validated();
+        $monthlyRules = $validated['monthly_rules'] ?? [];
+        $yearlyRules = $validated['yearly_rules'] ?? [];
+        unset($validated['monthly_rules'], $validated['yearly_rules']);
+
+        DB::transaction(function () use ($request, $validated, $monthlyRules, $yearlyRules): void {
+            $leaveGroup = LeaveGroup::query()->findOrFail($request->route('leave_group'));
+            $leaveGroup->update($validated);
+
+            foreach ($monthlyRules as $rule) {
+                $values = array_diff_key($rule, ['id' => true]);
+                $values['leave_types_not_to_be_clubbed'] ??= [];
+                $leaveGroup->grade_wise_monthly_leave_details()
+                    ->whereKey($rule['id'])
+                    ->firstOrFail()
+                    ->update($values);
+            }
+
+            foreach ($yearlyRules as $rule) {
+                $values = array_diff_key($rule, ['id' => true]);
+                $values['leave_types_not_to_be_clubbed'] ??= [];
+                $leaveGroup->grade_wise_yearly_leave_details()
+                    ->whereKey($rule['id'])
+                    ->firstOrFail()
+                    ->update($values);
+            }
+        });
 
         return redirect(url(self::INDEX_URL))->with('success', 'Leave Group updated successfully.');
     }
