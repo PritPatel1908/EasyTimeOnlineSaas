@@ -8,7 +8,17 @@
 	$unitsActive = request()->is('company-structure/units*');
 	$teamsActive = request()->is('company-structure/teams*');
 	$canteenFacilityActive = request()->is('company-structure/canteen-facilities*');
-	$employeeStructureActive = request()->is('employee-structure/*');
+	$employeeStructureActive = request()->is(
+		'employee-structure/categories*',
+		'employee-structure/designations*',
+		'employee-structure/employees*',
+		'employee-structure/approval-flows*'
+	);
+	$leaveStructureActive = request()->is(
+		'employee-structure/leave-types*',
+		'employee-structure/leave-groups*',
+		'employee-structure/manual-leave-balances*'
+	);
 	$categoryActive = request()->is('employee-structure/categories*');
 	$approvalFlowsActive = request()->is('employee-structure/approval-flows*');
 	$employeeActive = request()->is('employee-structure/employees*');
@@ -181,7 +191,7 @@
 					<ul>
 						<li class="submenu">
 							<a href="javascript:void(0);"
-								class="{{ Request::is('employee-structure/*') ? 'active subdrop' : '' }}">
+								class="{{ $employeeStructureActive ? 'active subdrop' : '' }}">
 								<i class="ti ti-users"></i><span>Employee Structure</span>
 								<span class="menu-arrow"></span>
 							</a>
@@ -207,6 +217,26 @@
 					</ul>
 				</li>
 				@endif
+				<li class="menu-title"><span>LEAVE STRUCTURE</span></li>
+				<li>
+					<ul>
+						<li class="submenu">
+							<a href="javascript:void(0);"
+								class="{{ $leaveStructureActive ? 'active subdrop' : '' }}">
+								<i class="ti ti-calendar-event"></i><span>Leave Structure</span>
+								<span class="menu-arrow"></span>
+							</a>
+							<ul>
+								<li><a href="{{url('employee-structure/leave-types')}}"
+									class="{{ Request::is('employee-structure/leave-types*') ? 'active' : '' }}">Leave Type</a></li>
+								<li><a href="{{url('employee-structure/leave-groups')}}"
+									class="{{ Request::is('employee-structure/leave-groups*') ? 'active' : '' }}">Leave Group</a></li>
+								<li><a href="{{url('employee-structure/manual-leave-balances')}}"
+									class="{{ Request::is('employee-structure/manual-leave-balances*') ? 'active' : '' }}">Manual Leave Balance</a></li>
+							</ul>
+						</li>
+					</ul>
+				</li>
 				@if (false)
 				<li class="menu-title"><span>MAIN MENU</span></li>
 				<li>
