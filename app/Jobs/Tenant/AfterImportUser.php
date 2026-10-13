@@ -39,6 +39,12 @@ class AfterImportUser implements ShouldBeUnique, ShouldQueue
 
     protected $is_created = false;
 
+    private ?array $configurationValues = null;
+
+    private bool $financialYearLoaded = false;
+
+    private ?Carbon $financialYearEndDate = null;
+
     /**
      * Create a new job instance.
      */
@@ -66,11 +72,20 @@ class AfterImportUser implements ShouldBeUnique, ShouldQueue
                 continue;
             }
 
-            $joinDate = GeneralConfiguration::where('key', 'first_time_muster_date')->first() ? Carbon::parse(GeneralConfiguration::where('key', 'first_time_muster_date')->first()->value) : Carbon::parse($user->join_date);
+            $joinDate = $this->getJoinDate($user);
             $alreadyShiftMuster = ShiftMuster::where('user_id', $user->id)->where('date', '>=', Carbon::parse($joinDate))->first();
             $alreadyWeekOffMuster = WeekOffMuster::where('user_id', $user->id)->where('date', '>=', Carbon::parse($joinDate))->first();
 
             if ($alreadyShiftMuster && $alreadyWeekOffMuster) {
+                if ($user->week_off_change_id) {
+                    $weekOffChange = WeekOffChange::whereKey($user->week_off_change_id)->first();
+                    if ($weekOffChange) {
+                        $this->syncWeekOffMustersToChange($user, $weekOffChange);
+                    }
+                }
+
+                UserStatusMuster::dispatch($user, $joinDate)->onQueue('processing');
+
                 continue;
             }
 
@@ -98,16 +113,11 @@ class AfterImportUser implements ShouldBeUnique, ShouldQueue
 
     public function createShiftMuster($user, $authUser)
     {
-        $joinDate = GeneralConfiguration::where('key', 'first_time_muster_date')->first() ? Carbon::parse(GeneralConfiguration::where('key', 'first_time_muster_date')->first()->value) : Carbon::parse($user->join_date);
-        $financial_year = FinancialYear::where('is_started', true)->orderBy('id', 'desc')->first();
-        if ($financial_year) {
-            $endDate = $financial_year->end_date;
-        } else {
-            $endDate = $joinDate?->copy()->endOfYear();
-        }
+        $joinDate = $this->getJoinDate($user);
+        $endDate = $this->getFinancialYearEndDate($joinDate);
 
         // For create shift change
-        if (GeneralConfiguration::where('key', 'create_new_shift_change_in_user_edit') && GeneralConfiguration::where('key', 'create_new_shift_change_in_user_edit')->first()->value == 1) {
+        if ((int) $this->getConfigurationValue('create_new_shift_change_in_user_edit') === 1) {
             $shift_change = ShiftChange::create(
                 [
                     'from_date' => $joinDate->copy(),
@@ -173,8 +183,12 @@ class AfterImportUser implements ShouldBeUnique, ShouldQueue
             }
         }
 
+        $shiftIds = null;
         if ($shift_change->shift_type == 'auto' || $shift_change->shift_type == 'fixed') {
-            $shift_change->shifts()->sync($user->shifts()->pluck('shift_id'));
+            $shiftIds = $user->shifts()->pluck('shift_id')->map(fn ($id) => (int) $id)->all();
+            $shift_change->shifts()->sync($shiftIds);
+        } elseif ($shift_change->shift_type != 'rotational') {
+            $shiftIds = $shift_change->shifts()->pluck('shift_id')->map(fn ($id) => (int) $id)->all();
         }
 
         $user_old_record = [
@@ -282,112 +296,135 @@ class AfterImportUser implements ShouldBeUnique, ShouldQueue
             ActivityLogger::log($authUser, $shift_change, $shift_change_old_record, $shift_change_new_record, 'updated');
         }
 
-        $from_date = $shift_change->from_date;
-        $fromDate = $from_date->copy();
-        if ($shift_change->is_forever) {
-            $financial_year = FinancialYear::where('is_started', true)->orderBy('id', 'desc')->first();
-            if ($financial_year) {
-                $toDate = $financial_year->end_date;
-            } else {
-                $toDate = $from_date?->copy()->endOfYear();
-            }
-        } else {
-            $toDate = $shift_change->to_date;
+        $fromDate = $shift_change->from_date->copy();
+        $toDate = $shift_change->is_forever
+            ? $this->getFinancialYearEndDate($fromDate)
+            : $shift_change->to_date->copy();
+        $dateFrom = $fromDate->toDateString();
+        $dateTo = $toDate->toDateString();
+        $existingMusters = ShiftMuster::where('user_id', $user->id)
+            ->whereBetween('date', [$dateFrom, $dateTo])
+            ->where('is_locked', false)
+            ->orderBy('id')
+            ->get()
+            ->groupBy(fn ($muster) => $muster->date->toDateString())
+            ->map(fn ($musters) => $musters->first());
+        $rotationMusters = $shift_change->shift_type == 'rotational'
+            ? RotationMuster::where('rotation_id', $shift_change->shift_rotation_id)
+                ->whereBetween('date', [$dateFrom, $dateTo])
+                ->orderBy('id')
+                ->get()
+                ->groupBy(fn ($muster) => $muster->date->toDateString())
+                ->map(fn ($musters) => $musters->first())
+            : collect();
+        $shiftValues = $shiftIds;
+        $insertRows = [];
+        $updateRows = [];
+        $updateColumns = ['shift', 'shiftchangeable_type', 'shiftchangeable_id', 'updated_at'];
+        if ($shift_change->shift_type == 'auto') {
+            $updateColumns[] = 'is_auto';
         }
 
-        while ($fromDate <= $toDate) {
+        while ($fromDate->lte($toDate)) {
+            $date = $fromDate->toDateString();
             if ($shift_change->shift_type == 'auto') {
-                ShiftMuster::updateOrCreate(
-                    [
-                        'date' => $fromDate,
-                        'user_id' => $user->id,
-                        'is_locked' => false,
-                    ],
-                    [
-                        'is_auto' => $shift_change->shift_type == 'auto' ? true : false,
-                        'shift' => $shift_change->shifts()->pluck('shift_id')->map(function ($id) {
-                            return (int) $id;
-                        })->toArray(),
-                        'shiftchangeable_type' => $shift_change::class,
-                        'shiftchangeable_id' => $shift_change->id,
-                    ]
-                );
-                // $fromDate->addDay();
+                $values = [
+                    'is_auto' => true,
+                    'shift' => json_encode($shiftValues, JSON_THROW_ON_ERROR),
+                    'shiftchangeable_type' => $shift_change::class,
+                    'shiftchangeable_id' => $shift_change->id,
+                ];
             } elseif ($shift_change->shift_type == 'rotational') {
-                // $user_rotational_shift = $this->shift_change->shift_rotation_id;
-                ShiftMuster::updateOrCreate(
-                    [
-                        'date' => $fromDate,
-                        'user_id' => $user->id,
-                        'is_locked' => false,
-                    ],
-                    [
-                        'shift' => RotationMuster::where('rotation_id', $shift_change->shift_rotation_id)->where('date', $fromDate)->first()->shift_id,
-                        'shiftchangeable_type' => $shift_change::class,
-                        'shiftchangeable_id' => $shift_change->id,
-                    ]
-                );
-                // $fromDate->addDay();
+                $rotationMuster = $rotationMusters->get($date);
+                if (! $rotationMuster) {
+                    throw new \RuntimeException("Missing rotation muster for rotation {$shift_change->shift_rotation_id} on {$date}.");
+                }
+                $values = [
+                    'shift' => $rotationMuster->shift_id === null
+                        ? null
+                        : json_encode($rotationMuster->shift_id, JSON_THROW_ON_ERROR),
+                    'shiftchangeable_type' => $shift_change::class,
+                    'shiftchangeable_id' => $shift_change->id,
+                ];
             } else {
-                ShiftMuster::updateOrCreate(
-                    [
-                        'date' => $fromDate,
-                        'user_id' => $user->id,
-                        'is_locked' => false,
-                    ],
-                    [
-                        'shift' => $shift_change->shifts()->pluck('shift_id')->map(function ($id) {
-                            return (int) $id;
-                        })->toArray(),
-                        'shiftchangeable_type' => $shift_change::class,
-                        'shiftchangeable_id' => $shift_change->id,
-                    ]
-                );
+                $values = [
+                    'shift' => json_encode($shiftValues, JSON_THROW_ON_ERROR),
+                    'shiftchangeable_type' => $shift_change::class,
+                    'shiftchangeable_id' => $shift_change->id,
+                ];
             }
 
-            $user->shift_status = true;
-            $user->save();
+            $existingMuster = $existingMusters->get($date);
+            if ($existingMuster) {
+                $updateRows[] = ['id' => $existingMuster->id] + $values + [
+                    'updated_at' => now()->toDateTimeString(),
+                ];
+            } else {
+                $insertValues = [
+                    'date' => $date,
+                    'user_id' => $user->id,
+                    'is_locked' => false,
+                ] + $values;
+                if ($shift_change->shift_type != 'auto') {
+                    $insertValues['is_auto'] = false;
+                }
+                $insertRows[] = $insertValues + [
+                    'created_at' => now()->toDateTimeString(),
+                    'updated_at' => now()->toDateTimeString(),
+                ];
+            }
 
             $fromDate->addDay();
         }
+
+        $this->persistMusterRows(ShiftMuster::class, $insertRows, $updateRows, $updateColumns);
+        $user->shift_status = true;
+        $user->save();
     }
 
     public function createWeekOffMuster($user)
     {
-        $firstTimeMusterDate = GeneralConfiguration::where('key', 'first_time_muster_date')->value('value');
-        $currentDate = $firstTimeMusterDate
-            ? Carbon::parse($firstTimeMusterDate)
-            : Carbon::parse($user->join_date);
-        $financial_year = FinancialYear::where('is_started', true)->orderBy('id', 'desc')->first();
-        if ($financial_year) {
-            $toDate = $financial_year->end_date;
-        } else {
-            $toDate = $currentDate?->copy()->endOfYear();
-        }
+        $currentDate = $this->getJoinDate($user);
+        $toDate = $this->getFinancialYearEndDate($currentDate);
+        $dateFrom = $currentDate->toDateString();
+        $dateTo = $toDate->toDateString();
+        $existingMusters = WeekOffMuster::where('user_id', $user->id)
+            ->whereBetween('date', [$dateFrom, $dateTo])
+            ->orderBy('id')
+            ->get()
+            ->groupBy(fn ($muster) => $muster->date->toDateString())
+            ->map(fn ($musters) => $musters->first());
+        $insertRows = [];
+        $updateRows = [];
 
         while ($currentDate->lte($toDate)) {
-            WeekOffMuster::updateOrCreate(
-                [
-                    'user_id' => $user->id,
-                    'date' => $currentDate,
-                ],
-                [
-                    'is_locked' => 0,
+            $date = $currentDate->toDateString();
+            $existingMuster = $existingMusters->get($date);
+            if ($existingMuster) {
+                $updateRows[] = [
+                    'id' => $existingMuster->id,
+                    'is_locked' => false,
                     'wo_type' => 0,
-                ]
-            );
+                    'updated_at' => now()->toDateTimeString(),
+                ];
+            } else {
+                $now = now()->toDateTimeString();
+                $insertRows[] = [
+                    'user_id' => $user->id,
+                    'date' => $date,
+                    'is_locked' => false,
+                    'wo_type' => 0,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
             $currentDate->addDay();
         }
 
-        $fromDate = GeneralConfiguration::where('key', 'first_time_muster_date')->first() ? Carbon::parse(GeneralConfiguration::where('key', 'first_time_muster_date')->first()->value) : Carbon::parse($user->join_date);
-        $financial_year = FinancialYear::where('is_started', true)->orderBy('id', 'desc')->first();
-        if ($financial_year) {
-            $toDate = $financial_year->end_date;
-        } else {
-            $toDate = $fromDate?->copy()->endOfYear();
-        }
+        $this->persistMusterRows(WeekOffMuster::class, $insertRows, $updateRows, ['is_locked', 'wo_type', 'updated_at']);
+        $fromDate = $this->getJoinDate($user);
 
-        if (GeneralConfiguration::where('key', 'create_new_week_of_change_in_user_edit') && GeneralConfiguration::where('key', 'create_new_week_of_change_in_user_edit')->first()->value == 1) {
+        if ((int) $this->getConfigurationValue('create_new_week_of_change_in_user_edit') === 1) {
             $week_off_change = WeekOffChange::create([
                 'from_date' => $fromDate->copy(),
                 'is_forever' => true,
@@ -470,55 +507,59 @@ class AfterImportUser implements ShouldBeUnique, ShouldQueue
         $user->week_off_change_id = $week_off_change->id;
         $user->save();
 
+        $this->syncWeekOffMustersToChange($user, $week_off_change);
+    }
+
+    private function syncWeekOffMustersToChange(User $user, WeekOffChange $week_off_change): void
+    {
         $from_date = $week_off_change->from_date->copy();
-        if ($week_off_change->is_forever) {
-            $financial_year = FinancialYear::where('is_started', true)->orderBy('id', 'desc')->first();
-            if ($financial_year) {
-                $to_date = $financial_year->end_date;
-            } else {
-                $to_date = $from_date?->copy()->endOfYear();
-            }
-        } else {
-            $to_date = $week_off_change->to_date->copy();
-        }
+        $toDate = $week_off_change->is_forever
+            ? $this->getFinancialYearEndDate($from_date)
+            : $week_off_change->to_date->copy();
+        $weekOffMusters = WeekOffMuster::where('user_id', $user->id)
+            ->whereBetween('date', [$from_date->toDateString(), $toDate->toDateString()])
+            ->where('is_locked', '!=', 1)
+            ->orderBy('id')
+            ->get()
+            ->groupBy(fn ($muster) => $muster->date->toDateString())
+            ->map(fn ($musters) => $musters->first());
 
-        $users = $week_off_change->Users()->pluck('user_id')->toArray();
-        foreach ($users as $user_id) {
-            $fromDate = $from_date->copy();
-            while ($fromDate->lte($to_date)) {
-                $weekOffMuster = WeekOffMuster::where('date', $fromDate)
-                    ->where('user_id', $user_id)
-                    ->where('is_locked', '!=', 1)
-                    ->first();
-                if ($weekOffMuster != null) {
-                    $weekOffMuster->weekoffable_type = $week_off_change::class;
-                    $weekOffMuster->weekoffable_id = $week_off_change->id;
-                    $weekOffMuster->wo_type = 0;
-                    $weekOffMuster->save();
-                }
-                $fromDate->addDay();
-            }
-        }
-
-        if ($week_off_change->is_forever) {
-            $financial_year = FinancialYear::where('is_started', true)->orderBy('id', 'desc')->first();
-            if ($financial_year) {
-                $toDate = $financial_year->end_date;
-            } else {
-                $toDate = $week_off_change->from_date->copy()->endOfYear();
-            }
-        } else {
-            $toDate = $week_off_change->to_date;
+        foreach ($weekOffMusters as $weekOffMuster) {
+            $weekOffMuster->weekoffable_type = $week_off_change::class;
+            $weekOffMuster->weekoffable_id = $week_off_change->id;
+            $weekOffMuster->wo_type = 0;
         }
 
         $currentDate = $week_off_change->from_date->copy();
         while ($currentDate->lte($toDate)) {
-            $this->updateMuster($currentDate, $toDate, $user, $week_off_change);
+            $this->updateMuster($currentDate, $toDate, $user, $week_off_change, $weekOffMusters);
             $currentDate->addDays(6);
         }
+
+        $updateRows = [];
+        foreach ($weekOffMusters as $weekOffMuster) {
+            $dirty = $weekOffMuster->getDirty();
+            if ($dirty === []) {
+                continue;
+            }
+
+            $updateRows[] = [
+                'id' => $weekOffMuster->id,
+                'weekoffable_type' => $weekOffMuster->weekoffable_type,
+                'weekoffable_id' => $weekOffMuster->weekoffable_id,
+                'wo_type' => $weekOffMuster->wo_type,
+                'updated_at' => now()->toDateTimeString(),
+            ];
+        }
+        $this->persistMusterRows(WeekOffMuster::class, [], $updateRows, [
+            'weekoffable_type',
+            'weekoffable_id',
+            'wo_type',
+            'updated_at',
+        ]);
     }
 
-    public function updateMuster($date, $toDate, $user, $week_off_change)
+    public function updateMuster($date, $toDate, $user, $week_off_change, $weekOffMusters = null)
     {
         foreach ($week_off_change->WeekOffChangeDetails as $detail) {
             $wd = $detail->week_days;
@@ -557,17 +598,67 @@ class AfterImportUser implements ShouldBeUnique, ShouldQueue
                 continue; // Skip this day
             }
 
-            $weekOffUpdate = WeekOffMuster::where('date', $wo)
-                ->where('user_id', $user->id)
-                ->where('is_locked', '!=', 1)
-                // ->where('weekoffable_type', $this->weekOffChange::class)
-                // ->where('weekoffable_id', $this->weekOffChange->id)
-                ->first();
+            $weekOffUpdate = $weekOffMusters
+                ? $weekOffMusters->get($wo->toDateString())
+                : WeekOffMuster::where('date', $wo)
+                    ->where('user_id', $user->id)
+                    ->where('is_locked', '!=', 1)
+                    ->first();
             if ($weekOffUpdate != null) {
                 $weekOffUpdate->wo_type = $detail->wo_type;
                 $weekOffUpdate->weekoffable_type = $week_off_change::class;
                 $weekOffUpdate->weekoffable_id = $week_off_change->id;
-                $weekOffUpdate->save();
+                if ($weekOffMusters === null) {
+                    $weekOffUpdate->save();
+                }
+            }
+        }
+    }
+
+    private function getConfigurationValue(string $key): ?string
+    {
+        if ($this->configurationValues === null) {
+            $this->configurationValues = GeneralConfiguration::whereIn('key', [
+                'first_time_muster_date',
+                'create_new_shift_change_in_user_edit',
+                'create_new_week_of_change_in_user_edit',
+            ])->pluck('value', 'key')->all();
+        }
+
+        return $this->configurationValues[$key] ?? null;
+    }
+
+    private function getJoinDate(User $user): Carbon
+    {
+        $firstTimeMusterDate = $this->getConfigurationValue('first_time_muster_date');
+
+        return $firstTimeMusterDate
+            ? Carbon::parse($firstTimeMusterDate)
+            : Carbon::parse($user->join_date);
+    }
+
+    private function getFinancialYearEndDate(Carbon $startDate): Carbon
+    {
+        if (! $this->financialYearLoaded) {
+            $financialYear = FinancialYear::where('is_started', true)->orderBy('id', 'desc')->first();
+            $this->financialYearEndDate = $financialYear?->end_date;
+            $this->financialYearLoaded = true;
+        }
+
+        return $this->financialYearEndDate?->copy() ?? $startDate->copy()->endOfYear();
+    }
+
+    private function persistMusterRows(string $modelClass, array $insertRows, array $updateRows, array $updateColumns): void
+    {
+        foreach (array_chunk($insertRows, 100) as $rows) {
+            $modelClass::insert($rows);
+        }
+
+        foreach (array_chunk($updateRows, 100) as $rows) {
+            foreach ($rows as $row) {
+                $modelClass::query()
+                    ->whereKey($row['id'])
+                    ->update(Arr::only($row, $updateColumns));
             }
         }
     }
