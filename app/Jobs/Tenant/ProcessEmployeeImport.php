@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs\Tenant;
 
+use App\Helpers\AfterUserImportProcessor;
 use App\Models\Tenant\BusRoute;
 use App\Models\Tenant\Category;
 use App\Models\Tenant\Company;
@@ -48,6 +49,7 @@ class ProcessEmployeeImport implements ShouldQueue
         $created = 0;
         $updated = 0;
         $errors = [];
+        $importedEmployeeCodes = [];
         while (($values = fgetcsv($handle)) !== false) {
             $row = CsvImportTemplate::isHintRow($values)
                 ? []
@@ -74,8 +76,12 @@ class ProcessEmployeeImport implements ShouldQueue
                 $employee->syncRoles($this->resolveRole($roleName));
                 $created++;
             }
+            $importedEmployeeCodes[] = $employee->code;
         }
         fclose($handle);
+        if ($importedEmployeeCodes !== []) {
+            AfterUserImportProcessor::processAfterImportUsersSynchronously($importedEmployeeCodes);
+        }
         Storage::disk('local')->delete($this->filePath);
         $message = $errors === [] ? "Imported {$created} new employee record(s) and updated {$updated} existing record(s)." : 'Import completed with errors: ' . implode('; ', array_slice($errors, 0, 5));
         $user->notify(new EmployeeImportExportCompleted('import', $message));
