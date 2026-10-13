@@ -38,7 +38,7 @@ use Illuminate\Support\Facades\Auth;
  * @property Collection|DataPolicy[] $data_policies
  * @property Collection|Department[] $departments
  * @property Collection|Designation[] $designations
- * @property Collection|LeaveGroup[] $leave_groups
+ * @property Collection|LegacyLeaveGroup[] $leave_groups
  * @property Collection|Unit[] $units
  * @property Collection|Grade[] $grades
  * @property Collection|BusRoute[] $bus_routes
@@ -157,7 +157,7 @@ class Location extends Model
 
     public function leave_groups()
     {
-        return $this->hasMany(LeaveGroup::class);
+        return $this->hasMany(LegacyLeaveGroup::class);
     }
 
     public function leave_types()

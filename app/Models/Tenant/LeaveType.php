@@ -31,7 +31,7 @@ use App\Support\ActivityLogger;
  * @property User|null $user
  * @property Collection|LeaveApplication[] $leave_applications
  * @property Location|null $location
- * @property Collection|LeaveGroup[] $leave_groups
+ * @property Collection|LegacyLeaveGroup[] $leave_groups
  */
 class LeaveType extends Model
 {
@@ -102,7 +102,7 @@ class LeaveType extends Model
 
     public function leave_groups()
     {
-        return $this->hasMany(LeaveGroup::class);
+        return $this->hasMany(LegacyLeaveGroup::class);
     }
 
     public static function getImportUniqueFields(): array

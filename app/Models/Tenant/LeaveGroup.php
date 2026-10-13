@@ -1,84 +1,55 @@
 <?php
 
-/**
- * Created by Reliese Model.
- */
+declare(strict_types=1);
 
 namespace App\Models\Tenant;
 
-use App\Traits\CUDby;
-use Carbon\Carbon;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-/**
- * Class LeaveGroup
- *
- * @property int $id
- * @property string $code
- * @property string|null $description
- * @property int $location_id
- * @property int|null $user_id
- * @property int|null $leave_type_id
- * @property int $status
- * @property string|null $deleted_at
- * @property int|null $created_by
- * @property int|null $updated_by
- * @property int|null $deleted_by
- * @property Carbon|null $created_at
- * @property Carbon|null $updated_at
- * @property User|null $user
- * @property LeaveType|null $leave_type
- * @property Location $location
- * @property Collection|User[] $users
- */
 class LeaveGroup extends Model
 {
-    use CUDby;
     use SoftDeletes;
 
-    protected $table = 'leave_groups';
+    public const IMPORT_EXPORT_COLUMNS = ['name', 'financial_year_id', 'is_monthly', 'status'];
+
+    protected $table = 'grade_wise_leaves';
 
     protected $casts = [
-        'location_id' => 'int',
-        'user_id' => 'int',
-        'leave_type_id' => 'int',
+        'financial_year_id' => 'int',
+        'is_monthly' => 'bool',
         'status' => 'int',
-        'created_by' => 'int',
-        'updated_by' => 'int',
-        'deleted_by' => 'int',
     ];
 
     protected $fillable = [
-        'code',
-        'description',
-        'location_id',
-        'user_id',
-        'leave_type_id',
+        'name',
+        'financial_year_id',
+        'is_monthly',
         'status',
-        'created_by',
-        'updated_by',
-        'deleted_by',
     ];
 
-    // public function user()
-    // {
-    // 	return $this->belongsTo(User::class);
-    // }
-
-    public function leave_type()
+    public static function getImportUniqueFields(): array
     {
-        return $this->belongsTo(LeaveType::class);
+        return ['name', 'financial_year_id'];
     }
 
-    public function location()
+    public function financial_year()
     {
-        return $this->belongsTo(Location::class);
+        return $this->belongsTo(FinancialYear::class);
+    }
+
+    public function grade_wise_monthly_leave_details()
+    {
+        return $this->hasMany(GradeWiseMonthlyLeaveDetail::class, 'grade_wise_leave_id');
+    }
+
+    public function grade_wise_yearly_leave_details()
+    {
+        return $this->hasMany(GradeWiseYearlyLeaveDetail::class, 'grade_wise_leave_id');
     }
 
     public function users()
     {
-        return $this->hasMany(User::class);
+        return $this->hasMany(User::class, 'grade_wise_leave_id');
     }
 }

@@ -231,8 +231,9 @@
 								@if (\App\Support\TenantPermissions::userCan('LeaveType', 'read'))<li><a href="{{url('employee-structure/leave-types')}}"
 									class="{{ Request::is('employee-structure/leave-types*') ? 'active' : '' }}">Leave Type</a></li>
 								@endif
-								<li><a href="{{url('employee-structure/leave-groups')}}"
+								@if (\App\Support\TenantPermissions::userCan('LeaveGroup', 'read'))<li><a href="{{url('employee-structure/leave-groups')}}"
 									class="{{ Request::is('employee-structure/leave-groups*') ? 'active' : '' }}">Leave Group</a></li>
+								@endif
 								<li><a href="{{url('employee-structure/manual-leave-balances')}}"
 									class="{{ Request::is('employee-structure/manual-leave-balances*') ? 'active' : '' }}">Manual Leave Balance</a></li>
 							</ul>

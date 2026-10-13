@@ -129,6 +129,7 @@ final class TenantPermissions
         };
 
         $legacyModule = match ($module) {
+            'leavegroup' => 'leave::group',
             'leavetype' => 'leave::type',
             default => null,
         };

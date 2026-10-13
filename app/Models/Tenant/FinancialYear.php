@@ -121,4 +121,9 @@ class FinancialYear extends Model
             ->withPivot('id')
             ->withTimestamps();
     }
+
+    public function grade_wise_leaves()
+    {
+        return $this->hasMany(LeaveGroup::class, 'financial_year_id');
+    }
 }

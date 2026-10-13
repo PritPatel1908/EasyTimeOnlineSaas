@@ -119,15 +119,14 @@ use Spatie\Permission\Traits\HasRoles;
  * @property EarlyGoingRule|null $early_going_rule
  * @property HalfDayRule|null $half_day_rule
  * @property LateComingRule|null $late_coming_rule
- * @property LeaveGroup|null $leave_group
- * @property GradeWiseLeave|null $leave_group
+ * @property LegacyLeaveGroup|null $leave_group
+ * @property GradeWiseLeave|null $grade_wise_leave
  * @property Location|null $location
  * @property OvertimeRule|null $overtime_rule
  * @property Role|null $role
  * @property Shift|null $shift
  * @property SubDepartment|null $sub_department
- * @property Collection|LeaveGroup[] $leave_groups
- * @property Collection|LeaveGroup[] $grade_wise_leaves
+ * @property Collection|LegacyLeaveGroup[] $leave_groups
  * @property Collection|OrganizationUser[] $organization_users
  * @property Collection|PersonalInfo[] $personal_info
  * @property Collection|ManualAttendance[] $manual_attendances
@@ -603,7 +602,7 @@ class User extends Authenticatable implements FilamentUser, HasTenants
 
     public function leave_group()
     {
-        return $this->belongsTo(LeaveGroup::class);
+        return $this->belongsTo(LegacyLeaveGroup::class, 'leave_group_id');
     }
 
     public function team()
@@ -668,7 +667,7 @@ class User extends Authenticatable implements FilamentUser, HasTenants
 
     public function leave_groups()
     {
-        return $this->hasMany(LeaveGroup::class);
+        return $this->hasMany(LegacyLeaveGroup::class, 'user_id');
     }
 
     public function personalInfo()

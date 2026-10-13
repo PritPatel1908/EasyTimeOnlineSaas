@@ -18,7 +18,7 @@ use App\Models\Tenant\Department;
 use App\Models\Tenant\Designation;
 use App\Models\Tenant\Grade;
 use App\Models\Tenant\Location;
-use App\Models\Tenant\LeaveGroup;
+use App\Models\Tenant\LegacyLeaveGroup as LeaveGroup;
 use App\Models\Tenant\Role;
 use App\Models\Tenant\Shift;
 use App\Models\Tenant\ShiftRotation;

@@ -18,7 +18,7 @@ use App\Models\Tenant\EarlyGoingRule;
 use App\Models\Tenant\Grade;
 use App\Models\Tenant\HalfDayRule;
 use App\Models\Tenant\LateComingRule;
-use App\Models\Tenant\LeaveGroup;
+use App\Models\Tenant\LegacyLeaveGroup as LeaveGroup;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\OvertimeRule;
 use App\Models\Tenant\PasswordPolicy;

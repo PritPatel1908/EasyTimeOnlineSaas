@@ -7,22 +7,45 @@ namespace Tests\Feature;
 use App\Http\Controllers\Tenant\CategoryController;
 use App\Http\Controllers\Tenant\DesignationController;
 use App\Http\Controllers\Tenant\EmployeeController;
+use App\Http\Controllers\Tenant\LeaveGroupController;
 use App\Models\Tenant\Category;
 use App\Models\Tenant\Designation;
+use App\Models\Tenant\GradeWiseMonthlyLeaveDetail;
+use App\Models\Tenant\GradeWiseYearlyLeaveDetail;
+use App\Models\Tenant\LeaveGroup;
 use App\Models\Tenant\User;
 use App\Support\CsvImportTemplate;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Tests\TestCase;
 
 class EmployeeStructureImportTemplateTest extends TestCase
 {
+    public function test_leave_group_uses_grade_wise_leave_tables_and_relationships(): void
+    {
+        $leaveGroup = new LeaveGroup();
+
+        $this->assertSame('grade_wise_leaves', $leaveGroup->getTable());
+        $this->assertInstanceOf(HasMany::class, $leaveGroup->grade_wise_monthly_leave_details());
+        $this->assertInstanceOf(HasMany::class, $leaveGroup->grade_wise_yearly_leave_details());
+        $this->assertSame('grade_wise_leave_id', $leaveGroup->grade_wise_monthly_leave_details()->getForeignKeyName());
+        $this->assertSame('grade_wise_leave_id', $leaveGroup->grade_wise_yearly_leave_details()->getForeignKeyName());
+        $this->assertInstanceOf(BelongsTo::class, (new GradeWiseMonthlyLeaveDetail())->grade_wise_leave());
+        $this->assertInstanceOf(BelongsTo::class, (new GradeWiseYearlyLeaveDetail())->grade_wise_leave());
+        $legacyAssignment = (new User())->leave_group();
+        $this->assertSame('leave_groups', $legacyAssignment->getRelated()->getTable());
+        $this->assertSame('leave_group_id', $legacyAssignment->getForeignKeyName());
+    }
+
     public function test_employee_structure_templates_include_hints_for_each_column(): void
     {
         $templates = [
             CategoryController::class => Category::IMPORT_EXPORT_COLUMNS,
             DesignationController::class => Designation::IMPORT_EXPORT_COLUMNS,
+            LeaveGroupController::class => LeaveGroup::IMPORT_EXPORT_COLUMNS,
             EmployeeController::class => User::IMPORT_EXPORT_COLUMNS,
         ];
 

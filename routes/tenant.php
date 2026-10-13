@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Tenant\AuthController;
 use App\Http\Controllers\Tenant\CategoryController;
+use App\Http\Controllers\Tenant\LeaveGroupController;
 use App\Http\Controllers\Tenant\ApprovalFlowController;
 use App\Http\Controllers\Tenant\DesignationController;
 use App\Http\Controllers\Tenant\EmployeeController;
@@ -123,6 +124,14 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                     Route::post('categories/filter', [CategoryController::class, 'filterStatus'])->middleware('tenant.permission:Category,read')->name('categories.filter');
                     Route::get('categories/create', [CategoryController::class, 'create'])->middleware('tenant.permission:Category,create')->name('categories.create');
                     Route::resource('categories', CategoryController::class)->except(['create'])->middlewareFor('index', 'tenant.permission:Category,read')->middlewareFor('show', 'tenant.permission:Category,read')->middlewareFor('store', 'tenant.permission:Category,create')->middlewareFor('edit', 'tenant.permission:Category,write')->middlewareFor('update', 'tenant.permission:Category,write')->middlewareFor('destroy', 'tenant.permission:Category,delete')->names('categories');
+                    Route::get('leave-groups', [LeaveGroupController::class, 'index'])->middleware('tenant.permission:LeaveGroup,read')->name('leave-groups.index');
+                    Route::get('leave-groups/export', [LeaveGroupController::class, 'export'])->middleware('tenant.permission:LeaveGroup,export')->name('leave-groups.export');
+                    Route::get('leave-groups/import/sample', [LeaveGroupController::class, 'downloadImportSample'])->middleware('tenant.permission:LeaveGroup,import')->name('leave-groups.import-sample');
+                    Route::get('leave-groups/export/download/{file}', [LeaveGroupController::class, 'downloadExport'])->middleware('tenant.permission:LeaveGroup,export')->name('leave-groups.download-export');
+                    Route::post('leave-groups/import', [LeaveGroupController::class, 'import'])->middleware('tenant.permission:LeaveGroup,import')->name('leave-groups.import');
+                    Route::post('leave-groups/filter', [LeaveGroupController::class, 'filterStatus'])->middleware('tenant.permission:LeaveGroup,read')->name('leave-groups.filter');
+                    Route::get('leave-groups/create', [LeaveGroupController::class, 'create'])->middleware('tenant.permission:LeaveGroup,create')->name('leave-groups.create');
+                    Route::resource('leave-groups', LeaveGroupController::class)->except(['create'])->middlewareFor('index', 'tenant.permission:LeaveGroup,read')->middlewareFor('show', 'tenant.permission:LeaveGroup,read')->middlewareFor('store', 'tenant.permission:LeaveGroup,create')->middlewareFor('edit', 'tenant.permission:LeaveGroup,write')->middlewareFor('update', 'tenant.permission:LeaveGroup,write')->middlewareFor('destroy', 'tenant.permission:LeaveGroup,delete')->names('leave-groups');
                     Route::get('approval-flows/export', [ApprovalFlowController::class, 'export'])->middleware('tenant.permission:ApprovalFlow,export')->name('approval-flows.export');
                     Route::get('approval-flows/import/sample', [ApprovalFlowController::class, 'downloadImportSample'])->middleware('tenant.permission:ApprovalFlow,import')->name('approval-flows.import-sample');
                     Route::get('approval-flows/export/download/{file}', [ApprovalFlowController::class, 'downloadExport'])->middleware('tenant.permission:ApprovalFlow,export')->name('approval-flows.download-export');
