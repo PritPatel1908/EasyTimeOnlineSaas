@@ -54,11 +54,17 @@ document.addEventListener('click', function (event) {
 });
 
 function applyTeamFilter(status) {
+    var alert = document.getElementById('team-status-alert');
     fetch('{{ url('company-structure/teams/filter') }}', {
         method: 'POST',
         headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}'},
         body: JSON.stringify({ status: status })
-    }).then(function (response) { return response.json(); }).then(function (data) {
+    }).then(function (response) {
+        return response.json().then(function (data) {
+            if (!response.ok) throw new Error(data.message || 'Unable to filter teams.');
+            return data;
+        });
+    }).then(function (data) {
         document.querySelector('table.datatable tbody').innerHTML = data.html;
         var visibleBody = document.querySelector('.gridjs-tbody');
         if (visibleBody) {
@@ -73,9 +79,10 @@ function applyTeamFilter(status) {
         }
         var summary = document.querySelector('.gridjs-summary');
         if (summary) summary.textContent = data.count === 0 ? 'No records to show' : 'Showing 1-' + data.count + ' of ' + data.count + ' entries';
-        var pages = document.querySelector('.gridjs-pages');
-        if (pages) pages.innerHTML = '';
-    }).catch(function (error) { console.error('Filter error:', error); });
+        window.importPollShowAlert(alert, 'success', 'Team status filter applied successfully.');
+    }).catch(function (error) {
+        window.importPollShowAlert(alert, 'danger', error.message);
+    });
 }
 
 document.querySelectorAll('.team-status-filter').forEach(function (button) {

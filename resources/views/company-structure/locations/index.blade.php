@@ -127,11 +127,6 @@
                         : 'Showing 1-' + data.count + ' of ' + data.count + ' entries';
                 }
 
-                var pages = document.querySelector('.gridjs-pages');
-                if (pages) {
-                    pages.innerHTML = '';
-                }
-
                 if (typeof window.importPollShowAlert === 'function') {
                     window.importPollShowAlert(alert, 'success', 'Location status filter applied successfully.');
                 }

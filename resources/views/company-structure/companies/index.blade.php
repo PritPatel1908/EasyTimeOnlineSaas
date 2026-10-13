@@ -277,11 +277,6 @@
                         : 'Showing 1-' + data.count + ' of ' + data.count + ' entries';
                 }
 
-                var pages = document.querySelector('.gridjs-pages');
-                if (pages) {
-                    pages.innerHTML = '';
-                }
-
                 // Reuse the shared alert helper exposed by import-poll partial
                 if (typeof window.importPollShowAlert === 'function') {
                     window.importPollShowAlert(alert, 'success', 'Company status filter applied successfully.');

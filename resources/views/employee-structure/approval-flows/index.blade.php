@@ -94,6 +94,7 @@ document.addEventListener('click', function (event) {
     }
 });
 function applyApprovalFlowStatusFilter(status) {
+    var alert = document.getElementById('approval-flow-status-alert');
     fetch('{{ url('employee-structure/approval-flows/filter') }}', {
         method: 'POST',
         headers: {
@@ -131,14 +132,10 @@ function applyApprovalFlowStatusFilter(status) {
                 summary.textContent = data.count === 0 ? 'No records to show' : 'Showing 1-' + data.count + ' of ' + data.count + ' entries';
             }
 
-            var pages = document.querySelector('.gridjs-pages');
-            if (pages) pages.innerHTML = '';
-
-            var footer = document.querySelector('.card-footer');
-            if (footer) footer.classList.add('d-none');
+            window.importPollShowAlert(alert, 'success', 'Approval flow status filter applied successfully.');
         })
         .catch(function (error) {
-            console.error('Approval flow filter error:', error);
+            window.importPollShowAlert(alert, 'danger', error.message);
         });
 }
 document.querySelectorAll('.approval-flow-status-filter').forEach(function (button) {

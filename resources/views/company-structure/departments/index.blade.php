@@ -63,6 +63,7 @@
 
     // Apply filters
     function applyDepartmentFilter(status) {
+        var alert = document.getElementById('department-status-alert');
         fetch('{{ url('company-structure/departments/filter') }}', {
             method: 'POST',
             headers: {
@@ -72,7 +73,15 @@
             },
             body: JSON.stringify({ status: status })
         })
-            .then(r => r.json())
+            .then(function (response) {
+                return response.json().then(function (data) {
+                    if (!response.ok) {
+                        throw new Error(data.message || 'Unable to filter departments.');
+                    }
+
+                    return data;
+                });
+            })
             .then(function (data) {
                 var table = document.querySelector('table.datatable');
                 var sourceBody = table.querySelector('tbody');
@@ -100,13 +109,10 @@
                         : 'Showing 1-' + data.count + ' of ' + data.count + ' entries';
                 }
 
-                var pages = document.querySelector('.gridjs-pages');
-                if (pages) {
-                    pages.innerHTML = '';
-                }
+                window.importPollShowAlert(alert, 'success', 'Department status filter applied successfully.');
             })
             .catch(function (error) {
-                console.error('Filter error:', error);
+                window.importPollShowAlert(alert, 'danger', error.message);
             });
     }
 

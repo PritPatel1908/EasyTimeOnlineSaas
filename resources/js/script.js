@@ -12,6 +12,11 @@ Template Name: Smarthr - Bootstrap Admin Template
 	var pageWrapper = document.querySelector('.page-wrapper');
 	feather.replace();
 
+	document.querySelectorAll('[id$="-status-alert"]').forEach(function (alert) {
+		var pageHeading = alert.closest('.content') && alert.closest('.content').querySelector('.page-breadcrumb');
+		if (pageHeading) pageHeading.insertAdjacentElement('afterend', alert);
+	});
+
 	// Page Content Height Resize
 	window.addEventListener('resize', function () {
 		if (document.querySelector('.page-wrapper')) {
@@ -348,6 +353,24 @@ Template Name: Smarthr - Bootstrap Admin Template
 				render();
 			});
 			pages.appendChild(nextBtn);
+		}
+
+		var sourceBody = table.querySelector('tbody');
+		if (sourceBody) {
+			new MutationObserver(function () {
+				rows = Array.prototype.slice.call(sourceBody.querySelectorAll('tr'))
+					.filter(function (tr) {
+						return !tr.querySelector('td[colspan]');
+					})
+					.map(function (tr) {
+						return headerCells.map(function (th, index) {
+							var cell = tr.children[index];
+							return cell ? cell.innerHTML.trim() : '';
+						});
+					});
+				state.page = 0;
+				render();
+			}).observe(sourceBody, { childList: true });
 		}
 
 		render();
