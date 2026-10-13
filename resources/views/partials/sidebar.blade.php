@@ -34,6 +34,7 @@
 		\App\Support\TenantPermissions::userCan('Category', 'read') ||
 		\App\Support\TenantPermissions::userCan('ApprovalFlow', 'read') ||
 		\App\Support\TenantPermissions::userCan('Designation', 'read') ||
+		\App\Support\TenantPermissions::userCan('LeaveType', 'read') ||
 		\App\Support\TenantPermissions::userCan('User', 'read') ||
 		(\Illuminate\Support\Facades\Auth::guard('tenant')->id() === 1);
 @endphp
@@ -227,8 +228,9 @@
 								<span class="menu-arrow"></span>
 							</a>
 							<ul>
-								<li><a href="{{url('employee-structure/leave-types')}}"
+								@if (\App\Support\TenantPermissions::userCan('LeaveType', 'read'))<li><a href="{{url('employee-structure/leave-types')}}"
 									class="{{ Request::is('employee-structure/leave-types*') ? 'active' : '' }}">Leave Type</a></li>
+								@endif
 								<li><a href="{{url('employee-structure/leave-groups')}}"
 									class="{{ Request::is('employee-structure/leave-groups*') ? 'active' : '' }}">Leave Group</a></li>
 								<li><a href="{{url('employee-structure/manual-leave-balances')}}"

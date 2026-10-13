@@ -43,7 +43,7 @@
 						title="Company Structure" data-bs-toggle="tab" data-bs-target="#company-structure">
 						<i class="ti ti-building-estate"></i>
 					</a>
-					@if (\App\Support\TenantPermissions::userCan('Category', 'read') || (\Illuminate\Support\Facades\Auth::guard('tenant')->id() === 1))
+					@if (\App\Support\TenantPermissions::userCan('Category', 'read') || \App\Support\TenantPermissions::userCan('LeaveType', 'read') || (\Illuminate\Support\Facades\Auth::guard('tenant')->id() === 1))
 					<a href="#"
 						class="nav-link {{ Request::is('employee-structure/*') ? 'active' : '' }}"
 						title="Employee Structure" data-bs-toggle="tab" data-bs-target="#employee-structure">
@@ -287,6 +287,8 @@
 							<li class="menu-title"><span>EMPLOYEE STRUCTURE</span></li>
 							<li><a href="{{url('employee-structure/categories')}}"
 									class="{{ Request::is('employee-structure/categories*') ? 'active' : '' }}">Category</a></li>
+							@if (\App\Support\TenantPermissions::userCan('LeaveType', 'read'))<li><a href="{{url('employee-structure/leave-types')}}"
+									class="{{ Request::is('employee-structure/leave-types*') ? 'active' : '' }}">Leave Type</a></li>@endif
 							@if (\App\Support\TenantPermissions::userCan('Designation', 'read'))<li><a href="{{url('employee-structure/designations')}}"
 									class="{{ Request::is('employee-structure/designations*') ? 'active' : '' }}">Designation</a></li>@endif
 						</ul>

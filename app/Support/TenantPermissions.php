@@ -128,6 +128,21 @@ final class TenantPermissions
             default => [],
         };
 
+        $legacyModule = match ($module) {
+            'leavetype' => 'leave::type',
+            default => null,
+        };
+
+        if ($legacyModule !== null) {
+            $aliases = array_merge($aliases, match ($action) {
+                'read' => ['view_any_'.$legacyModule, 'view_'.$legacyModule],
+                'write' => ['update_'.$legacyModule],
+                'create' => ['create_'.$legacyModule],
+                'delete' => ['delete_any_'.$legacyModule, 'delete_'.$legacyModule],
+                default => [],
+            });
+        }
+
         return array_values(array_unique(array_merge([$canonical], $aliases)));
     }
 

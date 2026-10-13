@@ -66,25 +66,12 @@
             <div class="card-header d-flex align-items-center justify-content-between flex-wrap row-gap-3">
                 <h5>Company List</h5>
                 <div class="d-flex my-xl-auto right-content align-items-center flex-wrap row-gap-3">
-                    <div class="dropdown me-3">
-                        <a href="javascript:void(0);"
-                            class="dropdown-toggle btn btn-white d-inline-flex align-items-center"
-                            data-bs-toggle="dropdown">
-                            Status
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end p-3">
-                            <li>
-                                <button type="button" class="dropdown-item rounded-1 company-status-filter"
-                                    data-status="all">All</button>
-                            </li>
-                            <li>
-                                <button type="button" class="dropdown-item rounded-1 company-status-filter"
-                                    data-status="1">Active</button>
-                            </li>
-                            <li>
-                                <button type="button" class="dropdown-item rounded-1 company-status-filter"
-                                    data-status="0">Inactive</button>
-                            </li>
+                    <div class="dropdown">
+                        <button type="button" class="btn btn-white dropdown-toggle" data-bs-toggle="dropdown">Status</button>
+                        <ul class="dropdown-menu">
+                            <li><button type="button" class="dropdown-item company-status-filter" data-status="all">All</button></li>
+                            <li><button type="button" class="dropdown-item company-status-filter" data-status="1">Active</button></li>
+                            <li><button type="button" class="dropdown-item company-status-filter" data-status="0">Inactive</button></li>
                         </ul>
                     </div>
                 </div>

@@ -14,6 +14,7 @@ use App\Http\Controllers\Tenant\UnitController;
 use App\Http\Controllers\Tenant\SubDepartmentController;
 use App\Http\Controllers\Tenant\DataPolicyController;
 use App\Http\Controllers\Tenant\LocationController;
+use App\Http\Controllers\Tenant\LeaveTypeController;
 use App\Http\Controllers\Tenant\NotificationController;
 use App\Http\Controllers\Tenant\DashboardController;
 use App\Http\Controllers\Tenant\LicenseController;
@@ -153,6 +154,22 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                     Route::post('designations/filter', [DesignationController::class, 'filterStatus'])->middleware('tenant.permission:Designation,read')->name('designations.filter');
                     Route::get('designations/create', [DesignationController::class, 'create'])->middleware('tenant.permission:Designation,create')->name('designations.create');
                     Route::resource('designations', DesignationController::class)->except(['create'])->middlewareFor('index', 'tenant.permission:Designation,read')->middlewareFor('show', 'tenant.permission:Designation,read')->middlewareFor('store', 'tenant.permission:Designation,create')->middlewareFor('edit', 'tenant.permission:Designation,write')->middlewareFor('update', 'tenant.permission:Designation,write')->middlewareFor('destroy', 'tenant.permission:Designation,delete')->names('designations');
+                    Route::get('leave-types/export', [LeaveTypeController::class, 'export'])->middleware('tenant.permission:LeaveType,export')->name('leave-types.export');
+                    Route::get('leave-types/import/sample', [LeaveTypeController::class, 'downloadImportSample'])->middleware('tenant.permission:LeaveType,import')->name('leave-types.import-sample');
+                    Route::get('leave-types/export/download/{file}', [LeaveTypeController::class, 'downloadExport'])->middleware('tenant.permission:LeaveType,export')->name('leave-types.download-export');
+                    Route::post('leave-types/import', [LeaveTypeController::class, 'import'])->middleware('tenant.permission:LeaveType,import')->name('leave-types.import');
+                    Route::post('leave-types/filter', [LeaveTypeController::class, 'filterStatus'])->middleware('tenant.permission:LeaveType,read')->name('leave-types.filter');
+                    Route::get('leave-types/create', [LeaveTypeController::class, 'create'])->middleware('tenant.permission:LeaveType,create')->name('leave-types.create');
+                    Route::resource('leave-types', LeaveTypeController::class)
+                        ->except(['create'])
+                        ->parameters(['leave-types' => 'leave_type'])
+                        ->middlewareFor('index', 'tenant.permission:LeaveType,read')
+                        ->middlewareFor('show', 'tenant.permission:LeaveType,read')
+                        ->middlewareFor('store', 'tenant.permission:LeaveType,create')
+                        ->middlewareFor('edit', 'tenant.permission:LeaveType,write')
+                        ->middlewareFor('update', 'tenant.permission:LeaveType,write')
+                        ->middlewareFor('destroy', 'tenant.permission:LeaveType,delete')
+                        ->names('leave-types');
                 });
 
                 Route::prefix('company-structure')->name('tenant.company-structure.')->group(function (): void {

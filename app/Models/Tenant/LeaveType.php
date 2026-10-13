@@ -11,6 +11,8 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Auth;
+use App\Support\ActivityLogger;
 
 /**
  * Class LeaveType
@@ -36,7 +38,39 @@ class LeaveType extends Model
     use CUDby;
     use SoftDeletes;
 
+    protected array $auditLogOldSnapshot = [];
+
+    public const IMPORT_EXPORT_COLUMNS = [
+        'code',
+        'description',
+        'location',
+        'status',
+    ];
+
     protected $table = 'leave_types';
+
+    protected static function booted(): void
+    {
+        static::created(function (LeaveType $leaveType): void {
+            $leaveType->dispatchAuditLog([], $leaveType->getAttributes(), 'created');
+        });
+
+        static::updating(function (LeaveType $leaveType): void {
+            $leaveType->auditLogOldSnapshot = $leaveType->getOriginal();
+        });
+
+        static::updated(function (LeaveType $leaveType): void {
+            $leaveType->dispatchAuditLog($leaveType->auditLogOldSnapshot, $leaveType->getAttributes(), 'updated');
+        });
+
+        static::deleting(function (LeaveType $leaveType): void {
+            $leaveType->auditLogOldSnapshot = $leaveType->getAttributes();
+        });
+
+        static::deleted(function (LeaveType $leaveType): void {
+            $leaveType->dispatchAuditLog($leaveType->auditLogOldSnapshot, $leaveType->getAttributes(), 'deleted');
+        });
+    }
 
     protected $casts = [
         'location_id' => 'int',
@@ -56,11 +90,6 @@ class LeaveType extends Model
         'deleted_by',
     ];
 
-    // public function user()
-    // {
-    // 	return $this->belongsTo(User::class);
-    // }
-
     public function location()
     {
         return $this->belongsTo(Location::class);
@@ -74,5 +103,15 @@ class LeaveType extends Model
     public function leave_groups()
     {
         return $this->hasMany(LeaveGroup::class);
+    }
+
+    public static function getImportUniqueFields(): array
+    {
+        return ['code'];
+    }
+
+    private function dispatchAuditLog(array $old, array $new, string $event): void
+    {
+        ActivityLogger::log(Auth::user(), $this, $old, $new, $event);
     }
 }

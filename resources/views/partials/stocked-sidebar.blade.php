@@ -8,7 +8,7 @@
         \App\Support\TenantPermissions::userCan('Unit', 'read') ||
         \App\Support\TenantPermissions::userCan('Team', 'read') ||
         \App\Support\TenantPermissions::userCan('CanteenFacility', 'read');
-    $canViewEmployeeStructure = \App\Support\TenantPermissions::userCan('Category', 'read') || (\Illuminate\Support\Facades\Auth::guard('tenant')->id() === 1);
+    $canViewEmployeeStructure = \App\Support\TenantPermissions::userCan('Category', 'read') || \App\Support\TenantPermissions::userCan('LeaveType', 'read') || (\Illuminate\Support\Facades\Auth::guard('tenant')->id() === 1);
 @endphp
 <div class="stacked-sidebar" id="stacked-sidebar">
     <div class="sidebar sidebar-stacked" style="display: flex !important;">
@@ -364,7 +364,7 @@
                                 \App\Support\TenantPermissions::userCan('Unit', 'read') ||
                                 \App\Support\TenantPermissions::userCan('Team', 'read') ||
                                 \App\Support\TenantPermissions::userCan('CanteenFacility', 'read');
-                            $canViewEmployeeStructure = \App\Support\TenantPermissions::userCan('Category', 'read') || (\Illuminate\Support\Facades\Auth::guard('tenant')->id() === 1);
+                            $canViewEmployeeStructure = \App\Support\TenantPermissions::userCan('Category', 'read') || \App\Support\TenantPermissions::userCan('LeaveType', 'read') || (\Illuminate\Support\Facades\Auth::guard('tenant')->id() === 1);
                         @endphp
                         @if ($canViewCompanyStructure)
                         <div class="tab-pane fade {{ Request::is('company-structure/*') ? ' show active' : '' }}"
@@ -393,6 +393,8 @@
                             <ul class="stack-submenu">
                                 @if (\App\Support\TenantPermissions::userCan('Category', 'read'))<li><a href="{{url('employee-structure/categories')}}"
                                         class="{{ Request::is('employee-structure/categories*') ? 'active' : '' }}">Category</a></li>@endif
+                                @if (\App\Support\TenantPermissions::userCan('LeaveType', 'read'))<li><a href="{{url('employee-structure/leave-types')}}"
+                                        class="{{ Request::is('employee-structure/leave-types*') ? 'active' : '' }}">Leave Type</a></li>@endif
                                                                 @if (\App\Support\TenantPermissions::userCan('Designation', 'read'))<li><a href="{{url('employee-structure/designations')}}"
                                                                                 class="{{ Request::is('employee-structure/designations*') ? 'active' : '' }}">Designation</a></li>@endif
                             </ul>
