@@ -19,7 +19,7 @@
     <div class="col-md-6 mb-3"><label class="form-label" for="sub_department_locations">Locations</label><select id="sub_department_locations" name="location_id[]" class="form-control select2 js-example-placeholder-multiple js-states @error('location_id') is-invalid @enderror" multiple>@foreach ($locations as $location)<option value="{{ $location->id }}" @selected(in_array($location->id, $selectedLocations))>{{ $location->name }}</option>@endforeach</select><x-validation-error field="location_id" /></div>
 </div></div></div>
 <div class="card mb-4"><div class="card-header"><h5 class="card-title mb-0">Configuration</h5></div><div class="card-body"><div class="row">
-    <div class="col-md-12 mb-3"><label class="form-label" for="sub_department_status">Status <span class="text-danger">*</span></label><select id="sub_department_status" name="status" class="form-control @error('status') is-invalid @enderror" required><option value="1" @selected(old('status', $subDepartment?->status ?? 1) == 1)>Active</option><option value="0" @selected(old('status', $subDepartment?->status ?? 1) == 0)>Inactive</option></select><x-validation-error field="status" /></div>
+    <div class="col-md-12 mb-3"><label class="form-label" for="sub_department_status">Status <span class="text-danger">*</span></label><select id="sub_department_status" name="status" class="form-control select @error('status') is-invalid @enderror" required><option value="1" @selected(old('status', $subDepartment?->status ?? 1) == 1)>Active</option><option value="0" @selected(old('status', $subDepartment?->status ?? 1) == 0)>Inactive</option></select><x-validation-error field="status" /></div>
 </div></div></div>
 
 @push('scripts')

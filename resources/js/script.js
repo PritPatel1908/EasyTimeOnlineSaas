@@ -145,16 +145,18 @@ Template Name: Smarthr - Bootstrap Admin Template
 		lengthLabel.appendChild(lengthSelect);
 		lengthContainer.appendChild(lengthLabel);
 
-		var search = document.createElement('div');
-		search.className = 'gridjs-search';
-		var searchInput = document.createElement('input');
-		searchInput.type = 'search';
-		searchInput.placeholder = 'Search';
-		searchInput.className = 'gridjs-input gridjs-search-input';
-		search.appendChild(searchInput);
-
 		head.appendChild(lengthContainer);
-		head.appendChild(search);
+		var searchInput = null;
+		if (table.dataset.searchable !== 'false') {
+			var search = document.createElement('div');
+			search.className = 'gridjs-search';
+			searchInput = document.createElement('input');
+			searchInput.type = 'search';
+			searchInput.placeholder = 'Search';
+			searchInput.className = 'gridjs-input gridjs-search-input';
+			search.appendChild(searchInput);
+			head.appendChild(search);
+		}
 
 		var wrapper = document.createElement('div');
 		wrapper.className = 'gridjs-wrapper';
@@ -217,11 +219,13 @@ Template Name: Smarthr - Bootstrap Admin Template
 		table.parentNode.insertBefore(container, table.nextSibling);
 		table.style.display = 'none';
 
-		searchInput.addEventListener('input', function () {
-			state.keyword = searchInput.value;
-			state.page = 0;
-			render();
-		});
+		if (searchInput) {
+			searchInput.addEventListener('input', function () {
+				state.keyword = searchInput.value;
+				state.page = 0;
+				render();
+			});
+		}
 
 		lengthSelect.addEventListener('change', function () {
 			pageLimit = parseInt(lengthSelect.value, 10) || 10;

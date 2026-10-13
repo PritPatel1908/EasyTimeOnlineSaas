@@ -10,6 +10,7 @@
 	$canteenFacilityActive = request()->is('company-structure/canteen-facilities*');
 	$employeeStructureActive = request()->is('employee-structure/*');
 	$categoryActive = request()->is('employee-structure/categories*');
+	$approvalFlowsActive = request()->is('employee-structure/approval-flows*');
 	$employeeActive = request()->is('employee-structure/employees*');
 	$canViewCompanyStructure =
 		\App\Support\TenantPermissions::userCan('Company', 'read') ||
@@ -21,6 +22,7 @@
 		\App\Support\TenantPermissions::userCan('CanteenFacility', 'read');
 	$canViewEmployeeStructure =
 		\App\Support\TenantPermissions::userCan('Category', 'read') ||
+		\App\Support\TenantPermissions::userCan('ApprovalFlow', 'read') ||
 		\App\Support\TenantPermissions::userCan('Designation', 'read') ||
 		\App\Support\TenantPermissions::userCan('User', 'read') ||
 		(\Illuminate\Support\Facades\Auth::guard('tenant')->id() === 1);
@@ -195,6 +197,10 @@
 								@if (\App\Support\TenantPermissions::userCan('User', 'read') || (\Illuminate\Support\Facades\Auth::guard('tenant')->id() === 1))
 								<li><a href="{{url('employee-structure/employees')}}"
 									class="{{ $employeeActive ? 'active' : '' }}">Employee</a></li>
+								@endif
+								@if (\App\Support\TenantPermissions::userCan('ApprovalFlow', 'read') || (\Illuminate\Support\Facades\Auth::guard('tenant')->id() === 1))
+								<li><a href="{{url('employee-structure/approval-flows')}}"
+									class="{{ $approvalFlowsActive ? 'active' : '' }}">Approval Flows</a></li>
 								@endif
 							</ul>
 						</li>
@@ -1653,4 +1659,3 @@ class="{{ $canteenFacilityActive ? 'active' : '' }}">Canteen Facility</a></li>
 	</div>
 </div>
 <!-- /Sidebar -->
-

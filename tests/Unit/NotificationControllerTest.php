@@ -64,4 +64,23 @@ class NotificationControllerTest extends TestCase
         $this->assertSame(['code', 'name', 'email'], $preview['headers']);
         $this->assertSame([['E001', 'Alex', 'alex@example.test']], $preview['rows']);
     }
+
+    public function test_it_reads_preview_for_approval_flow_export(): void
+    {
+        Storage::fake('local');
+
+        $fileName = 'approval_flows_20240601_120000.csv';
+        $path = 'approval-flow-exports/' . $fileName;
+        Storage::disk('local')->put($path, "approval_flow_code,level,users\nDefault,1,admin@example.test|EMP007\n");
+
+        $controller = new NotificationController();
+        $method = new \ReflectionMethod($controller, 'readExportPreview');
+        $method->setAccessible(true);
+
+        [$preview, $error] = $method->invoke($controller, '/employee-structure/approval-flows/export/download/' . $fileName);
+
+        $this->assertNull($error);
+        $this->assertSame(['approval_flow_code', 'level', 'users'], $preview['headers']);
+        $this->assertSame([['Default', '1', 'admin@example.test|EMP007']], $preview['rows']);
+    }
 }

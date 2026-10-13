@@ -54,7 +54,7 @@
     </div>
     <div class="card-body">
         <div class="row">
-            <div class="col-md-12 mb-3"><label class="form-label" for="department_status">Status <span class="text-danger">*</span></label><select id="department_status" name="status" class="form-control @error('status') is-invalid @enderror" required><option value="1" @selected(old('status', $department?->status ?? 1) == 1)>Active</option><option value="0" @selected(old('status', $department?->status ?? 1) == 0)>Inactive</option></select><x-validation-error field="status" /></div>
+            <div class="col-md-12 mb-3"><label class="form-label" for="department_status">Status <span class="text-danger">*</span></label><select id="department_status" name="status" class="form-control select @error('status') is-invalid @enderror" required><option value="1" @selected(old('status', $department?->status ?? 1) == 1)>Active</option><option value="0" @selected(old('status', $department?->status ?? 1) == 0)>Inactive</option></select><x-validation-error field="status" /></div>
         </div>
 
         @push('scripts')

@@ -29,8 +29,6 @@ class ApprovalFlowDetail extends Model // implements Auditable
     // use \OwenIt\Auditing\Auditable;
     protected $table = 'approval_flow_details';
 
-    public $timestamps = false;
-
     protected $casts = [
         'level' => 'int',
         'approval_flow_id' => 'int',

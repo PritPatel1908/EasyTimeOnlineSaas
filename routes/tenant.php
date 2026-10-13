@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Tenant\AuthController;
 use App\Http\Controllers\Tenant\CategoryController;
+use App\Http\Controllers\Tenant\ApprovalFlowController;
 use App\Http\Controllers\Tenant\DesignationController;
 use App\Http\Controllers\Tenant\EmployeeController;
 use App\Http\Controllers\Tenant\CompanyController;
@@ -121,6 +122,21 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                     Route::post('categories/filter', [CategoryController::class, 'filterStatus'])->middleware('tenant.permission:Category,read')->name('categories.filter');
                     Route::get('categories/create', [CategoryController::class, 'create'])->middleware('tenant.permission:Category,create')->name('categories.create');
                     Route::resource('categories', CategoryController::class)->except(['create'])->middlewareFor('index', 'tenant.permission:Category,read')->middlewareFor('show', 'tenant.permission:Category,read')->middlewareFor('store', 'tenant.permission:Category,create')->middlewareFor('edit', 'tenant.permission:Category,write')->middlewareFor('update', 'tenant.permission:Category,write')->middlewareFor('destroy', 'tenant.permission:Category,delete')->names('categories');
+                    Route::get('approval-flows/export', [ApprovalFlowController::class, 'export'])->middleware('tenant.permission:ApprovalFlow,export')->name('approval-flows.export');
+                    Route::get('approval-flows/import/sample', [ApprovalFlowController::class, 'downloadImportSample'])->middleware('tenant.permission:ApprovalFlow,import')->name('approval-flows.import-sample');
+                    Route::get('approval-flows/export/download/{file}', [ApprovalFlowController::class, 'downloadExport'])->middleware('tenant.permission:ApprovalFlow,export')->name('approval-flows.download-export');
+                    Route::post('approval-flows/import', [ApprovalFlowController::class, 'import'])->middleware('tenant.permission:ApprovalFlow,import')->name('approval-flows.import');
+                    Route::post('approval-flows/filter', [ApprovalFlowController::class, 'filterStatus'])->middleware('tenant.permission:ApprovalFlow,read')->name('approval-flows.filter');
+                    Route::resource('approval-flows', ApprovalFlowController::class)
+                        ->middlewareFor('index', 'tenant.permission:ApprovalFlow,read')
+                        ->middlewareFor('show', 'tenant.permission:ApprovalFlow,read')
+                        ->middlewareFor('create', 'tenant.permission:ApprovalFlow,create')
+                        ->middlewareFor('store', 'tenant.permission:ApprovalFlow,create')
+                        ->middlewareFor('edit', 'tenant.permission:ApprovalFlow,write')
+                        ->middlewareFor('update', 'tenant.permission:ApprovalFlow,write')
+                        ->middlewareFor('destroy', 'tenant.permission:ApprovalFlow,delete')
+                        ->parameters(['approval-flows' => 'approvalFlow'])
+                        ->names('approval-flows');
                     Route::get('employees', [EmployeeController::class, 'index'])->middleware('tenant.permission:User,read')->name('employees.index');
                     Route::get('employees/export', [EmployeeController::class, 'export'])->middleware('tenant.permission:User,export')->name('employees.export');
                     Route::get('employees/import/sample', [EmployeeController::class, 'downloadImportSample'])->middleware('tenant.permission:User,import')->name('employees.import-sample');

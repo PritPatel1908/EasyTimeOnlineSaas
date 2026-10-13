@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  *
  * @property int $id
  * @property string $approval_flow_code
+ * @property int $status
  * @property int|null $created_by
  * @property int|null $updated_by
  * @property int|null $deleted_by
@@ -40,6 +41,7 @@ class ApprovalFlow extends Model // implements Auditable
     protected $table = 'approval_flows';
 
     protected $casts = [
+        'status' => 'int',
         'created_by' => 'int',
         'updated_by' => 'int',
         'deleted_by' => 'int',
@@ -50,7 +52,10 @@ class ApprovalFlow extends Model // implements Auditable
 
     protected $fillable = [
         'approval_flow_code',
+        'status',
     ];
+
+    public const IMPORT_EXPORT_COLUMNS = ['approval_flow_code', 'level', 'users'];
 
     public function users()
     {
