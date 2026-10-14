@@ -127,6 +127,8 @@ class EmployeeStructureRouteTest extends TestCase
         $detail->max_avail = 365;
         $detail->leave_types_not_to_be_clubbed = [6];
         $detail->leave_credit_type = 'monthly';
+        $detail->annual_quota = 12;
+        $detail->jan = 1.5;
         $detail->allow_negative_balance = true;
         $detail->negative_balance = -1;
         $detail->allow_backdate_leave = true;
@@ -171,6 +173,22 @@ class EmployeeStructureRouteTest extends TestCase
         $this->assertStringContainsString('365 for unrestricted', $html);
         $this->assertStringContainsString('name="monthly_rules[0][leave_types_not_to_be_clubbed][]"', $html);
         $this->assertStringContainsString('name="monthly_rules[0][leave_credit_type]"', $html);
+        $this->assertStringContainsString('data-monthly-credit-type', $html);
+        $this->assertStringContainsString('data-monthly-credit-fields', $html);
+        $this->assertMatchesRegularExpression('/name="monthly_rules\[0\]\[jan\]"\s+value="1\.5"/', $html);
+        $this->assertMatchesRegularExpression('/name="monthly_rules\[0\]\[feb\]"\s+value="0"/', $html);
+        $this->assertStringContainsString('data-annual-quota-field', $html);
+        $this->assertMatchesRegularExpression('/name="monthly_rules\[0\]\[annual_quota\]"\s+value="12"/', $html);
+        $this->assertStringContainsString('data-based-on-present-fields', $html);
+        $this->assertStringContainsString('name="monthly_rules[0][present_count_per]"', $html);
+        $this->assertStringContainsString('name="monthly_rules[0][if_total_present_count]"', $html);
+        $this->assertStringContainsString('name="monthly_rules[0][then_credit_balance_days]"', $html);
+        $this->assertStringContainsString('name="monthly_rules[0][include_leaves][]"', $html);
+        $this->assertStringContainsString('Count Week Off As Present?', $html);
+        $this->assertStringContainsString('Count Holiday As Present?', $html);
+        foreach (['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'] as $month) {
+            $this->assertStringContainsString('name="monthly_rules[0]['.$month.']"', $html);
+        }
         $this->assertStringContainsString('Based On Working Hrs', $html);
         $this->assertStringContainsString('Yearly Leave Rules', $html);
         $this->assertStringContainsString('name="monthly_rules[0][allow_leave_encashment]"', $html);

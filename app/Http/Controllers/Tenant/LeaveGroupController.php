@@ -125,6 +125,7 @@ class LeaveGroupController extends Controller
             foreach ($monthlyRules as $rule) {
                 $values = array_diff_key($rule, ['id' => true]);
                 $values['leave_types_not_to_be_clubbed'] ??= [];
+                $values['include_leaves'] ??= [];
                 $leaveGroup->grade_wise_monthly_leave_details()
                     ->whereKey($rule['id'])
                     ->firstOrFail()

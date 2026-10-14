@@ -18,6 +18,20 @@ class UpdateLeaveGroupRequest extends FormRequest
     public function rules(): array
     {
         $leaveGroupId = (int) $this->route('leave_group');
+        $monthlyMonthFields = [
+            'jan',
+            'feb',
+            'mar',
+            'apr',
+            'may',
+            'jun',
+            'jul',
+            'aug',
+            'sep',
+            'oct',
+            'nov',
+            'dec',
+        ];
         $monthlyRuleFields = [
             'leave_type_id',
             'allow_c_f',
@@ -42,7 +56,13 @@ class UpdateLeaveGroupRequest extends FormRequest
             'advance_day_limit',
             'allow_leave_encashment',
             'allow_leave_lapse',
+            'annual_quota',
+            'present_count_per',
+            'if_total_present_count',
+            'then_credit_balance_days',
+            'include_leaves',
         ];
+        $monthlyRuleFields = array_merge($monthlyRuleFields, $monthlyMonthFields);
         $yearlyRuleFields = [
             'leave_type_id',
             'eligible',
@@ -69,7 +89,7 @@ class UpdateLeaveGroupRequest extends FormRequest
             'allow_leave_lapse',
         ];
 
-        return array_merge(LeaveGroupRequestRules::rules(
+        $rules = array_merge(LeaveGroupRequestRules::rules(
             $leaveGroupId,
             $this->integer('financial_year_id') ?: null,
         ), [
@@ -106,6 +126,11 @@ class UpdateLeaveGroupRequest extends FormRequest
             'monthly_rules.*.advance_day_limit' => ['present', 'nullable', 'integer', 'min:0'],
             'monthly_rules.*.allow_leave_encashment' => ['required', 'boolean'],
             'monthly_rules.*.allow_leave_lapse' => ['required', 'boolean'],
+            'monthly_rules.*.present_count_per' => ['required', Rule::in(['monthly', 'yearly'])],
+            'monthly_rules.*.if_total_present_count' => ['present', 'nullable', 'integer', 'min:0'],
+            'monthly_rules.*.then_credit_balance_days' => ['present', 'nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:99999999.99'],
+            'monthly_rules.*.include_leaves' => ['sometimes', 'array'],
+            'monthly_rules.*.include_leaves.*' => ['integer', 'distinct', 'exists:leave_types,id'],
             'yearly_rules' => ['sometimes', 'array'],
             'yearly_rules.*' => ['required', 'array:'.implode(',', array_merge(['id'], $yearlyRuleFields))],
             'yearly_rules.*.id' => [
@@ -140,5 +165,13 @@ class UpdateLeaveGroupRequest extends FormRequest
             'yearly_rules.*.allow_leave_encashment' => ['required', 'boolean'],
             'yearly_rules.*.allow_leave_lapse' => ['required', 'boolean'],
         ]);
+
+        $rules['monthly_rules.*.annual_quota'] = ['present', 'nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:99999999.99'];
+
+        foreach ($monthlyMonthFields as $month) {
+            $rules['monthly_rules.*.'.$month] = ['present', 'nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:99999999.99'];
+        }
+
+        return $rules;
     }
 }

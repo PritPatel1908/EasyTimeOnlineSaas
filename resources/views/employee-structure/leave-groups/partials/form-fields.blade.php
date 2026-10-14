@@ -65,8 +65,8 @@
             ['name' => 'backdate_day_limit', 'label' => 'Backdated Day Limit', 'type' => 'number'],
             ['name' => 'allow_advance_leave', 'label' => 'Allow Advance Leave?', 'type' => 'switch'],
             ['name' => 'advance_day_limit', 'label' => 'Advance Day Limit', 'type' => 'number'],
-            ['name' => 'count_weekly_off_as_present', 'label' => 'Overwrite WeekOff?', 'type' => 'switch'],
-            ['name' => 'count_holiday_as_present', 'label' => 'Overwrite Holiday?', 'type' => 'switch'],
+            ['name' => 'count_weekly_off_as_present', 'label' => 'Count Week Off As Present?', 'type' => 'switch'],
+            ['name' => 'count_holiday_as_present', 'label' => 'Count Holiday As Present?', 'type' => 'switch'],
             ['name' => 'allow_c_f', 'label' => 'Carried Forward?', 'type' => 'switch'],
             ['name' => 'allow_leave_encashment', 'label' => 'Encashment?', 'type' => 'switch'],
             ['name' => 'allow_leave_lapse', 'label' => 'Allow Leave Lapse?', 'type' => 'switch'],
@@ -111,7 +111,7 @@
         <div class="card-header"><h5 class="card-title mb-0">Monthly Leave Rules</h5></div>
         <div class="card-body">
             @forelse ($leaveGroup->grade_wise_monthly_leave_details as $index => $detail)
-                <div class="border rounded p-3 mb-3">
+                <div class="border rounded p-3 mb-3" data-monthly-rule>
                     <h6 class="mb-3">{{ $detail->leave_type?->description ?? $detail->leave_type?->code ?? 'Monthly Rule' }}</h6>
                     <input type="hidden" name="monthly_rules[{{ $index }}][id]" value="{{ $detail->id }}">
                     <div class="row">
@@ -159,7 +159,7 @@
                                         @endforeach
                                     </select>
                                 @elseif ($field['type'] === 'leave_credit_type')
-                                    <select id="{{ $inputId }}" name="{{ $inputName }}" class="form-control select @error($errorKey) is-invalid @enderror" required>
+                                    <select id="{{ $inputId }}" name="{{ $inputName }}" class="form-control select @error($errorKey) is-invalid @enderror" data-monthly-credit-type required>
                                         @foreach (['manual' => 'Manual', 'monthly' => 'Monthly', 'yearly' => 'Yearly', 'based_on_present' => 'Based On Present', 'based_on_working_hours' => 'Based On Working Hrs'] as $creditType => $creditTypeLabel)
                                             <option value="{{ $creditType }}" @selected($value === $creditType)>{{ $creditTypeLabel }}</option>
                                         @endforeach
@@ -185,6 +185,125 @@
                                 <x-validation-error :field="$errorKey" />
                             </div>
                         @endforeach
+                        @php
+                            $monthlyCreditType = old('monthly_rules.'.$index.'.leave_credit_type', $detail->leave_credit_type ?? 'monthly');
+                        @endphp
+                        <div class="col-12 {{ $monthlyCreditType === 'monthly' ? '' : 'd-none' }}" data-monthly-credit-fields>
+                            <div class="row">
+                                @foreach ([
+                                    'jan' => 'January',
+                                    'feb' => 'February',
+                                    'mar' => 'March',
+                                    'apr' => 'April',
+                                    'may' => 'May',
+                                    'jun' => 'June',
+                                    'jul' => 'July',
+                                    'aug' => 'August',
+                                    'sep' => 'September',
+                                    'oct' => 'October',
+                                    'nov' => 'November',
+                                    'dec' => 'December',
+                                ] as $month => $monthLabel)
+                                    @php
+                                        $monthErrorKey = 'monthly_rules.'.$index.'.'.$month;
+                                        $monthInputName = 'monthly_rules['.$index.']['.$month.']';
+                                        $monthInputId = 'monthly_'.$index.'_'.$month;
+                                        $monthValue = old($monthErrorKey, $detail->{$month});
+                                        if ($monthValue === null || $monthValue === '') {
+                                            $monthValue = 0;
+                                        }
+                                    @endphp
+                                    <div class="col-lg-3 col-md-4 col-sm-6 mb-3">
+                                        <label class="form-label" for="{{ $monthInputId }}">{{ $monthLabel }}</label>
+                                        <input
+                                            id="{{ $monthInputId }}"
+                                            type="number"
+                                            name="{{ $monthInputName }}"
+                                            value="{{ $monthValue }}"
+                                            class="form-control @error($monthErrorKey) is-invalid @enderror"
+                                            step="0.01"
+                                            min="0"
+                                        >
+                                        <x-validation-error :field="$monthErrorKey" />
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                        <div class="col-12 {{ $monthlyCreditType === 'yearly' ? '' : 'd-none' }}" data-annual-quota-field>
+                            @php
+                                $annualQuotaErrorKey = 'monthly_rules.'.$index.'.annual_quota';
+                                $annualQuotaInputName = 'monthly_rules['.$index.'][annual_quota]';
+                                $annualQuotaInputId = 'monthly_'.$index.'_annual_quota';
+                                $annualQuotaValue = old($annualQuotaErrorKey, $detail->annual_quota);
+                                if ($annualQuotaValue === null || $annualQuotaValue === '') {
+                                    $annualQuotaValue = 0;
+                                }
+                            @endphp
+                            <div class="row">
+                                <div class="col-12 mb-3">
+                                    <label class="form-label" for="{{ $annualQuotaInputId }}">Annual Quota</label>
+                                    <input
+                                        id="{{ $annualQuotaInputId }}"
+                                        type="number"
+                                        name="{{ $annualQuotaInputName }}"
+                                        value="{{ $annualQuotaValue }}"
+                                        class="form-control @error($annualQuotaErrorKey) is-invalid @enderror"
+                                        step="0.01"
+                                        min="0"
+                                    >
+                                    <x-validation-error :field="$annualQuotaErrorKey" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 {{ $monthlyCreditType === 'based_on_present' ? '' : 'd-none' }}" data-based-on-present-fields>
+                            @php
+                                $presentCountPerErrorKey = 'monthly_rules.'.$index.'.present_count_per';
+                                $presentCountPerInputName = 'monthly_rules['.$index.'][present_count_per]';
+                                $presentCountPerInputId = 'monthly_'.$index.'_present_count_per';
+                                $presentCountPerValue = old($presentCountPerErrorKey, $detail->present_count_per ?? 'monthly');
+                                $totalPresentErrorKey = 'monthly_rules.'.$index.'.if_total_present_count';
+                                $totalPresentInputName = 'monthly_rules['.$index.'][if_total_present_count]';
+                                $totalPresentInputId = 'monthly_'.$index.'_if_total_present_count';
+                                $totalPresentValue = old($totalPresentErrorKey, $detail->if_total_present_count ?? 0);
+                                $creditDaysErrorKey = 'monthly_rules.'.$index.'.then_credit_balance_days';
+                                $creditDaysInputName = 'monthly_rules['.$index.'][then_credit_balance_days]';
+                                $creditDaysInputId = 'monthly_'.$index.'_then_credit_balance_days';
+                                $creditDaysValue = old($creditDaysErrorKey, $detail->then_credit_balance_days ?? 0);
+                                $includeLeavesErrorKey = 'monthly_rules.'.$index.'.include_leaves';
+                                $includeLeavesInputName = 'monthly_rules['.$index.'][include_leaves]';
+                                $includeLeavesInputId = 'monthly_'.$index.'_include_leaves';
+                                $includeLeavesValue = old($includeLeavesErrorKey, $detail->include_leaves ?? []);
+                            @endphp
+                            <div class="row">
+                                <div class="col-lg-3 col-md-4 col-sm-6 mb-3">
+                                    <label class="form-label" for="{{ $presentCountPerInputId }}">Present Count Per</label>
+                                    <select id="{{ $presentCountPerInputId }}" name="{{ $presentCountPerInputName }}" class="form-control select @error($presentCountPerErrorKey) is-invalid @enderror" required>
+                                        <option value="monthly" @selected($presentCountPerValue === 'monthly')>Monthly</option>
+                                        <option value="yearly" @selected($presentCountPerValue === 'yearly')>Yearly</option>
+                                    </select>
+                                    <x-validation-error :field="$presentCountPerErrorKey" />
+                                </div>
+                                <div class="col-lg-3 col-md-4 col-sm-6 mb-3">
+                                    <label class="form-label" for="{{ $totalPresentInputId }}">If Total Present Count</label>
+                                    <input id="{{ $totalPresentInputId }}" type="number" name="{{ $totalPresentInputName }}" value="{{ $totalPresentValue }}" class="form-control @error($totalPresentErrorKey) is-invalid @enderror" min="0" step="1">
+                                    <x-validation-error :field="$totalPresentErrorKey" />
+                                </div>
+                                <div class="col-lg-3 col-md-4 col-sm-6 mb-3">
+                                    <label class="form-label" for="{{ $creditDaysInputId }}">Then Credit Balance Days</label>
+                                    <input id="{{ $creditDaysInputId }}" type="number" name="{{ $creditDaysInputName }}" value="{{ $creditDaysValue }}" class="form-control @error($creditDaysErrorKey) is-invalid @enderror" min="0" step="0.01">
+                                    <x-validation-error :field="$creditDaysErrorKey" />
+                                </div>
+                                <div class="col-lg-3 col-md-4 col-sm-6 mb-3">
+                                    <label class="form-label" for="{{ $includeLeavesInputId }}">Include Leaves</label>
+                                    <select id="{{ $includeLeavesInputId }}" name="{{ $includeLeavesInputName }}[]" class="form-control select @error($includeLeavesErrorKey) is-invalid @enderror" multiple>
+                                        @foreach ($leaveTypes as $leaveType)
+                                            <option value="{{ $leaveType->id }}" @selected(in_array((string) $leaveType->id, array_map('strval', (array) $includeLeavesValue), true))>{{ $leaveType->code }} - {{ $leaveType->description }}</option>
+                                        @endforeach
+                                    </select>
+                                    <x-validation-error :field="$includeLeavesErrorKey" />
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             @empty
@@ -281,6 +400,24 @@
     }
 
     document.querySelectorAll('.leave-group-form').forEach(function (form) {
+        function syncMonthlyCreditFields(select) {
+            var rule = select.closest('[data-monthly-rule]');
+            if (!rule) return;
+            var monthlyFields = rule.querySelector('[data-monthly-credit-fields]');
+            var annualQuotaField = rule.querySelector('[data-annual-quota-field]');
+            var basedOnPresentFields = rule.querySelector('[data-based-on-present-fields]');
+            if (monthlyFields) monthlyFields.classList.toggle('d-none', select.value !== 'monthly');
+            if (annualQuotaField) annualQuotaField.classList.toggle('d-none', select.value !== 'yearly');
+            if (basedOnPresentFields) basedOnPresentFields.classList.toggle('d-none', select.value !== 'based_on_present');
+        }
+
+        form.querySelectorAll('[data-monthly-credit-type]').forEach(function (select) {
+            syncMonthlyCreditFields(select);
+            select.addEventListener('change', function () {
+                syncMonthlyCreditFields(select);
+            });
+        });
+
         form.addEventListener('submit', function (event) {
             var invalidFields = Array.from(form.elements).filter(function (field) {
                 return field.willValidate && !field.validity.valid;
