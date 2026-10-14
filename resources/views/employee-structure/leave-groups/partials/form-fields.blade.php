@@ -70,6 +70,7 @@
             ['name' => 'allow_c_f', 'label' => 'Carried Forward?', 'type' => 'switch'],
             ['name' => 'allow_leave_encashment', 'label' => 'Encashment?', 'type' => 'switch'],
             ['name' => 'allow_leave_lapse', 'label' => 'Allow Leave Lapse?', 'type' => 'switch'],
+            ['name' => 'allow_sandwich', 'label' => 'Allow Sandwich?', 'type' => 'switch'],
             ['name' => 'max_accumulation', 'label' => 'Maximum Accumulation', 'type' => 'tiny_number', 'hint' => '0 for unrestricted'],
             ['name' => 'maximum_request_in_a_month', 'label' => 'Maximum Request in a Month', 'type' => 'number', 'hint' => '0 for unrestricted'],
             ['name' => 'maximum_request_in_a_year', 'label' => 'Maximum Request in a Year', 'type' => 'number', 'hint' => '0 for unrestricted'],
@@ -126,7 +127,7 @@
                                     $value = 0;
                                 }
                             @endphp
-                            <div class="{{ in_array($fieldName, ['leave_types_not_to_be_clubbed', 'leave_credit_type'], true) ? 'col-lg-6' : (in_array($fieldName, ['leave_type_id', 'is_paid', 'keeps_balance', 'max_accumulation', 'maximum_request_in_a_month', 'maximum_request_in_a_year', 'count_weekly_off_as_present', 'count_holiday_as_present', 'allow_c_f'], true) ? 'col-lg-4' : (in_array($fieldName, ['allow_leave_encashment', 'allow_leave_lapse'], true) ? 'col-lg-6' : (in_array($fieldName, ['allow_negative_balance', 'negative_balance', 'allow_backdate_leave', 'backdate_day_limit', 'allow_advance_leave', 'advance_day_limit'], true) ? 'col-lg-2' : 'col-lg-3 col-md-4 col-sm-6'))) }} mb-3">
+                            <div class="{{ in_array($fieldName, ['leave_types_not_to_be_clubbed', 'leave_credit_type'], true) ? 'col-lg-6' : (in_array($fieldName, ['leave_type_id', 'is_paid', 'keeps_balance', 'max_accumulation', 'maximum_request_in_a_month', 'maximum_request_in_a_year', 'count_weekly_off_as_present', 'count_holiday_as_present', 'allow_c_f', 'allow_leave_encashment', 'allow_leave_lapse', 'allow_sandwich'], true) ? 'col-lg-4' : (in_array($fieldName, ['allow_negative_balance', 'negative_balance', 'allow_backdate_leave', 'backdate_day_limit', 'allow_advance_leave', 'advance_day_limit'], true) ? 'col-lg-2' : 'col-lg-3 col-md-4 col-sm-6')) }} mb-3">
                                 <label class="form-label" for="{{ $inputId }}">{{ $field['label'] }}</label>
                                 @if ($field['type'] === 'switch')
                                     <div class="form-check form-check-lg form-switch ps-0">
