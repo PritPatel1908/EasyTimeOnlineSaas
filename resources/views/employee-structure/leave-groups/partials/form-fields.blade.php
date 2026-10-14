@@ -78,14 +78,6 @@
             ['name' => 'max_avail', 'label' => 'Max Avail', 'type' => 'decimal', 'hint' => '365 for unrestricted'],
             ['name' => 'leave_types_not_to_be_clubbed', 'label' => 'Leave not to be clubbed', 'type' => 'leave_type_multiple'],
             ['name' => 'leave_credit_type', 'label' => 'Leave Credit Type', 'type' => 'leave_credit_type', 'default' => 'monthly'],
-            ['name' => 'increment', 'label' => 'Increment', 'type' => 'number'],
-            ['name' => 'proportionate', 'label' => 'Proportionate', 'type' => 'tiny_number'],
-            ['name' => 'start_credit', 'label' => 'Start Credit', 'type' => 'tiny_number'],
-            ['name' => 'start_use_based_on', 'label' => 'Start Use Based On', 'type' => 'tiny_number'],
-            ['name' => 'start_use_after_days', 'label' => 'Start Use After Days', 'type' => 'number'],
-            ['name' => 'allow_sandwich', 'label' => 'Allow Sandwich Leave', 'type' => 'boolean'],
-            ['name' => 'sandwich_leave_id', 'label' => 'Sandwich Leave Type', 'type' => 'nullable_leave_type'],
-            ['name' => 'allow_leave_lapse', 'label' => 'Allow Leave Lapse', 'type' => 'boolean'],
         ];
         $yearlyRuleFields = [
             ['name' => 'leave_type_id', 'label' => 'Leave Type', 'type' => 'leave_type', 'required' => true],
@@ -129,8 +121,11 @@
                                 $inputName = 'monthly_rules['.$index.']['.$fieldName.']';
                                 $inputId = 'monthly_'.$index.'_'.$fieldName;
                                 $value = old($errorKey, $detail->{$fieldName} ?? ($field['default'] ?? null));
+                                if (in_array($field['type'], ['number', 'tiny_number', 'decimal'], true) && ($value === null || $value === '')) {
+                                    $value = 0;
+                                }
                             @endphp
-                            <div class="{{ in_array($fieldName, ['leave_type_id', 'is_paid', 'keeps_balance', 'max_accumulation', 'maximum_request_in_a_month', 'maximum_request_in_a_year'], true) ? 'col-lg-4' : (in_array($fieldName, ['allow_negative_balance', 'negative_balance', 'allow_backdate_leave', 'backdate_day_limit', 'allow_advance_leave', 'advance_day_limit'], true) ? 'col-lg-2' : 'col-lg-3 col-md-4 col-sm-6') }} mb-3">
+                            <div class="{{ in_array($fieldName, ['leave_types_not_to_be_clubbed', 'leave_credit_type'], true) ? 'col-lg-6' : (in_array($fieldName, ['leave_type_id', 'is_paid', 'keeps_balance', 'max_accumulation', 'maximum_request_in_a_month', 'maximum_request_in_a_year'], true) ? 'col-lg-4' : (in_array($fieldName, ['allow_negative_balance', 'negative_balance', 'allow_backdate_leave', 'backdate_day_limit', 'allow_advance_leave', 'advance_day_limit'], true) ? 'col-lg-2' : 'col-lg-3 col-md-4 col-sm-6')) }} mb-3">
                                 <label class="form-label" for="{{ $inputId }}">{{ $field['label'] }}</label>
                                 @if ($field['type'] === 'switch')
                                     <div class="form-check form-check-lg form-switch ps-0">
@@ -146,7 +141,7 @@
                                         >
                                     </div>
                                 @elseif (in_array($field['type'], ['boolean', 'nullable_boolean'], true))
-                                    <select id="{{ $inputId }}" name="{{ $inputName }}" class="form-control @error($errorKey) is-invalid @enderror" @required($field['type'] === 'boolean')>
+                                    <select id="{{ $inputId }}" name="{{ $inputName }}" class="form-control select @error($errorKey) is-invalid @enderror" @required($field['type'] === 'boolean')>
                                         @if ($field['type'] === 'nullable_boolean')
                                             <option value="" @selected($value === null || $value === '')>Not set</option>
                                         @endif
@@ -154,7 +149,7 @@
                                         <option value="0" @selected((string) $value === '0')>No</option>
                                     </select>
                                 @elseif (in_array($field['type'], ['leave_type', 'nullable_leave_type', 'leave_type_multiple'], true))
-                                    <select id="{{ $inputId }}" name="{{ $field['type'] === 'leave_type_multiple' ? $inputName.'[]' : $inputName }}" class="form-control @error($errorKey) is-invalid @enderror" @if ($field['type'] === 'leave_type_multiple') multiple @endif @required($field['type'] === 'leave_type')>
+                                    <select id="{{ $inputId }}" name="{{ $field['type'] === 'leave_type_multiple' ? $inputName.'[]' : $inputName }}" class="form-control select @error($errorKey) is-invalid @enderror" @if ($field['type'] === 'leave_type_multiple') multiple @endif @required($field['type'] === 'leave_type')>
                                         @if ($field['type'] === 'nullable_leave_type')
                                             <option value="" @selected($value === null || $value === '')>Not set</option>
                                         @endif
@@ -163,7 +158,7 @@
                                         @endforeach
                                     </select>
                                 @elseif ($field['type'] === 'leave_credit_type')
-                                    <select id="{{ $inputId }}" name="{{ $inputName }}" class="form-control @error($errorKey) is-invalid @enderror" required>
+                                    <select id="{{ $inputId }}" name="{{ $inputName }}" class="form-control select @error($errorKey) is-invalid @enderror" required>
                                         @foreach (['manual' => 'Manual', 'monthly' => 'Monthly', 'yearly' => 'Yearly', 'based_on_present' => 'Based On Present', 'based_on_working_hours' => 'Based On Working Hrs'] as $creditType => $creditTypeLabel)
                                             <option value="{{ $creditType }}" @selected($value === $creditType)>{{ $creditTypeLabel }}</option>
                                         @endforeach
@@ -212,8 +207,11 @@
                                 $inputName = 'yearly_rules['.$index.']['.$fieldName.']';
                                 $inputId = 'yearly_'.$index.'_'.$fieldName;
                                 $value = old($errorKey, $detail->{$fieldName} ?? ($field['default'] ?? null));
+                                if (in_array($field['type'], ['number', 'tiny_number', 'decimal'], true) && ($value === null || $value === '')) {
+                                    $value = 0;
+                                }
                             @endphp
-                            <div class="{{ in_array($fieldName, ['leave_type_id', 'is_paid', 'keeps_balance', 'max_accumulation', 'maximum_request_in_a_month', 'maximum_request_in_a_year'], true) ? 'col-lg-4' : 'col-lg-3 col-md-4 col-sm-6' }} mb-3">
+                            <div class="{{ in_array($fieldName, ['leave_types_not_to_be_clubbed', 'leave_credit_type'], true) ? 'col-lg-6' : (in_array($fieldName, ['leave_type_id', 'is_paid', 'keeps_balance', 'max_accumulation', 'maximum_request_in_a_month', 'maximum_request_in_a_year'], true) ? 'col-lg-4' : 'col-lg-3 col-md-4 col-sm-6') }} mb-3">
                                 <label class="form-label" for="{{ $inputId }}">{{ $field['label'] }}</label>
                                 @if ($field['type'] === 'switch')
                                     <div class="form-check form-check-lg form-switch ps-0">
@@ -229,7 +227,7 @@
                                         >
                                     </div>
                                 @elseif (in_array($field['type'], ['boolean', 'nullable_boolean'], true))
-                                    <select id="{{ $inputId }}" name="{{ $inputName }}" class="form-control @error($errorKey) is-invalid @enderror" @required($field['type'] === 'boolean')>
+                                    <select id="{{ $inputId }}" name="{{ $inputName }}" class="form-control select @error($errorKey) is-invalid @enderror" @required($field['type'] === 'boolean')>
                                         @if ($field['type'] === 'nullable_boolean')
                                             <option value="" @selected($value === null || $value === '')>Not set</option>
                                         @endif
@@ -237,7 +235,7 @@
                                         <option value="0" @selected((string) $value === '0')>No</option>
                                     </select>
                                 @elseif (in_array($field['type'], ['leave_type', 'nullable_leave_type'], true))
-                                    <select id="{{ $inputId }}" name="{{ $inputName }}" class="form-control @error($errorKey) is-invalid @enderror" @required($field['type'] === 'leave_type')>
+                                    <select id="{{ $inputId }}" name="{{ $inputName }}" class="form-control select @error($errorKey) is-invalid @enderror" @required($field['type'] === 'leave_type')>
                                         @if ($field['type'] === 'nullable_leave_type')
                                             <option value="" @selected($value === null || $value === '')>Not set</option>
                                         @endif

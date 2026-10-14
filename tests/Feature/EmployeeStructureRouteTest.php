@@ -152,12 +152,9 @@ class EmployeeStructureRouteTest extends TestCase
         $this->assertStringContainsString('Annual Leave', $html);
         $this->assertStringContainsString('name="monthly_rules[0][id]" value="17"', $html);
         $this->assertStringContainsString('name="monthly_rules[0][leave_type_id]"', $html);
-        $this->assertMatchesRegularExpression('/name="monthly_rules\[0\]\[increment\]"\s+value="2"/', $html);
-        $this->assertMatchesRegularExpression('/name="monthly_rules\[0\]\[proportionate\]"\s+value="1"/', $html);
         $this->assertMatchesRegularExpression('/name="monthly_rules\[0\]\[credit_after_days\]"\s+value="0"/', $html);
-        $this->assertStringContainsString('name="monthly_rules[0][allow_sandwich]"', $html);
-        $this->assertStringContainsString('name="monthly_rules[0][sandwich_leave_id]"', $html);
         $this->assertMatchesRegularExpression('/name="monthly_rules\[0\]\[max_accumulation\]"\s+value="36"/', $html);
+        $this->assertMatchesRegularExpression('/name="monthly_rules\[0\]\[maximum_request_in_a_month\]"\s+value="0"/', $html);
         $this->assertStringContainsString('name="monthly_rules[0][is_paid]"', $html);
         $this->assertStringContainsString('Paid?', $html);
         $this->assertMatchesRegularExpression('/name="monthly_rules\[0\]\[is_paid\]"[^>]*type="checkbox"[^>]*checked/', $html);
@@ -177,16 +174,22 @@ class EmployeeStructureRouteTest extends TestCase
         $this->assertStringContainsString('Based On Working Hrs', $html);
         $this->assertStringContainsString('Yearly Leave Rules', $html);
         $this->assertStringContainsString('name="monthly_rules[0][allow_leave_encashment]"', $html);
-        $this->assertStringContainsString('name="monthly_rules[0][allow_leave_lapse]"', $html);
+        $this->assertStringNotContainsString('name="monthly_rules[0][increment]"', $html);
+        $this->assertStringNotContainsString('name="monthly_rules[0][proportionate]"', $html);
+        $this->assertStringNotContainsString('name="monthly_rules[0][start_credit]"', $html);
+        $this->assertStringNotContainsString('name="monthly_rules[0][start_use_based_on]"', $html);
+        $this->assertStringNotContainsString('name="monthly_rules[0][start_use_after_days]"', $html);
+        $this->assertStringNotContainsString('name="monthly_rules[0][allow_sandwich]"', $html);
+        $this->assertStringNotContainsString('name="monthly_rules[0][sandwich_leave_id]"', $html);
+        $this->assertStringNotContainsString('name="monthly_rules[0][allow_leave_lapse]"', $html);
         foreach ([
-            'leave_type_id', 'allow_c_f', 'increment', 'proportionate',
-            'count_weekly_off_as_present', 'count_holiday_as_present', 'start_credit',
-            'credit_after_days', 'start_use_based_on', 'start_use_after_days',
-            'allow_sandwich', 'sandwich_leave_id', 'max_accumulation', 'is_paid',
+            'leave_type_id', 'allow_c_f',
+            'count_weekly_off_as_present', 'count_holiday_as_present',
+            'credit_after_days', 'max_accumulation', 'is_paid',
             'keeps_balance',
             'allow_negative_balance', 'negative_balance', 'allow_backdate_leave',
             'backdate_day_limit', 'allow_advance_leave', 'advance_day_limit',
-            'allow_leave_encashment', 'allow_leave_lapse',
+            'allow_leave_encashment',
             'maximum_request_in_a_month', 'maximum_request_in_a_year',
             'eligible_after_days', 'credit_after_days', 'min_avail', 'max_avail',
             'leave_types_not_to_be_clubbed', 'leave_credit_type',
@@ -248,6 +251,7 @@ class EmployeeStructureRouteTest extends TestCase
         $this->assertStringContainsString('name="yearly_rules[0][allow_sandwich]"', $html);
         $this->assertStringContainsString('name="yearly_rules[0][allow_leave_encashment]"', $html);
         $this->assertMatchesRegularExpression('/name="yearly_rules\[0\]\[max_accumulation\]"\s+value="60"/', $html);
+        $this->assertMatchesRegularExpression('/name="yearly_rules\[0\]\[maximum_request_in_a_month\]"\s+value="0"/', $html);
         $this->assertStringContainsString('name="yearly_rules[0][is_paid]"', $html);
         $this->assertStringContainsString('Paid?', $html);
         $this->assertStringContainsString('Keeps Balance?', $html);
