@@ -152,7 +152,7 @@ class EmployeeStructureRouteTest extends TestCase
         $this->assertStringContainsString('Annual Leave', $html);
         $this->assertStringContainsString('name="monthly_rules[0][id]" value="17"', $html);
         $this->assertStringContainsString('name="monthly_rules[0][leave_type_id]"', $html);
-        $this->assertMatchesRegularExpression('/name="monthly_rules\[0\]\[credit_after_days\]"\s+value="0"/', $html);
+        $this->assertMatchesRegularExpression('/name="monthly_rules\[0\]\[credit_after_days\]"\s+value="5"/', $html);
         $this->assertMatchesRegularExpression('/name="monthly_rules\[0\]\[max_accumulation\]"\s+value="36"/', $html);
         $this->assertMatchesRegularExpression('/name="monthly_rules\[0\]\[maximum_request_in_a_month\]"\s+value="0"/', $html);
         $this->assertStringContainsString('name="monthly_rules[0][is_paid]"', $html);
@@ -174,6 +174,8 @@ class EmployeeStructureRouteTest extends TestCase
         $this->assertStringContainsString('Based On Working Hrs', $html);
         $this->assertStringContainsString('Yearly Leave Rules', $html);
         $this->assertStringContainsString('name="monthly_rules[0][allow_leave_encashment]"', $html);
+        $this->assertStringContainsString('Allow Leave Lapse?', $html);
+        $this->assertMatchesRegularExpression('/name="monthly_rules\[0\]\[allow_leave_lapse\]"[^>]*type="checkbox"[^>]*value="1"/', $html);
         $this->assertStringNotContainsString('name="monthly_rules[0][increment]"', $html);
         $this->assertStringNotContainsString('name="monthly_rules[0][proportionate]"', $html);
         $this->assertStringNotContainsString('name="monthly_rules[0][start_credit]"', $html);
@@ -181,7 +183,6 @@ class EmployeeStructureRouteTest extends TestCase
         $this->assertStringNotContainsString('name="monthly_rules[0][start_use_after_days]"', $html);
         $this->assertStringNotContainsString('name="monthly_rules[0][allow_sandwich]"', $html);
         $this->assertStringNotContainsString('name="monthly_rules[0][sandwich_leave_id]"', $html);
-        $this->assertStringNotContainsString('name="monthly_rules[0][allow_leave_lapse]"', $html);
         foreach ([
             'leave_type_id', 'allow_c_f',
             'count_weekly_off_as_present', 'count_holiday_as_present',
@@ -189,7 +190,7 @@ class EmployeeStructureRouteTest extends TestCase
             'keeps_balance',
             'allow_negative_balance', 'negative_balance', 'allow_backdate_leave',
             'backdate_day_limit', 'allow_advance_leave', 'advance_day_limit',
-            'allow_leave_encashment',
+            'allow_leave_encashment', 'allow_leave_lapse',
             'maximum_request_in_a_month', 'maximum_request_in_a_year',
             'eligible_after_days', 'credit_after_days', 'min_avail', 'max_avail',
             'leave_types_not_to_be_clubbed', 'leave_credit_type',

@@ -41,6 +41,7 @@ class UpdateLeaveGroupRequest extends FormRequest
             'allow_advance_leave',
             'advance_day_limit',
             'allow_leave_encashment',
+            'allow_leave_lapse',
         ];
         $yearlyRuleFields = [
             'leave_type_id',
@@ -104,6 +105,7 @@ class UpdateLeaveGroupRequest extends FormRequest
             'monthly_rules.*.allow_advance_leave' => ['required', 'boolean'],
             'monthly_rules.*.advance_day_limit' => ['present', 'nullable', 'integer', 'min:0'],
             'monthly_rules.*.allow_leave_encashment' => ['required', 'boolean'],
+            'monthly_rules.*.allow_leave_lapse' => ['required', 'boolean'],
             'yearly_rules' => ['sometimes', 'array'],
             'yearly_rules.*' => ['required', 'array:'.implode(',', array_merge(['id'], $yearlyRuleFields))],
             'yearly_rules.*.id' => [

@@ -65,6 +65,7 @@ class GradeWiseMonthlyLeaveDetail extends Model
         'is_paid' => 'bool',
         'keeps_balance' => 'bool',
         'allow_negative_balance' => 'bool',
+        'allow_leave_lapse' => 'bool',
         'negative_balance' => 'decimal:2',
         'created_by' => 'int',
         'updated_by' => 'int',
