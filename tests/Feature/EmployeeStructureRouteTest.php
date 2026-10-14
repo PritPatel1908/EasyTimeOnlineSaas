@@ -192,7 +192,7 @@ class EmployeeStructureRouteTest extends TestCase
             $this->assertStringContainsString('name="monthly_rules[0]['.$month.']"', $html);
         }
         $this->assertStringContainsString('Based On Working Hrs', $html);
-        $this->assertStringContainsString('Yearly Leave Rules', $html);
+        $this->assertStringNotContainsString('Yearly Leave Rules', $html);
         $this->assertStringContainsString('name="monthly_rules[0][allow_leave_encashment]"', $html);
         $this->assertStringContainsString('Allow Leave Lapse?', $html);
         $this->assertMatchesRegularExpression('/name="monthly_rules\[0\]\[allow_leave_lapse\]"[^>]*type="checkbox"[^>]*value="1"/', $html);
@@ -227,7 +227,7 @@ class EmployeeStructureRouteTest extends TestCase
         }
     }
 
-    public function test_yearly_leave_group_edit_form_handles_missing_rules_and_renders_yearly_values(): void
+    public function test_leave_group_edit_form_does_not_render_yearly_leave_rules(): void
     {
         view()->share('errors', new \Illuminate\Support\ViewErrorBag());
         $leaveGroup = new LeaveGroup();
@@ -238,24 +238,6 @@ class EmployeeStructureRouteTest extends TestCase
 
         $detail = new GradeWiseYearlyLeaveDetail();
         $detail->id = 24;
-        $detail->eligible = 15;
-        $detail->min_utilization = 3;
-        $detail->max_accumulation = 60;
-        $detail->opening = 2;
-        $detail->based_on = 1;
-        $detail->allow_sandwich = true;
-        $detail->allow_negative_balance = true;
-        $detail->negative_balance = -2;
-        $detail->allow_leave_encashment = true;
-        $detail->allow_leave_lapse = true;
-        $detail->is_paid = false;
-        $detail->keeps_balance = false;
-        $detail->eligible_after_days = 0;
-        $detail->credit_after_days = 0;
-        $detail->min_avail = 0;
-        $detail->max_avail = 365;
-        $detail->leave_types_not_to_be_clubbed = [];
-        $detail->leave_credit_type = 'yearly';
         $detail->setRelation('leave_type', new LeaveType(['description' => 'Sick Leave']));
         $leaveGroup->setRelation('grade_wise_monthly_leave_details', collect());
         $leaveGroup->setRelation('grade_wise_yearly_leave_details', collect([$detail]));
@@ -269,56 +251,8 @@ class EmployeeStructureRouteTest extends TestCase
             ]),
         ])->render();
 
-        $this->assertStringContainsString('Sick Leave', $html);
-        $this->assertStringContainsString('name="yearly_rules[0][id]" value="24"', $html);
-        $this->assertStringContainsString('name="yearly_rules[0][leave_type_id]"', $html);
-        $this->assertMatchesRegularExpression('/name="yearly_rules\[0\]\[eligible\]"\s+value="15"/', $html);
-        $this->assertMatchesRegularExpression('/name="yearly_rules\[0\]\[min_utilization\]"\s+value="3"/', $html);
-        $this->assertMatchesRegularExpression('/name="yearly_rules\[0\]\[opening\]"\s+value="2"/', $html);
-        $this->assertMatchesRegularExpression('/name="yearly_rules\[0\]\[based_on\]"\s+value="1"/', $html);
-        $this->assertStringContainsString('name="yearly_rules[0][allow_sandwich]"', $html);
-        $this->assertStringContainsString('name="yearly_rules[0][allow_leave_encashment]"', $html);
-        $this->assertMatchesRegularExpression('/name="yearly_rules\[0\]\[max_accumulation\]"\s+value="60"/', $html);
-        $this->assertMatchesRegularExpression('/name="yearly_rules\[0\]\[maximum_request_in_a_month\]"\s+value="0"/', $html);
-        $this->assertStringContainsString('name="yearly_rules[0][is_paid]"', $html);
-        $this->assertStringContainsString('Paid?', $html);
-        $this->assertStringContainsString('Keeps Balance?', $html);
-        $this->assertMatchesRegularExpression('/name="yearly_rules\[0\]\[is_paid\]"[^>]*type="checkbox"(?![^>]*checked)[^>]*>/', $html);
-        $this->assertMatchesRegularExpression('/name="yearly_rules\[0\]\[keeps_balance\]"[^>]*type="checkbox"(?![^>]*checked)[^>]*>/', $html);
-        $this->assertMatchesRegularExpression('/<div class="(?![^"]*d-none)[^"]*mb-3[^"]*"[^>]*>\s*<label class="form-label" for="yearly_0_is_paid">/s', $html);
-        $this->assertMatchesRegularExpression('/<div class="(?![^"]*d-none)[^"]*mb-3[^"]*"[^>]*>\s*<label class="form-label" for="yearly_0_leave_type_id">/s', $html);
-        $this->assertMatchesRegularExpression('/<div class="(?![^"]*d-none)[^"]*mb-3[^"]*"[^>]*>\s*<label class="form-label" for="yearly_0_eligible_after_days">/s', $html);
-        $this->assertStringContainsString('data-keeps-balance', $html);
-        $this->assertStringContainsString('Maximum Accumulation', $html);
-        $this->assertStringContainsString('Maximum Request in a Month', $html);
-        $this->assertStringContainsString('Maximum Request in a Year', $html);
-        $this->assertStringContainsString('Eligible Leave After Days', $html);
-        $this->assertStringContainsString('Credit Leave After Days', $html);
-        $this->assertStringContainsString('Min Avail', $html);
-        $this->assertStringContainsString('Max Avail', $html);
-        $this->assertStringContainsString('name="yearly_rules[0][leave_types_not_to_be_clubbed][]"', $html);
-        $this->assertStringContainsString('name="yearly_rules[0][leave_credit_type]"', $html);
-        $this->assertStringContainsString('Monthly Leave Rules', $html);
-        foreach ([
-            'leave_type_id', 'eligible', 'allow_c_f', 'opening', 'based_on',
-            'allow_sandwich', 'sandwich_leave_id', 'min_utilization',
-            'max_accumulation', 'maximum_request_in_a_month', 'maximum_request_in_a_year',
-            'is_paid', 'keeps_balance', 'allow_negative_balance',
-            'negative_balance', 'eligible_after_days', 'credit_after_days', 'min_avail',
-            'max_avail', 'leave_types_not_to_be_clubbed', 'leave_credit_type',
-            'allow_leave_encashment', 'allow_leave_lapse',
-        ] as $field) {
-            $suffix = $field === 'leave_types_not_to_be_clubbed' ? '][]' : ']';
-            $this->assertStringContainsString('name="yearly_rules[0]['.$field.$suffix.'"', $html);
-        }
-
-        $leaveGroup->setRelation('grade_wise_yearly_leave_details', collect());
-        $emptyHtml = view('employee-structure.leave-groups.edit', [
-            'leaveGroup' => $leaveGroup,
-            'financialYears' => collect(),
-            'leaveTypes' => collect(),
-        ])->render();
-
-        $this->assertStringContainsString('No yearly leave rules are linked to this group.', $emptyHtml);
+        $this->assertStringNotContainsString('Yearly Leave Rules', $html);
+        $this->assertStringNotContainsString('name="yearly_rules[', $html);
+        $this->assertStringContainsString('Leave Rules', $html);
     }
 }

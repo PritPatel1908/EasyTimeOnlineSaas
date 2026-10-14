@@ -99,8 +99,6 @@ class LeaveGroupController extends Controller
             ->with([
                 'grade_wise_monthly_leave_details.leave_type',
                 'grade_wise_monthly_leave_details.sandwich_leave',
-                'grade_wise_yearly_leave_details.leave_type',
-                'grade_wise_yearly_leave_details.sandwich_leave',
             ])
             ->findOrFail($request->route('leave_group'));
 
@@ -115,10 +113,9 @@ class LeaveGroupController extends Controller
     {
         $validated = $request->validated();
         $monthlyRules = $validated['monthly_rules'] ?? [];
-        $yearlyRules = $validated['yearly_rules'] ?? [];
-        unset($validated['monthly_rules'], $validated['yearly_rules']);
+        unset($validated['monthly_rules']);
 
-        DB::transaction(function () use ($request, $validated, $monthlyRules, $yearlyRules): void {
+        DB::transaction(function () use ($request, $validated, $monthlyRules): void {
             $leaveGroup = LeaveGroup::query()->findOrFail($request->route('leave_group'));
             $leaveGroup->update($validated);
 
@@ -132,14 +129,6 @@ class LeaveGroupController extends Controller
                     ->update($values);
             }
 
-            foreach ($yearlyRules as $rule) {
-                $values = array_diff_key($rule, ['id' => true]);
-                $values['leave_types_not_to_be_clubbed'] ??= [];
-                $leaveGroup->grade_wise_yearly_leave_details()
-                    ->whereKey($rule['id'])
-                    ->firstOrFail()
-                    ->update($values);
-            }
         });
 
         return redirect(url(self::INDEX_URL))->with('success', 'Leave Group updated successfully.');

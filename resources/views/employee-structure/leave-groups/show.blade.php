@@ -12,7 +12,7 @@
         <div class="col-md-3 mb-3"><small class="text-muted d-block">Status</small>{{ $leaveGroup->status === 1 ? 'Active' : 'Inactive' }}</div>
         <div class="col-md-3 mb-3"><small class="text-muted d-block">Assigned Employees</small>{{ $leaveGroup->users()->count() }}</div>
     </div></div></div>
-    <div class="card mb-4"><div class="card-header"><h5 class="mb-0">Monthly Leave Rules</h5></div><div class="card-body p-0"><div class="table-responsive"><table class="table mb-0">
+    <div class="card mb-4"><div class="card-header"><h5 class="mb-0">Leave Rules</h5></div><div class="card-body p-0"><div class="table-responsive"><table class="table mb-0">
         <thead><tr><th>Leave Type</th><th>Increment</th><th>Max Accumulation</th><th>Paid?</th><th>Keeps Balance?</th></tr></thead><tbody>
         @forelse($leaveGroup->grade_wise_monthly_leave_details as $detail)
             <tr><td>{{ $detail->leave_type?->description ?? $detail->leave_type?->name ?? '—' }}</td><td>{{ $detail->increment ?? '—' }}</td><td>{{ $detail->max_accumulation ?? '—' }}</td><td>{{ $detail->is_paid ? 'Yes' : 'No' }}</td><td>{{ $detail->keeps_balance ? 'Yes' : 'No' }}</td></tr>
