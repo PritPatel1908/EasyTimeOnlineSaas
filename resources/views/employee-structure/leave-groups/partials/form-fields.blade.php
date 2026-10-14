@@ -106,13 +106,32 @@
             ['name' => 'leave_credit_type', 'label' => 'Leave Credit Type', 'type' => 'leave_credit_type', 'default' => 'yearly'],
             ['name' => 'allow_leave_lapse', 'label' => 'Allow Leave Lapse', 'type' => 'boolean'],
         ];
+        $balanceIndependentFields = [
+            'leave_type_id',
+            'is_paid',
+            'allow_backdate_leave',
+            'backdate_day_limit',
+            'allow_advance_leave',
+            'advance_day_limit',
+            'allow_sandwich',
+            'maximum_request_in_a_month',
+            'maximum_request_in_a_year',
+            'leave_types_not_to_be_clubbed',
+            'eligible_after_days',
+            'credit_after_days',
+            'min_avail',
+            'max_avail',
+        ];
     @endphp
 
     <div class="card mb-4">
         <div class="card-header"><h5 class="card-title mb-0">Monthly Leave Rules</h5></div>
         <div class="card-body">
             @forelse ($leaveGroup->grade_wise_monthly_leave_details as $index => $detail)
-                <div class="border rounded p-3 mb-3" data-monthly-rule>
+                @php
+                    $keepsBalance = (string) old('monthly_rules.'.$index.'.keeps_balance', $detail->keeps_balance ?? 0) === '1';
+                @endphp
+                <div class="border rounded p-3 mb-3" data-leave-rule data-monthly-rule>
                     <h6 class="mb-3">{{ $detail->leave_type?->description ?? $detail->leave_type?->code ?? 'Monthly Rule' }}</h6>
                     <input type="hidden" name="monthly_rules[{{ $index }}][id]" value="{{ $detail->id }}">
                     <div class="row">
@@ -123,11 +142,12 @@
                                 $inputName = 'monthly_rules['.$index.']['.$fieldName.']';
                                 $inputId = 'monthly_'.$index.'_'.$fieldName;
                                 $value = old($errorKey, $detail->{$fieldName} ?? ($field['default'] ?? null));
+                                $isBalanceDependent = $fieldName !== 'keeps_balance' && !in_array($fieldName, $balanceIndependentFields, true);
                                 if (in_array($field['type'], ['number', 'tiny_number', 'decimal'], true) && ($value === null || $value === '')) {
                                     $value = 0;
                                 }
                             @endphp
-                            <div class="{{ in_array($fieldName, ['leave_types_not_to_be_clubbed', 'leave_credit_type'], true) ? 'col-lg-6' : (in_array($fieldName, ['leave_type_id', 'is_paid', 'keeps_balance', 'max_accumulation', 'maximum_request_in_a_month', 'maximum_request_in_a_year', 'count_weekly_off_as_present', 'count_holiday_as_present', 'allow_c_f', 'allow_leave_encashment', 'allow_leave_lapse', 'allow_sandwich'], true) ? 'col-lg-4' : (in_array($fieldName, ['allow_negative_balance', 'negative_balance', 'allow_backdate_leave', 'backdate_day_limit', 'allow_advance_leave', 'advance_day_limit'], true) ? 'col-lg-2' : 'col-lg-3 col-md-4 col-sm-6')) }} mb-3">
+                            <div class="{{ in_array($fieldName, ['leave_types_not_to_be_clubbed', 'leave_credit_type'], true) ? 'col-lg-6' : (in_array($fieldName, ['leave_type_id', 'is_paid', 'keeps_balance', 'max_accumulation', 'maximum_request_in_a_month', 'maximum_request_in_a_year', 'count_weekly_off_as_present', 'count_holiday_as_present', 'allow_c_f', 'allow_leave_encashment', 'allow_leave_lapse', 'allow_sandwich'], true) ? 'col-lg-4' : (in_array($fieldName, ['allow_negative_balance', 'negative_balance', 'allow_backdate_leave', 'backdate_day_limit', 'allow_advance_leave', 'advance_day_limit'], true) ? 'col-lg-2' : 'col-lg-3 col-md-4 col-sm-6')) }} mb-3 {{ $isBalanceDependent && !$keepsBalance ? 'd-none' : '' }}" @if ($isBalanceDependent) data-balance-dependent @endif>
                                 <label class="form-label" for="{{ $inputId }}">{{ $field['label'] }}</label>
                                 @if ($field['type'] === 'switch')
                                     <div class="form-check form-check-lg form-switch ps-0">
@@ -139,6 +159,7 @@
                                             type="checkbox"
                                             role="switch"
                                             value="1"
+                                            @if ($fieldName === 'keeps_balance') data-keeps-balance @endif
                                             @checked((string) $value === '1')
                                         >
                                     </div>
@@ -189,7 +210,7 @@
                         @php
                             $monthlyCreditType = old('monthly_rules.'.$index.'.leave_credit_type', $detail->leave_credit_type ?? 'monthly');
                         @endphp
-                        <div class="col-12 {{ $monthlyCreditType === 'monthly' ? '' : 'd-none' }}" data-monthly-credit-fields>
+                        <div class="col-12 {{ $monthlyCreditType === 'monthly' && $keepsBalance ? '' : 'd-none' }}" data-monthly-credit-fields data-balance-dependent>
                             <div class="row">
                                 @foreach ([
                                     'jan' => 'January',
@@ -230,7 +251,7 @@
                                 @endforeach
                             </div>
                         </div>
-                        <div class="col-12 {{ $monthlyCreditType === 'yearly' ? '' : 'd-none' }}" data-annual-quota-field>
+                        <div class="col-12 {{ $monthlyCreditType === 'yearly' && $keepsBalance ? '' : 'd-none' }}" data-annual-quota-field data-balance-dependent>
                             @php
                                 $annualQuotaErrorKey = 'monthly_rules.'.$index.'.annual_quota';
                                 $annualQuotaInputName = 'monthly_rules['.$index.'][annual_quota]';
@@ -256,7 +277,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-12 {{ $monthlyCreditType === 'based_on_present' ? '' : 'd-none' }}" data-based-on-present-fields>
+                        <div class="col-12 {{ $monthlyCreditType === 'based_on_present' && $keepsBalance ? '' : 'd-none' }}" data-based-on-present-fields data-balance-dependent>
                             @php
                                 $presentCountPerErrorKey = 'monthly_rules.'.$index.'.present_count_per';
                                 $presentCountPerInputName = 'monthly_rules['.$index.'][present_count_per]';
@@ -317,7 +338,10 @@
         <div class="card-header"><h5 class="card-title mb-0">Yearly Leave Rules</h5></div>
         <div class="card-body">
             @forelse ($leaveGroup->grade_wise_yearly_leave_details as $index => $detail)
-                <div class="border rounded p-3 mb-3">
+                @php
+                    $keepsBalance = (string) old('yearly_rules.'.$index.'.keeps_balance', $detail->keeps_balance ?? 0) === '1';
+                @endphp
+                <div class="border rounded p-3 mb-3" data-leave-rule>
                     <h6 class="mb-3">{{ $detail->leave_type?->description ?? $detail->leave_type?->code ?? 'Yearly Rule' }}</h6>
                     <input type="hidden" name="yearly_rules[{{ $index }}][id]" value="{{ $detail->id }}">
                     <div class="row">
@@ -328,11 +352,12 @@
                                 $inputName = 'yearly_rules['.$index.']['.$fieldName.']';
                                 $inputId = 'yearly_'.$index.'_'.$fieldName;
                                 $value = old($errorKey, $detail->{$fieldName} ?? ($field['default'] ?? null));
+                                $isBalanceDependent = $fieldName !== 'keeps_balance' && !in_array($fieldName, $balanceIndependentFields, true);
                                 if (in_array($field['type'], ['number', 'tiny_number', 'decimal'], true) && ($value === null || $value === '')) {
                                     $value = 0;
                                 }
                             @endphp
-                            <div class="{{ in_array($fieldName, ['leave_types_not_to_be_clubbed', 'leave_credit_type'], true) ? 'col-lg-6' : (in_array($fieldName, ['leave_type_id', 'is_paid', 'keeps_balance', 'max_accumulation', 'maximum_request_in_a_month', 'maximum_request_in_a_year'], true) ? 'col-lg-4' : 'col-lg-3 col-md-4 col-sm-6') }} mb-3">
+                            <div class="{{ in_array($fieldName, ['leave_types_not_to_be_clubbed', 'leave_credit_type'], true) ? 'col-lg-6' : (in_array($fieldName, ['leave_type_id', 'is_paid', 'keeps_balance', 'max_accumulation', 'maximum_request_in_a_month', 'maximum_request_in_a_year'], true) ? 'col-lg-4' : 'col-lg-3 col-md-4 col-sm-6') }} mb-3 {{ $isBalanceDependent && !$keepsBalance ? 'd-none' : '' }}" @if ($isBalanceDependent) data-balance-dependent @endif>
                                 <label class="form-label" for="{{ $inputId }}">{{ $field['label'] }}</label>
                                 @if ($field['type'] === 'switch')
                                     <div class="form-check form-check-lg form-switch ps-0">
@@ -344,6 +369,7 @@
                                             type="checkbox"
                                             role="switch"
                                             value="1"
+                                            @if ($fieldName === 'keeps_balance') data-keeps-balance @endif
                                             @checked((string) $value === '1')
                                         >
                                     </div>
@@ -402,20 +428,38 @@
 
     document.querySelectorAll('.leave-group-form').forEach(function (form) {
         function syncMonthlyCreditFields(select) {
-            var rule = select.closest('[data-monthly-rule]');
+            var rule = select.closest('[data-leave-rule]');
             if (!rule) return;
+            var keepsBalance = rule.querySelector('[data-keeps-balance]');
+            var hasBalance = keepsBalance && keepsBalance.checked;
             var monthlyFields = rule.querySelector('[data-monthly-credit-fields]');
             var annualQuotaField = rule.querySelector('[data-annual-quota-field]');
             var basedOnPresentFields = rule.querySelector('[data-based-on-present-fields]');
-            if (monthlyFields) monthlyFields.classList.toggle('d-none', select.value !== 'monthly');
-            if (annualQuotaField) annualQuotaField.classList.toggle('d-none', select.value !== 'yearly');
-            if (basedOnPresentFields) basedOnPresentFields.classList.toggle('d-none', select.value !== 'based_on_present');
+            if (monthlyFields) monthlyFields.classList.toggle('d-none', !hasBalance || select.value !== 'monthly');
+            if (annualQuotaField) annualQuotaField.classList.toggle('d-none', !hasBalance || select.value !== 'yearly');
+            if (basedOnPresentFields) basedOnPresentFields.classList.toggle('d-none', !hasBalance || select.value !== 'based_on_present');
+        }
+
+        function syncBalanceDependentFields(checkbox) {
+            var rule = checkbox.closest('[data-leave-rule]');
+            if (!rule) return;
+            rule.querySelectorAll('[data-balance-dependent]').forEach(function (field) {
+                field.classList.toggle('d-none', !checkbox.checked);
+            });
+            var creditType = rule.querySelector('[data-monthly-credit-type]');
+            if (creditType) syncMonthlyCreditFields(creditType);
         }
 
         form.querySelectorAll('[data-monthly-credit-type]').forEach(function (select) {
             syncMonthlyCreditFields(select);
             select.addEventListener('change', function () {
                 syncMonthlyCreditFields(select);
+            });
+        });
+
+        form.querySelectorAll('[data-keeps-balance]').forEach(function (checkbox) {
+            checkbox.addEventListener('change', function () {
+                syncBalanceDependentFields(checkbox);
             });
         });
 

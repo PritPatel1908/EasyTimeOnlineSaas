@@ -163,6 +163,7 @@ class EmployeeStructureRouteTest extends TestCase
         $this->assertMatchesRegularExpression('/name="monthly_rules\[0\]\[is_paid\]"[^>]*type="checkbox"[^>]*checked/', $html);
         $this->assertStringContainsString('Keeps Balance?', $html);
         $this->assertMatchesRegularExpression('/name="monthly_rules\[0\]\[keeps_balance\]"[^>]*type="checkbox"[^>]*checked/', $html);
+        $this->assertMatchesRegularExpression('/<div class="(?![^"]*d-none)[^"]*mb-3[^"]*"[^>]*>\s*<label class="form-label" for="monthly_0_is_paid">/s', $html);
         $this->assertStringContainsString('Maximum Accumulation', $html);
         $this->assertStringContainsString('Maximum Request in a Month', $html);
         $this->assertStringContainsString('Maximum Request in a Year', $html);
@@ -284,6 +285,10 @@ class EmployeeStructureRouteTest extends TestCase
         $this->assertStringContainsString('Keeps Balance?', $html);
         $this->assertMatchesRegularExpression('/name="yearly_rules\[0\]\[is_paid\]"[^>]*type="checkbox"(?![^>]*checked)[^>]*>/', $html);
         $this->assertMatchesRegularExpression('/name="yearly_rules\[0\]\[keeps_balance\]"[^>]*type="checkbox"(?![^>]*checked)[^>]*>/', $html);
+        $this->assertMatchesRegularExpression('/<div class="(?![^"]*d-none)[^"]*mb-3[^"]*"[^>]*>\s*<label class="form-label" for="yearly_0_is_paid">/s', $html);
+        $this->assertMatchesRegularExpression('/<div class="(?![^"]*d-none)[^"]*mb-3[^"]*"[^>]*>\s*<label class="form-label" for="yearly_0_leave_type_id">/s', $html);
+        $this->assertMatchesRegularExpression('/<div class="(?![^"]*d-none)[^"]*mb-3[^"]*"[^>]*>\s*<label class="form-label" for="yearly_0_eligible_after_days">/s', $html);
+        $this->assertStringContainsString('data-keeps-balance', $html);
         $this->assertStringContainsString('Maximum Accumulation', $html);
         $this->assertStringContainsString('Maximum Request in a Month', $html);
         $this->assertStringContainsString('Maximum Request in a Year', $html);
