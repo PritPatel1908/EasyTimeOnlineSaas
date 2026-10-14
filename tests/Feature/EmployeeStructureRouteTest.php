@@ -153,6 +153,11 @@ class EmployeeStructureRouteTest extends TestCase
         ])->render();
 
         $this->assertStringContainsString('Annual Leave', $html);
+        $this->assertStringContainsString('data-add-leave-rule', $html);
+        $this->assertStringContainsString('data-remove-leave-rule', $html);
+        $this->assertStringContainsString('data-rule-prototype', $html);
+        $this->assertStringContainsString('field.tomselect.destroy()', $html);
+        $this->assertStringContainsString('new TomSelect(field, { width:', $html);
         $this->assertStringContainsString('name="monthly_rules[0][id]" value="17"', $html);
         $this->assertStringContainsString('name="monthly_rules[0][leave_type_id]"', $html);
         $this->assertMatchesRegularExpression('/name="monthly_rules\[0\]\[credit_after_days\]"\s+value="5"/', $html);
@@ -167,7 +172,7 @@ class EmployeeStructureRouteTest extends TestCase
         $this->assertStringContainsString('Maximum Accumulation', $html);
         $this->assertStringContainsString('Maximum Request in a Month', $html);
         $this->assertStringContainsString('Maximum Request in a Year', $html);
-        $this->assertSame(6, substr_count($html, '0 for unrestricted'));
+        $this->assertSame(12, substr_count($html, '0 for unrestricted'));
         $this->assertStringContainsString('Eligible Leave After Days', $html);
         $this->assertStringContainsString('Credit Leave After Days', $html);
         $this->assertStringContainsString('Min Avail', $html);

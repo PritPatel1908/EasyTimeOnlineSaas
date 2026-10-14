@@ -68,9 +68,11 @@ class UpdateLeaveGroupRequest extends FormRequest
             $leaveGroupId,
             $this->integer('financial_year_id') ?: null,
         ), [
+            'monthly_rules_present' => ['sometimes', 'accepted'],
             'monthly_rules' => ['sometimes', 'array'],
             'monthly_rules.*' => ['required', 'array:'.implode(',', array_merge(['id'], $monthlyRuleFields))],
             'monthly_rules.*.id' => [
+                'sometimes',
                 'required',
                 'integer',
                 'distinct',

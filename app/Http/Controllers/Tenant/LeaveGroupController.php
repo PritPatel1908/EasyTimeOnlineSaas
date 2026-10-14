@@ -113,22 +113,40 @@ class LeaveGroupController extends Controller
     {
         $validated = $request->validated();
         $monthlyRules = $validated['monthly_rules'] ?? [];
+        $replaceMonthlyRules = (bool) ($validated['monthly_rules_present'] ?? array_key_exists('monthly_rules', $validated));
         unset($validated['monthly_rules']);
+        unset($validated['monthly_rules_present']);
 
-        DB::transaction(function () use ($request, $validated, $monthlyRules): void {
+        DB::transaction(function () use ($request, $validated, $monthlyRules, $replaceMonthlyRules): void {
             $leaveGroup = LeaveGroup::query()->findOrFail($request->route('leave_group'));
             $leaveGroup->update($validated);
 
+            if (!$replaceMonthlyRules) {
+                return;
+            }
+
+            $retainedRuleIds = [];
             foreach ($monthlyRules as $rule) {
                 $values = array_diff_key($rule, ['id' => true]);
                 $values['leave_types_not_to_be_clubbed'] ??= [];
                 $values['include_leaves'] ??= [];
-                $leaveGroup->grade_wise_monthly_leave_details()
-                    ->whereKey($rule['id'])
-                    ->firstOrFail()
-                    ->update($values);
+                if (isset($rule['id'])) {
+                    $leaveGroup->grade_wise_monthly_leave_details()
+                        ->whereKey($rule['id'])
+                        ->firstOrFail()
+                        ->update($values);
+                    $retainedRuleIds[] = $rule['id'];
+                } else {
+                    $createdRule = $leaveGroup->grade_wise_monthly_leave_details()->create($values);
+                    $retainedRuleIds[] = $createdRule->getKey();
+                }
             }
 
+            $rulesToDelete = $leaveGroup->grade_wise_monthly_leave_details();
+            if ($retainedRuleIds !== []) {
+                $rulesToDelete->whereNotIn('id', $retainedRuleIds);
+            }
+            $rulesToDelete->delete();
         });
 
         return redirect(url(self::INDEX_URL))->with('success', 'Leave Group updated successfully.');

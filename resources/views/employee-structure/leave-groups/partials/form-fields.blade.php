@@ -3,7 +3,14 @@
 @endphp
 
 @if ($errors->any())
-    <div class="alert alert-danger mb-3">Please correct the highlighted fields.</div>
+    <div class="alert alert-danger mb-3" role="alert">
+        <p class="mb-1">Please correct the following fields:</p>
+        <ul class="mb-0">
+            @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    </div>
 @endif
 
 <div class="card mb-4">
@@ -105,15 +112,42 @@
     @endphp
 
     <div class="card mb-4">
-        <div class="card-header"><h5 class="card-title mb-0">Leave Rules</h5></div>
+        <div class="card-header d-flex align-items-center justify-content-between">
+            <h5 class="card-title mb-0">Leave Rules</h5>
+            <button type="button" class="btn btn-outline-primary btn-sm" data-add-leave-rule>
+                <i class="ti ti-plus me-1"></i>Add Leave Rule
+            </button>
+        </div>
         <div class="card-body">
-            @forelse ($leaveGroup->grade_wise_monthly_leave_details as $index => $detail)
+            @php
+                $monthlyRulesForView = old('monthly_rules');
+                if ($monthlyRulesForView === null) {
+                    $monthlyRulesForView = $leaveGroup->grade_wise_monthly_leave_details->all();
+                }
+                $hasMonthlyRules = count($monthlyRulesForView) > 0;
+                $nextRuleIndex = $monthlyRulesForView === []
+                    ? 0
+                    : max(array_map('intval', array_keys($monthlyRulesForView))) + 1;
+                $monthlyRulesForView[$nextRuleIndex] = ['_prototype' => true];
+            @endphp
+            <p class="text-muted mb-3" data-no-leave-rules @if ($hasMonthlyRules) hidden @endif>No monthly leave rules are linked to this group.</p>
+            <div data-leave-rules-container>
+            @foreach ($monthlyRulesForView as $index => $detail)
                 @php
-                    $keepsBalance = (string) old('monthly_rules.'.$index.'.keeps_balance', $detail->keeps_balance ?? 0) === '1';
+                    $isRulePrototype = data_get($detail, '_prototype', false);
+                    $ruleLeaveType = $leaveTypes->firstWhere('id', data_get($detail, 'leave_type_id'));
+                    $keepsBalance = (string) old('monthly_rules.'.$index.'.keeps_balance', data_get($detail, 'keeps_balance', 0)) === '1';
                 @endphp
-                <div class="border rounded p-3 mb-3" data-leave-rule data-monthly-rule>
-                    <h6 class="mb-3">{{ $detail->leave_type?->description ?? $detail->leave_type?->code ?? 'Monthly Rule' }}</h6>
-                    <input type="hidden" name="monthly_rules[{{ $index }}][id]" value="{{ $detail->id }}">
+                <div class="border rounded p-3 mb-3" data-leave-rule data-monthly-rule data-rule-index="{{ $index }}" @if ($isRulePrototype) data-rule-prototype hidden @endif>
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <h6 class="mb-0" data-rule-title>{{ $ruleLeaveType?->description ?? $ruleLeaveType?->code ?? ($isRulePrototype ? 'New Leave Rule' : 'Monthly Rule') }}</h6>
+                        <button type="button" class="btn btn-outline-danger btn-sm" data-remove-leave-rule>
+                            <i class="ti ti-trash me-1"></i>Delete
+                        </button>
+                    </div>
+                    @if (data_get($detail, 'id'))
+                        <input type="hidden" name="monthly_rules[{{ $index }}][id]" value="{{ data_get($detail, 'id') }}">
+                    @endif
                     <div class="row">
                         @foreach ($monthlyRuleFields as $field)
                             @php
@@ -121,10 +155,10 @@
                                 $errorKey = 'monthly_rules.'.$index.'.'.$fieldName;
                                 $inputName = 'monthly_rules['.$index.']['.$fieldName.']';
                                 $inputId = 'monthly_'.$index.'_'.$fieldName;
-                                $value = old($errorKey, $detail->{$fieldName} ?? ($field['default'] ?? null));
+                                $value = old($errorKey, data_get($detail, $fieldName, $field['default'] ?? null));
                                 $limitToggleName = $conditionalLimitToggles[$fieldName] ?? null;
                                 $limitFieldName = array_search($fieldName, $conditionalLimitToggles, true);
-                                $isLimitEnabled = $limitToggleName === null || (string) old('monthly_rules.'.$index.'.'.$limitToggleName, $detail->{$limitToggleName} ?? 0) === '1';
+                                $isLimitEnabled = $limitToggleName === null || (string) old('monthly_rules.'.$index.'.'.$limitToggleName, data_get($detail, $limitToggleName, 0)) === '1';
                                 $isBalanceDependent = $fieldName !== 'keeps_balance' && !in_array($fieldName, $balanceIndependentFields, true);
                                 if (in_array($field['type'], ['number', 'tiny_number', 'decimal'], true) && ($value === null || $value === '')) {
                                     $value = 0;
@@ -215,7 +249,7 @@
                                         $monthErrorKey = 'monthly_rules.'.$index.'.'.$month;
                                         $monthInputName = 'monthly_rules['.$index.']['.$month.']';
                                         $monthInputId = 'monthly_'.$index.'_'.$month;
-                                        $monthValue = old($monthErrorKey, $detail->{$month});
+                                        $monthValue = old($monthErrorKey, data_get($detail, $month));
                                         if ($monthValue === null || $monthValue === '') {
                                             $monthValue = 0;
                                         }
@@ -241,7 +275,7 @@
                                 $annualQuotaErrorKey = 'monthly_rules.'.$index.'.annual_quota';
                                 $annualQuotaInputName = 'monthly_rules['.$index.'][annual_quota]';
                                 $annualQuotaInputId = 'monthly_'.$index.'_annual_quota';
-                                $annualQuotaValue = old($annualQuotaErrorKey, $detail->annual_quota);
+                                $annualQuotaValue = old($annualQuotaErrorKey, data_get($detail, 'annual_quota'));
                                 if ($annualQuotaValue === null || $annualQuotaValue === '') {
                                     $annualQuotaValue = 0;
                                 }
@@ -267,19 +301,19 @@
                                 $presentCountPerErrorKey = 'monthly_rules.'.$index.'.present_count_per';
                                 $presentCountPerInputName = 'monthly_rules['.$index.'][present_count_per]';
                                 $presentCountPerInputId = 'monthly_'.$index.'_present_count_per';
-                                $presentCountPerValue = old($presentCountPerErrorKey, $detail->present_count_per ?? 'monthly');
+                                $presentCountPerValue = old($presentCountPerErrorKey, data_get($detail, 'present_count_per', 'monthly'));
                                 $totalPresentErrorKey = 'monthly_rules.'.$index.'.if_total_present_count';
                                 $totalPresentInputName = 'monthly_rules['.$index.'][if_total_present_count]';
                                 $totalPresentInputId = 'monthly_'.$index.'_if_total_present_count';
-                                $totalPresentValue = old($totalPresentErrorKey, $detail->if_total_present_count ?? 0);
+                                $totalPresentValue = old($totalPresentErrorKey, data_get($detail, 'if_total_present_count', 0));
                                 $creditDaysErrorKey = 'monthly_rules.'.$index.'.then_credit_balance_days';
                                 $creditDaysInputName = 'monthly_rules['.$index.'][then_credit_balance_days]';
                                 $creditDaysInputId = 'monthly_'.$index.'_then_credit_balance_days';
-                                $creditDaysValue = old($creditDaysErrorKey, $detail->then_credit_balance_days ?? 0);
+                                $creditDaysValue = old($creditDaysErrorKey, data_get($detail, 'then_credit_balance_days', 0));
                                 $includeLeavesErrorKey = 'monthly_rules.'.$index.'.include_leaves';
                                 $includeLeavesInputName = 'monthly_rules['.$index.'][include_leaves]';
                                 $includeLeavesInputId = 'monthly_'.$index.'_include_leaves';
-                                $includeLeavesValue = old($includeLeavesErrorKey, $detail->include_leaves ?? []);
+                                $includeLeavesValue = old($includeLeavesErrorKey, data_get($detail, 'include_leaves', []));
                             @endphp
                             <div class="row">
                                 <div class="col-lg-3 col-md-4 col-sm-6 mb-3">
@@ -313,9 +347,8 @@
                         </div>
                     </div>
                 </div>
-            @empty
-                <p class="text-muted mb-0">No monthly leave rules are linked to this group.</p>
-            @endforelse
+            @endforeach
+            </div>
         </div>
     </div>
 
@@ -327,7 +360,116 @@
         return name.replace(/\]/g, '').replace(/\[/g, '.');
     }
 
+    function updateLeaveGroupFieldHighlight(field, invalid) {
+        field.classList.toggle('is-invalid', invalid);
+        if (invalid) {
+            field.setAttribute('aria-invalid', 'true');
+        } else {
+            field.removeAttribute('aria-invalid');
+        }
+
+        var control = field.tomselect && field.tomselect.control;
+        if (!control) return;
+        control.classList.toggle('is-invalid', invalid);
+        if (invalid) {
+            control.setAttribute('aria-invalid', 'true');
+            control.style.borderColor = 'var(--bs-form-invalid-border-color, #dc3545)';
+            control.style.boxShadow = '0 0 0 .25rem rgba(220, 53, 69, .25)';
+        } else {
+            control.removeAttribute('aria-invalid');
+            control.style.removeProperty('border-color');
+            control.style.removeProperty('box-shadow');
+        }
+    }
+
     document.querySelectorAll('.leave-group-form').forEach(function (form) {
+        var rulesContainer = form.querySelector('[data-leave-rules-container]');
+        var rulePrototype = rulesContainer && rulesContainer.querySelector('[data-rule-prototype]');
+        var noRulesMessage = form.querySelector('[data-no-leave-rules]');
+        var nextRuleIndex = rulesContainer
+            ? Array.from(rulesContainer.querySelectorAll('[data-monthly-rule]')).reduce(function (nextIndex, rule) {
+                return Math.max(nextIndex, Number(rule.dataset.ruleIndex) + 1);
+            }, 0)
+            : 0;
+
+        if (rulePrototype) {
+            rulePrototype.querySelectorAll('input, select, textarea').forEach(function (field) {
+                field.disabled = true;
+            });
+        }
+
+        function syncRuleIndexes(rule, index) {
+            rule.dataset.ruleIndex = index;
+            rule.querySelectorAll('[name]').forEach(function (field) {
+                field.name = field.name.replace(/monthly_rules\[[^\]]+\]/, 'monthly_rules[' + index + ']');
+            });
+            rule.querySelectorAll('[id]').forEach(function (field) {
+                field.id = field.id.replace(/monthly_\d+_/, 'monthly_' + index + '_');
+            });
+            rule.querySelectorAll('label[for]').forEach(function (label) {
+                label.htmlFor = label.htmlFor.replace(/monthly_\d+_/, 'monthly_' + index + '_');
+            });
+            rule.querySelectorAll('[data-validation-error-for]').forEach(function (error) {
+                error.dataset.validationErrorFor = error.dataset.validationErrorFor.replace(/monthly_rules\.\d+\./, 'monthly_rules.' + index + '.');
+            });
+        }
+
+        function updateNoRulesMessage() {
+            if (!noRulesMessage || !rulesContainer) return;
+            noRulesMessage.hidden = rulesContainer.querySelectorAll('[data-monthly-rule]:not([data-rule-prototype])').length > 0;
+        }
+
+        if (rulesContainer) {
+            rulesContainer.addEventListener('click', function (event) {
+                var removeButton = event.target.closest('[data-remove-leave-rule]');
+                if (!removeButton) return;
+                var rule = removeButton.closest('[data-monthly-rule]');
+                if (!rule) return;
+
+                rule.remove();
+                updateNoRulesMessage();
+            });
+        }
+
+        var addRuleButton = form.querySelector('[data-add-leave-rule]');
+        if (addRuleButton && rulesContainer) {
+            addRuleButton.addEventListener('click', function () {
+                var sourceRule = rulePrototype || rulesContainer.querySelector('[data-monthly-rule]:not([data-rule-prototype])');
+                if (!sourceRule) return;
+                sourceRule.querySelectorAll('select').forEach(function (field) {
+                    if (field.tomselect) field.tomselect.destroy();
+                });
+                var rule = sourceRule.cloneNode(true);
+                rule.hidden = false;
+                rule.removeAttribute('data-rule-prototype');
+                syncRuleIndexes(rule, nextRuleIndex++);
+                rule.querySelectorAll('input, select, textarea').forEach(function (field) {
+                    field.disabled = false;
+                    field.classList.remove('is-invalid');
+                    field.removeAttribute('aria-invalid');
+                });
+                rule.querySelectorAll('[data-validation-error-for]').forEach(function (error) {
+                    error.textContent = '';
+                    error.hidden = true;
+                });
+                var leaveType = rule.querySelector('select[name$="[leave_type_id]"]');
+                if (leaveType) leaveType.value = '';
+                var ruleTitle = rule.querySelector('[data-rule-title]');
+                if (ruleTitle) ruleTitle.textContent = 'New Leave Rule';
+                rulesContainer.appendChild(rule);
+                if (typeof TomSelect !== 'undefined') {
+                    rule.querySelectorAll('select.select').forEach(function (field) {
+                        if (!field.tomselect) new TomSelect(field, { width: '100%', controlInput: null });
+                    });
+                }
+
+                updateNoRulesMessage();
+                initializeRule(rule);
+                var leaveTypeSelect = rule.querySelector('select[name$="[leave_type_id]"]');
+                if (leaveTypeSelect) leaveTypeSelect.focus();
+            });
+        }
+
         function syncMonthlyCreditFields(select) {
             var rule = select.closest('[data-leave-rule]');
             if (!rule) return;
@@ -359,26 +501,47 @@
             });
         }
 
-        form.querySelectorAll('[data-leave-rule]').forEach(function (rule) {
+        var initializedRules = new WeakSet();
+        function initializeRule(rule) {
+            if (initializedRules.has(rule)) return;
+            initializedRules.add(rule);
             syncConditionalLimits(rule);
             rule.querySelectorAll('[data-limit-toggle]').forEach(function (checkbox) {
                 checkbox.addEventListener('change', function () {
                     syncConditionalLimits(rule);
                 });
             });
-        });
 
-        form.querySelectorAll('[data-monthly-credit-type]').forEach(function (select) {
-            syncMonthlyCreditFields(select);
-            select.addEventListener('change', function () {
+            rule.querySelectorAll('[data-monthly-credit-type]').forEach(function (select) {
                 syncMonthlyCreditFields(select);
+                select.addEventListener('change', function () {
+                    syncMonthlyCreditFields(select);
+                });
             });
-        });
 
-        form.querySelectorAll('[data-keeps-balance]').forEach(function (checkbox) {
-            checkbox.addEventListener('change', function () {
-                syncBalanceDependentFields(checkbox);
+            rule.querySelectorAll('[data-keeps-balance]').forEach(function (checkbox) {
+                checkbox.addEventListener('change', function () {
+                    syncBalanceDependentFields(checkbox);
+                });
             });
+        }
+
+        form.querySelectorAll('[data-leave-rule]:not([data-rule-prototype])').forEach(initializeRule);
+
+        window.addEventListener('load', function () {
+            var invalidFields = Array.from(form.querySelectorAll('.is-invalid'));
+            invalidFields.forEach(function (field) {
+                if (field.matches('input, select, textarea')) {
+                    updateLeaveGroupFieldHighlight(field, true);
+                }
+            });
+            if (invalidFields.length > 0) {
+                var firstInvalidField = invalidFields[0];
+                var visibleField = firstInvalidField.tomselect
+                    ? firstInvalidField.tomselect.wrapper
+                    : firstInvalidField;
+                visibleField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
         });
 
         form.addEventListener('submit', function (event) {
@@ -395,10 +558,18 @@
                     error.textContent = field.validity.valueMissing ? 'This field is required.' : field.validationMessage;
                     error.hidden = false;
                 }
-                field.classList.add('is-invalid');
-                field.setAttribute('aria-invalid', 'true');
+                updateLeaveGroupFieldHighlight(field, true);
             });
-            invalidFields[0].focus();
+            var firstInvalidField = invalidFields[0];
+            if (firstInvalidField.tomselect) {
+                firstInvalidField.tomselect.focus();
+            } else {
+                firstInvalidField.focus();
+            }
+            var visibleField = firstInvalidField.tomselect
+                ? firstInvalidField.tomselect.wrapper
+                : firstInvalidField;
+            visibleField.scrollIntoView({ behavior: 'smooth', block: 'center' });
         });
 
         function clearLeaveGroupFieldError(event) {
@@ -411,8 +582,7 @@
                 error.textContent = '';
                 error.hidden = true;
             }
-            field.classList.remove('is-invalid');
-            field.removeAttribute('aria-invalid');
+            updateLeaveGroupFieldHighlight(field, false);
         }
 
         form.addEventListener('input', clearLeaveGroupFieldError);
