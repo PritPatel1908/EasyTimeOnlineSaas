@@ -55,6 +55,11 @@
 
 @if ($isEdit)
     @php
+        $conditionalLimitToggles = [
+            'negative_balance' => 'allow_negative_balance',
+            'backdate_day_limit' => 'allow_backdate_leave',
+            'advance_day_limit' => 'allow_advance_leave',
+        ];
         $monthlyRuleFields = [
             ['name' => 'leave_type_id', 'label' => 'Leave Type', 'type' => 'leave_type', 'required' => true],
             ['name' => 'is_paid', 'label' => 'Paid?', 'type' => 'switch'],
@@ -142,12 +147,15 @@
                                 $inputName = 'monthly_rules['.$index.']['.$fieldName.']';
                                 $inputId = 'monthly_'.$index.'_'.$fieldName;
                                 $value = old($errorKey, $detail->{$fieldName} ?? ($field['default'] ?? null));
+                                $limitToggleName = $conditionalLimitToggles[$fieldName] ?? null;
+                                $limitFieldName = array_search($fieldName, $conditionalLimitToggles, true);
+                                $isLimitEnabled = $limitToggleName === null || (string) old('monthly_rules.'.$index.'.'.$limitToggleName, $detail->{$limitToggleName} ?? 0) === '1';
                                 $isBalanceDependent = $fieldName !== 'keeps_balance' && !in_array($fieldName, $balanceIndependentFields, true);
                                 if (in_array($field['type'], ['number', 'tiny_number', 'decimal'], true) && ($value === null || $value === '')) {
                                     $value = 0;
                                 }
                             @endphp
-                            <div class="{{ in_array($fieldName, ['leave_types_not_to_be_clubbed', 'leave_credit_type'], true) ? 'col-lg-6' : (in_array($fieldName, ['leave_type_id', 'is_paid', 'keeps_balance', 'max_accumulation', 'maximum_request_in_a_month', 'maximum_request_in_a_year', 'count_weekly_off_as_present', 'count_holiday_as_present', 'allow_c_f', 'allow_leave_encashment', 'allow_leave_lapse', 'allow_sandwich'], true) ? 'col-lg-4' : (in_array($fieldName, ['allow_negative_balance', 'negative_balance', 'allow_backdate_leave', 'backdate_day_limit', 'allow_advance_leave', 'advance_day_limit'], true) ? 'col-lg-2' : 'col-lg-3 col-md-4 col-sm-6')) }} mb-3 {{ $isBalanceDependent && !$keepsBalance ? 'd-none' : '' }}" @if ($isBalanceDependent) data-balance-dependent @endif>
+                            <div class="{{ in_array($fieldName, ['leave_types_not_to_be_clubbed', 'leave_credit_type'], true) ? 'col-lg-6' : (in_array($fieldName, ['leave_type_id', 'is_paid', 'keeps_balance', 'max_accumulation', 'maximum_request_in_a_month', 'maximum_request_in_a_year', 'count_weekly_off_as_present', 'count_holiday_as_present', 'allow_c_f', 'allow_leave_encashment', 'allow_leave_lapse', 'allow_sandwich'], true) ? 'col-lg-4' : (in_array($fieldName, ['allow_negative_balance', 'negative_balance', 'allow_backdate_leave', 'backdate_day_limit', 'allow_advance_leave', 'advance_day_limit'], true) ? 'col-lg-2' : 'col-lg-3 col-md-4 col-sm-6')) }} mb-3 {{ $isBalanceDependent && !$keepsBalance ? 'd-none' : '' }}" @if ($isBalanceDependent) data-balance-dependent @endif @if ($limitToggleName) data-conditional-limit="{{ $limitToggleName }}" style="{{ !$isLimitEnabled ? 'visibility: hidden;' : '' }}" @endif>
                                 <label class="form-label" for="{{ $inputId }}">{{ $field['label'] }}</label>
                                 @if ($field['type'] === 'switch')
                                     <div class="form-check form-check-lg form-switch ps-0">
@@ -160,6 +168,7 @@
                                             role="switch"
                                             value="1"
                                             @if ($fieldName === 'keeps_balance') data-keeps-balance @endif
+                                            @if ($limitFieldName !== false) data-limit-toggle="{{ $fieldName }}" @endif
                                             @checked((string) $value === '1')
                                         >
                                     </div>
@@ -193,6 +202,7 @@
                                         name="{{ $inputName }}"
                                         value="{{ $value }}"
                                         class="form-control @error($errorKey) is-invalid @enderror"
+                                        @if ($limitToggleName) style="transition: none;" @endif
                                         @if ($field['type'] === 'decimal') step="0.01" @else step="1" @endif
                                         @if ($field['type'] !== 'decimal') min="0" @endif
                                         @if ($field['type'] === 'tiny_number') max="127" @endif
@@ -352,12 +362,15 @@
                                 $inputName = 'yearly_rules['.$index.']['.$fieldName.']';
                                 $inputId = 'yearly_'.$index.'_'.$fieldName;
                                 $value = old($errorKey, $detail->{$fieldName} ?? ($field['default'] ?? null));
+                                $limitToggleName = $conditionalLimitToggles[$fieldName] ?? null;
+                                $limitFieldName = array_search($fieldName, $conditionalLimitToggles, true);
+                                $isLimitEnabled = $limitToggleName === null || (string) old('yearly_rules.'.$index.'.'.$limitToggleName, $detail->{$limitToggleName} ?? 0) === '1';
                                 $isBalanceDependent = $fieldName !== 'keeps_balance' && !in_array($fieldName, $balanceIndependentFields, true);
                                 if (in_array($field['type'], ['number', 'tiny_number', 'decimal'], true) && ($value === null || $value === '')) {
                                     $value = 0;
                                 }
                             @endphp
-                            <div class="{{ in_array($fieldName, ['leave_types_not_to_be_clubbed', 'leave_credit_type'], true) ? 'col-lg-6' : (in_array($fieldName, ['leave_type_id', 'is_paid', 'keeps_balance', 'max_accumulation', 'maximum_request_in_a_month', 'maximum_request_in_a_year'], true) ? 'col-lg-4' : 'col-lg-3 col-md-4 col-sm-6') }} mb-3 {{ $isBalanceDependent && !$keepsBalance ? 'd-none' : '' }}" @if ($isBalanceDependent) data-balance-dependent @endif>
+                            <div class="{{ in_array($fieldName, ['leave_types_not_to_be_clubbed', 'leave_credit_type'], true) ? 'col-lg-6' : (in_array($fieldName, ['leave_type_id', 'is_paid', 'keeps_balance', 'max_accumulation', 'maximum_request_in_a_month', 'maximum_request_in_a_year'], true) ? 'col-lg-4' : 'col-lg-3 col-md-4 col-sm-6') }} mb-3 {{ $isBalanceDependent && !$keepsBalance ? 'd-none' : '' }}" @if ($isBalanceDependent) data-balance-dependent @endif @if ($limitToggleName) data-conditional-limit="{{ $limitToggleName }}" style="{{ !$isLimitEnabled ? 'visibility: hidden;' : '' }}" @endif>
                                 <label class="form-label" for="{{ $inputId }}">{{ $field['label'] }}</label>
                                 @if ($field['type'] === 'switch')
                                     <div class="form-check form-check-lg form-switch ps-0">
@@ -370,6 +383,7 @@
                                             role="switch"
                                             value="1"
                                             @if ($fieldName === 'keeps_balance') data-keeps-balance @endif
+                                            @if ($limitFieldName !== false) data-limit-toggle="{{ $fieldName }}" @endif
                                             @checked((string) $value === '1')
                                         >
                                     </div>
@@ -397,6 +411,7 @@
                                         name="{{ $inputName }}"
                                         value="{{ $value }}"
                                         class="form-control @error($errorKey) is-invalid @enderror"
+                                        @if ($limitToggleName) style="transition: none;" @endif
                                         @if ($field['type'] === 'decimal') step="0.01" @else step="1" @endif
                                         @if ($field['type'] !== 'decimal') min="0" @endif
                                         @if ($field['type'] === 'tiny_number') max="127" @endif
@@ -449,6 +464,23 @@
             var creditType = rule.querySelector('[data-monthly-credit-type]');
             if (creditType) syncMonthlyCreditFields(creditType);
         }
+
+        function syncConditionalLimits(rule) {
+            rule.querySelectorAll('[data-conditional-limit]').forEach(function (field) {
+                var toggleName = field.dataset.conditionalLimit;
+                var toggle = rule.querySelector('[data-limit-toggle="' + toggleName + '"]');
+                if (toggle) field.style.visibility = toggle.checked ? '' : 'hidden';
+            });
+        }
+
+        form.querySelectorAll('[data-leave-rule]').forEach(function (rule) {
+            syncConditionalLimits(rule);
+            rule.querySelectorAll('[data-limit-toggle]').forEach(function (checkbox) {
+                checkbox.addEventListener('change', function () {
+                    syncConditionalLimits(rule);
+                });
+            });
+        });
 
         form.querySelectorAll('[data-monthly-credit-type]').forEach(function (select) {
             syncMonthlyCreditFields(select);
