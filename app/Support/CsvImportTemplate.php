@@ -47,7 +47,7 @@ final class CsvImportTemplate
      * @param array<int, string> $expectedColumns
      * @return array<int, string>
      */
-    public static function validateHeaders(string $path, array $expectedColumns): array
+    public static function validateHeaders(string $path, array $expectedColumns, bool $allowAdditionalColumns = false): array
     {
         if (! is_readable($path)) {
             return ['CSV file is not readable.'];
@@ -70,7 +70,7 @@ final class CsvImportTemplate
         $expected = array_map(static fn(string $column): string => self::normalizeHeader($column), $expectedColumns);
 
         $missing = array_values(array_diff($expected, $normalizedHeaders));
-        $unexpected = array_values(array_diff($normalizedHeaders, $expected));
+        $unexpected = $allowAdditionalColumns ? [] : array_values(array_diff($normalizedHeaders, $expected));
 
         if ($missing !== [] || $unexpected !== []) {
             $messages = [];

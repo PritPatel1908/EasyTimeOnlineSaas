@@ -20,7 +20,7 @@
             </div>
             <div class="d-flex align-items-center gap-2">
                 @if($canExport)<a class="btn btn-light" href="{{ url('employee-structure/leave-groups/export') }}"><i class="ti ti-file-export me-2"></i>Export</a>@endif
-                @if($canImport)<button class="btn btn-light" data-bs-toggle="modal" data-bs-target="#import_leave_group_modal"><i class="ti ti-file-import me-2"></i>Import</button>@endif
+                {{-- @if($canImport)<button class="btn btn-light" data-bs-toggle="modal" data-bs-target="#import_leave_group_modal"><i class="ti ti-file-import me-2"></i>Import</button>@endif --}}
                 @if($canCreate)<a class="btn btn-primary" href="{{ url('employee-structure/leave-groups/create') }}"><i class="ti ti-circle-plus me-2"></i>Add Leave Group</a>@endif
             </div>
         </div>

@@ -204,7 +204,8 @@ class LeaveGroupController extends Controller
             'update_duplicate_records' => ['nullable', 'boolean'],
         ]);
         $file = $request->file('file');
-        $headerErrors = CsvImportTemplate::validateHeaders($file->getPathname(), LeaveGroup::IMPORT_EXPORT_COLUMNS);
+        $requiredImportColumns = array_values(array_diff(LeaveGroup::IMPORT_EXPORT_COLUMNS, ['financial_year_id']));
+        $headerErrors = CsvImportTemplate::validateHeaders($file->getPathname(), $requiredImportColumns, true);
         if ($headerErrors !== []) {
             return redirect(url(self::INDEX_URL))->withErrors(['file' => implode(' ', $headerErrors)]);
         }

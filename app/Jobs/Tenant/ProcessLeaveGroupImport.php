@@ -40,7 +40,8 @@ class ProcessLeaveGroupImport implements ShouldQueue
         Auth::shouldUse('tenant');
         Auth::guard('tenant')->setUser($user);
         $path = Storage::disk('local')->path($this->filePath);
-        $headerErrors = CsvImportTemplate::validateHeaders($path, LeaveGroup::IMPORT_EXPORT_COLUMNS);
+        $requiredImportColumns = array_values(array_diff(LeaveGroup::IMPORT_EXPORT_COLUMNS, ['financial_year_id']));
+        $headerErrors = CsvImportTemplate::validateHeaders($path, $requiredImportColumns, true);
         if ($headerErrors !== []) {
             throw new RuntimeException('Invalid Leave Group import file: '.implode(' ', $headerErrors));
         }
@@ -50,7 +51,13 @@ class ProcessLeaveGroupImport implements ShouldQueue
             throw new RuntimeException('Unable to open the Leave Group import file.');
         }
 
-        $headers = array_map(static fn (string $header): string => strtolower(trim($header)), fgetcsv($handle) ?: []);
+        $headers = array_map(
+            static fn (string $header): string => match (CsvImportTemplate::normalizeHeader($header)) {
+                'financial_year' => 'financial_year_id',
+                default => CsvImportTemplate::normalizeHeader($header),
+            },
+            fgetcsv($handle) ?: [],
+        );
         $created = 0;
         $updated = 0;
         $errors = [];
@@ -89,14 +96,27 @@ class ProcessLeaveGroupImport implements ShouldQueue
             return ['created' => 0, 'updated' => 0, 'error' => 'Leave Group name is required'];
         }
 
-        $financialYearId = trim((string) ($row['financial_year_id'] ?? ''));
-        if ($financialYearId !== '' && (! ctype_digit($financialYearId) || ! FinancialYear::query()->whereKey((int) $financialYearId)->exists())) {
-            return ['created' => 0, 'updated' => 0, 'error' => 'Financial year ID is invalid for '.$name];
+        $financialYearValue = trim((string) ($row['financial_year_id'] ?? ''));
+        if ($financialYearValue === '') {
+            $financialYearValue = trim((string) ($row['financial_year_code'] ?? ''));
+        }
+        $financialYear = null;
+        if ($financialYearValue !== '') {
+            $financialYear = (ctype_digit($financialYearValue)
+                ? FinancialYear::query()->find((int) $financialYearValue)
+                : null) ?? FinancialYear::query()
+                    ->where('name', $financialYearValue)
+                    ->orWhere('code', $financialYearValue)
+                    ->first();
+
+            if ($financialYear === null) {
+                return ['created' => 0, 'updated' => 0, 'error' => 'Financial year is invalid for '.$name];
+            }
         }
 
         $isMonthly = $this->parseBoolean($row['is_monthly'] ?? '');
         if ($isMonthly === null) {
-            return ['created' => 0, 'updated' => 0, 'error' => 'Frequency must be Yes or No for '.$name];
+            return ['created' => 0, 'updated' => 0, 'error' => 'Frequency must be Monthly or Yearly for '.$name];
         }
 
         $status = $this->parseStatus($row['status'] ?? '');
@@ -106,7 +126,7 @@ class ProcessLeaveGroupImport implements ShouldQueue
 
         $query = LeaveGroup::query()
             ->where('name', $name)
-            ->where('financial_year_id', $financialYearId === '' ? null : (int) $financialYearId);
+            ->where('financial_year_id', $financialYear?->id);
         $leaveGroup = $query->first();
         if ($leaveGroup !== null && ! $this->updateDuplicateRecords) {
             return ['created' => 0, 'updated' => 0, 'error' => 'Duplicate Leave Group '.$name];
@@ -114,7 +134,7 @@ class ProcessLeaveGroupImport implements ShouldQueue
 
         $payload = [
             'name' => $name,
-            'financial_year_id' => $financialYearId === '' ? null : (int) $financialYearId,
+            'financial_year_id' => $financialYear?->id,
             'is_monthly' => $isMonthly,
             'status' => $status,
         ];
