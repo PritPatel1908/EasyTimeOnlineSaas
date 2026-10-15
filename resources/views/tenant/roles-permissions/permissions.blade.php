@@ -56,6 +56,7 @@
                                     @foreach ($modules as $module)
                                         @php
                                             $key = strtolower(str_replace(' ', '-', $module));
+                                            $moduleLabel = $module === 'GradeWiseLeave' ? 'Leave Group' : $module;
                                             $assigned = $role->permissions->pluck('name');
                                         @endphp
 
@@ -65,13 +66,13 @@
                                                     <span class="avatar avatar-sm bg-primary-transparent text-primary me-2">
                                                         <i class="ti ti-{{ $key === 'dashboard' ? 'layout-dashboard' : ($key === 'employees' ? 'users' : 'box') }}"></i>
                                                     </span>
-                                                    <span class="text-gray-9 fw-medium">{{ $module }}</span>
+                                                    <span class="text-gray-9 fw-medium">{{ $moduleLabel }}</span>
                                                 </div>
                                             </td>
                                             <td class="text-center">
                                                 <div class="form-check form-check-md d-inline-block">
                                                     <input id="allow_{{ $key }}" class="form-check-input allow-all" type="checkbox" data-module="{{ $key }}">
-                                                    <label for="allow_{{ $key }}" class="visually-hidden">Allow all {{ $module }} permissions</label>
+                                                    <label for="allow_{{ $key }}" class="visually-hidden">Allow all {{ $moduleLabel }} permissions</label>
                                                 </div>
                                             </td>
 
@@ -79,12 +80,17 @@
                                                 @php
                                                     $permission = $key . '.' . $action;
                                                     $permissionId = $key . '_' . $action;
+                                                    $isAssigned = $assigned->contains($permission);
+                                                    $isDisabled = $module === 'GradeWiseLeave' && $action === 'import';
                                                 @endphp
 
                                                 <td class="text-center">
                                                     <div class="form-check form-check-md d-inline-block">
-                                                        <input id="{{ $permissionId }}" class="form-check-input permission-{{ $key }}" type="checkbox" name="permissions[]" value="{{ $permission }}" {{ $assigned->contains($permission) ? 'checked' : '' }}>
-                                                        <label for="{{ $permissionId }}" class="visually-hidden">{{ $module }} {{ $action }}</label>
+                                                        @if ($isDisabled && $isAssigned)
+                                                            <input type="hidden" name="permissions[]" value="{{ $permission }}">
+                                                        @endif
+                                                        <input id="{{ $permissionId }}" class="form-check-input permission-{{ $key }}" type="checkbox" name="permissions[]" value="{{ $permission }}" @checked($isAssigned) @disabled($isDisabled) aria-label="{{ $moduleLabel }} {{ $action }} permission{{ $isDisabled ? ' (disabled)' : '' }}">
+                                                        <label for="{{ $permissionId }}" class="visually-hidden">{{ $moduleLabel }} {{ $action }}{{ $isDisabled ? ' (disabled)' : '' }}</label>
                                                     </div>
                                                 </td>
                                             @endforeach
@@ -158,4 +164,3 @@
         </script>
     @endpush
 @endsection
-
