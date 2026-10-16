@@ -32,18 +32,6 @@
                 <input id="date" name="date" type="datetime-local" class="form-control @error('date') is-invalid @enderror" value="{{ old('date', $balance?->date?->format('Y-m-d\TH:i')) }}" required>
                 <x-validation-error field="date" />
             </div>
-            <div class="col-12 mb-3">
-                <label class="form-label" for="users">Employees <span class="text-danger">*</span></label>
-                @php($selectedUsers = (array) old('users', $balance?->Users->modelKeys() ?? []))
-                <select id="users" name="users[]" class="form-control select @error('users') is-invalid @enderror" multiple required>
-                    @foreach ($users as $employee)
-                        <option value="{{ $employee->id }}" @selected(in_array($employee->id, $selectedUsers))>{{ $employee->code }} — {{ $employee->name }}</option>
-                    @endforeach
-                </select>
-                <small class="text-muted">Select one or more employees to receive this manual balance.</small>
-                <x-validation-error field="users" />
-                <x-validation-error field="users.0" />
-            </div>
         </div>
     </div>
 </div>
@@ -75,10 +63,86 @@
                 <x-validation-error field="company_ids.0" />
             </div>
             <div class="col-12 mb-3">
+                <label class="form-label" for="users">Employees <span class="text-danger">*</span></label>
+                @php($selectedUsers = (array) old('users', $balance?->Users->modelKeys() ?? []))
+                <select id="users" name="users[]" class="form-control select @error('users') is-invalid @enderror" multiple required>
+                    @foreach ($users as $employee)
+                        <option
+                            value="{{ $employee->id }}"
+                            data-location-ids="{{ implode(',', array_map('intval', (array) $employee->location_id)) }}"
+                            data-company-ids="{{ implode(',', array_map('intval', (array) $employee->company_id)) }}"
+                            @selected(in_array($employee->id, $selectedUsers))
+                        >{{ $employee->code }} — {{ $employee->name }}</option>
+                    @endforeach
+                </select>
+                <small class="text-muted">Select one or more employees. The list follows the locations and companies selected above.</small>
+                <x-validation-error field="users" />
+                <x-validation-error field="users.0" />
+            </div>
+            <div class="col-12 mb-3">
                 <label class="form-label" for="reason">Reason</label>
                 <textarea id="reason" name="reason" rows="3" class="form-control @error('reason') is-invalid @enderror" placeholder="Enter a reason for this adjustment">{{ old('reason', $balance?->reason) }}</textarea>
                 <x-validation-error field="reason" />
             </div>
         </div>
+
+        @push('scripts')
+        <script>
+            (() => {
+                const employeeSelect = document.getElementById('users');
+                const locationSelect = document.getElementById('location_ids');
+                const companySelect = document.getElementById('company_ids');
+
+                if (!employeeSelect || !locationSelect || !companySelect) {
+                    return;
+                }
+
+                const employeeOptions = Array.from(employeeSelect.options).map((option) => option.cloneNode(true));
+
+                const filterEmployees = () => {
+                    const selectedEmployeeIds = new Set(Array.from(employeeSelect.selectedOptions, (option) => option.value));
+                    const selectedLocationIds = new Set(Array.from(locationSelect.selectedOptions, (option) => option.value));
+                    const selectedCompanyIds = new Set(Array.from(companySelect.selectedOptions, (option) => option.value));
+                    const hasLocationFilter = selectedLocationIds.size > 0;
+                    const hasCompanyFilter = selectedCompanyIds.size > 0;
+                    const employeeSelectPlugin = window.jQuery ? window.jQuery(employeeSelect) : null;
+                    const hasSelect2 = employeeSelectPlugin && typeof employeeSelectPlugin.select2 === 'function';
+
+                    if (hasSelect2 && employeeSelectPlugin.data('select2')) {
+                        employeeSelectPlugin.select2('destroy');
+                    }
+
+                    employeeSelect.replaceChildren();
+
+                    employeeOptions.forEach((option) => {
+                        const employeeLocationIds = option.dataset.locationIds.split(',').filter(Boolean);
+                        const employeeCompanyIds = option.dataset.companyIds.split(',').filter(Boolean);
+                        const matchesLocation = !hasLocationFilter || employeeLocationIds.some((id) => selectedLocationIds.has(id));
+                        const matchesCompany = !hasCompanyFilter || employeeCompanyIds.some((id) => selectedCompanyIds.has(id));
+
+                        if (matchesLocation && matchesCompany) {
+                            option.selected = selectedEmployeeIds.has(option.value);
+                            employeeSelect.appendChild(option);
+                        }
+                    });
+
+                    if (hasSelect2) {
+                        employeeSelectPlugin.select2({
+                            theme: 'bootstrap4',
+                            width: 'style',
+                            placeholder: employeeSelect.getAttribute('placeholder'),
+                            allowClear: Boolean(employeeSelect.dataset.allowClear),
+                        });
+                    }
+
+                    employeeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                };
+
+                locationSelect.addEventListener('change', filterEmployees);
+                companySelect.addEventListener('change', filterEmployees);
+                filterEmployees();
+            })();
+        </script>
+        @endpush
     </div>
 </div>

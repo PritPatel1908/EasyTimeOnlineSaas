@@ -203,7 +203,7 @@ class ManualLeaveBalanceController extends Controller
     {
         return [
             'balance' => $balance,
-            'users' => User::query()->orderBy('code')->get(['id', 'name', 'code']),
+            'users' => User::query()->orderBy('code')->get(['id', 'name', 'code', 'location_id', 'company_id']),
             'locations' => Location::query()->orderBy('name')->get(['id', 'name', 'code']),
             'companies' => Company::query()->orderBy('name')->get(['id', 'name', 'code']),
             'leaveTypes' => LeaveType::query()->orderBy('description')->get(['id', 'code', 'description']),
