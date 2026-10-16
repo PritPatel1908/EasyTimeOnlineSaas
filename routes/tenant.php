@@ -16,6 +16,7 @@ use App\Http\Controllers\Tenant\SubDepartmentController;
 use App\Http\Controllers\Tenant\DataPolicyController;
 use App\Http\Controllers\Tenant\LocationController;
 use App\Http\Controllers\Tenant\LeaveTypeController;
+use App\Http\Controllers\Tenant\ManualLeaveBalanceController;
 use App\Http\Controllers\Tenant\NotificationController;
 use App\Http\Controllers\Tenant\DashboardController;
 use App\Http\Controllers\Tenant\LicenseController;
@@ -179,6 +180,31 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:LeaveType,write')
                         ->middlewareFor('destroy', 'tenant.permission:LeaveType,delete')
                         ->names('leave-types');
+                    Route::get('manual-leave-balances/export', [ManualLeaveBalanceController::class, 'export'])
+                        ->middleware('tenant.permission:ManualLeaveBalance,export')
+                        ->name('manual-leave-balances.export');
+                    Route::get('manual-leave-balances/import/sample', [ManualLeaveBalanceController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:ManualLeaveBalance,import')
+                        ->name('manual-leave-balances.import-sample');
+                    Route::get('manual-leave-balances/export/download/{file}', [ManualLeaveBalanceController::class, 'downloadExport'])
+                        ->middleware('tenant.permission:ManualLeaveBalance,export')
+                        ->name('manual-leave-balances.download-export');
+                    Route::post('manual-leave-balances/import', [ManualLeaveBalanceController::class, 'import'])
+                        ->middleware('tenant.permission:ManualLeaveBalance,import')
+                        ->name('manual-leave-balances.import');
+                    Route::get('manual-leave-balances/create', [ManualLeaveBalanceController::class, 'create'])
+                        ->middleware('tenant.permission:ManualLeaveBalance,create')
+                        ->name('manual-leave-balances.create');
+                    Route::resource('manual-leave-balances', ManualLeaveBalanceController::class)
+                        ->except(['create'])
+                        ->parameters(['manual-leave-balances' => 'manual_leave_balance'])
+                        ->middlewareFor('index', 'tenant.permission:ManualLeaveBalance,read')
+                        ->middlewareFor('show', 'tenant.permission:ManualLeaveBalance,read')
+                        ->middlewareFor('store', 'tenant.permission:ManualLeaveBalance,create')
+                        ->middlewareFor('edit', 'tenant.permission:ManualLeaveBalance,write')
+                        ->middlewareFor('update', 'tenant.permission:ManualLeaveBalance,write')
+                        ->middlewareFor('destroy', 'tenant.permission:ManualLeaveBalance,delete')
+                        ->names('manual-leave-balances');
                 });
 
                 Route::prefix('company-structure')->name('tenant.company-structure.')->group(function (): void {

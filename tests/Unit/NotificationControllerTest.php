@@ -108,4 +108,35 @@ class NotificationControllerTest extends TestCase
         );
         $this->assertSame([['Standard', 'FY 2026-27', 'FY26-27', 'Yearly', 'Active', '4']], $preview['rows']);
     }
+
+    public function test_it_reads_preview_for_manual_leave_balance_export(): void
+    {
+        Storage::fake('local');
+
+        $fileName = 'manual_leave_balances_20261016_110000.csv';
+        $path = 'manual-leave-balance-exports/' . $fileName;
+        Storage::disk('local')->put(
+            $path,
+            "employee_codes,location,company,leave_type_code,balance,date,reason\nE001,Head Office (HO-1),Acme (AC),CL,1.5,2026-10-16 09:30:00,Adjustment\n",
+        );
+
+        $controller = new NotificationController();
+        $method = new \ReflectionMethod($controller, 'readExportPreview');
+        $method->setAccessible(true);
+
+        [$preview, $error] = $method->invoke(
+            $controller,
+            '/employee-structure/manual-leave-balances/export/download/' . $fileName,
+        );
+
+        $this->assertNull($error);
+        $this->assertSame(
+            ['employee_codes', 'location', 'company', 'leave_type_code', 'balance', 'date', 'reason'],
+            $preview['headers'],
+        );
+        $this->assertSame(
+            [['E001', 'Head Office (HO-1)', 'Acme (AC)', 'CL', '1.5', '2026-10-16 09:30:00', 'Adjustment']],
+            $preview['rows'],
+        );
+    }
 }

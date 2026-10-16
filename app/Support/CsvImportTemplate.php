@@ -117,7 +117,9 @@ final class CsvImportTemplate
             'employee_code' => 'code',
             'employee_email' => 'email',
             'location' => 'location',
+            'location_codes' => 'location',
             'company' => 'company',
+            'company_codes' => 'company',
             'department' => 'department',
         ];
 

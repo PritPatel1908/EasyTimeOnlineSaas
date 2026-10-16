@@ -234,8 +234,10 @@
 								@if (\App\Support\TenantPermissions::userCan('LeaveGroup', 'read'))<li><a href="{{url('employee-structure/leave-groups')}}"
 									class="{{ Request::is('employee-structure/leave-groups*') ? 'active' : '' }}">Leave Group</a></li>
 								@endif
+								@if (\App\Support\TenantPermissions::userCan('ManualLeaveBalance', 'read'))
 								<li><a href="{{url('employee-structure/manual-leave-balances')}}"
 									class="{{ Request::is('employee-structure/manual-leave-balances*') ? 'active' : '' }}">Manual Leave Balance</a></li>
+								@endif
 							</ul>
 						</li>
 					</ul>

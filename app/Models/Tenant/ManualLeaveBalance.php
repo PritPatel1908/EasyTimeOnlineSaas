@@ -6,12 +6,24 @@
 
 namespace App\Models\Tenant;
 
+use App\Traits\CUDby;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ManualLeaveBalance extends Model
 {
+    use CUDby;
     use SoftDeletes;
+
+    public const IMPORT_EXPORT_COLUMNS = [
+        'employee_codes',
+        'location',
+        'company',
+        'leave_type_code',
+        'balance',
+        'date',
+        'reason',
+    ];
 
     protected $table = 'manual_leave_balances';
 
