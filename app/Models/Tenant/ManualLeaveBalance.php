@@ -60,48 +60,6 @@ class ManualLeaveBalance extends Model
         return $this->belongsTo(Company::class);
     }
 
-    public function departments()
-    {
-        return $this->belongsToMany(Department::class, 'manual_leave_balance_department')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
-    public function sub_departments()
-    {
-        return $this->belongsToMany(SubDepartment::class, 'manual_leave_balance_sub_department')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
-    public function categories()
-    {
-        return $this->belongsToMany(Category::class, 'manual_leave_balance_category')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
-    public function sub_categories()
-    {
-        return $this->belongsToMany(SubCategory::class, 'manual_leave_balance_sub_category')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
-    public function designations()
-    {
-        return $this->belongsToMany(Designation::class, 'manual_leave_balance_designation')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
-    public function areas()
-    {
-        return $this->belongsToMany(Area::class, 'manual_leave_balance_area')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
     public function leave_type()
     {
         return $this->belongsTo(LeaveType::class);
