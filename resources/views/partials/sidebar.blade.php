@@ -19,9 +19,18 @@
 		'employee-structure/leave-groups*',
 		'employee-structure/manual-leave-balances*'
 	);
+	$timeManagementStructureActive = request()->is(
+		'time-management/financial-years*',
+		'time-management/shifts*',
+		'time-management/shift-rotations*'
+	);
 	$categoryActive = request()->is('employee-structure/categories*');
 	$approvalFlowsActive = request()->is('employee-structure/approval-flows*');
 	$employeeActive = request()->is('employee-structure/employees*');
+	$canViewTimeManagementStructure =
+		\App\Support\TenantPermissions::userCan('FinancialYear', 'read') ||
+		\App\Support\TenantPermissions::userCan('Shift', 'read') ||
+		\App\Support\TenantPermissions::userCan('ShiftRotation', 'read');
 	$canViewCompanyStructure =
 		\App\Support\TenantPermissions::userCan('Company', 'read') ||
 		\App\Support\TenantPermissions::userCan('Location', 'read') ||
@@ -242,6 +251,34 @@
 						</li>
 					</ul>
 				</li>
+				@if ($canViewTimeManagementStructure)
+				<li class="menu-title"><span>TIME MANAGEMENT STRUCTURE</span></li>
+				<li>
+					<ul>
+						<li class="submenu">
+							<a href="javascript:void(0);"
+								class="{{ $timeManagementStructureActive ? 'active subdrop' : '' }}">
+								<i class="ti ti-clock"></i><span>Time Structure</span>
+								<span class="menu-arrow"></span>
+							</a>
+							<ul>
+								@if (\App\Support\TenantPermissions::userCan('FinancialYear', 'read'))
+								<li><a href="{{ url('time-management/financial-years') }}"
+									class="{{ Request::is('time-management/financial-years*') ? 'active' : '' }}">Financial Year</a></li>
+								@endif
+								@if (\App\Support\TenantPermissions::userCan('Shift', 'read'))
+								<li><a href="{{ url('time-management/shifts') }}"
+									class="{{ Request::is('time-management/shifts*') ? 'active' : '' }}">Shift</a></li>
+								@endif
+								@if (\App\Support\TenantPermissions::userCan('ShiftRotation', 'read'))
+								<li><a href="{{ url('time-management/shift-rotations') }}"
+									class="{{ Request::is('time-management/shift-rotations*') ? 'active' : '' }}">Shift Rotation</a></li>
+								@endif
+							</ul>
+						</li>
+					</ul>
+				</li>
+				@endif
 				@if (false)
 				<li class="menu-title"><span>MAIN MENU</span></li>
 				<li>
