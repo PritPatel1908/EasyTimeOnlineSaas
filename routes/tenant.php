@@ -10,6 +10,7 @@ use App\Http\Controllers\Tenant\DesignationController;
 use App\Http\Controllers\Tenant\EmployeeController;
 use App\Http\Controllers\Tenant\CompanyController;
 use App\Http\Controllers\Tenant\DepartmentController;
+use App\Http\Controllers\Tenant\FinancialYearController;
 use App\Http\Controllers\Tenant\CanteenFacilityController;
 use App\Http\Controllers\Tenant\UnitController;
 use App\Http\Controllers\Tenant\SubDepartmentController;
@@ -110,6 +111,33 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                 Route::get('employee structure/{any}', function (string $any) {
                     return redirect('employee-structure/' . $any, 301);
                 })->where('any', '.*');
+
+                Route::prefix('time-management')->name('tenant.time-management.')->group(function (): void {
+                    Route::get('financial-years/export', [FinancialYearController::class, 'export'])
+                        ->middleware('tenant.permission:FinancialYear,export')->name('financial-years.export');
+                    Route::get('financial-years/import/sample', [FinancialYearController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:FinancialYear,import')->name('financial-years.import-sample');
+                    Route::get('financial-years/export/download/{file}', [FinancialYearController::class, 'downloadExport'])
+                        ->middleware('tenant.permission:FinancialYear,export')->name('financial-years.download-export');
+                    Route::post('financial-years/import', [FinancialYearController::class, 'import'])
+                        ->middleware('tenant.permission:FinancialYear,import')->name('financial-years.import');
+                    Route::post('financial-years/filter', [FinancialYearController::class, 'filterStatus'])
+                        ->middleware('tenant.permission:FinancialYear,read')->name('financial-years.filter');
+                    Route::post('financial-years/{financial_year}/flags', [FinancialYearController::class, 'updateFlags'])
+                        ->middleware('tenant.permission:FinancialYear,write')->name('financial-years.flags');
+                    Route::get('financial-years/create', [FinancialYearController::class, 'create'])
+                        ->middleware('tenant.permission:FinancialYear,create')->name('financial-years.create');
+                    Route::resource('financial-years', FinancialYearController::class)
+                        ->except(['create'])
+                        ->parameters(['financial-years' => 'financial_year'])
+                        ->middlewareFor('index', 'tenant.permission:FinancialYear,read')
+                        ->middlewareFor('show', 'tenant.permission:FinancialYear,read')
+                        ->middlewareFor('store', 'tenant.permission:FinancialYear,create')
+                        ->middlewareFor('edit', 'tenant.permission:FinancialYear,write')
+                        ->middlewareFor('update', 'tenant.permission:FinancialYear,write')
+                        ->middlewareFor('destroy', 'tenant.permission:FinancialYear,delete')
+                        ->names('financial-years');
+                });
 
                 Route::prefix('employee-structure')->name('tenant.employee-structure.')->group(function (): void {
                     Route::get('/', function () {
