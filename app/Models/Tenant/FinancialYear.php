@@ -63,13 +63,6 @@ class FinancialYear extends Model
         'deleted_by',
     ];
 
-    public function Users()
-    {
-        return $this->belongsToMany(User::class, 'financial_year_users')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
     public function location()
     {
         return $this->belongsTo(Location::class);
@@ -78,48 +71,6 @@ class FinancialYear extends Model
     public function company()
     {
         return $this->belongsTo(Company::class);
-    }
-
-    public function departments()
-    {
-        return $this->belongsToMany(Department::class, 'financial_year_department')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
-    public function sub_departments()
-    {
-        return $this->belongsToMany(SubDepartment::class, 'financial_year_sub_department')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
-    public function categories()
-    {
-        return $this->belongsToMany(Category::class, 'financial_year_category')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
-    public function sub_categories()
-    {
-        return $this->belongsToMany(SubCategory::class, 'financial_year_sub_category')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
-    public function designations()
-    {
-        return $this->belongsToMany(Designation::class, 'financial_year_designation')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
-    public function areas()
-    {
-        return $this->belongsToMany(Area::class, 'financial_year_area')
-            ->withPivot('id')
-            ->withTimestamps();
     }
 
     public function grade_wise_leaves()
