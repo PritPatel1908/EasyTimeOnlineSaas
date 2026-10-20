@@ -8,6 +8,7 @@ namespace App\Models\Tenant;
 
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Class RotationValue
@@ -37,12 +38,12 @@ class RotationValue extends Model
         'days',
     ];
 
-    public function shift()
+    public function shift(): BelongsTo
     {
         return $this->belongsTo(Shift::class);
     }
 
-    public function shift_rotation()
+    public function shift_rotation(): BelongsTo
     {
         return $this->belongsTo(ShiftRotation::class);
     }

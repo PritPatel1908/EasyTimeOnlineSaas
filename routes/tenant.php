@@ -10,6 +10,7 @@ use App\Http\Controllers\Tenant\DesignationController;
 use App\Http\Controllers\Tenant\EmployeeController;
 use App\Http\Controllers\Tenant\CompanyController;
 use App\Http\Controllers\Tenant\ShiftController;
+use App\Http\Controllers\Tenant\ShiftRotationController;
 use App\Http\Controllers\Tenant\DepartmentController;
 use App\Http\Controllers\Tenant\FinancialYearController;
 use App\Http\Controllers\Tenant\CanteenFacilityController;
@@ -164,6 +165,33 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:Shift,write')
                         ->middlewareFor('destroy', 'tenant.permission:Shift,delete')
                         ->names('shifts');
+                    Route::get('shift-rotations/export', [ShiftRotationController::class, 'export'])
+                        ->middleware('tenant.permission:ShiftRotation,export')
+                        ->name('shift-rotations.export');
+                    Route::get('shift-rotations/import/sample', [ShiftRotationController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:ShiftRotation,import')
+                        ->name('shift-rotations.import-sample');
+                    Route::get('shift-rotations/export/download/{file}', [ShiftRotationController::class, 'downloadExport'])
+                        ->name('shift-rotations.download-export');
+                    Route::post('shift-rotations/import', [ShiftRotationController::class, 'import'])
+                        ->middleware('tenant.permission:ShiftRotation,import')
+                        ->name('shift-rotations.import');
+                    Route::post('shift-rotations/filter', [ShiftRotationController::class, 'filterStatus'])
+                        ->middleware('tenant.permission:ShiftRotation,read')
+                        ->name('shift-rotations.filter');
+                    Route::get('shift-rotations/create', [ShiftRotationController::class, 'create'])
+                        ->middleware('tenant.permission:ShiftRotation,create')
+                        ->name('shift-rotations.create');
+                    Route::resource('shift-rotations', ShiftRotationController::class)
+                        ->except(['create'])
+                        ->parameters(['shift-rotations' => 'shift_rotation'])
+                        ->middlewareFor('index', 'tenant.permission:ShiftRotation,read')
+                        ->middlewareFor('show', 'tenant.permission:ShiftRotation,read')
+                        ->middlewareFor('store', 'tenant.permission:ShiftRotation,create')
+                        ->middlewareFor('edit', 'tenant.permission:ShiftRotation,write')
+                        ->middlewareFor('update', 'tenant.permission:ShiftRotation,write')
+                        ->middlewareFor('destroy', 'tenant.permission:ShiftRotation,delete')
+                        ->names('shift-rotations');
                 });
 
                 Route::prefix('employee-structure')->name('tenant.employee-structure.')->group(function (): void {

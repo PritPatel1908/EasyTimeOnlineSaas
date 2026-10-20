@@ -54,6 +54,30 @@ class NotificationControllerTest extends TestCase
         $this->assertSame([['Morning', 'AM', '09:00:00', '17:00:00']], $preview['rows']);
     }
 
+    public function test_it_reads_preview_for_shift_rotation_export(): void
+    {
+        Storage::fake('local');
+
+        $fileName = 'shift_rotations_20261020_123456.csv';
+        Storage::disk('local')->put(
+            'shift-rotation-exports/' . $fileName,
+            "code,start_date,shift_code,days\nNIGHT,2026-10-01,N1,3\n",
+        );
+
+        $controller = new NotificationController();
+        $method = new \ReflectionMethod($controller, 'readExportPreview');
+        $method->setAccessible(true);
+
+        [$preview, $error] = $method->invoke(
+            $controller,
+            '/time-management/shift-rotations/export/download/' . $fileName,
+        );
+
+        $this->assertNull($error);
+        $this->assertSame(['code', 'start_date', 'shift_code', 'days'], $preview['headers']);
+        $this->assertSame([['NIGHT', '2026-10-01', 'N1', '3']], $preview['rows']);
+    }
+
     public function test_it_reads_preview_for_canteen_facility_export(): void
     {
         Storage::fake('local');
