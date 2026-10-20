@@ -15,7 +15,6 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * Class ManualPunch
  *
  * @property int $id
- * @property int|null $user_id
  * @property string $punch_type
  * @property Carbon $punch_date
  * @property Carbon $punch_time
@@ -27,12 +26,29 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $deleted_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
- * @property User|null $user
  */
 class ManualPunch extends Model
 {
     use CUDby;
     use SoftDeletes;
+
+    public const PUNCH_TYPES = [
+        '1' => 'In Punch',
+        '2' => 'Out Punch',
+        '3' => 'Break Start',
+        '4' => 'Break End',
+    ];
+
+    public const IMPORT_EXPORT_COLUMNS = [
+        'employee_codes',
+        'location',
+        'company',
+        'punch_type',
+        'punch_date',
+        'punch_time',
+        'reason',
+        'status',
+    ];
 
     protected $table = 'manual_punches';
 
@@ -42,7 +58,6 @@ class ManualPunch extends Model
     // }
 
     protected $casts = [
-        // 'user_id' => 'int',
         'location_id' => 'array',
         'company_id' => 'array',
         'punch_date' => 'date',
@@ -54,7 +69,6 @@ class ManualPunch extends Model
     ];
 
     protected $fillable = [
-        // 'user_id',
         'location_id',
         'company_id',
         'punch_type',
@@ -67,9 +81,30 @@ class ManualPunch extends Model
         'deleted_by',
     ];
 
-    public function user()
+    public static function normalizePunchType(mixed $punchType): string
     {
-        return $this->belongsTo(User::class);
+        $value = strtolower(trim((string) $punchType));
+
+        return match ($value) {
+            'in', 'in punch' => '1',
+            'out', 'out punch' => '2',
+            'break start' => '3',
+            'break end' => '4',
+            default => (string) $punchType,
+        };
+    }
+
+    public static function punchTypeLabel(mixed $punchType): string
+    {
+        $value = (string) $punchType;
+        $normalized = self::normalizePunchType($punchType);
+
+        return self::PUNCH_TYPES[$normalized] ?? $value;
+    }
+
+    public static function isOutDirection(mixed $punchType): bool
+    {
+        return in_array(self::normalizePunchType($punchType), ['2', '3'], true);
     }
 
     public function Users()

@@ -464,7 +464,7 @@ class ManualPunchReportGenerator
                     $row[] = is_array($value->user->sub_category_id) ? collect(SubCategory::whereIn('id', $value->user->sub_category_id)->get())->pluck('code')->implode(', ') : ($value->user->sub_category ? $value->user->sub_category->code : '');
                     break;
                 case 'punch_type':
-                    $row[] = ($value->punch_type != null ? ($value->punch_type == '1' ? 'In Punch' : 'Out Punch') : '');
+                    $row[] = $value->punch_type !== null ? ManualPunch::punchTypeLabel($value->punch_type) : '';
                     break;
                 case 'reason':
                     $row[] = $value->reason ? $value->reason : '';

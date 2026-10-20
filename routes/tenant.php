@@ -11,6 +11,7 @@ use App\Http\Controllers\Tenant\EmployeeController;
 use App\Http\Controllers\Tenant\CompanyController;
 use App\Http\Controllers\Tenant\ShiftController;
 use App\Http\Controllers\Tenant\ShiftRotationController;
+use App\Http\Controllers\Tenant\ManualPunchController;
 use App\Http\Controllers\Tenant\LateComingRuleController;
 use App\Http\Controllers\Tenant\EarlyGoingRuleController;
 use App\Http\Controllers\Tenant\HalfDayRuleController;
@@ -170,6 +171,28 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:Shift,write')
                         ->middlewareFor('destroy', 'tenant.permission:Shift,delete')
                         ->names('shifts');
+                    Route::get('manual-punches/export', [ManualPunchController::class, 'export'])
+                        ->middleware('tenant.permission:ManualPunch,export')->name('manual-punches.export');
+                    Route::get('manual-punches/import/sample', [ManualPunchController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:ManualPunch,import')->name('manual-punches.import-sample');
+                    Route::get('manual-punches/export/download/{file}', [ManualPunchController::class, 'downloadExport'])
+                        ->middleware('tenant.permission:ManualPunch,export')->name('manual-punches.download-export');
+                    Route::post('manual-punches/import', [ManualPunchController::class, 'import'])
+                        ->middleware('tenant.permission:ManualPunch,import')->name('manual-punches.import');
+                    Route::post('manual-punches/filter', [ManualPunchController::class, 'filterStatus'])
+                        ->middleware('tenant.permission:ManualPunch,read')->name('manual-punches.filter');
+                    Route::get('manual-punches/create', [ManualPunchController::class, 'create'])
+                        ->middleware('tenant.permission:ManualPunch,create')->name('manual-punches.create');
+                    Route::resource('manual-punches', ManualPunchController::class)
+                        ->except(['create'])
+                        ->parameters(['manual-punches' => 'manual_punch'])
+                        ->middlewareFor('index', 'tenant.permission:ManualPunch,read')
+                        ->middlewareFor('show', 'tenant.permission:ManualPunch,read')
+                        ->middlewareFor('store', 'tenant.permission:ManualPunch,create')
+                        ->middlewareFor('edit', 'tenant.permission:ManualPunch,write')
+                        ->middlewareFor('update', 'tenant.permission:ManualPunch,write')
+                        ->middlewareFor('destroy', 'tenant.permission:ManualPunch,delete')
+                        ->names('manual-punches');
                     Route::get('shift-rotations/export', [ShiftRotationController::class, 'export'])
                         ->middleware('tenant.permission:ShiftRotation,export')
                         ->name('shift-rotations.export');

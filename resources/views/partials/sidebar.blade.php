@@ -24,6 +24,7 @@
 		'time-management/shifts*',
 		'time-management/shift-rotations*'
 	);
+	$manualStructureActive = request()->is('time-management/manual-punches*');
 	$timingRuleStructureActive = request()->is('time-management/late-coming-rules*', 'time-management/early-going-rules*', 'time-management/half-day-rules*', 'time-management/overtime-rules*', 'time-management/absent-rules*');
 	$categoryActive = request()->is('employee-structure/categories*');
 	$approvalFlowsActive = request()->is('employee-structure/approval-flows*');
@@ -36,6 +37,7 @@
 		\App\Support\TenantPermissions::userCan('EarlyGoingRule', 'read') ||
 		\App\Support\TenantPermissions::userCan('HalfDayRule', 'read') ||
 		\App\Support\TenantPermissions::userCan('OvertimeRule', 'read');
+	$canViewManualStructure = \App\Support\TenantPermissions::userCan('ManualPunch', 'read');
 	$canViewCompanyStructure =
 		\App\Support\TenantPermissions::userCan('Company', 'read') ||
 		\App\Support\TenantPermissions::userCan('Location', 'read') ||
@@ -256,10 +258,11 @@
 						</li>
 					</ul>
 				</li>
-				@if ($canViewTimeManagementStructure)
+				@if ($canViewTimeManagementStructure || $canViewManualStructure)
 				<li class="menu-title"><span>TIME MANAGEMENT STRUCTURE</span></li>
 				<li>
 					<ul>
+						@if ($canViewTimeManagementStructure)
 						<li class="submenu">
 							<a href="javascript:void(0);"
 								class="{{ $timeManagementStructureActive ? 'active subdrop' : '' }}">
@@ -310,13 +313,20 @@
 								@endif
 							</ul>
 						</li>
+						@endif
+						@if ($canViewManualStructure)
 						<li class="submenu">
-							<a href="javascript:void(0);">
+							<a href="javascript:void(0);"
+								class="{{ $manualStructureActive ? 'active subdrop' : '' }}">
 								<i class="ti ti-list-details"></i><span>Manual Structure</span>
 								<span class="menu-arrow"></span>
 							</a>
-							<ul></ul>
+							<ul>
+								<li><a href="{{ url('time-management/manual-punches') }}"
+									class="{{ $manualStructureActive ? 'active' : '' }}">Manual Punch</a></li>
+							</ul>
 						</li>
+						@endif
 					</ul>
 				</li>
 				@endif

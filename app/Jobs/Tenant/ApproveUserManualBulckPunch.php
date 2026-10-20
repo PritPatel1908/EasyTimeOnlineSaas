@@ -4,6 +4,7 @@ namespace App\Jobs\Tenant;
 
 use App\Models\Tenant\AttendanceLog;
 use App\Models\Tenant\DmsSetting;
+use App\Models\Tenant\ManualPunch;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -52,7 +53,7 @@ class ApproveUserManualBulckPunch implements ShouldBeUnique, ShouldQueue
                 ]
             );
 
-            if ($this->manualPunch->punch_type == '2') {
+            if (ManualPunch::isOutDirection($this->manualPunch->punch_type)) {
                 $attendance_log->is_out = true;
                 $attendance_log->save();
             }

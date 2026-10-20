@@ -637,7 +637,9 @@ class User extends Authenticatable implements FilamentUser, HasTenants
 
     public function manual_punches()
     {
-        return $this->hasMany(ManualPunch::class);
+        return $this->belongsToMany(ManualPunch::class, 'manual_punch_users')
+            ->withPivot('id')
+            ->withTimestamps();
     }
 
     public function manual_attendances()
