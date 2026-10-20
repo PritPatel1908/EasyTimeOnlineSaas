@@ -132,6 +132,47 @@ class NotificationControllerTest extends TestCase
         $this->assertSame([['Early10', 'Default', '10', 'Active']], $preview['rows']);
     }
 
+    public function test_it_reads_preview_for_half_day_rule_export(): void
+    {
+        Storage::fake('local');
+
+        $fileName = 'half_day_rules_20261020_123456.csv';
+        Storage::disk('local')->put(
+            'half-day-rule-exports/' . $fileName,
+            "code,description,single_punch_allowed,work_hr_less_than_minutes,late_coming_minutes,no_of_late,consecutive_late_coming,ignore_month_end_late,early_going_minutes,no_of_early,consecutive_early_going,ignore_month_end_early,status\nDefault,Sample,Yes,300,10,3,3,No,10,3,3,0,Active\n",
+        );
+
+        $controller = new NotificationController();
+        $method = new \ReflectionMethod($controller, 'readExportPreview');
+        $method->setAccessible(true);
+
+        [$preview, $error] = $method->invoke(
+            $controller,
+            '/time-management/half-day-rules/export/download/' . $fileName,
+        );
+
+        $this->assertNull($error);
+        $this->assertSame(
+            [
+                'code',
+                'description',
+                'single_punch_allowed',
+                'work_hr_less_than_minutes',
+                'late_coming_minutes',
+                'no_of_late',
+                'consecutive_late_coming',
+                'ignore_month_end_late',
+                'early_going_minutes',
+                'no_of_early',
+                'consecutive_early_going',
+                'ignore_month_end_early',
+                'status',
+            ],
+            $preview['headers'],
+        );
+        $this->assertSame([['Default', 'Sample', 'Yes', '300', '10', '3', '3', 'No', '10', '3', '3', '0', 'Active']], $preview['rows']);
+    }
+
     public function test_it_reads_preview_for_canteen_facility_export(): void
     {
         Storage::fake('local');

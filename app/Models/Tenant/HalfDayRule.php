@@ -7,6 +7,7 @@
 namespace App\Models\Tenant;
 
 use App\Traits\CUDby;
+use App\Traits\HasRelatedRecords;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
@@ -41,7 +42,24 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class HalfDayRule extends Model
 {
     use CUDby;
+    use HasRelatedRecords;
     use SoftDeletes;
+
+    public const IMPORT_EXPORT_COLUMNS = [
+        'code',
+        'description',
+        'single_punch_allowed',
+        'work_hr_less_than_minutes',
+        'late_coming_minutes',
+        'no_of_late',
+        'consecutive_late_coming',
+        'ignore_month_end_late',
+        'early_going_minutes',
+        'no_of_early',
+        'consecutive_early_going',
+        'ignore_month_end_early',
+        'status',
+    ];
 
     protected $table = 'half_day_rules';
 
@@ -56,7 +74,7 @@ class HalfDayRule extends Model
         'early_going_minutes' => 'int',
         'no_of_early' => 'float',
         'consecutive_early_going' => 'float',
-        'ignore_month_end_early' => 'float',
+        'ignore_month_end_early' => 'bool',
         'created_by' => 'int',
         'updated_by' => 'int',
         'deleted_by' => 'int',
@@ -80,6 +98,11 @@ class HalfDayRule extends Model
         'updated_by',
         'deleted_by',
     ];
+
+    public static function getImportUniqueFields(): array
+    {
+        return ['code'];
+    }
 
     // public function user()
     // {

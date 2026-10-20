@@ -13,6 +13,7 @@ use App\Http\Controllers\Tenant\ShiftController;
 use App\Http\Controllers\Tenant\ShiftRotationController;
 use App\Http\Controllers\Tenant\LateComingRuleController;
 use App\Http\Controllers\Tenant\EarlyGoingRuleController;
+use App\Http\Controllers\Tenant\HalfDayRuleController;
 use App\Http\Controllers\Tenant\DepartmentController;
 use App\Http\Controllers\Tenant\FinancialYearController;
 use App\Http\Controllers\Tenant\CanteenFacilityController;
@@ -250,6 +251,34 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:EarlyGoingRule,write')
                         ->middlewareFor('destroy', 'tenant.permission:EarlyGoingRule,delete')
                         ->names('early-going-rules');
+                    Route::get('half-day-rules/export', [HalfDayRuleController::class, 'export'])
+                        ->middleware('tenant.permission:HalfDayRule,export')
+                        ->name('half-day-rules.export');
+                    Route::get('half-day-rules/import/sample', [HalfDayRuleController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:HalfDayRule,import')
+                        ->name('half-day-rules.import-sample');
+                    Route::get('half-day-rules/export/download/{file}', [HalfDayRuleController::class, 'downloadExport'])
+                        ->middleware('tenant.permission:HalfDayRule,export')
+                        ->name('half-day-rules.download-export');
+                    Route::post('half-day-rules/import', [HalfDayRuleController::class, 'import'])
+                        ->middleware('tenant.permission:HalfDayRule,import')
+                        ->name('half-day-rules.import');
+                    Route::post('half-day-rules/filter', [HalfDayRuleController::class, 'filterStatus'])
+                        ->middleware('tenant.permission:HalfDayRule,read')
+                        ->name('half-day-rules.filter');
+                    Route::get('half-day-rules/create', [HalfDayRuleController::class, 'create'])
+                        ->middleware('tenant.permission:HalfDayRule,create')
+                        ->name('half-day-rules.create');
+                    Route::resource('half-day-rules', HalfDayRuleController::class)
+                        ->except(['create'])
+                        ->parameters(['half-day-rules' => 'half_day_rule'])
+                        ->middlewareFor('index', 'tenant.permission:HalfDayRule,read')
+                        ->middlewareFor('show', 'tenant.permission:HalfDayRule,read')
+                        ->middlewareFor('store', 'tenant.permission:HalfDayRule,create')
+                        ->middlewareFor('edit', 'tenant.permission:HalfDayRule,write')
+                        ->middlewareFor('update', 'tenant.permission:HalfDayRule,write')
+                        ->middlewareFor('destroy', 'tenant.permission:HalfDayRule,delete')
+                        ->names('half-day-rules');
                 });
 
                 Route::prefix('employee-structure')->name('tenant.employee-structure.')->group(function (): void {

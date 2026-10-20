@@ -24,7 +24,7 @@
 		'time-management/shifts*',
 		'time-management/shift-rotations*'
 	);
-	$timingRuleStructureActive = request()->is('time-management/late-coming-rules*', 'time-management/early-going-rules*');
+	$timingRuleStructureActive = request()->is('time-management/late-coming-rules*', 'time-management/early-going-rules*', 'time-management/half-day-rules*');
 	$categoryActive = request()->is('employee-structure/categories*');
 	$approvalFlowsActive = request()->is('employee-structure/approval-flows*');
 	$employeeActive = request()->is('employee-structure/employees*');
@@ -33,7 +33,8 @@
 		\App\Support\TenantPermissions::userCan('Shift', 'read') ||
 		\App\Support\TenantPermissions::userCan('ShiftRotation', 'read') ||
 		\App\Support\TenantPermissions::userCan('LateComingRule', 'read') ||
-		\App\Support\TenantPermissions::userCan('EarlyGoingRule', 'read');
+		\App\Support\TenantPermissions::userCan('EarlyGoingRule', 'read') ||
+		\App\Support\TenantPermissions::userCan('HalfDayRule', 'read');
 	$canViewCompanyStructure =
 		\App\Support\TenantPermissions::userCan('Company', 'read') ||
 		\App\Support\TenantPermissions::userCan('Location', 'read') ||
@@ -294,7 +295,10 @@
 								<li><a href="{{ url('time-management/early-going-rules') }}"
 									class="{{ Request::is('time-management/early-going-rules*') ? 'active' : '' }}">Early Going Rules</a></li>
 								@endif
-								<li><a href="javascript:void(0);">Half Day Rules</a></li>
+								@if (\App\Support\TenantPermissions::userCan('HalfDayRule', 'read'))
+								<li><a href="{{ url('time-management/half-day-rules') }}"
+									class="{{ Request::is('time-management/half-day-rules*') ? 'active' : '' }}">Half Day Rules</a></li>
+								@endif
 								<li><a href="javascript:void(0);">Absent Rules</a></li>
 								<li><a href="javascript:void(0);">Overtime Rules</a></li>
 							</ul>
