@@ -19,6 +19,8 @@ use Illuminate\Support\Str;
  *
  * @property int $id
  * @property int|null $user_id
+ * @property string|null $referance_type
+ * @property int|null $referance_id
  * @property string|null $user_code
  * @property string|null $dms_user_id
  * @property Carbon|null $datetime
@@ -49,6 +51,7 @@ class AttendanceLog extends Model
 
     protected $casts = [
         'user_id' => 'int',
+        'referance_id' => 'int',
         'dms_log_id' => 'int',
         'dms_user_id' => 'int',
         'dms_area_id' => 'int',
@@ -68,6 +71,8 @@ class AttendanceLog extends Model
 
     protected $fillable = [
         'user_id',
+        'referance_type',
+        'referance_id',
         'user_code',
         'dms_log_id',
         'dms_user_id',
