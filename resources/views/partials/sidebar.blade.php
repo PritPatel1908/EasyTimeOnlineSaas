@@ -1,4 +1,4 @@
-﻿<!-- Sidebar -->
+<!-- Sidebar -->
 <div class="sidebar" id="sidebar">
 @php
 	$companyStructureActive = request()->is('company-structure/*');
@@ -309,6 +309,13 @@
 									class="{{ Request::is('time-management/overtime-rules*') ? 'active' : '' }}">Overtime Rules</a></li>
 								@endif
 							</ul>
+						</li>
+						<li class="submenu">
+							<a href="javascript:void(0);">
+								<i class="ti ti-list-details"></i><span>Manual Structure</span>
+								<span class="menu-arrow"></span>
+							</a>
+							<ul></ul>
 						</li>
 					</ul>
 				</li>
