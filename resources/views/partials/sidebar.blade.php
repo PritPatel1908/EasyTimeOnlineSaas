@@ -276,6 +276,19 @@
 								@endif
 							</ul>
 						</li>
+						<li class="submenu">
+							<a href="javascript:void(0);">
+								<i class="ti ti-clock-cog"></i><span>Timing Rule Structure</span>
+								<span class="menu-arrow"></span>
+							</a>
+							<ul>
+								<li><a href="javascript:void(0);">Late Coming Rules</a></li>
+								<li><a href="javascript:void(0);">Early Going Rules</a></li>
+								<li><a href="javascript:void(0);">Half Day Rules</a></li>
+								<li><a href="javascript:void(0);">Absent Rules</a></li>
+								<li><a href="javascript:void(0);">Overtime Rules</a></li>
+							</ul>
+						</li>
 					</ul>
 				</li>
 				@endif
