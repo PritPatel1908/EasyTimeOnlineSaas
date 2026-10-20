@@ -30,6 +30,30 @@ class NotificationControllerTest extends TestCase
         $this->assertSame([['FY26-27', 'Financial Year 2026-27']], $preview['rows']);
     }
 
+    public function test_it_reads_preview_for_shift_export(): void
+    {
+        Storage::fake('local');
+
+        $fileName = 'shifts_20261020_033800.csv';
+        Storage::disk('local')->put(
+            'shift-exports/' . $fileName,
+            "name,code,in_time,out_time\nMorning,AM,09:00:00,17:00:00\n",
+        );
+
+        $controller = new NotificationController();
+        $method = new \ReflectionMethod($controller, 'readExportPreview');
+        $method->setAccessible(true);
+
+        [$preview, $error] = $method->invoke(
+            $controller,
+            '/time-management/shifts/export/download/' . $fileName,
+        );
+
+        $this->assertNull($error);
+        $this->assertSame(['name', 'code', 'in_time', 'out_time'], $preview['headers']);
+        $this->assertSame([['Morning', 'AM', '09:00:00', '17:00:00']], $preview['rows']);
+    }
+
     public function test_it_reads_preview_for_canteen_facility_export(): void
     {
         Storage::fake('local');

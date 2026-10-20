@@ -72,6 +72,7 @@ class NotificationController extends Controller
             preg_match('/\Aleave_types_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'leave-type-exports/' . $fileName,
             preg_match('/\Aleave_groups_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'leave-group-exports/' . $fileName,
             preg_match('/\Amanual_leave_balances_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'manual-leave-balance-exports/' . $fileName,
+            preg_match('/\Ashifts_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'shift-exports/' . $fileName,
             default => null,
         };
 

@@ -9,6 +9,7 @@ use App\Http\Controllers\Tenant\ApprovalFlowController;
 use App\Http\Controllers\Tenant\DesignationController;
 use App\Http\Controllers\Tenant\EmployeeController;
 use App\Http\Controllers\Tenant\CompanyController;
+use App\Http\Controllers\Tenant\ShiftController;
 use App\Http\Controllers\Tenant\DepartmentController;
 use App\Http\Controllers\Tenant\FinancialYearController;
 use App\Http\Controllers\Tenant\CanteenFacilityController;
@@ -137,6 +138,32 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:FinancialYear,write')
                         ->middlewareFor('destroy', 'tenant.permission:FinancialYear,delete')
                         ->names('financial-years');
+                    Route::get('shifts/export', [ShiftController::class, 'export'])
+                        ->middleware('tenant.permission:Shift,export')
+                        ->name('shifts.export');
+                    Route::get('shifts/import/sample', [ShiftController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:Shift,import')
+                        ->name('shifts.import-sample');
+                    Route::get('shifts/export/download/{file}', [ShiftController::class, 'downloadExport'])
+                        ->name('shifts.download-export');
+                    Route::post('shifts/import', [ShiftController::class, 'import'])
+                        ->middleware('tenant.permission:Shift,import')
+                        ->name('shifts.import');
+                    Route::post('shifts/filter', [ShiftController::class, 'filterStatus'])
+                        ->middleware('tenant.permission:Shift,read')
+                        ->name('shifts.filter');
+                    Route::get('shifts/create', [ShiftController::class, 'create'])
+                        ->middleware('tenant.permission:Shift,create')
+                        ->name('shifts.create');
+                    Route::resource('shifts', ShiftController::class)
+                        ->except(['create'])
+                        ->middlewareFor('index', 'tenant.permission:Shift,read')
+                        ->middlewareFor('show', 'tenant.permission:Shift,read')
+                        ->middlewareFor('store', 'tenant.permission:Shift,create')
+                        ->middlewareFor('edit', 'tenant.permission:Shift,write')
+                        ->middlewareFor('update', 'tenant.permission:Shift,write')
+                        ->middlewareFor('destroy', 'tenant.permission:Shift,delete')
+                        ->names('shifts');
                 });
 
                 Route::prefix('employee-structure')->name('tenant.employee-structure.')->group(function (): void {

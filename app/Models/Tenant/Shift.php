@@ -7,6 +7,7 @@
 namespace App\Models\Tenant;
 
 use App\Traits\CUDby;
+use App\Traits\HasRelatedRecords;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
@@ -18,18 +19,20 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $id
  * @property string $name
  * @property string $code
- * @property int $location_id
- * @property int $company_id
+ * @property array<int, int>|null $location_id
+ * @property array<int, int>|null $company_id
  * @property int $status
  * @property Carbon|null $in_time
  * @property Carbon|null $out_time
+ * @property Carbon|null $first_half_end_time
+ * @property Carbon|null $second_half_start_time
  * @property Carbon|null $brack_start_time
  * @property Carbon|null $brack_end_time
  * @property Carbon|null $auto_from
  * @property Carbon|null $auto_to
  * @property bool $is_night_shift
  * @property bool $set_cutoff
- * @property int $cutoff_time
+ * @property Carbon|null $cutoff_time
  * @property string|null $deleted_at
  * @property int|null $created_by
  * @property int|null $updated_by
@@ -50,7 +53,27 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Shift extends Model
 {
     use CUDby;
+    use HasRelatedRecords;
     use SoftDeletes;
+
+    public const IMPORT_EXPORT_COLUMNS = [
+        'name',
+        'code',
+        'location',
+        'company',
+        'in_time',
+        'out_time',
+        'first_half_end_time',
+        'second_half_start_time',
+        'brack_start_time',
+        'brack_end_time',
+        'auto_from',
+        'auto_to',
+        'is_night_shift',
+        'set_cutoff',
+        'cutoff_time',
+        'status',
+    ];
 
     protected $table = 'shifts';
 
@@ -95,6 +118,11 @@ class Shift extends Model
         'updated_by',
         'deleted_by',
     ];
+
+    public static function getImportUniqueFields(): array
+    {
+        return ['code', 'name'];
+    }
 
     public function company()
     {
