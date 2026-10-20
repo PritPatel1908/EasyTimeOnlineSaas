@@ -540,47 +540,10 @@ class OvertimeReportGenerator
                                             $out_diff = 0;
                                         }
 
-                                        if ($punchInTime < $shiftInTime) {
-                                            $early_diff = $punchInTime ? $punchInTime->diffInMinutes($shiftInTime) : 0;
-                                            $diffInHoursMinutes = sprintf('%02d:%02d', floor($early_diff / 60), $early_diff % 60);
-                                            if ($overtimeRule->ignore_early_come) {
-                                                if ($diffInHoursMinutes > $overtimeRule->ignore_early_come_minutes->format('H:i')) {
-                                                    // self::$overtime_early = $diffInHoursMinutes;
-                                                    self::$overtime_early = $early_diff;
-                                                    $out_diff = $out_diff + self::$overtime_early;
-                                                }
-                                            } else {
-                                                if ($punchInTime < $shiftInTime) {
-                                                    self::$overtime_early = $early_diff;
-                                                    $out_diff = $out_diff + self::$overtime_early;
-                                                }
-                                                if ($punchOutTime < $shiftOutTime) {
-                                                    $out_diff = $out_diff - $punchOutTime->diffInMinutes($shiftOutTime);
-                                                }
-                                            }
-                                        }
 
-                                        if ($punchInTime > $shiftInTime) {
-                                            $late_diff = $shiftInTime ? $shiftInTime->diffInMinutes($punchInTime) : 0;
-                                            $diffOutHoursMinutes = sprintf('%02d:%02d', floor($late_diff / 60), $late_diff % 60);
-                                            if ($overtimeRule->ignore_late_come) {
-                                                if ($diffOutHoursMinutes > $overtimeRule->ignore_late_come_minutes->format('H:i')) {
-                                                    self::$overtime_late = $late_diff;
-                                                    $out_diff = $out_diff - self::$overtime_late;
-                                                }
-                                            } else {
-                                                if ($punchInTime > $shiftInTime) {
-                                                    self::$overtime_late = $late_diff;
-                                                    $out_diff = $out_diff - self::$overtime_late;
-                                                }
-                                                if ($punchOutTime < $shiftOutTime) {
-                                                    $out_diff = $out_diff - $punchOutTime->diffInMinutes($shiftOutTime);
-                                                }
-                                            }
-                                        }
 
                                         if ($out_diff >= 0) {
-                                            $totalDiff = $out_diff;
+                                            $totalDiff = $overtimeRule->qualifyingOvertimeMinutes($out_diff);
                                             $overtimerule_slabs = $overtimeRule->overtime_slabs()->get();
                                             foreach ($overtimerule_slabs as $overtimerule_slab) {
                                                 if (sprintf('%02d:%02d', floor($totalDiff / 60), $totalDiff % 60) > '00:00' && sprintf('%02d:%02d', floor($totalDiff / 60), $totalDiff % 60) >= $overtimerule_slab->value_from->format('H:i') && sprintf('%02d:%02d', floor($totalDiff / 60), $totalDiff % 60) <= $overtimerule_slab->value_to->format('H:i')) {

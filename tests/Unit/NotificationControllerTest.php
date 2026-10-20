@@ -173,6 +173,49 @@ class NotificationControllerTest extends TestCase
         $this->assertSame([['Default', 'Sample', 'Yes', '300', '10', '3', '3', 'No', '10', '3', '3', '0', 'Active']], $preview['rows']);
     }
 
+    public function test_it_reads_preview_for_overtime_rule_export(): void
+    {
+        Storage::fake('local');
+
+        $fileName = 'overtime_rules_20261020_123456.csv';
+        Storage::disk('local')->put(
+            'overtime-rule-exports/' . $fileName,
+            implode(',', \App\Models\Tenant\OvertimeRule::IMPORT_EXPORT_COLUMNS)."\nOT1,Default,00:15,00:10,Yes,5.5,10.25,Active,00:00,01:00,00:00,1.5\n",
+        );
+
+        $controller = new NotificationController();
+        $method = new \ReflectionMethod($controller, 'readExportPreview');
+        $method->setAccessible(true);
+
+        [$preview, $error] = $method->invoke(
+            $controller,
+            '/time-management/overtime-rules/export/download/' . $fileName,
+        );
+
+        $this->assertNull($error);
+        $this->assertSame(
+            [
+                'code',
+                'description',
+                'ignore_early_come_minutes',
+                'ignore_late_come_minutes',
+                'ignore_late_going',
+                'ignore_overtime',
+                'ignore_late_going_overtime',
+                'status',
+                'slab_value_from',
+                'slab_value_to',
+                'slab_head_value',
+                'slab_decimal_value',
+            ],
+            $preview['headers'],
+        );
+        $this->assertSame(
+            [['OT1', 'Default', '00:15', '00:10', 'Yes', '5.5', '10.25', 'Active', '00:00', '01:00', '00:00', '1.5']],
+            $preview['rows'],
+        );
+    }
+
     public function test_it_reads_preview_for_absent_rule_export(): void
     {
         Storage::fake('local');

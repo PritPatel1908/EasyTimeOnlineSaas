@@ -13,23 +13,20 @@ use Illuminate\Database\Eloquent\Model;
  * Class OvertimeSlab
  *
  * @property int $id
- * @property Carbon|null $value_from
- * @property Carbon|null $value_to
- * @property Carbon|null $head_value
+ * @property string|null $value_from
+ * @property string|null $value_to
+ * @property string|null $head_value
  * @property float|null $decimal_value
  * @property int $overtime_rule_id
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
- * @property OvertimeRules $overtime_rule
+ * @property OvertimeRule $overtime_rule
  */
 class OvertimeSlab extends Model
 {
     protected $table = 'overtime_slabs';
 
     protected $casts = [
-        'value_from' => 'datetime',
-        'value_to' => 'datetime',
-        'head_value' => 'datetime',
         'decimal_value' => 'float',
         'overtime_rule_id' => 'int',
     ];

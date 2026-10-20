@@ -3258,53 +3258,10 @@ class AttCalculator
                     }
                     $this->debug('After shift overtime minutes : '.$out_diff);
 
-                    if ($punchInTime < $shiftInTime) {
-                        $early_diff = $punchInTime ? $punchInTime->diffInMinutes($shiftInTime) : 0;
-                        $diffInHoursMinutes = sprintf('%02d:%02d', floor($early_diff / 60), $early_diff % 60);
-                        $this->debug('Early diff in minutes: '.$early_diff.', Early diff in HH:SS format : '.$diffInHoursMinutes);
-                        if ($overtimeRule->ignore_early_come) {
-                            if ($diffInHoursMinutes > $overtimeRule->ignore_early_come_minutes->format('H:i')) {
-                                // $this->overtime_early = $diffInHoursMinutes;
-                                $this->overtime_early = $early_diff;
-                                $out_diff = $out_diff + $this->overtime_early;
-                            }
-                            $this->debug('Early diff value after out punch add : '.$out_diff);
-                        } else {
-                            if ($punchInTime < $shiftInTime) {
-                                $this->overtime_early = $early_diff;
-                                $out_diff = $out_diff + $this->overtime_early;
-                            }
-                            if ($punchOutTime < $shiftOutTime) {
-                                $out_diff = $out_diff - $punchOutTime->diffInMinutes($shiftOutTime);
-                            }
-                            $this->debug('Early diff value after out punch add : '.$out_diff);
-                        }
-                    }
 
-                    if ($punchInTime > $shiftInTime) {
-                        $late_diff = $shiftInTime ? $shiftInTime->diffInMinutes($punchInTime) : 0;
-                        $diffOutHoursMinutes = sprintf('%02d:%02d', floor($late_diff / 60), $late_diff % 60);
-                        $this->debug('Late diff in minutes: '.$late_diff.', Late diff in HH:SS format : '.$diffOutHoursMinutes);
-                        if ($overtimeRule->ignore_late_come) {
-                            if ($diffOutHoursMinutes > $overtimeRule->ignore_late_come_minutes->format('H:i')) {
-                                $this->overtime_late = $late_diff;
-                                $out_diff = $out_diff - $this->overtime_late;
-                            }
-                            $this->debug('Late diff value after out punch minus : '.$out_diff);
-                        } else {
-                            if ($punchInTime > $shiftInTime) {
-                                $this->overtime_late = $late_diff;
-                                $out_diff = $out_diff - $this->overtime_late;
-                            }
-                            if ($punchOutTime < $shiftOutTime) {
-                                $out_diff = $out_diff - $punchOutTime->diffInMinutes($shiftOutTime);
-                            }
-                            $this->debug('Late diff value after out punch minus : '.$out_diff);
-                        }
-                    }
 
                     if ($out_diff >= 0) {
-                        $totalDiff = $out_diff;
+                        $totalDiff = $overtimeRule->qualifyingOvertimeMinutes($out_diff);
                         $overtimerule_slabs = $overtimeRule->overtime_slabs()->get();
                         $this->debug('Final Total Overtime : '.$totalDiff.', Total Over time early : '.$this->overtime_early.', Total Over time late : '.$this->overtime_late);
                         foreach ($overtimerule_slabs as $overtimerule_slab) {

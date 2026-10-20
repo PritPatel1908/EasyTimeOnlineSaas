@@ -14,6 +14,7 @@ use App\Http\Controllers\Tenant\ShiftRotationController;
 use App\Http\Controllers\Tenant\LateComingRuleController;
 use App\Http\Controllers\Tenant\EarlyGoingRuleController;
 use App\Http\Controllers\Tenant\HalfDayRuleController;
+use App\Http\Controllers\Tenant\OvertimeRuleController;
 use App\Http\Controllers\Tenant\AbsentRuleController;
 use App\Http\Controllers\Tenant\DepartmentController;
 use App\Http\Controllers\Tenant\FinancialYearController;
@@ -280,6 +281,34 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:HalfDayRule,write')
                         ->middlewareFor('destroy', 'tenant.permission:HalfDayRule,delete')
                         ->names('half-day-rules');
+                    Route::get('overtime-rules/export', [OvertimeRuleController::class, 'export'])
+                        ->middleware('tenant.permission:OvertimeRule,export')
+                        ->name('overtime-rules.export');
+                    Route::get('overtime-rules/import/sample', [OvertimeRuleController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:OvertimeRule,import')
+                        ->name('overtime-rules.import-sample');
+                    Route::get('overtime-rules/export/download/{file}', [OvertimeRuleController::class, 'downloadExport'])
+                        ->middleware('tenant.permission:OvertimeRule,export')
+                        ->name('overtime-rules.download-export');
+                    Route::post('overtime-rules/import', [OvertimeRuleController::class, 'import'])
+                        ->middleware('tenant.permission:OvertimeRule,import')
+                        ->name('overtime-rules.import');
+                    Route::post('overtime-rules/filter', [OvertimeRuleController::class, 'filterStatus'])
+                        ->middleware('tenant.permission:OvertimeRule,read')
+                        ->name('overtime-rules.filter');
+                    Route::get('overtime-rules/create', [OvertimeRuleController::class, 'create'])
+                        ->middleware('tenant.permission:OvertimeRule,create')
+                        ->name('overtime-rules.create');
+                    Route::resource('overtime-rules', OvertimeRuleController::class)
+                        ->except(['create'])
+                        ->parameters(['overtime-rules' => 'overtime_rule'])
+                        ->middlewareFor('index', 'tenant.permission:OvertimeRule,read')
+                        ->middlewareFor('show', 'tenant.permission:OvertimeRule,read')
+                        ->middlewareFor('store', 'tenant.permission:OvertimeRule,create')
+                        ->middlewareFor('edit', 'tenant.permission:OvertimeRule,write')
+                        ->middlewareFor('update', 'tenant.permission:OvertimeRule,write')
+                        ->middlewareFor('destroy', 'tenant.permission:OvertimeRule,delete')
+                        ->names('overtime-rules');
                     Route::get('absent-rules/export', [AbsentRuleController::class, 'export'])
                         ->middleware('tenant.permission:AbsentRule,export')
                         ->name('absent-rules.export');

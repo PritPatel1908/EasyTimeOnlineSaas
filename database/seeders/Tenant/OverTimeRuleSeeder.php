@@ -11,10 +11,9 @@ class OverTimeRuleSeeder extends Seeder
     {
         $overtimeRule = OvertimeRule::create([
             'code' => 'Default OverTime Rule',
-            'ignore_early_come' => true,
-            'ignore_late_come' => true,
-            'ignore_early_come_minutes' => '00:30',
-            'ignore_late_come_minutes' => '00:30',
+            'ignore_late_going' => false,
+            'ignore_overtime' => 0,
+            'ignore_late_going_overtime' => 0,
             'description' => 'Default OverTime Rule Description',
         ]);
 

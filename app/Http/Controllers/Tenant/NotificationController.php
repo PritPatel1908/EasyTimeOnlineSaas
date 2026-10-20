@@ -77,6 +77,7 @@ class NotificationController extends Controller
             preg_match('/\Alate_coming_rules_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'late-coming-rule-exports/' . $fileName,
             preg_match('/\Aearly_going_rules_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'early-going-rule-exports/' . $fileName,
             preg_match('/\Ahalf_day_rules_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'half-day-rule-exports/' . $fileName,
+            preg_match('/\Aovertime_rules_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'overtime-rule-exports/' . $fileName,
             preg_match('/\Aabsent_rules_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'absent-rule-exports/' . $fileName,
             default => null,
         };
