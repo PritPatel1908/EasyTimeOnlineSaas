@@ -17,8 +17,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $id
  * @property int|null $user_id
  * @property string $punch_type
- * @property Carbon $from_punch_date
- * @property Carbon $to_punch_date
+ * @property Carbon $punch_date
  * @property Carbon $punch_time
  * @property string $reason
  * @property int $status
@@ -46,8 +45,7 @@ class ManualPunch extends Model
         // 'user_id' => 'int',
         'location_id' => 'array',
         'company_id' => 'array',
-        'from_punch_date' => 'datetime',
-        'to_punch_date' => 'datetime',
+        'punch_date' => 'date',
         'punch_time' => 'datetime',
         'status' => 'int',
         'created_by' => 'int',
@@ -60,8 +58,7 @@ class ManualPunch extends Model
         'location_id',
         'company_id',
         'punch_type',
-        'from_punch_date',
-        'to_punch_date',
+        'punch_date',
         'punch_time',
         'reason',
         'status',
@@ -90,48 +87,6 @@ class ManualPunch extends Model
     public function company()
     {
         return $this->belongsTo(Company::class);
-    }
-
-    public function departments()
-    {
-        return $this->belongsToMany(Department::class, 'manual_punch_department')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
-    public function sub_departments()
-    {
-        return $this->belongsToMany(SubDepartment::class, 'manual_punch_sub_department')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
-    public function categories()
-    {
-        return $this->belongsToMany(Category::class, 'manual_punch_category')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
-    public function sub_categories()
-    {
-        return $this->belongsToMany(SubCategory::class, 'manual_punch_sub_category')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
-    public function designations()
-    {
-        return $this->belongsToMany(Designation::class, 'manual_punch_designation')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
-    public function areas()
-    {
-        return $this->belongsToMany(Area::class, 'manual_punch_area')
-            ->withPivot('id')
-            ->withTimestamps();
     }
 
     public function approval_status()
