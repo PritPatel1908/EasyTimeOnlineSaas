@@ -7,6 +7,7 @@
 namespace App\Models\Tenant;
 
 use App\Traits\CUDby;
+use App\Traits\HasRelatedRecords;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
@@ -41,7 +42,24 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class AbsentRule extends Model
 {
     use CUDby;
+    use HasRelatedRecords;
     use SoftDeletes;
+
+    public const IMPORT_EXPORT_COLUMNS = [
+        'code',
+        'description',
+        'work_hr_less_than_minutes',
+        'allow_single_punch',
+        'late_coming_minutes',
+        'no_of_late',
+        'consecutive_late_coming',
+        'ignore_month_end_late',
+        'early_going_minutes',
+        'no_of_early',
+        'consecutive_early_going',
+        'ignore_month_end_early',
+        'status',
+    ];
 
     protected $table = 'absent_rules';
 
@@ -80,6 +98,11 @@ class AbsentRule extends Model
         'updated_by',
         'deleted_by',
     ];
+
+    public static function getImportUniqueFields(): array
+    {
+        return ['code'];
+    }
 
     // public function user()
     // {

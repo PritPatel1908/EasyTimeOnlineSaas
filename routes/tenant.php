@@ -14,6 +14,7 @@ use App\Http\Controllers\Tenant\ShiftRotationController;
 use App\Http\Controllers\Tenant\LateComingRuleController;
 use App\Http\Controllers\Tenant\EarlyGoingRuleController;
 use App\Http\Controllers\Tenant\HalfDayRuleController;
+use App\Http\Controllers\Tenant\AbsentRuleController;
 use App\Http\Controllers\Tenant\DepartmentController;
 use App\Http\Controllers\Tenant\FinancialYearController;
 use App\Http\Controllers\Tenant\CanteenFacilityController;
@@ -279,6 +280,34 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:HalfDayRule,write')
                         ->middlewareFor('destroy', 'tenant.permission:HalfDayRule,delete')
                         ->names('half-day-rules');
+                    Route::get('absent-rules/export', [AbsentRuleController::class, 'export'])
+                        ->middleware('tenant.permission:AbsentRule,export')
+                        ->name('absent-rules.export');
+                    Route::get('absent-rules/import/sample', [AbsentRuleController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:AbsentRule,import')
+                        ->name('absent-rules.import-sample');
+                    Route::get('absent-rules/export/download/{file}', [AbsentRuleController::class, 'downloadExport'])
+                        ->middleware('tenant.permission:AbsentRule,export')
+                        ->name('absent-rules.download-export');
+                    Route::post('absent-rules/import', [AbsentRuleController::class, 'import'])
+                        ->middleware('tenant.permission:AbsentRule,import')
+                        ->name('absent-rules.import');
+                    Route::post('absent-rules/filter', [AbsentRuleController::class, 'filterStatus'])
+                        ->middleware('tenant.permission:AbsentRule,read')
+                        ->name('absent-rules.filter');
+                    Route::get('absent-rules/create', [AbsentRuleController::class, 'create'])
+                        ->middleware('tenant.permission:AbsentRule,create')
+                        ->name('absent-rules.create');
+                    Route::resource('absent-rules', AbsentRuleController::class)
+                        ->except(['create'])
+                        ->parameters(['absent-rules' => 'absent_rule'])
+                        ->middlewareFor('index', 'tenant.permission:AbsentRule,read')
+                        ->middlewareFor('show', 'tenant.permission:AbsentRule,read')
+                        ->middlewareFor('store', 'tenant.permission:AbsentRule,create')
+                        ->middlewareFor('edit', 'tenant.permission:AbsentRule,write')
+                        ->middlewareFor('update', 'tenant.permission:AbsentRule,write')
+                        ->middlewareFor('destroy', 'tenant.permission:AbsentRule,delete')
+                        ->names('absent-rules');
                 });
 
                 Route::prefix('employee-structure')->name('tenant.employee-structure.')->group(function (): void {

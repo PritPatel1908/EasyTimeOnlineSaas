@@ -173,6 +173,47 @@ class NotificationControllerTest extends TestCase
         $this->assertSame([['Default', 'Sample', 'Yes', '300', '10', '3', '3', 'No', '10', '3', '3', '0', 'Active']], $preview['rows']);
     }
 
+    public function test_it_reads_preview_for_absent_rule_export(): void
+    {
+        Storage::fake('local');
+
+        $fileName = 'absent_rules_20261020_123456.csv';
+        Storage::disk('local')->put(
+            'absent-rule-exports/' . $fileName,
+            "code,description,work_hr_less_than_minutes,allow_single_punch,late_coming_minutes,no_of_late,consecutive_late_coming,ignore_month_end_late,early_going_minutes,no_of_early,consecutive_early_going,ignore_month_end_early,status\nDefault,Sample,300,Yes,10,3,3,No,10,3,3,No,Active\n",
+        );
+
+        $controller = new NotificationController();
+        $method = new \ReflectionMethod($controller, 'readExportPreview');
+        $method->setAccessible(true);
+
+        [$preview, $error] = $method->invoke(
+            $controller,
+            '/time-management/absent-rules/export/download/' . $fileName,
+        );
+
+        $this->assertNull($error);
+        $this->assertSame(
+            [
+                'code',
+                'description',
+                'work_hr_less_than_minutes',
+                'allow_single_punch',
+                'late_coming_minutes',
+                'no_of_late',
+                'consecutive_late_coming',
+                'ignore_month_end_late',
+                'early_going_minutes',
+                'no_of_early',
+                'consecutive_early_going',
+                'ignore_month_end_early',
+                'status',
+            ],
+            $preview['headers'],
+        );
+        $this->assertSame([['Default', 'Sample', '300', 'Yes', '10', '3', '3', 'No', '10', '3', '3', 'No', 'Active']], $preview['rows']);
+    }
+
     public function test_it_reads_preview_for_canteen_facility_export(): void
     {
         Storage::fake('local');

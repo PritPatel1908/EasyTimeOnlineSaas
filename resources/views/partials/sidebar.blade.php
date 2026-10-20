@@ -24,7 +24,7 @@
 		'time-management/shifts*',
 		'time-management/shift-rotations*'
 	);
-	$timingRuleStructureActive = request()->is('time-management/late-coming-rules*', 'time-management/early-going-rules*', 'time-management/half-day-rules*');
+	$timingRuleStructureActive = request()->is('time-management/late-coming-rules*', 'time-management/early-going-rules*', 'time-management/half-day-rules*', 'time-management/absent-rules*');
 	$categoryActive = request()->is('employee-structure/categories*');
 	$approvalFlowsActive = request()->is('employee-structure/approval-flows*');
 	$employeeActive = request()->is('employee-structure/employees*');
@@ -299,7 +299,10 @@
 								<li><a href="{{ url('time-management/half-day-rules') }}"
 									class="{{ Request::is('time-management/half-day-rules*') ? 'active' : '' }}">Half Day Rules</a></li>
 								@endif
-								<li><a href="javascript:void(0);">Absent Rules</a></li>
+								@if (\App\Support\TenantPermissions::userCan('AbsentRule', 'read'))
+								<li><a href="{{ url('time-management/absent-rules') }}"
+									class="{{ Request::is('time-management/absent-rules*') ? 'active' : '' }}">Absent Rules</a></li>
+								@endif
 								<li><a href="javascript:void(0);">Overtime Rules</a></li>
 							</ul>
 						</li>
