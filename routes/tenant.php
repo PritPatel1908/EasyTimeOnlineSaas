@@ -12,6 +12,7 @@ use App\Http\Controllers\Tenant\CompanyController;
 use App\Http\Controllers\Tenant\ShiftController;
 use App\Http\Controllers\Tenant\ShiftRotationController;
 use App\Http\Controllers\Tenant\LateComingRuleController;
+use App\Http\Controllers\Tenant\EarlyGoingRuleController;
 use App\Http\Controllers\Tenant\DepartmentController;
 use App\Http\Controllers\Tenant\FinancialYearController;
 use App\Http\Controllers\Tenant\CanteenFacilityController;
@@ -221,6 +222,34 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:LateComingRule,write')
                         ->middlewareFor('destroy', 'tenant.permission:LateComingRule,delete')
                         ->names('late-coming-rules');
+                    Route::get('early-going-rules/export', [EarlyGoingRuleController::class, 'export'])
+                        ->middleware('tenant.permission:EarlyGoingRule,export')
+                        ->name('early-going-rules.export');
+                    Route::get('early-going-rules/import/sample', [EarlyGoingRuleController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:EarlyGoingRule,import')
+                        ->name('early-going-rules.import-sample');
+                    Route::get('early-going-rules/export/download/{file}', [EarlyGoingRuleController::class, 'downloadExport'])
+                        ->middleware('tenant.permission:EarlyGoingRule,export')
+                        ->name('early-going-rules.download-export');
+                    Route::post('early-going-rules/import', [EarlyGoingRuleController::class, 'import'])
+                        ->middleware('tenant.permission:EarlyGoingRule,import')
+                        ->name('early-going-rules.import');
+                    Route::post('early-going-rules/filter', [EarlyGoingRuleController::class, 'filterStatus'])
+                        ->middleware('tenant.permission:EarlyGoingRule,read')
+                        ->name('early-going-rules.filter');
+                    Route::get('early-going-rules/create', [EarlyGoingRuleController::class, 'create'])
+                        ->middleware('tenant.permission:EarlyGoingRule,create')
+                        ->name('early-going-rules.create');
+                    Route::resource('early-going-rules', EarlyGoingRuleController::class)
+                        ->except(['create'])
+                        ->parameters(['early-going-rules' => 'early_going_rule'])
+                        ->middlewareFor('index', 'tenant.permission:EarlyGoingRule,read')
+                        ->middlewareFor('show', 'tenant.permission:EarlyGoingRule,read')
+                        ->middlewareFor('store', 'tenant.permission:EarlyGoingRule,create')
+                        ->middlewareFor('edit', 'tenant.permission:EarlyGoingRule,write')
+                        ->middlewareFor('update', 'tenant.permission:EarlyGoingRule,write')
+                        ->middlewareFor('destroy', 'tenant.permission:EarlyGoingRule,delete')
+                        ->names('early-going-rules');
                 });
 
                 Route::prefix('employee-structure')->name('tenant.employee-structure.')->group(function (): void {
