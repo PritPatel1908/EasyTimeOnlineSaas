@@ -78,6 +78,33 @@ class NotificationControllerTest extends TestCase
         $this->assertSame([['NIGHT', '2026-10-01', 'N1', '3']], $preview['rows']);
     }
 
+    public function test_it_reads_preview_for_late_coming_rule_export(): void
+    {
+        Storage::fake('local');
+
+        $fileName = 'late_coming_rules_20261020_123456.csv';
+        Storage::disk('local')->put(
+            'late-coming-rule-exports/' . $fileName,
+            "code,description,ignore_late_coming_minutes,status\nLate10,Default,10,Active\n",
+        );
+
+        $controller = new NotificationController();
+        $method = new \ReflectionMethod($controller, 'readExportPreview');
+        $method->setAccessible(true);
+
+        [$preview, $error] = $method->invoke(
+            $controller,
+            '/time-management/late-coming-rules/export/download/' . $fileName,
+        );
+
+        $this->assertNull($error);
+        $this->assertSame(
+            ['code', 'description', 'ignore_late_coming_minutes', 'status'],
+            $preview['headers'],
+        );
+        $this->assertSame([['Late10', 'Default', '10', 'Active']], $preview['rows']);
+    }
+
     public function test_it_reads_preview_for_canteen_facility_export(): void
     {
         Storage::fake('local');

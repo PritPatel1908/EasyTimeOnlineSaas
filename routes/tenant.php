@@ -11,6 +11,7 @@ use App\Http\Controllers\Tenant\EmployeeController;
 use App\Http\Controllers\Tenant\CompanyController;
 use App\Http\Controllers\Tenant\ShiftController;
 use App\Http\Controllers\Tenant\ShiftRotationController;
+use App\Http\Controllers\Tenant\LateComingRuleController;
 use App\Http\Controllers\Tenant\DepartmentController;
 use App\Http\Controllers\Tenant\FinancialYearController;
 use App\Http\Controllers\Tenant\CanteenFacilityController;
@@ -192,6 +193,34 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:ShiftRotation,write')
                         ->middlewareFor('destroy', 'tenant.permission:ShiftRotation,delete')
                         ->names('shift-rotations');
+                    Route::get('late-coming-rules/export', [LateComingRuleController::class, 'export'])
+                        ->middleware('tenant.permission:LateComingRule,export')
+                        ->name('late-coming-rules.export');
+                    Route::get('late-coming-rules/import/sample', [LateComingRuleController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:LateComingRule,import')
+                        ->name('late-coming-rules.import-sample');
+                    Route::get('late-coming-rules/export/download/{file}', [LateComingRuleController::class, 'downloadExport'])
+                        ->middleware('tenant.permission:LateComingRule,export')
+                        ->name('late-coming-rules.download-export');
+                    Route::post('late-coming-rules/import', [LateComingRuleController::class, 'import'])
+                        ->middleware('tenant.permission:LateComingRule,import')
+                        ->name('late-coming-rules.import');
+                    Route::post('late-coming-rules/filter', [LateComingRuleController::class, 'filterStatus'])
+                        ->middleware('tenant.permission:LateComingRule,read')
+                        ->name('late-coming-rules.filter');
+                    Route::get('late-coming-rules/create', [LateComingRuleController::class, 'create'])
+                        ->middleware('tenant.permission:LateComingRule,create')
+                        ->name('late-coming-rules.create');
+                    Route::resource('late-coming-rules', LateComingRuleController::class)
+                        ->except(['create'])
+                        ->parameters(['late-coming-rules' => 'late_coming_rule'])
+                        ->middlewareFor('index', 'tenant.permission:LateComingRule,read')
+                        ->middlewareFor('show', 'tenant.permission:LateComingRule,read')
+                        ->middlewareFor('store', 'tenant.permission:LateComingRule,create')
+                        ->middlewareFor('edit', 'tenant.permission:LateComingRule,write')
+                        ->middlewareFor('update', 'tenant.permission:LateComingRule,write')
+                        ->middlewareFor('destroy', 'tenant.permission:LateComingRule,delete')
+                        ->names('late-coming-rules');
                 });
 
                 Route::prefix('employee-structure')->name('tenant.employee-structure.')->group(function (): void {

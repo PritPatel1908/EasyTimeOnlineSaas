@@ -7,6 +7,7 @@
 namespace App\Models\Tenant;
 
 use App\Traits\CUDby;
+use App\Traits\HasRelatedRecords;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
@@ -17,7 +18,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  *
  * @property int $id
  * @property string $code
- * @property string $description
+ * @property string|null $description
  * @property int|null $ignore_late_coming_minutes
  * @property int $status
  * @property string|null $deleted_at
@@ -32,7 +33,15 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class LateComingRule extends Model
 {
     use CUDby;
+    use HasRelatedRecords;
     use SoftDeletes;
+
+    public const IMPORT_EXPORT_COLUMNS = [
+        'code',
+        'description',
+        'ignore_late_coming_minutes',
+        'status',
+    ];
 
     protected $table = 'late_coming_rules';
 
@@ -53,6 +62,11 @@ class LateComingRule extends Model
         'updated_by',
         'deleted_by',
     ];
+
+    public static function getImportUniqueFields(): array
+    {
+        return ['code'];
+    }
 
     // public function user()
     // {
