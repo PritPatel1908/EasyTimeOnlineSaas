@@ -108,19 +108,40 @@ class FinancialYearController extends Controller
         ]);
 
         $financialYear = FinancialYear::query()->findOrFail($request->route('financial_year'));
+        $isStarted = (bool) $validated['is_started'];
+        $isClosed = (bool) $validated['is_closed'];
+        $anotherStartedFinancialYearExists = FinancialYear::query()
+            ->where('is_started', true)
+            ->whereKeyNot($financialYear->getKey())
+            ->exists();
 
-        if (
-            (bool) $validated['is_started']
-            && FinancialYear::query()
-                ->where('is_started', true)
-                ->whereKeyNot($financialYear->getKey())
-                ->exists()
-        ) {
+        if ($financialYear->is_closed) {
             return redirect(url(self::INDEX_URL))
-                ->with('error', 'Another Financial Year is already started. Stop it before starting this one.');
+                ->with('error', 'A stopped or closed Financial Year cannot be reopened.');
         }
 
-        $financialYear->update($validated);
+        if ($anotherStartedFinancialYearExists) {
+            return redirect(url(self::INDEX_URL))
+                ->with('error', 'Another Financial Year is already started. Stop it before changing this one.');
+        }
+
+        if ($financialYear->is_started) {
+            if ($isStarted || ! $isClosed) {
+                return redirect(url(self::INDEX_URL))
+                    ->with('error', 'A started Financial Year can only be stopped, and cannot be started again.');
+            }
+        } elseif ($isStarted && $isClosed) {
+            return redirect(url(self::INDEX_URL))
+                ->with('error', 'A Financial Year cannot be started and closed at the same time.');
+        } elseif (! $isStarted && ! $isClosed) {
+            return redirect(url(self::INDEX_URL))
+                ->with('error', 'Choose Start or permanently Close for this Financial Year.');
+        }
+
+        $financialYear->update([
+            'is_started' => $isStarted,
+            'is_closed' => $isClosed,
+        ]);
 
         return redirect(url(self::INDEX_URL))->with('success', 'Financial Year actions updated successfully.');
     }

@@ -1,5 +1,6 @@
 @forelse ($financialYears as $financialYear)
     <tr>
+        <td><div class="form-check form-check-md"><input class="form-check-input" type="checkbox"></div></td>
         <td>{{ $financialYear->code }}</td>
         <td>{{ $financialYear->name ?: '—' }}</td>
         <td>{{ $financialYear->start_date?->format('d M Y') }}</td>
@@ -20,38 +21,44 @@
                 @endif
                 @if (\App\Support\TenantPermissions::userCan('FinancialYear', 'write'))
                     @php
-                        $canToggleStarted = $startedFinancialYearId === null
-                            || (int) $startedFinancialYearId === (int) $financialYear->id;
+                        $isStarted = (bool) $financialYear->is_started;
+                        $isClosed = (bool) $financialYear->is_closed;
+                        $isCurrentStartedYear = (int) $startedFinancialYearId === (int) $financialYear->id;
+                        $canStart = ! $isStarted && ! $isClosed && $startedFinancialYearId === null;
+                        $canStop = $isStarted && ! $isClosed && $isCurrentStartedYear;
+                        $canClose = ! $isStarted && ! $isClosed && $startedFinancialYearId === null;
+                        $canChangeLifecycle = $canStart || $canStop;
                     @endphp
                     <a href="javascript:void(0);"
-                        class="me-2 financial-year-flag-action {{ $canToggleStarted ? '' : 'disabled text-muted pe-none' }}"
-                        @if ($canToggleStarted) data-form="financial-year-started-{{ $financialYear->id }}" @endif
-                        title="{{ $financialYear->is_started ? 'Mark as not started' : 'Mark as started' }}"
-                        aria-label="{{ $financialYear->is_started ? 'Mark as not started' : 'Mark as started' }}"
-                        @if (! $canToggleStarted) aria-disabled="true" tabindex="-1" @endif>
-                            <i class="ti {{ $financialYear->is_started ? 'ti-circle-check' : 'ti-player-play' }}"></i>
+                        class="me-2 financial-year-flag-action {{ $canChangeLifecycle ? '' : 'disabled text-muted pe-none' }}"
+                        @if ($canChangeLifecycle) data-form="financial-year-started-{{ $financialYear->id }}" @endif
+                        title="{{ $isStarted ? 'Stop financial year' : ($isClosed ? 'Financial year cannot be reopened' : 'Start financial year') }}"
+                        aria-label="{{ $isStarted ? 'Stop financial year' : ($isClosed ? 'Financial year cannot be reopened' : 'Start financial year') }}"
+                        @if (! $canChangeLifecycle) aria-disabled="true" tabindex="-1" @endif>
+                            <i class="ti {{ $isStarted ? 'ti-player-stop' : ($isClosed ? 'ti-circle-check' : 'ti-player-play') }}"></i>
                     </a>
                     <a href="javascript:void(0);"
-                        class="me-2 financial-year-flag-action"
-                        data-form="financial-year-closed-{{ $financialYear->id }}"
-                        title="{{ $financialYear->is_closed ? 'Reopen financial year' : 'Close financial year' }}"
-                        aria-label="{{ $financialYear->is_closed ? 'Reopen financial year' : 'Close financial year' }}">
-                        <i class="ti {{ $financialYear->is_closed ? 'ti-lock' : 'ti-lock-open' }}"></i>
+                        class="me-2 financial-year-flag-action {{ $canClose ? '' : 'disabled text-muted pe-none' }}"
+                        @if ($canClose) data-form="financial-year-closed-{{ $financialYear->id }}" @endif
+                        title="{{ $isClosed ? 'Financial year is permanently closed' : 'Close financial year permanently' }}"
+                        aria-label="{{ $isClosed ? 'Financial year is permanently closed' : 'Close financial year permanently' }}"
+                        @if (! $canClose) aria-disabled="true" tabindex="-1" @endif>
+                        <i class="ti {{ $isClosed ? 'ti-lock' : 'ti-lock-open' }}"></i>
                     </a>
                     <form id="financial-year-started-{{ $financialYear->id }}" method="POST" action="{{ url('time-management/financial-years/'.$financialYear->id.'/flags') }}" class="d-none">
                         @csrf
-                        <input type="hidden" name="is_started" value="{{ $financialYear->is_started ? 0 : 1 }}">
-                        <input type="hidden" name="is_closed" value="{{ (int) $financialYear->is_closed }}">
+                        <input type="hidden" name="is_started" value="{{ $isStarted ? 0 : 1 }}">
+                        <input type="hidden" name="is_closed" value="{{ $isStarted ? 1 : 0 }}">
                     </form>
                     <form id="financial-year-closed-{{ $financialYear->id }}" method="POST" action="{{ url('time-management/financial-years/'.$financialYear->id.'/flags') }}" class="d-none">
                         @csrf
-                        <input type="hidden" name="is_started" value="{{ (int) $financialYear->is_started }}">
-                        <input type="hidden" name="is_closed" value="{{ $financialYear->is_closed ? 0 : 1 }}">
+                        <input type="hidden" name="is_started" value="0">
+                        <input type="hidden" name="is_closed" value="1">
                     </form>
                 @endif
             </div>
         </td>
     </tr>
 @empty
-    <tr><td colspan="8" class="py-4 text-muted text-center"><i class="ti ti-calendar-off me-1"></i>No financial years found.</td></tr>
+    <tr><td colspan="9" class="py-4 text-muted text-center"><i class="ti ti-calendar-off me-1"></i>No financial years found.</td></tr>
 @endforelse

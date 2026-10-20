@@ -8,6 +8,28 @@ use Tests\TestCase;
 
 class NotificationControllerTest extends TestCase
 {
+    public function test_it_reads_preview_for_financial_year_export(): void
+    {
+        Storage::fake('local');
+
+        $fileName = 'financial_years_20261020_025500.csv';
+        $path = 'financial-year-exports/' . $fileName;
+        Storage::disk('local')->put($path, "code,name\nFY26-27,Financial Year 2026-27\n");
+
+        $controller = new NotificationController();
+        $method = new \ReflectionMethod($controller, 'readExportPreview');
+        $method->setAccessible(true);
+
+        [$preview, $error] = $method->invoke(
+            $controller,
+            '/time-management/financial-years/export/download/' . $fileName,
+        );
+
+        $this->assertNull($error);
+        $this->assertSame(['code', 'name'], $preview['headers']);
+        $this->assertSame([['FY26-27', 'Financial Year 2026-27']], $preview['rows']);
+    }
+
     public function test_it_reads_preview_for_canteen_facility_export(): void
     {
         Storage::fake('local');

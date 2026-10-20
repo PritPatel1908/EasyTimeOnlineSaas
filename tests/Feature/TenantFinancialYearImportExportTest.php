@@ -5,12 +5,17 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Controllers\Tenant\FinancialYearController;
+use App\Http\Requests\Tenant\UpdateFinancialYearRequest;
 use App\Jobs\Tenant\GenerateFinancialYearExport;
 use App\Models\Tenant\FinancialYear;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Mockery;
+use Illuminate\Http\Request;
+use Illuminate\Routing\Route;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Tests\TestCase;
 
@@ -80,5 +85,91 @@ class TenantFinancialYearImportExportTest extends TestCase
         $response = app(FinancialYearController::class)->downloadExport($fileName);
 
         $this->assertStringContainsString('financial_years.csv', $response->headers->get('Content-Disposition', ''));
+    }
+
+    public function test_only_the_started_year_can_be_stopped_and_a_stopped_year_cannot_be_reopened(): void
+    {
+        $this->createFinancialYearsTable();
+        DB::table('financial_years')->insert([
+            ['id' => 1, 'is_started' => true, 'is_closed' => false],
+            ['id' => 2, 'is_started' => false, 'is_closed' => false],
+        ]);
+
+        $blockedStart = $this->updateFinancialYearFlags(2, 1, 0);
+        $this->assertSame(302, $blockedStart->getStatusCode());
+        $this->assertDatabaseHas('financial_years', ['id' => 2, 'is_started' => false]);
+
+        $stop = $this->updateFinancialYearFlags(1, 0, 1);
+        $this->assertSame(302, $stop->getStatusCode());
+        $this->assertDatabaseHas('financial_years', ['id' => 1, 'is_started' => false, 'is_closed' => true]);
+
+        $reopen = $this->updateFinancialYearFlags(1, 1, 0);
+        $this->assertSame(302, $reopen->getStatusCode());
+        $this->assertDatabaseHas('financial_years', ['id' => 1, 'is_started' => false, 'is_closed' => true]);
+
+        $startNext = $this->updateFinancialYearFlags(2, 1, 0);
+        $this->assertSame(302, $startNext->getStatusCode());
+        $this->assertDatabaseHas('financial_years', ['id' => 2, 'is_started' => true, 'is_closed' => false]);
+    }
+
+    public function test_started_financial_year_dates_and_status_are_kept_unchanged_during_update(): void
+    {
+        $this->createFinancialYearsTable();
+        DB::table('financial_years')->insert([
+            'id' => 1,
+            'start_date' => '2026-04-01',
+            'end_date' => '2027-03-31',
+            'status' => 1,
+            'is_started' => true,
+            'is_closed' => false,
+        ]);
+
+        $request = UpdateFinancialYearRequest::create('/time-management/financial-years/1', 'PUT', [
+            'start_date' => '2025-04-01',
+            'end_date' => '2026-03-31',
+            'status' => 0,
+        ]);
+        $route = Mockery::mock(Route::class);
+        $route->shouldReceive('parameter')->with('financial_year', null)->andReturn(1);
+        $request->setRouteResolver(static fn () => $route);
+
+        $prepare = new \ReflectionMethod(UpdateFinancialYearRequest::class, 'prepareForValidation');
+        $prepare->setAccessible(true);
+        $prepare->invoke($request);
+
+        $this->assertSame('2026-04-01', $request->input('start_date'));
+        $this->assertSame('2027-03-31', $request->input('end_date'));
+        $this->assertSame(1, $request->input('status'));
+    }
+
+    private function createFinancialYearsTable(): void
+    {
+        config(['database.default' => 'sqlite', 'database.connections.sqlite.database' => ':memory:']);
+        DB::purge('sqlite');
+
+        Schema::create('financial_years', function ($table): void {
+            $table->id();
+            $table->date('start_date')->nullable();
+            $table->date('end_date')->nullable();
+            $table->unsignedTinyInteger('status')->default(1);
+            $table->boolean('is_started')->default(false);
+            $table->boolean('is_closed')->default(false);
+            $table->softDeletes();
+            $table->unsignedBigInteger('updated_by')->nullable();
+            $table->timestamps();
+        });
+    }
+
+    private function updateFinancialYearFlags(int $id, int $isStarted, int $isClosed): \Illuminate\Http\RedirectResponse
+    {
+        $request = Request::create('/time-management/financial-years/'.$id.'/flags', 'POST', [
+            'is_started' => $isStarted,
+            'is_closed' => $isClosed,
+        ]);
+        $route = Mockery::mock(Route::class);
+        $route->shouldReceive('parameter')->with('financial_year', null)->andReturn($id);
+        $request->setRouteResolver(static fn () => $route);
+
+        return app(FinancialYearController::class)->updateFlags($request);
     }
 }

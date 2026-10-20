@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Tenant;
 
+use App\Models\Tenant\FinancialYear;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -16,10 +17,21 @@ class UpdateFinancialYearRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $this->merge([
+        $values = [
             'location_id' => $this->selectionArray($this->input('location_id')),
             'company_id' => $this->selectionArray($this->input('company_id')),
-        ]);
+        ];
+
+        $financialYear = FinancialYear::query()->findOrFail($this->route('financial_year'));
+        if ($financialYear->is_started) {
+            $values = array_merge($values, [
+                'start_date' => $financialYear->start_date->format('Y-m-d'),
+                'end_date' => $financialYear->end_date->format('Y-m-d'),
+                'status' => $financialYear->status,
+            ]);
+        }
+
+        $this->merge($values);
     }
 
     /**

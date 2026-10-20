@@ -23,12 +23,12 @@
         </div>
         <div class="col-md-6 mb-3">
             <label class="form-label" for="financial_year_start_date">Start Date <span class="text-danger">*</span></label>
-            <input id="financial_year_start_date" name="start_date" type="date" required class="form-control @error('start_date') is-invalid @enderror" value="{{ old('start_date', $financialYear?->start_date?->format('Y-m-d')) }}">
+            <input id="financial_year_start_date" name="start_date" type="date" required class="form-control @error('start_date') is-invalid @enderror" value="{{ old('start_date', $financialYear?->start_date?->format('Y-m-d')) }}" @disabled($financialYear?->is_started)>
             <x-validation-error field="start_date" />
         </div>
         <div class="col-md-6 mb-3">
             <label class="form-label" for="financial_year_end_date">End Date <span class="text-danger">*</span></label>
-            <input id="financial_year_end_date" name="end_date" type="date" required min="{{ old('start_date', $financialYear?->start_date?->format('Y-m-d')) }}" class="form-control @error('end_date') is-invalid @enderror" value="{{ old('end_date', $financialYear?->end_date?->format('Y-m-d')) }}">
+            <input id="financial_year_end_date" name="end_date" type="date" required min="{{ old('start_date', $financialYear?->start_date?->format('Y-m-d')) }}" class="form-control @error('end_date') is-invalid @enderror" value="{{ old('end_date', $financialYear?->end_date?->format('Y-m-d')) }}" @disabled($financialYear?->is_started)>
             <x-validation-error field="end_date" />
         </div>
         <div class="col-md-6 mb-3">
@@ -57,7 +57,7 @@
 <div class="card mb-4"><div class="card-header"><h5 class="mb-0">Configuration</h5></div><div class="card-body"><div class="row">
     <div class="col-md-12 mb-3">
         <label class="form-label" for="financial_year_status">Status <span class="text-danger">*</span></label>
-        <select id="financial_year_status" name="status" class="form-control select @error('status') is-invalid @enderror" required>
+        <select id="financial_year_status" name="status" class="form-control select @error('status') is-invalid @enderror" required @disabled($financialYear?->is_started)>
             <option value="1" @selected(old('status', $financialYear?->status ?? 1) == 1)>Active</option>
             <option value="0" @selected(old('status', $financialYear?->status ?? 1) == 0)>Inactive</option>
         </select>
