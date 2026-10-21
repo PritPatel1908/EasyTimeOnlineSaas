@@ -5,7 +5,6 @@ namespace App\Helpers;
 use App\Exceptions\ManualPunchProcessingException;
 use App\Jobs\Tenant\ProcessPendingLogs;
 use App\Models\Tenant\AttendanceLog;
-use App\Models\Tenant\GeneralConfiguration;
 use App\Models\Tenant\ManualPunch;
 use App\Models\Tenant\ManualPunchApplication;
 use App\Models\Tenant\User;
@@ -25,19 +24,7 @@ class ManualPunchProcessor
                 throw new ManualPunchProcessingException('No employees are available for this manual punch.');
             }
 
-            $requiresApproval = (string) GeneralConfiguration::query()
-                ->where('key', 'manual_punch_requires_approval')
-                ->value('value') === '1';
-
-            if (! $requiresApproval) {
-                self::createAttendanceLogs($manualPunch, $users);
-
-                return;
-            }
-
-            foreach ($users as $user) {
-                self::createApprovalApplication($manualPunch, $user);
-            }
+            self::createAttendanceLogs($manualPunch, $users);
         });
     }
 
@@ -54,99 +41,28 @@ class ManualPunchProcessor
         $punchType = ManualPunch::normalizePunchType($punch->punch_type);
 
         foreach ($users as $user) {
-            $attendanceLog = AttendanceLog::query()->firstOrNew(
+            $attendanceLog = AttendanceLog::query()->updateOrCreate(
                 [
                     'user_id' => $user->id,
                     'referance_type' => 'manual_punch',
                     'referance_id' => $referenceId,
+                ],
+                [
+                    'user_code' => $user->code,
+                    'datetime' => $datetime,
+                    'punch_type' => $punchType,
+                    'is_out' => ManualPunch::isOutDirection($punchType),
+                    'is_calculated' => false,
+                    'is_ignored' => false,
+                    'is_staged' => false,
                     'is_manual' => true,
                 ],
             );
-            $attendanceLog->fill([
-                'user_code' => $user->code,
-                'datetime' => $datetime,
-                'punch_type' => $punchType,
-                'is_out' => ManualPunch::isOutDirection($punchType),
-                'is_calculated' => false,
-                'is_ignored' => false,
-                'is_staged' => false,
-            ]);
-            $attendanceLog->save();
 
             ProcessPendingLogs::dispatch($attendanceLog)->onQueue('processing')->afterCommit();
             Log::channel('attprocess')->debug(
                 'ProcessManualPunch dispatched for ##' . $attendanceLog->id . '|' . $attendanceLog->user_code . '|' . $attendanceLog->datetime
             );
-        }
-    }
-
-    private static function createApprovalApplication(ManualPunch $manualPunch, User $user): void
-    {
-        $user->loadMissing('manual_punch_approval_flow.approval_flow_details.users');
-        $approvalFlow = $user->manual_punch_approval_flow;
-        if ($approvalFlow === null) {
-            throw new ManualPunchProcessingException('Employee ' . $user->code . ' does not have a manual punch approval flow.');
-        }
-
-        $flowDetail = $approvalFlow->approval_flow_details->sortBy('level')->first();
-        if ($flowDetail === null || $flowDetail->users->isEmpty()) {
-            throw new ManualPunchProcessingException('The manual punch approval flow for employee ' . $user->code . ' has no approvers.');
-        }
-
-        $application = ManualPunchApplication::query()
-            ->where('manual_punch_id', $manualPunch->id)
-            ->whereHas('Users', static fn ($query) => $query->where('users.id', $user->id))
-            ->first();
-
-        if ($application === null) {
-            $application = ManualPunchApplication::query()->create([
-                'manual_punch_id' => $manualPunch->id,
-                'punch_type' => ManualPunch::normalizePunchType($manualPunch->punch_type),
-                'punch_date' => $manualPunch->punch_date->format('Y-m-d'),
-                'punch_time' => $manualPunch->punch_time->format('H:i:s'),
-                'reason' => $manualPunch->reason,
-                'created_by' => $manualPunch->created_by,
-                'updated_by' => $manualPunch->updated_by,
-            ]);
-            $application->Users()->sync([$user->id]);
-        } else {
-            $application->update([
-                'punch_type' => ManualPunch::normalizePunchType($manualPunch->punch_type),
-                'punch_date' => $manualPunch->punch_date->format('Y-m-d'),
-                'punch_time' => $manualPunch->punch_time->format('H:i:s'),
-                'reason' => $manualPunch->reason,
-                'updated_by' => $manualPunch->updated_by,
-            ]);
-        }
-
-        $status = $application->approval_status()->first();
-        if ($status === null) {
-            $status = $application->approval_status()->create([
-                'approval_status' => 'pending',
-                'approval_flow_id' => $approvalFlow->id,
-            ]);
-        } else {
-            $status->approval_status_details()->delete();
-            $status->update([
-                'approval_status' => 'pending',
-                'approval_flow_id' => $approvalFlow->id,
-            ]);
-        }
-        $status->forceFill([
-            'created_by' => $manualPunch->created_by,
-            'updated_by' => $manualPunch->updated_by,
-        ])->save();
-
-        foreach ($flowDetail->users as $approver) {
-            $detail = $status->approval_status_details()->create([
-                'level' => $flowDetail->level,
-                'approval_flow_detail_id' => $flowDetail->id,
-                'approval_status' => 'pending',
-            ]);
-            $detail->forceFill([
-                'created_by' => $manualPunch->created_by,
-                'updated_by' => $manualPunch->updated_by,
-            ])->save();
         }
     }
 }

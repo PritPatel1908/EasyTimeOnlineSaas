@@ -54,8 +54,8 @@ class TenantManualPunchImportExportTest extends TestCase
         $this->assertSame('Break Start', ManualPunch::punchTypeLabel('3'));
         $this->assertSame('Out Punch', ManualPunch::punchTypeLabel('2'));
         $this->assertTrue(ManualPunch::isOutDirection('2'));
-        $this->assertTrue(ManualPunch::isOutDirection('3'));
-        $this->assertFalse(ManualPunch::isOutDirection('4'));
+        $this->assertFalse(ManualPunch::isOutDirection('3'));
+        $this->assertTrue(ManualPunch::isOutDirection('4'));
         $this->assertSame(['required', 'string', 'in:1,2,3,4'], $request->rules()['punch_type']);
     }
 

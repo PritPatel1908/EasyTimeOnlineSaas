@@ -104,7 +104,7 @@ class ManualPunch extends Model
 
     public static function isOutDirection(mixed $punchType): bool
     {
-        return in_array(self::normalizePunchType($punchType), ['2', '3'], true);
+        return in_array(self::normalizePunchType($punchType), ['2', '4'], true);
     }
 
     public function Users()
