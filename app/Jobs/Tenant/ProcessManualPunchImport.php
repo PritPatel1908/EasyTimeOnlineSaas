@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs\Tenant;
 
+use App\Helpers\ManualPunchProcessor;
 use App\Models\Tenant\Company;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\ManualPunch;
@@ -82,6 +83,7 @@ class ProcessManualPunchImport implements ShouldQueue
                     'updated_by' => $this->userId,
                 ]);
                 $punch->Users()->sync($userIds);
+                ManualPunchProcessor::process($punch);
             });
             $created++;
         }

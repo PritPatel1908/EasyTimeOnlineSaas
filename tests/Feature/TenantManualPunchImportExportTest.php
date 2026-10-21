@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Http\Controllers\Tenant\ManualPunchController;
 use App\Http\Controllers\Tenant\NotificationController;
 use App\Http\Requests\Tenant\StoreManualPunchRequest;
+use App\Http\Requests\Tenant\UpdateManualPunchRequest;
 use App\Jobs\Tenant\GenerateManualPunchExport;
 use App\Jobs\Tenant\ProcessManualPunchImport;
 use App\Models\Tenant\ManualPunch;
@@ -55,6 +56,15 @@ class TenantManualPunchImportExportTest extends TestCase
         $this->assertTrue(ManualPunch::isOutDirection('3'));
         $this->assertFalse(ManualPunch::isOutDirection('4'));
         $this->assertSame(['required', 'string', 'in:1,2,3,4'], $request->rules()['punch_type']);
+    }
+
+    public function test_manual_punch_form_allows_no_employee_selection(): void
+    {
+        $request = new StoreManualPunchRequest();
+        $updateRequest = new UpdateManualPunchRequest();
+
+        $this->assertSame(['nullable', 'array'], $request->rules()['users']);
+        $this->assertSame(['required', 'array', 'min:1'], $updateRequest->rules()['users']);
     }
 
     public function test_import_sample_uses_manual_punch_columns(): void

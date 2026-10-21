@@ -16,7 +16,7 @@ class StoreManualPunchRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'users' => ['required', 'array', 'min:1'],
+            'users' => ['nullable', 'array'],
             'users.*' => ['required', 'integer', 'distinct', 'exists:users,id'],
             'location_ids' => ['nullable', 'array'],
             'location_ids.*' => ['integer', 'distinct', 'exists:locations,id'],

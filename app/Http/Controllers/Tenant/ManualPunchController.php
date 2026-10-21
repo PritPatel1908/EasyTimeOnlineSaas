@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Tenant\StoreManualPunchRequest;
 use App\Http\Requests\Tenant\UpdateManualPunchRequest;
 use App\Jobs\Tenant\GenerateManualPunchExport;
+use App\Jobs\Tenant\ProcessManualPunch;
 use App\Jobs\Tenant\ProcessManualPunchImport;
 use App\Models\Tenant\BusRoute;
 use App\Models\Tenant\Category;
@@ -100,15 +101,24 @@ class ManualPunchController extends Controller
     public function store(StoreManualPunchRequest $request): RedirectResponse
     {
         $validated = $this->preparePayload($request->validated());
-        $userIds = $validated['users'];
+        $userIds = $validated['users'] ?? [];
+        if ($userIds === []) {
+            $userIds = User::query()->pluck('id')->all();
+        }
         unset($validated['users']);
         $validated['created_by'] = Auth::guard('tenant')->id();
         $validated['updated_by'] = Auth::guard('tenant')->id();
 
-        DB::transaction(function () use ($validated, $userIds): void {
+        $punch = DB::transaction(function () use ($validated, $userIds): ManualPunch {
             $punch = ManualPunch::query()->create($validated);
             $punch->Users()->sync($userIds);
+
+            return $punch;
         });
+
+        ProcessManualPunch::dispatch((int) $punch->id)
+            ->onConnection('database_tenant')
+            ->onQueue('processing');
 
         return redirect(url(self::INDEX_URL))->with('success', 'Manual punch created successfully.');
     }

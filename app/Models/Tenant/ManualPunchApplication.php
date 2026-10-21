@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * Class ManualPunch
  *
  * @property int $id
+ * @property int|null $manual_punch_id
  * @property int|null $user_id
  * @property string $punch_type
  * @property Carbon $punch_date
@@ -42,6 +43,7 @@ class ManualPunchApplication extends Model
     // }
 
     protected $casts = [
+        'manual_punch_id' => 'int',
         // 'user_id' => 'int',
         'punch_date' => 'datetime',
         'punch_time' => 'datetime',
@@ -52,6 +54,7 @@ class ManualPunchApplication extends Model
     ];
 
     protected $fillable = [
+        'manual_punch_id',
         // 'user_id',
         'punch_type',
         'punch_date',
@@ -66,6 +69,11 @@ class ManualPunchApplication extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function manual_punch()
+    {
+        return $this->belongsTo(ManualPunch::class);
     }
 
     public function Users()
