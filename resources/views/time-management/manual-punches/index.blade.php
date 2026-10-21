@@ -18,12 +18,14 @@
                 </ol></nav>
             </div>
             <div class="d-flex my-xl-auto right-content align-items-center flex-wrap">
+                {{--
                 @if ($canExport)
                     <div class="mb-2 me-2"><a href="{{ url('time-management/manual-punches/export') }}" class="btn btn-light d-flex align-items-center"><i class="ti ti-file-export me-2"></i>Export</a></div>
                 @endif
                 @if ($canImport)
                     <div class="mb-2 me-2"><button type="button" class="btn btn-light d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#import_manual_punch_modal"><i class="ti ti-file-import me-2"></i>Import</button></div>
                 @endif
+                --}}
                 @if ($canCreate)
                     <div class="mb-2"><a href="{{ url('time-management/manual-punches/create') }}" class="btn btn-primary d-flex align-items-center"><i class="ti ti-circle-plus me-2"></i>Add Manual Punch</a></div>
                 @endif
@@ -83,6 +85,7 @@
     </div></div>
 </div>
 
+{{--
 @if ($canImport)
     <div class="modal fade" id="import_manual_punch_modal">
         <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
@@ -104,6 +107,7 @@
         </div></div>
     </div>
 @endif
+--}}
 
 @push('scripts')
 @include('partials.import-poll')
