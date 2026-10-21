@@ -75,11 +75,23 @@
 
 <div class="card mb-4">
     <div class="card-header"><h5 class="card-title mb-0">Organization</h5></div>
+    @if ($punch !== null)
+        @foreach ($selectedCompanies as $companyId)
+            <input type="hidden" name="company_ids[]" value="{{ $companyId }}">
+        @endforeach
+        @foreach ($selectedLocations as $locationId)
+            <input type="hidden" name="location_ids[]" value="{{ $locationId }}">
+        @endforeach
+        @foreach ($selectedUsers as $userId)
+            <input type="hidden" name="users[]" value="{{ $userId }}">
+        @endforeach
+    @endif
     <div class="card-body">
+        <fieldset class="manual-punch-organization-fields border-0 p-0 m-0 w-100" @disabled($punch !== null)>
         <div class="row">
             <div class="col-md-6 mb-3">
                 <label class="form-label" for="manual_punch_companies">Companies</label>
-                <select id="manual_punch_companies" name="company_ids[]" class="form-control select2 @error('company_ids') is-invalid @enderror" multiple>
+                <select id="manual_punch_companies" name="company_ids[]" class="form-control select2 @error('company_ids') is-invalid @enderror" multiple @disabled($punch !== null)>
                     @foreach ($companies as $company)
                         <option value="{{ $company->id }}" @selected(in_array((string) $company->id, $selectedCompanies, true))>
                             {{ $company->name }}{{ $company->code ? ' ('.$company->code.')' : '' }}
@@ -91,7 +103,7 @@
             </div>
             <div class="col-md-6 mb-3">
                 <label class="form-label" for="manual_punch_locations">Locations</label>
-                <select id="manual_punch_locations" name="location_ids[]" class="form-control select2 @error('location_ids') is-invalid @enderror" multiple>
+                <select id="manual_punch_locations" name="location_ids[]" class="form-control select2 @error('location_ids') is-invalid @enderror" multiple @disabled($punch !== null)>
                     @foreach ($locations as $location)
                         <option value="{{ $location->id }}" @selected(in_array((string) $location->id, $selectedLocations, true))>
                             {{ $location->name }}{{ $location->code ? ' ('.$location->code.')' : '' }}
@@ -106,7 +118,7 @@
                 <div class="col-md-3 mb-3">
                     <label class="form-label" for="employee_filter_{{ $field }}">{{ $filter['label'] }}</label>
                     <select id="employee_filter_{{ $field }}" name="employee_filters[{{ $field }}][]"
-                        class="form-control select2 manual-punch-employee-filter" multiple>
+                        class="form-control select2 manual-punch-employee-filter" multiple @disabled($punch !== null)>
                         @foreach ($filter['options'] as $option)
                             <option value="{{ $option->id }}" @selected(in_array((string) $option->id, $selectedFilterIds, true))>
                                 {{ $option->name }}
@@ -117,7 +129,7 @@
             @endforeach
             <div class="col-12 mb-3">
                 <label class="form-label" for="manual_punch_users">Employees <span class="text-danger">*</span></label>
-                <select id="manual_punch_users" name="users[]" class="form-control select2 @error('users') is-invalid @enderror" multiple required>
+                <select id="manual_punch_users" name="users[]" class="form-control select2 @error('users') is-invalid @enderror" multiple required @disabled($punch !== null)>
                     @foreach ($users as $user)
                         <option value="{{ $user->id }}"
                             data-company-ids="{{ implode(',', $toIds($user->company_id)) }}"
@@ -138,6 +150,7 @@
                 <x-validation-error field="users" />
             </div>
         </div>
+        </fieldset>
 
         @push('scripts')
             <script>

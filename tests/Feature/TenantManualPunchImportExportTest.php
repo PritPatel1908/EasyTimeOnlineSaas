@@ -17,6 +17,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\ViewErrorBag;
 use Mockery;
 use ReflectionMethod;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -65,6 +66,45 @@ class TenantManualPunchImportExportTest extends TestCase
 
         $this->assertSame(['nullable', 'array'], $request->rules()['users']);
         $this->assertSame(['required', 'array', 'min:1'], $updateRequest->rules()['users']);
+    }
+
+    public function test_edit_form_disables_organization_fields_and_preserves_existing_selections(): void
+    {
+        view()->share('errors', new ViewErrorBag());
+        $punch = new ManualPunch();
+        $punch->setRawAttributes([
+            'punch_type' => '1',
+            'punch_date' => '2026-10-21',
+            'punch_time' => '12:20:46',
+            'status' => 1,
+            'reason' => 'Test',
+            'company_id' => '[2]',
+            'location_id' => '[3]',
+        ]);
+        $punch->setRelation('Users', collect([
+            new User(['id' => 7, 'name' => 'Test Employee', 'code' => 'EMP007']),
+        ]));
+
+        $html = view('time-management.manual-punches.partials.form-fields', [
+            'punch' => $punch,
+            'users' => collect(),
+            'locations' => collect(),
+            'companies' => collect(),
+            'departments' => collect(),
+            'subDepartments' => collect(),
+            'categories' => collect(),
+            'subCategories' => collect(),
+            'designations' => collect(),
+            'grades' => collect(),
+            'units' => collect(),
+            'busRoutes' => collect(),
+        ])->render();
+
+        $this->assertStringContainsString('<fieldset class="manual-punch-organization-fields border-0 p-0 m-0 w-100" disabled>', $html);
+        $this->assertMatchesRegularExpression('/<select[^>]*id="manual_punch_users"[^>]*disabled/', $html);
+        $this->assertStringContainsString('name="company_ids[]" value="2"', $html);
+        $this->assertStringContainsString('name="location_ids[]" value="3"', $html);
+        $this->assertStringContainsString('name="users[]" value="7"', $html);
     }
 
     public function test_import_sample_uses_manual_punch_columns(): void

@@ -145,6 +145,10 @@ class ManualPunchController extends Controller
             $punch->Users()->sync($userIds);
         });
 
+        ProcessManualPunch::dispatch((int) $punch->id)
+            ->onConnection('database_tenant')
+            ->onQueue('processing');
+
         return redirect(url(self::INDEX_URL))->with('success', 'Manual punch updated successfully.');
     }
 

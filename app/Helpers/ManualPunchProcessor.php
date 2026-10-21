@@ -54,24 +54,24 @@ class ManualPunchProcessor
         $punchType = ManualPunch::normalizePunchType($punch->punch_type);
 
         foreach ($users as $user) {
-            $attendanceLog = AttendanceLog::query()->firstOrCreate(
+            $attendanceLog = AttendanceLog::query()->firstOrNew(
                 [
                     'user_id' => $user->id,
                     'referance_type' => 'manual_punch',
                     'referance_id' => $referenceId,
-                    'datetime' => $datetime,
-                    'punch_type' => $punchType,
                     'is_manual' => true,
                 ],
-                [
-                    'user_code' => $user->code,
-                ],
             );
-
-            if (ManualPunch::isOutDirection($punchType) && ! $attendanceLog->is_out) {
-                $attendanceLog->is_out = true;
-                $attendanceLog->save();
-            }
+            $attendanceLog->fill([
+                'user_code' => $user->code,
+                'datetime' => $datetime,
+                'punch_type' => $punchType,
+                'is_out' => ManualPunch::isOutDirection($punchType),
+                'is_calculated' => false,
+                'is_ignored' => false,
+                'is_staged' => false,
+            ]);
+            $attendanceLog->save();
 
             ProcessPendingLogs::dispatch($attendanceLog)->onQueue('processing')->afterCommit();
             Log::channel('attprocess')->debug(
@@ -109,16 +109,29 @@ class ManualPunchProcessor
                 'updated_by' => $manualPunch->updated_by,
             ]);
             $application->Users()->sync([$user->id]);
+        } else {
+            $application->update([
+                'punch_type' => ManualPunch::normalizePunchType($manualPunch->punch_type),
+                'punch_date' => $manualPunch->punch_date->format('Y-m-d'),
+                'punch_time' => $manualPunch->punch_time->format('H:i:s'),
+                'reason' => $manualPunch->reason,
+                'updated_by' => $manualPunch->updated_by,
+            ]);
         }
 
-        if ($application->approval_status()->exists()) {
-            return;
+        $status = $application->approval_status()->first();
+        if ($status === null) {
+            $status = $application->approval_status()->create([
+                'approval_status' => 'pending',
+                'approval_flow_id' => $approvalFlow->id,
+            ]);
+        } else {
+            $status->approval_status_details()->delete();
+            $status->update([
+                'approval_status' => 'pending',
+                'approval_flow_id' => $approvalFlow->id,
+            ]);
         }
-
-        $status = $application->approval_status()->create([
-            'approval_status' => 'pending',
-            'approval_flow_id' => $approvalFlow->id,
-        ]);
         $status->forceFill([
             'created_by' => $manualPunch->created_by,
             'updated_by' => $manualPunch->updated_by,
@@ -128,7 +141,6 @@ class ManualPunchProcessor
             $detail = $status->approval_status_details()->create([
                 'level' => $flowDetail->level,
                 'approval_flow_detail_id' => $flowDetail->id,
-                'user_id' => $approver->id,
                 'approval_status' => 'pending',
             ]);
             $detail->forceFill([

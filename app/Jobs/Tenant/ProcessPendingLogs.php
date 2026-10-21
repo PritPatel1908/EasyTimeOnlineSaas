@@ -16,7 +16,7 @@ class ProcessPendingLogs implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    protected $log;
+    protected int $logId;
 
     protected $returnLog;
 
@@ -34,15 +34,15 @@ class ProcessPendingLogs implements ShouldBeUnique, ShouldQueue
      */
     public function uniqueId(): string
     {
-        return $this->log->id;
+        return (string) $this->logId;
     }
 
     /**
      * Create a new job instance.
      */
-    public function __construct(AttendanceLog $log, $returnLog = false)
+    public function __construct(AttendanceLog|int $log, $returnLog = false)
     {
-        $this->log = $log;
+        $this->logId = $log instanceof AttendanceLog ? (int) $log->id : $log;
         $this->returnLog = $returnLog;
     }
 
@@ -56,12 +56,13 @@ class ProcessPendingLogs implements ShouldBeUnique, ShouldQueue
      */
     public function handle(): void
     {
-        $this->log->process_tags()->delete();
-        $attCalculator = new AttCalculator($this->log, $this->returnLog);
+        $log = AttendanceLog::query()->findOrFail($this->logId);
+        $log->process_tags()->delete();
+        $attCalculator = new AttCalculator($log, $this->returnLog);
 
-        $attCalculator->debug('----------------------'.'ProcessStarted for #'.$this->log->id.'|'.$this->log->user_code.'|'.$this->log->datetime.'----------------------');
+        $attCalculator->debug('----------------------'.'ProcessStarted for #'.$log->id.'|'.$log->user_code.'|'.$log->datetime.'----------------------');
         if ($attCalculator->checkAlreadyCalculated()) {
-            $attCalculator->debug('#'.$this->log->id.' is already calculated');
+            $attCalculator->debug('#'.$log->id.' is already calculated');
             if ($this->returnLog) {
                 $this->returningLogArray = $attCalculator->getReturnLogs();
             }
@@ -69,10 +70,10 @@ class ProcessPendingLogs implements ShouldBeUnique, ShouldQueue
             return;
         }
 
-        if (! $this->log->user_code) {
-            $attCalculator->debug('#'.$this->log->id.' does not have valid user');
-            $this->log->is_staged = true;
-            $this->log->save();
+        if (! $log->user_code) {
+            $attCalculator->debug('#'.$log->id.' does not have valid user');
+            $log->is_staged = true;
+            $log->save();
             if ($this->returnLog) {
                 $this->returningLogArray = $attCalculator->getReturnLogs();
             }
@@ -80,10 +81,10 @@ class ProcessPendingLogs implements ShouldBeUnique, ShouldQueue
             return;
         }
 
-        if (! $this->log->user) {
-            $attCalculator->debug('#'.$this->log->id.' does not have valid user');
-            $this->log->is_staged = true;
-            $this->log->save();
+        if (! $log->user) {
+            $attCalculator->debug('#'.$log->id.' does not have valid user');
+            $log->is_staged = true;
+            $log->save();
             if ($this->returnLog) {
                 $this->returningLogArray = $attCalculator->getReturnLogs();
             }
@@ -91,26 +92,26 @@ class ProcessPendingLogs implements ShouldBeUnique, ShouldQueue
             return;
         }
 
-        $this->log->user_id = $this->log->user->id;
-        $this->log->save();
+        $log->user_id = $log->user->id;
+        $log->save();
 
-        if ($this->log->user->left_date != null && $this->log->datetime->gt($this->log->user->left_date)) {
-            $this->log->process_tags()->create(['name' => 'User Left But Punched']);
+        if ($log->user->left_date != null && $log->datetime->gt($log->user->left_date)) {
+            $log->process_tags()->create(['name' => 'User Left But Punched']);
         }
 
-        if ($this->log->user->is_inactive) {
-            $this->log->process_tags()->create(['name' => 'User Inactive But Punched']);
+        if ($log->user->is_inactive) {
+            $log->process_tags()->create(['name' => 'User Inactive But Punched']);
         }
 
         $attCalculator->setFyears();
         $area_found = $attCalculator->checkArea();
         if (! $area_found) {
-            $this->log->process_tags()->create([
+            $log->process_tags()->create([
                 'name' => 'Machine Or Area Not Found',
             ]);
-            $attCalculator->debug('#'.$this->log->id.' does not have valid machine or area');
-            $this->log->is_staged = true;
-            $this->log->save();
+            $attCalculator->debug('#'.$log->id.' does not have valid machine or area');
+            $log->is_staged = true;
+            $log->save();
             if ($this->returnLog) {
                 $this->returningLogArray = $attCalculator->getReturnLogs();
             }
@@ -121,33 +122,33 @@ class ProcessPendingLogs implements ShouldBeUnique, ShouldQueue
         $attCalculator->checkIsDuplicatePunch();
         $attCalculator->checkInOrOut();
         $attCalculator->retriveAttendance();
-        // if ($this->log->user->late_coming_rule_id != null) {
+        // if ($log->user->late_coming_rule_id != null) {
         $attCalculator->checkLateComingRule();
         // }
-        // if ($this->log->user->early_going_rule_id != null) {
+        // if ($log->user->early_going_rule_id != null) {
         $attCalculator->checkEarlyGoingRule();
         // }
-        // if ($this->log->user->overtime_rule_id != null) {
+        // if ($log->user->overtime_rule_id != null) {
         $attCalculator->checkOverTimeRule();
         // }
-        // if ($this->log->user->half_day_rule_id != null) {
+        // if ($log->user->half_day_rule_id != null) {
         $attCalculator->checkHalfDayRule();
         // }
-        // if ($this->log->user->absent_rule_id != null) {
+        // if ($log->user->absent_rule_id != null) {
         $attCalculator->checkAbsentRule();
         // }
         $attCalculator->createOrUpdateInOutMuster();
 
-        $this->log->update([
+        $log->update([
             'is_calculated' => true,
             'is_staged' => false,
         ]);
 
-        $this->log->process_tags()->create([
+        $log->process_tags()->create([
             'name' => 'Processed',
         ]);
 
-        $attCalculator->debug('----------------------'.'ProcessEnded for #'.$this->log->id.'|'.$this->log->user_code.'|'.$this->log->datetime.'| Calculated:'.$this->log->is_calculated.'----------------------');
+        $attCalculator->debug('----------------------'.'ProcessEnded for #'.$log->id.'|'.$log->user_code.'|'.$log->datetime.'| Calculated:'.$log->is_calculated.'----------------------');
         if ($this->returnLog) {
             $this->returningLogArray = $attCalculator->getReturnLogs();
         }
