@@ -66,6 +66,8 @@ class TenantManualPunchImportExportTest extends TestCase
 
         $this->assertSame(['nullable', 'array'], $request->rules()['users']);
         $this->assertSame(['required', 'array', 'min:1'], $updateRequest->rules()['users']);
+        $this->assertSame(['nullable', 'array'], $request->rules()['employee_filters.department_id']);
+        $this->assertSame(['integer', 'distinct', 'exists:departments,id'], $request->rules()['employee_filters.department_id.*']);
     }
 
     public function test_edit_form_disables_organization_fields_and_preserves_existing_selections(): void
@@ -102,6 +104,7 @@ class TenantManualPunchImportExportTest extends TestCase
 
         $this->assertStringContainsString('<fieldset class="manual-punch-organization-fields border-0 p-0 m-0 w-100" disabled>', $html);
         $this->assertMatchesRegularExpression('/<select[^>]*id="manual_punch_users"[^>]*disabled/', $html);
+        $this->assertDoesNotMatchRegularExpression('/<select[^>]*id="manual_punch_users"[^>]*required/', $html);
         $this->assertStringContainsString('name="company_ids[]" value="2"', $html);
         $this->assertStringContainsString('name="location_ids[]" value="3"', $html);
         $this->assertStringContainsString('name="users[]" value="7"', $html);

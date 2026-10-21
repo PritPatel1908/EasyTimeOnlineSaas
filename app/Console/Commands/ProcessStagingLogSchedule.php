@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Jobs\Tenant\ProcessPendingLogs;
+use App\Jobs\Tenant\ProcessPendingLogsBatch;
 use App\Models\Tenant\AttendanceLog;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -28,22 +28,13 @@ class ProcessStagingLogSchedule extends Command
      */
     public function handle()
     {
-        AttendanceLog::whereNull('user_id')->get()->each(function ($log) {
-            $log->user_id = $log->user?->id;
-            $log->save();
+        AttendanceLog::whereNull('user_id')->chunkById(100, function ($logs) {
+            foreach ($logs as $log) {
+                $log->user_id = $log->user?->id;
+                $log->save();
+            }
         });
-        Log::channel('attprocess')->debug('Dispatching Staging jobs');
-        AttendanceLog::where('is_calculated', false)
-            ->where('is_ignored', false)
-            ->where('has_error', false)
-            ->where('is_staged', true)
-            ->where('is_locked', false)
-            ->whereNull('deleted_at')->orderBy('datetime')->orderBy('id')->chunk(100, function ($logs) {
-                foreach ($logs as $log) {
-                    $p = ProcessPendingLogs::dispatch($log)->onQueue('low');
-                    Log::channel('attprocess')->debug('Stage Process dispatched for ##'.$log->id.'|'.$log->user_code.'|'.$log->datetime);
-                }
-                Log::channel('attprocess')->debug('Stage Log Dispatched '.count($logs).' jobs');
-            });
+        Log::channel('attprocess')->debug('Dispatching chunked staging job');
+        ProcessPendingLogsBatch::dispatch(true)->onQueue('low');
     }
 }

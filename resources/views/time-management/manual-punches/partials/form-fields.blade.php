@@ -128,8 +128,8 @@
                 </div>
             @endforeach
             <div class="col-12 mb-3">
-                <label class="form-label" for="manual_punch_users">Employees <span class="text-danger">*</span></label>
-                <select id="manual_punch_users" name="users[]" class="form-control select2 @error('users') is-invalid @enderror" multiple required @disabled($punch !== null)>
+                <label class="form-label" for="manual_punch_users">Employees</label>
+                <select id="manual_punch_users" name="users[]" class="form-control select2 @error('users') is-invalid @enderror" multiple @disabled($punch !== null)>
                     @foreach ($users as $user)
                         <option value="{{ $user->id }}"
                             data-company-ids="{{ implode(',', $toIds($user->company_id)) }}"
@@ -147,6 +147,7 @@
                         </option>
                     @endforeach
                 </select>
+                <small class="form-text text-muted">Leave empty to assign the punch to all employees matching the selected filters, or to all employees if no filters are selected.</small>
                 <x-validation-error field="users" />
             </div>
         </div>

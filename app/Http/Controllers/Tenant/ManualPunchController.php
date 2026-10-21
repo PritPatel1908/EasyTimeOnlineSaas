@@ -31,6 +31,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -100,11 +101,14 @@ class ManualPunchController extends Controller
 
     public function store(StoreManualPunchRequest $request): RedirectResponse
     {
-        $validated = $this->preparePayload($request->validated());
-        $userIds = $validated['users'] ?? [];
+        $validated = $request->validated();
+        $userIds = $this->resolveUserIds($validated);
         if ($userIds === []) {
-            $userIds = User::query()->pluck('id')->all();
+            throw ValidationException::withMessages([
+                'users' => 'No employees match the selected filters.',
+            ]);
         }
+        $validated = $this->preparePayload($validated);
         unset($validated['users']);
         $validated['created_by'] = Auth::guard('tenant')->id();
         $validated['updated_by'] = Auth::guard('tenant')->id();
@@ -293,8 +297,47 @@ class ManualPunchController extends Controller
             : $validated['punch_time'];
         $validated['reason'] = $validated['reason'] ?? null;
         unset($validated['location_ids'], $validated['company_ids']);
+        unset($validated['employee_filters']);
 
         return $validated;
+    }
+
+    /**
+     * @param array<string, mixed> $validated
+     * @return array<int, int>
+     */
+    private function resolveUserIds(array $validated): array
+    {
+        $selectedUsers = $validated['users'] ?? [];
+        if ($selectedUsers !== []) {
+            return array_values(array_map('intval', $selectedUsers));
+        }
+
+        $filters = [
+            'company_id' => $validated['company_ids'] ?? [],
+            'location_id' => $validated['location_ids'] ?? [],
+            'department_id' => $validated['employee_filters']['department_id'] ?? [],
+            'sub_department_id' => $validated['employee_filters']['sub_department_id'] ?? [],
+            'category_id' => $validated['employee_filters']['category_id'] ?? [],
+            'sub_category_id' => $validated['employee_filters']['sub_category_id'] ?? [],
+            'designation_id' => $validated['employee_filters']['designation_id'] ?? [],
+            'grade_id' => $validated['employee_filters']['grade_id'] ?? [],
+            'unit_id' => $validated['employee_filters']['unit_id'] ?? [],
+            'bus_route_id' => $validated['employee_filters']['bus_route_id'] ?? [],
+        ];
+        $filters = array_filter($filters, static fn (mixed $ids): bool => is_array($ids) && $ids !== []);
+
+        $query = User::query();
+        foreach ($filters as $column => $ids) {
+            $query->where(function ($query) use ($column, $ids): void {
+                foreach ($ids as $id) {
+                    $query->orWhereJsonContains($column, (int) $id);
+                    $query->orWhereJsonContains($column, (string) (int) $id);
+                }
+            });
+        }
+
+        return $query->pluck('id')->map(static fn (mixed $id): int => (int) $id)->all();
     }
 
     /**

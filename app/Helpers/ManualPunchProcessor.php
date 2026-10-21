@@ -3,7 +3,7 @@
 namespace App\Helpers;
 
 use App\Exceptions\ManualPunchProcessingException;
-use App\Jobs\Tenant\ProcessPendingLogs;
+use App\Jobs\Tenant\ProcessPendingLogsBatch;
 use App\Models\Tenant\AttendanceLog;
 use App\Models\Tenant\ManualPunch;
 use App\Models\Tenant\ManualPunchApplication;
@@ -34,6 +34,7 @@ class ManualPunchProcessor
     public static function createAttendanceLogs(ManualPunch|ManualPunchApplication $punch, ?iterable $users = null): void
     {
         $users ??= $punch->Users()->get();
+        $createdLogs = false;
         $referenceId = $punch instanceof ManualPunch
             ? $punch->id
             : ($punch->manual_punch_id ?? $punch->id);
@@ -41,7 +42,7 @@ class ManualPunchProcessor
         $punchType = ManualPunch::normalizePunchType($punch->punch_type);
 
         foreach ($users as $user) {
-            $attendanceLog = AttendanceLog::query()->updateOrCreate(
+            AttendanceLog::query()->updateOrCreate(
                 [
                     'user_id' => $user->id,
                     'referance_type' => 'manual_punch',
@@ -59,10 +60,12 @@ class ManualPunchProcessor
                 ],
             );
 
-            ProcessPendingLogs::dispatch($attendanceLog)->onQueue('processing')->afterCommit();
-            Log::channel('attprocess')->debug(
-                'ProcessManualPunch dispatched for ##' . $attendanceLog->id . '|' . $attendanceLog->user_code . '|' . $attendanceLog->datetime
-            );
+            $createdLogs = true;
+        }
+
+        if ($createdLogs) {
+            ProcessPendingLogsBatch::dispatch()->onQueue('processing')->afterCommit();
+            Log::channel('attprocess')->debug('Manual punch logs queued for chunked processing');
         }
     }
 }

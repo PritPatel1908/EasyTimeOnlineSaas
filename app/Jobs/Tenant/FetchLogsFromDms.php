@@ -83,7 +83,7 @@ class FetchLogsFromDms implements ShouldBeUnique, ShouldQueue
             ->chunk(100, function ($logs) {
                 foreach ($logs as $log) {
                     $this->newLastId = $log->id;
-                    $attendance_log = AttendanceLog::createOrFirst(
+                    AttendanceLog::createOrFirst(
                         [
                             'dms_log_id' => $log->id,
                             'is_locked' => false,
@@ -101,23 +101,14 @@ class FetchLogsFromDms implements ShouldBeUnique, ShouldQueue
                         ]
                     );
 
-                    // if ($attendance_log->isVisitor()) {
-                    //     // ProcessVisitorLogs::dispatch($attendance_log)->onQueue('processing');
-                    //     // Log::channel('attprocess')->debug('ProcessVisitorLogs dispatched for ##' . $attendance_log->id . '|' . $attendance_log->user_code . '|' . $attendance_log->datetime);
-                    // } else {
-                    //     ProcessPendingLogs::dispatch($attendance_log)->onQueue('processing');
-                    //     Log::channel('attprocess')->debug('ProcessPendingLogs dispatched for ##' . $attendance_log->id . '|' . $attendance_log->user_code . '|' . $attendance_log->datetime);
-                    // }
-                    ProcessPendingLogs::dispatch($attendance_log)->onQueue('processing');
-                    Log::channel('attprocess')->debug('ProcessPendingLogs dispatched for ##'.$attendance_log->id.'|'.$attendance_log->user_code.'|'.$attendance_log->datetime);
-
-                    DmsSetting::where('key', 'dms_last_sync_id')->update(['value' => $log->id]);
                 }
             });
         if ($this->lastId == $this->newLastId) {
             Log::channel('attprocess')->debug('No new logs found');
         } else {
-            Log::channel('attprocess')->debug('New Log Added to Job Queue');
+            ProcessPendingLogsBatch::dispatch()->onQueue('processing');
+            DmsSetting::where('key', 'dms_last_sync_id')->update(['value' => $this->newLastId]);
+            Log::channel('attprocess')->debug('New logs added; one chunked processing job dispatched');
             GeneralConfiguration::updateOrCreate(
                 ['key' => 'last_log_process_time'],
                 ['value' => date('Y-m-d H:i:s')]
