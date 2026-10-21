@@ -73,48 +73,6 @@ class ManualAttendance extends Model
         return $this->belongsTo(Company::class);
     }
 
-    public function departments()
-    {
-        return $this->belongsToMany(Department::class, 'manual_attendance_department')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
-    public function sub_departments()
-    {
-        return $this->belongsToMany(SubDepartment::class, 'manual_attendance_sub_department')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
-    public function categories()
-    {
-        return $this->belongsToMany(Category::class, 'manual_attendance_category')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
-    public function sub_categories()
-    {
-        return $this->belongsToMany(SubCategory::class, 'manual_attendance_sub_category')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
-    public function designations()
-    {
-        return $this->belongsToMany(Designation::class, 'manual_attendance_designation')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
-    public function areas()
-    {
-        return $this->belongsToMany(Area::class, 'manual_attendance_area')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
     public function approval_status()
     {
         return $this->morphOne(ApprovalStatus::class, 'approvable');
