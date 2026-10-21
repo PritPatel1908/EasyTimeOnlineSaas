@@ -83,6 +83,14 @@ return new class extends Migration
                 'value' => '5',
             ],
             [
+                'key' => 'manual_punch_requires_approval',
+                'value' => '1',
+            ],
+            [
+                'key' => 'manual_attendance_requires_approval',
+                'value' => '1',
+            ],
+            [
                 'key' => 'default_email',
                 'value' => 'support@indianinfotech.org',
             ],
