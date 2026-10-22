@@ -1,24 +1,10 @@
 @forelse ($punches as $punch)
-    @php
-        $idsFrom = static function ($value) {
-            if (is_string($value)) {
-                $decoded = json_decode($value, true);
-                $value = json_last_error() === JSON_ERROR_NONE ? $decoded : [$value];
-            }
-
-            return array_values(array_filter((array) $value, static fn ($id) => is_int($id) || ctype_digit((string) $id)));
-        };
-        $locationNames = collect($idsFrom($punch->location_id))->map(fn ($id) => $locationsById->get($id)?->name)->filter()->join(', ');
-        $companyNames = collect($idsFrom($punch->company_id))->map(fn ($id) => $companiesById->get($id)?->name)->filter()->join(', ');
-    @endphp
     <tr>
         <td><input class="form-check-input" type="checkbox" value="{{ $punch->id }}"></td>
         <td class="text-center">{{ $punch->Users->map(fn ($user) => $user->name . ($user->code ? ' ('.$user->code.')' : ''))->join(', ') ?: '—' }}</td>
         <td class="text-center">{{ \App\Models\Tenant\ManualPunch::punchTypeLabel($punch->punch_type) }}</td>
         <td class="text-center">{{ $punch->punch_date?->format('Y-m-d') ?? '—' }}</td>
         <td class="text-center">{{ $punch->punch_time?->format('H:i:s') ?? '—' }}</td>
-        <td class="text-center">{{ $companyNames ?: '—' }}</td>
-        <td class="text-center">{{ $locationNames ?: '—' }}</td>
         <td class="text-center">{{ $punch->reason ?: '—' }}</td>
         <td class="text-center">
             <div class="action-icon d-inline-flex">
@@ -40,5 +26,5 @@
         </td>
     </tr>
 @empty
-    <tr><td colspan="9" class="py-4 text-muted text-center"><i class="ti ti-clock-off fs-24 mb-2 d-block"></i>No manual punches found.</td></tr>
+    <tr><td colspan="7" class="py-4 text-muted text-center"><i class="ti ti-clock-off fs-24 mb-2 d-block"></i>No manual punches found.</td></tr>
 @endforelse

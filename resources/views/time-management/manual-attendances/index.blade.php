@@ -44,8 +44,7 @@
             <div class="card-body p-0"><div class="custom-datatable-filter table-responsive">
                 <table class="table datatable">
                     <thead class="thead-light"><tr>
-                        <th></th><th>Employees</th><th>In Time</th><th>Out Time</th><th>Company</th>
-                        <th>Location</th><th>Reason</th><th></th>
+                        <th></th><th>Employees</th><th>In Time</th><th>Out Time</th><th>Company</th><th>Location</th><th>Reason</th><th></th>
                     </tr></thead>
                     <tbody>@include('time-management.manual-attendances.partials.rows', [
                         'attendances' => $attendances,

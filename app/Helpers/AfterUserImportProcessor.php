@@ -6,13 +6,11 @@ use App\Jobs\Tenant\UserStatusMuster;
 use App\Support\ActivityLogger;
 use App\Dms\EmpDms;
 use App\Models\Tenant\Category;
-use App\Models\Tenant\Company;
 use App\Models\Tenant\Department;
 use App\Models\Tenant\Designation;
 use App\Models\Tenant\DmsSetting;
 use App\Models\Tenant\FinancialYear;
 use App\Models\Tenant\GeneralConfiguration;
-use App\Models\Tenant\Location;
 use App\Models\Tenant\RotationMuster;
 use App\Models\Tenant\ShiftChange;
 use App\Models\Tenant\ShiftMuster;
@@ -129,8 +127,6 @@ class AfterUserImportProcessor
                     'to_date' => $endDate->copy(),
                     'shift_type' => $user?->shift_type,
                     'is_forever' => true,
-                    'location_id' => $user?->location_id,
-                    'company_id' => $user?->company_id,
                 ]
             );
             $this->is_created = true;
@@ -144,8 +140,6 @@ class AfterUserImportProcessor
                         'to_date' => $endDate->copy(),
                         'shift_type' => $user?->shift_type,
                         'is_forever' => true,
-                        'location_id' => $user?->location_id,
-                        'company_id' => $user?->company_id,
                     ]
                 );
                 $this->is_created = true;
@@ -158,8 +152,6 @@ class AfterUserImportProcessor
                     'to_date' => $shift_change->to_date,
                     'reason' => $shift_change->reason,
                     'shift_type' => $shift_change->shift_type,
-                    'locations' => is_array($shift_change->location_id) ? collect(Location::whereIn('id', $shift_change->location_id)->get())->pluck('name')->implode(', ') : ($shift_change->location ? $shift_change->location->name : ''),
-                    'companies' => is_array($shift_change->company_id) ? collect(Company::whereIn('id', $shift_change->company_id)->get())->pluck('name')->implode(', ') : ($shift_change->company ? $shift_change->company->name : ''),
                     'departments' => is_array($shift_change->department_id) ? collect(Department::whereIn('id', $shift_change->department_id)->get())->pluck('name')->implode(', ') : ($shift_change->department ? $shift_change->department->name : ''),
                     'sub_departments' => is_array($shift_change->sub_department_id) ? collect(SubDepartment::whereIn('id', $shift_change->sub_department_id)->get())->pluck('name')->implode(', ') : ($shift_change->sub_department ? $shift_change->sub_department->name : ''),
                     'categories' => is_array($shift_change->category_id) ? collect(Category::whereIn('id', $shift_change->category_id)->get())->pluck('name')->implode(', ') : ($shift_change->category ? $shift_change->category->name : ''),
@@ -177,8 +169,6 @@ class AfterUserImportProcessor
 
                 $shift_change->shift_type = $user?->shift_type;
                 $shift_change->shift_rotation_id = $user?->shift_rotation_id;
-                $shift_change->location_id = $user?->location_id;
-                $shift_change->company_id = $user?->company_id;
                 $shift_change->save();
                 $this->is_created = false;
             }
@@ -229,8 +219,6 @@ class AfterUserImportProcessor
                 'to_date' => $shift_change->to_date,
                 'reason' => $shift_change->reason,
                 'shift_type' => $shift_change->shift_type,
-                'locations' => is_array($shift_change->location_id) ? collect(Location::whereIn('id', $shift_change->location_id)->get())->pluck('name')->implode(', ') : ($shift_change->location ? $shift_change->location->name : ''),
-                'companies' => is_array($shift_change->company_id) ? collect(Company::whereIn('id', $shift_change->company_id)->get())->pluck('name')->implode(', ') : ($shift_change->company ? $shift_change->company->name : ''),
                 'departments' => is_array($shift_change->department_id) ? collect(Department::whereIn('id', $shift_change->department_id)->get())->pluck('name')->implode(', ') : ($shift_change->department ? $shift_change->department->name : ''),
                 'sub_departments' => is_array($shift_change->sub_department_id) ? collect(SubDepartment::whereIn('id', $shift_change->sub_department_id)->get())->pluck('name')->implode(', ') : ($shift_change->sub_department ? $shift_change->sub_department->name : ''),
                 'categories' => is_array($shift_change->category_id) ? collect(Category::whereIn('id', $shift_change->category_id)->get())->pluck('name')->implode(', ') : ($shift_change->category ? $shift_change->category->name : ''),
@@ -259,8 +247,6 @@ class AfterUserImportProcessor
                 'to_date' => $shift_change->to_date,
                 'reason' => $shift_change->reason,
                 'shift_type' => $shift_change->shift_type,
-                'locations' => is_array($shift_change->location_id) ? collect(Location::whereIn('id', $shift_change->location_id)->get())->pluck('name')->implode(', ') : ($shift_change->location ? $shift_change->location->name : ''),
-                'companies' => is_array($shift_change->company_id) ? collect(Company::whereIn('id', $shift_change->company_id)->get())->pluck('name')->implode(', ') : ($shift_change->company ? $shift_change->company->name : ''),
                 'departments' => is_array($shift_change->department_id) ? collect(Department::whereIn('id', $shift_change->department_id)->get())->pluck('name')->implode(', ') : ($shift_change->department ? $shift_change->department->name : ''),
                 'sub_departments' => is_array($shift_change->sub_department_id) ? collect(SubDepartment::whereIn('id', $shift_change->sub_department_id)->get())->pluck('name')->implode(', ') : ($shift_change->sub_department ? $shift_change->sub_department->name : ''),
                 'categories' => is_array($shift_change->category_id) ? collect(Category::whereIn('id', $shift_change->category_id)->get())->pluck('name')->implode(', ') : ($shift_change->category ? $shift_change->category->name : ''),

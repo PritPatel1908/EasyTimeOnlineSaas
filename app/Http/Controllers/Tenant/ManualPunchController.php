@@ -47,8 +47,6 @@ class ManualPunchController extends Controller
                 ->latest('id')
                 ->paginate(15)
                 ->withQueryString(),
-            'locationsById' => Location::query()->get(['id', 'name'])->keyBy('id'),
-            'companiesById' => Company::query()->get(['id', 'name'])->keyBy('id'),
         ]);
     }
 
@@ -60,8 +58,6 @@ class ManualPunchController extends Controller
 
         return view('time-management.manual-punches.show', [
             'punch' => $punch,
-            'locations' => Location::query()->whereIn('id', $this->idsFrom($punch->location_id))->orderBy('name')->get(),
-            'companies' => Company::query()->whereIn('id', $this->idsFrom($punch->company_id))->orderBy('name')->get(),
         ]);
     }
 
@@ -259,8 +255,6 @@ class ManualPunchController extends Controller
      */
     private function preparePayload(array $validated): array
     {
-        $validated['location_id'] = array_values(array_map('intval', $validated['location_ids'] ?? []));
-        $validated['company_id'] = array_values(array_map('intval', $validated['company_ids'] ?? []));
         $validated['punch_date'] = $validated['punch_date'] . ' 00:00:00';
         $validated['punch_time'] = strlen($validated['punch_time']) === 5
             ? $validated['punch_time'] . ':00'
@@ -310,19 +304,4 @@ class ManualPunchController extends Controller
         return $query->pluck('id')->map(static fn (mixed $id): int => (int) $id)->all();
     }
 
-    /**
-     * @return array<int, int>
-     */
-    private function idsFrom(mixed $value): array
-    {
-        if (is_string($value)) {
-            $decoded = json_decode($value, true);
-            $value = json_last_error() === JSON_ERROR_NONE ? $decoded : [$value];
-        }
-
-        return array_values(array_filter(
-            (array) $value,
-            static fn (mixed $id): bool => is_int($id) || (is_string($id) && ctype_digit($id)),
-        ));
-    }
 }

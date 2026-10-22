@@ -43,7 +43,7 @@ class ManualAttendanceController extends Controller
     {
         return view('time-management.manual-attendances.index', [
             'attendances' => ManualAttendance::query()
-                ->with(['Users', 'location', 'company'])
+                ->with('Users')
                 ->latest('in_time')
                 ->latest('id')
                 ->paginate(15)
@@ -88,13 +88,13 @@ class ManualAttendanceController extends Controller
     public function show(Request $request): View
     {
         $attendance = ManualAttendance::query()
-            ->with(['Users', 'location', 'company'])
+            ->with('Users')
             ->findOrFail($request->route('manual_attendance'));
 
         return view('time-management.manual-attendances.show', [
             'attendance' => $attendance,
-            'locations' => Location::query()->whereIn('id', $this->organizationIds($attendance->location_ids, $attendance->location_id))->orderBy('name')->get(),
-            'companies' => Company::query()->whereIn('id', $this->organizationIds($attendance->company_ids, $attendance->company_id))->orderBy('name')->get(),
+            'locations' => Location::query()->whereIn('id', $this->organizationIds($attendance->location_ids))->orderBy('name')->get(),
+            'companies' => Company::query()->whereIn('id', $this->organizationIds($attendance->company_ids))->orderBy('name')->get(),
         ]);
     }
 
@@ -267,8 +267,6 @@ class ManualAttendanceController extends Controller
     {
         $validated['location_ids'] = array_values(array_map('intval', $validated['location_ids'] ?? []));
         $validated['company_ids'] = array_values(array_map('intval', $validated['company_ids'] ?? []));
-        $validated['location_id'] = count($validated['location_ids']) === 1 ? $validated['location_ids'][0] : null;
-        $validated['company_id'] = count($validated['company_ids']) === 1 ? $validated['company_ids'][0] : null;
         $validated['reason'] = $validated['reason'] ?? null;
         unset($validated['employee_filters']);
 
@@ -317,13 +315,9 @@ class ManualAttendanceController extends Controller
      * @param array<int, int>|null $ids
      * @return array<int, int>
      */
-    private function organizationIds(?array $ids, ?int $legacyId): array
+    private function organizationIds(?array $ids): array
     {
-        if ($ids !== null && $ids !== []) {
-            return array_map('intval', $ids);
-        }
-
-        return $legacyId === null ? [] : [$legacyId];
+        return array_map('intval', $ids ?? []);
     }
 
     private function dispatchAttendanceProcessing(ManualAttendance $attendance): void

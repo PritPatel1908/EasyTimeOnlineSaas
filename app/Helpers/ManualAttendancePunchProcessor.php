@@ -21,16 +21,17 @@ class ManualAttendancePunchProcessor
 
             $staleLogs = AttendanceLog::query()
                 ->whereIn('referance_type', $referenceTypes)
-                ->where('referance_id', $attendance->id);
+                ->where('referance_id', $attendance->id)
+                ->where('is_locked', false);
 
             if ($userIds !== []) {
                 $staleLogs->whereNotIn('user_id', $userIds);
             }
 
-            $staleLogs->delete();
+            $logsChanged = $staleLogs->delete() > 0;
 
             foreach ($users as $user) {
-                self::updateAttendanceLog(
+                $logsChanged = self::updateAttendanceLog(
                     $attendance,
                     (int) $user->id,
                     $user->code,
@@ -38,8 +39,8 @@ class ManualAttendancePunchProcessor
                     $attendance->in_time,
                     1,
                     false,
-                );
-                self::updateAttendanceLog(
+                ) || $logsChanged;
+                $logsChanged = self::updateAttendanceLog(
                     $attendance,
                     (int) $user->id,
                     $user->code,
@@ -47,10 +48,10 @@ class ManualAttendancePunchProcessor
                     $attendance->out_time,
                     2,
                     true,
-                );
+                ) || $logsChanged;
             }
 
-            if ($users->isNotEmpty()) {
+            if ($logsChanged) {
                 ProcessPendingLogsBatch::dispatch()
                     ->onConnection('database_tenant')
                     ->onQueue('processing')
@@ -70,8 +71,8 @@ class ManualAttendancePunchProcessor
         mixed $datetime,
         int $punchType,
         bool $isOut,
-    ): void {
-        AttendanceLog::query()->updateOrCreate(
+    ): bool {
+        return AttendanceLogWriter::updateUnlessLocked(
             [
                 'user_id' => $userId,
                 'referance_type' => $referenceType,

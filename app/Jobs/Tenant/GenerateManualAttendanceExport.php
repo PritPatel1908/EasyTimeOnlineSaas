@@ -46,7 +46,7 @@ class GenerateManualAttendanceExport implements ShouldQueue
         Auth::setUser($user);
 
         $attendances = ManualAttendance::query()
-            ->with(['Users', 'location', 'company'])
+            ->with('Users')
             ->orderBy('in_time')
             ->orderBy('id')
             ->get();
@@ -63,8 +63,8 @@ class GenerateManualAttendanceExport implements ShouldQueue
         foreach ($attendances as $attendance) {
             fputcsv($handle, [
                 $attendance->Users->pluck('code')->filter()->implode(';'),
-                $this->organizationNames($attendance->location_ids, $attendance->location_id, $locationsById),
-                $this->organizationNames($attendance->company_ids, $attendance->company_id, $companiesById),
+                $this->organizationNames($attendance->location_ids, $locationsById),
+                $this->organizationNames($attendance->company_ids, $companiesById),
                 $this->formatValue($attendance->in_time, 'Y-m-d H:i:s'),
                 $this->formatValue($attendance->out_time, 'Y-m-d H:i:s'),
                 $attendance->reason ?? '',
@@ -111,11 +111,9 @@ class GenerateManualAttendanceExport implements ShouldQueue
      * @param array<int, int>|null $ids
      * @param \Illuminate\Support\Collection<int, Company|Location> $recordsById
      */
-    private function organizationNames(?array $ids, ?int $legacyId, $recordsById): string
+    private function organizationNames(?array $ids, $recordsById): string
     {
-        $ids = $ids ?: ($legacyId === null ? [] : [$legacyId]);
-
-        return collect($ids)
+        return collect($ids ?? [])
             ->map(fn (int $id) => $recordsById->get($id))
             ->filter()
             ->map(fn ($record) => $this->nameAndCode($record))

@@ -24,7 +24,7 @@
 		'time-management/shifts*',
 		'time-management/shift-rotations*'
 	);
-	$manualStructureActive = request()->is('time-management/manual-punches*', 'time-management/manual-attendances*');
+	$manualStructureActive = request()->is('time-management/manual-punches*', 'time-management/manual-attendances*', 'time-management/manual-shift-changes*');
 	$timingRuleStructureActive = request()->is('time-management/late-coming-rules*', 'time-management/early-going-rules*', 'time-management/half-day-rules*', 'time-management/overtime-rules*', 'time-management/absent-rules*');
 	$categoryActive = request()->is('employee-structure/categories*');
 	$approvalFlowsActive = request()->is('employee-structure/approval-flows*');
@@ -39,7 +39,8 @@
 		\App\Support\TenantPermissions::userCan('OvertimeRule', 'read');
 	$canViewManualPunches = \App\Support\TenantPermissions::userCan('ManualPunch', 'read');
 	$canViewManualAttendances = \App\Support\TenantPermissions::userCan('ManualAttendance', 'read');
-	$canViewManualStructure = $canViewManualPunches || $canViewManualAttendances;
+	$canViewManualShiftChanges = \App\Support\TenantPermissions::userCan('ShiftChange', 'read');
+	$canViewManualStructure = $canViewManualPunches || $canViewManualAttendances || $canViewManualShiftChanges;
 	$canViewCompanyStructure =
 		\App\Support\TenantPermissions::userCan('Company', 'read') ||
 		\App\Support\TenantPermissions::userCan('Location', 'read') ||
@@ -331,6 +332,10 @@
 								@if ($canViewManualAttendances)
 								<li><a href="{{ url('time-management/manual-attendances') }}"
 									class="{{ request()->is('time-management/manual-attendances*') ? 'active' : '' }}">Manual Attendance</a></li>
+								@endif
+								@if ($canViewManualShiftChanges)
+								<li><a href="{{ url('time-management/manual-shift-changes') }}"
+									class="{{ request()->is('time-management/manual-shift-changes*') ? 'active' : '' }}">Manual Shift Change</a></li>
 								@endif
 							</ul>
 						</li>

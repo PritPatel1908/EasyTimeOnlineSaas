@@ -13,6 +13,7 @@ use App\Http\Controllers\Tenant\ShiftController;
 use App\Http\Controllers\Tenant\ShiftRotationController;
 use App\Http\Controllers\Tenant\ManualPunchController;
 use App\Http\Controllers\Tenant\ManualAttendanceController;
+use App\Http\Controllers\Tenant\ManualShiftChangeController;
 use App\Http\Controllers\Tenant\LateComingRuleController;
 use App\Http\Controllers\Tenant\EarlyGoingRuleController;
 use App\Http\Controllers\Tenant\HalfDayRuleController;
@@ -212,6 +213,18 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:ManualAttendance,write')
                         ->middlewareFor('destroy', 'tenant.permission:ManualAttendance,delete')
                         ->names('manual-attendances');
+                    Route::get('manual-shift-changes/create', [ManualShiftChangeController::class, 'create'])
+                        ->middleware('tenant.permission:ShiftChange,create')->name('manual-shift-changes.create');
+                    Route::resource('manual-shift-changes', ManualShiftChangeController::class)
+                        ->except(['create'])
+                        ->parameters(['manual-shift-changes' => 'manual_shift_change'])
+                        ->middlewareFor('index', 'tenant.permission:ShiftChange,read')
+                        ->middlewareFor('show', 'tenant.permission:ShiftChange,read')
+                        ->middlewareFor('store', 'tenant.permission:ShiftChange,create')
+                        ->middlewareFor('edit', 'tenant.permission:ShiftChange,write')
+                        ->middlewareFor('update', 'tenant.permission:ShiftChange,write')
+                        ->middlewareFor('destroy', 'tenant.permission:ShiftChange,delete')
+                        ->names('manual-shift-changes');
                     Route::get('shift-rotations/export', [ShiftRotationController::class, 'export'])
                         ->middleware('tenant.permission:ShiftRotation,export')
                         ->name('shift-rotations.export');

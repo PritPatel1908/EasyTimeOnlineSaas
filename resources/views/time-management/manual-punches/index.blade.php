@@ -37,8 +37,7 @@
             <div class="card-body p-0"><div class="custom-datatable-filter table-responsive">
                 <table class="table datatable">
                     <thead class="thead-light"><tr>
-                        <th></th><th>Employees</th><th>Punch Type</th><th>Date</th><th>Time</th>
-                        <th>Companies</th><th>Locations</th><th>Reason</th><th></th>
+                        <th></th><th>Employees</th><th>Punch Type</th><th>Date</th><th>Time</th><th>Reason</th><th></th>
                     </tr></thead>
                     <tbody>@include('time-management.manual-punches.partials.rows', ['punches' => $punches])</tbody>
                 </table>

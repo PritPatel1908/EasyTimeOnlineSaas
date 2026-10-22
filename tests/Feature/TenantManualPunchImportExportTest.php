@@ -29,13 +29,23 @@ class TenantManualPunchImportExportTest extends TestCase
     {
         $this->assertSame([
             'employee_codes',
-            'location',
-            'company',
             'punch_type',
             'punch_date',
             'punch_time',
             'reason',
         ], ManualPunch::IMPORT_EXPORT_COLUMNS);
+    }
+
+    public function test_manual_punch_model_does_not_store_organization_fields_or_relations(): void
+    {
+        $punch = new ManualPunch();
+
+        $this->assertNotContains('location_id', $punch->getFillable());
+        $this->assertNotContains('company_id', $punch->getFillable());
+        $this->assertArrayNotHasKey('location_id', $punch->getCasts());
+        $this->assertArrayNotHasKey('company_id', $punch->getCasts());
+        $this->assertFalse(method_exists($punch, 'location'));
+        $this->assertFalse(method_exists($punch, 'company'));
     }
 
     public function test_manual_punch_types_include_breaks_and_normalize_legacy_values(): void
@@ -79,8 +89,6 @@ class TenantManualPunchImportExportTest extends TestCase
             'punch_date' => '2026-10-21',
             'punch_time' => '12:20:46',
             'reason' => 'Test',
-            'company_id' => '[2]',
-            'location_id' => '[3]',
         ]);
         $employee = new User();
         $employee->setRawAttributes(['id' => 7, 'name' => 'Test Employee', 'code' => 'EMP007']);
@@ -104,8 +112,8 @@ class TenantManualPunchImportExportTest extends TestCase
         $this->assertStringContainsString('<fieldset class="manual-punch-organization-fields border-0 p-0 m-0 w-100" disabled>', $html);
         $this->assertMatchesRegularExpression('/<select[^>]*id="manual_punch_users"[^>]*disabled/', $html);
         $this->assertDoesNotMatchRegularExpression('/<select[^>]*id="manual_punch_users"[^>]*required/', $html);
-        $this->assertStringContainsString('name="company_ids[]" value="2"', $html);
-        $this->assertStringContainsString('name="location_ids[]" value="3"', $html);
+        $this->assertStringNotContainsString('name="company_ids[]" value="2"', $html);
+        $this->assertStringNotContainsString('name="location_ids[]" value="3"', $html);
         $this->assertStringContainsString('name="users[]" value="7"', $html);
         $this->assertStringNotContainsString('name="status"', $html);
     }
@@ -123,7 +131,7 @@ class TenantManualPunchImportExportTest extends TestCase
         $this->assertSame(ManualPunch::IMPORT_EXPORT_COLUMNS, $rows[0]);
         $this->assertCount(count(ManualPunch::IMPORT_EXPORT_COLUMNS), $rows[1]);
         $this->assertStringContainsString('employee codes', $rows[1][0]);
-        $this->assertStringContainsString('YYYY-MM-DD', $rows[1][4]);
+        $this->assertStringContainsString('YYYY-MM-DD', $rows[1][2]);
     }
 
     public function test_import_job_parses_rows_and_normalizes_time_values(): void
@@ -132,7 +140,7 @@ class TenantManualPunchImportExportTest extends TestCase
         $this->assertNotFalse($filePath);
 
         try {
-            file_put_contents($filePath, "employee_codes,location,company,punch_type,punch_date,punch_time,reason\nE001,,,In,2026-10-20,09:15,Correction\n");
+            file_put_contents($filePath, "employee_codes,punch_type,punch_date,punch_time,reason\nE001,In,2026-10-20,09:15,Correction\n");
             $job = new ProcessManualPunchImport(1, 'unused');
             $parseCsv = new ReflectionMethod(ProcessManualPunchImport::class, 'parseCsv');
             $rows = $parseCsv->invoke($job, $filePath);
@@ -170,7 +178,7 @@ class TenantManualPunchImportExportTest extends TestCase
         $this->mockTenantUser(17);
         $file = UploadedFile::fake()->createWithContent(
             'manual_punches_import_sample.csv',
-            implode(',', ManualPunch::IMPORT_EXPORT_COLUMNS) . "\nE001,,,In,2026-10-20,09:15,Correction\n",
+            implode(',', ManualPunch::IMPORT_EXPORT_COLUMNS) . "\nE001,In,2026-10-20,09:15,Correction\n",
         );
         $request = Request::create(
             '/time-management/manual-punches/import',

@@ -40,8 +40,6 @@ class ManualPunch extends Model
 
     public const IMPORT_EXPORT_COLUMNS = [
         'employee_codes',
-        'location',
-        'company',
         'punch_type',
         'punch_date',
         'punch_time',
@@ -56,8 +54,6 @@ class ManualPunch extends Model
     // }
 
     protected $casts = [
-        'location_id' => 'array',
-        'company_id' => 'array',
         'punch_date' => 'date',
         'punch_time' => 'datetime',
         'created_by' => 'int',
@@ -66,8 +62,6 @@ class ManualPunch extends Model
     ];
 
     protected $fillable = [
-        'location_id',
-        'company_id',
         'punch_type',
         'punch_date',
         'punch_time',
@@ -108,16 +102,6 @@ class ManualPunch extends Model
         return $this->belongsToMany(User::class, 'manual_punch_users')
             ->withPivot('id')
             ->withTimestamps();
-    }
-
-    public function location()
-    {
-        return $this->belongsTo(Location::class);
-    }
-
-    public function company()
-    {
-        return $this->belongsTo(Company::class);
     }
 
     public function approval_status()

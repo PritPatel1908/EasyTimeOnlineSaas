@@ -199,8 +199,6 @@ class ProcessManualAttendanceImport implements ShouldQueue
         return [[
             'location_ids' => $locationIds,
             'company_ids' => $companyIds,
-            'location_id' => count($locationIds) === 1 ? $locationIds[0] : null,
-            'company_id' => count($companyIds) === 1 ? $companyIds[0] : null,
             'in_time' => $inTime,
             'out_time' => $outTime,
             'reason' => ($row['reason'] ?? '') !== '' ? $row['reason'] : null,

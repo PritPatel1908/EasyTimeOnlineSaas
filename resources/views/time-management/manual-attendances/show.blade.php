@@ -30,13 +30,6 @@
             </div></div>
         </div>
 
-        <div class="card mb-4">
-            <div class="card-header"><h5 class="mb-0">Organization</h5></div>
-            <div class="card-body"><div class="row">
-                <div class="col-md-6 mb-3"><small class="text-muted d-block">Companies</small><span>{{ $companies->pluck('name')->join(', ') ?: '—' }}</span></div>
-                <div class="col-md-6 mb-3"><small class="text-muted d-block">Locations</small><span>{{ $locations->pluck('name')->join(', ') ?: '—' }}</span></div>
-            </div></div>
-        </div>
         @include('partials.audit-users', ['record' => $attendance])
     </div>
     @include('partials.footer')

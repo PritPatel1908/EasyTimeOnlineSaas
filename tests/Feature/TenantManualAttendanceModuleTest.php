@@ -50,6 +50,12 @@ class TenantManualAttendanceModuleTest extends TestCase
         $this->assertArrayNotHasKey('shift_rotation_id', $attendance->getCasts());
         $this->assertArrayNotHasKey('shift_type', $attendance->getCasts());
         $this->assertArrayNotHasKey('shift_id', $attendance->getCasts());
+        $this->assertNotContains('company_id', $attendance->getFillable());
+        $this->assertNotContains('location_id', $attendance->getFillable());
+        $this->assertArrayNotHasKey('company_id', $attendance->getCasts());
+        $this->assertArrayNotHasKey('location_id', $attendance->getCasts());
+        $this->assertFalse(method_exists($attendance, 'location'));
+        $this->assertFalse(method_exists($attendance, 'company'));
         $this->assertSame('array', $attendance->getCasts()['company_ids']);
         $this->assertSame('array', $attendance->getCasts()['location_ids']);
         $this->assertContains('company_ids', $attendance->getFillable());
@@ -249,7 +255,7 @@ class TenantManualAttendanceModuleTest extends TestCase
         $this->assertStringNotContainsString('name="shift_type"', $html);
         $this->assertStringNotContainsString('name="shift_id"', $html);
         $this->assertStringNotContainsString('name="status"', $html);
-        $organizationPosition = strpos($html, 'Organization');
+        $organizationPosition = strpos($html, 'Filtration and Employees');
         $this->assertNotFalse($organizationPosition);
         $this->assertGreaterThan($organizationPosition, strpos($html, 'name="company_ids[]"'));
         $this->assertGreaterThan($organizationPosition, strpos($html, 'name="location_ids[]"'));

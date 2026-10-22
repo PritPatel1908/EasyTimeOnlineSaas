@@ -52,8 +52,6 @@ class ShiftChange extends Model
     protected $casts = [
         // 'shift_id' => 'int',
         'shift_rotation_id' => 'int',
-        'location_id' => 'array',
-        'company_id' => 'array',
         'from_date' => 'datetime',
         'is_forever' => 'bool',
         'to_date' => 'datetime',
@@ -69,8 +67,6 @@ class ShiftChange extends Model
         'shift_rotation_id',
         'from_date',
         'is_forever',
-        'location_id',
-        'company_id',
         'status',
         'to_date',
         'reason',
@@ -122,16 +118,6 @@ class ShiftChange extends Model
         return $this->belongsToMany(User::class, 'shift_change_users')
             ->withPivot('id')
             ->withTimestamps();
-    }
-
-    public function location()
-    {
-        return $this->belongsToMany(Location::class, 'shift_change_location');
-    }
-
-    public function company()
-    {
-        return $this->belongsToMany(Company::class, 'shift_change_company');
     }
 
     public function shift_musters(): MorphMany

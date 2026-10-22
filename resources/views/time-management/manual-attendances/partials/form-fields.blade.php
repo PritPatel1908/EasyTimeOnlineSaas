@@ -18,11 +18,11 @@
     $selectedUsers = array_map('strval', (array) old('users', $attendance?->Users->pluck('id')->all() ?? []));
     $selectedCompanies = array_map('strval', (array) old(
         'company_ids',
-        $toIds($attendance?->company_ids ?: ($attendance?->company_id ? [$attendance->company_id] : [])),
+        $toIds($attendance?->company_ids),
     ));
     $selectedLocations = array_map('strval', (array) old(
         'location_ids',
-        $toIds($attendance?->location_ids ?: ($attendance?->location_id ? [$attendance->location_id] : [])),
+        $toIds($attendance?->location_ids),
     ));
     $employeeFilterFields = [
         'department_id' => ['label' => 'Department', 'options' => $departments],
@@ -77,7 +77,7 @@
 </div>
 
 <div class="card mb-4">
-    <div class="card-header"><h5 class="card-title mb-0">Organization</h5></div>
+    <div class="card-header"><h5 class="card-title mb-0">Filtration and Employees</h5></div>
     @if ($attendance !== null)
         @foreach ($selectedCompanies as $companyId)
             <input type="hidden" name="company_ids[]" value="{{ $companyId }}">

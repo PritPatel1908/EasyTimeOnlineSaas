@@ -5,7 +5,6 @@ namespace App\Jobs\Tenant;
 use App\Support\ActivityLogger;
 use App\Models\Tenant\FinancialYear;
 use App\Models\Tenant\GeneralConfiguration;
-use App\Models\Tenant\Location;
 use App\Models\Tenant\ShiftChange;
 use App\Models\Tenant\User;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -59,8 +58,6 @@ class CreateShiftChange implements ShouldBeUnique, ShouldQueue
                     'to_date' => $endDate->copy(),
                     'shift_type' => $this->user?->shift_type,
                     'is_forever' => true,
-                    'location_id' => $this->user?->location_id,
-                    'company_id' => $this->user?->company_id,
                 ]
             );
             $this->is_created = true;
@@ -74,8 +71,6 @@ class CreateShiftChange implements ShouldBeUnique, ShouldQueue
                         'to_date' => $endDate->copy(),
                         'shift_type' => $this->user?->shift_type,
                         'is_forever' => true,
-                        'location_id' => $this->user?->location_id,
-                        'company_id' => $this->user?->company_id,
                     ]
                 );
                 $this->is_created = true;
@@ -88,8 +83,6 @@ class CreateShiftChange implements ShouldBeUnique, ShouldQueue
                     'to_date' => $shift_change->to_date,
                     'reason' => $shift_change->reason,
                     'shift_type' => $shift_change->shift_type,
-                    'locations' => is_array($shift_change->location_id) ? collect(Location::whereIn('id', $shift_change->location_id)->get())->pluck('name')->implode(', ') : ($shift_change->location ? $shift_change->location->name : ''),
-                    'companies' => is_array($shift_change->company_id) ? collect(Location::whereIn('id', $shift_change->company_id)->get())->pluck('name')->implode(', ') : ($shift_change->company ? $shift_change->company->name : ''),
                 ];
                 if ($shift_change->shift_type == 'auto' || $shift_change->shift_type == 'fixed') {
                     $shift_change_old_record['shifts'] = $shift_change->shifts()?->pluck('name')->implode(',');
@@ -102,8 +95,6 @@ class CreateShiftChange implements ShouldBeUnique, ShouldQueue
 
                 $shift_change->shift_type = $this->user?->shift_type;
                 $shift_change->shift_rotation_id = $this->user?->shift_rotation_id;
-                $shift_change->location_id = $this->user?->location_id;
-                $shift_change->company_id = $this->user?->company_id;
                 $shift_change->save();
                 $this->is_created = false;
             }
@@ -150,8 +141,6 @@ class CreateShiftChange implements ShouldBeUnique, ShouldQueue
                 'to_date' => $shift_change->to_date,
                 'reason' => $shift_change->reason,
                 'shift_type' => $shift_change->shift_type,
-                'locations' => is_array($shift_change->location_id) ? collect(Location::whereIn('id', $shift_change->location_id)->get())->pluck('name')->implode(', ') : ($shift_change->location ? $shift_change->location->name : ''),
-                'companies' => is_array($shift_change->company_id) ? collect(Location::whereIn('id', $shift_change->company_id)->get())->pluck('name')->implode(', ') : ($shift_change->company ? $shift_change->company->name : ''),
             ];
             if ($shift_change->shift_type == 'auto' || $shift_change->shift_type == 'fixed') {
                 $shift_change_new_record['shifts'] = $shift_change->shifts()?->pluck('name')->implode(',');
@@ -175,8 +164,6 @@ class CreateShiftChange implements ShouldBeUnique, ShouldQueue
                 'to_date' => $shift_change->to_date,
                 'reason' => $shift_change->reason,
                 'shift_type' => $shift_change->shift_type,
-                'locations' => is_array($shift_change->location_id) ? collect(Location::whereIn('id', $shift_change->location_id)->get())->pluck('name')->implode(', ') : ($shift_change->location ? $shift_change->location->name : ''),
-                'companies' => is_array($shift_change->company_id) ? collect(Location::whereIn('id', $shift_change->company_id)->get())->pluck('name')->implode(', ') : ($shift_change->company ? $shift_change->company->name : ''),
             ];
             if ($shift_change->shift_type == 'auto' || $shift_change->shift_type == 'fixed') {
                 $shift_change_new_record['shifts'] = $shift_change->shifts()?->pluck('name')->implode(',');

@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace App\Jobs\Tenant;
 
 use App\Helpers\ManualPunchProcessor;
-use App\Models\Tenant\Company;
-use App\Models\Tenant\Location;
 use App\Models\Tenant\ManualPunch;
 use App\Models\Tenant\User;
 use App\Notifications\Tenant\ManualPunchImportExportCompleted;
@@ -155,8 +153,6 @@ class ProcessManualPunchImport implements ShouldQueue
         $errors = [];
         $employeeCodes = $this->splitValues($row['employee_codes'] ?? '');
         $userIds = $this->resolveEmployeeIds($employeeCodes, $errors);
-        $locationIds = $this->resolveIds(Location::class, $this->splitValues($row['location'] ?? ''), 'location', $errors);
-        $companyIds = $this->resolveIds(Company::class, $this->splitValues($row['company'] ?? ''), 'company', $errors);
         $punchDate = trim((string) ($row['punch_date'] ?? ''));
         $punchTime = $this->normalizeTime(trim((string) ($row['punch_time'] ?? '')));
 
@@ -174,8 +170,6 @@ class ProcessManualPunchImport implements ShouldQueue
         $errors = array_merge($errors, $validator->errors()->all());
 
         return [[
-            'location_id' => $locationIds,
-            'company_id' => $companyIds,
             'punch_type' => trim((string) ($row['punch_type'] ?? '')),
             'punch_date' => $punchDate,
             'punch_time' => $punchTime,
@@ -202,31 +196,6 @@ class ProcessManualPunchImport implements ShouldQueue
         }
 
         return $users->pluck('id')->map(static fn ($id): int => (int) $id)->all();
-    }
-
-    /**
-     * @param array<int, string> $values
-     * @param array<int, string> $errors
-     * @return array<int, int>
-     */
-    private function resolveIds(string $model, array $values, string $field, array &$errors): array
-    {
-        $ids = [];
-        foreach ($values as $value) {
-            $query = $model::query();
-            $record = ctype_digit($value) ? $query->find((int) $value) : null;
-            $record ??= $model::query()->where('name', $value)->first();
-            $record ??= $model::query()->where('code', $value)->first();
-
-            if ($record === null) {
-                $errors[] = 'one or more ' . $field . ' values could not be resolved';
-
-                return [];
-            }
-            $ids[] = (int) $record->id;
-        }
-
-        return array_values(array_unique($ids));
     }
 
     /**

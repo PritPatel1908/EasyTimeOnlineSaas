@@ -4,8 +4,8 @@
         <td class="text-center">{{ $attendance->Users->map(fn ($user) => $user->name . ($user->code ? ' ('.$user->code.')' : ''))->join(', ') ?: '—' }}</td>
         <td class="text-center">{{ $attendance->in_time?->format('Y-m-d H:i:s') ?? '—' }}</td>
         <td class="text-center">{{ $attendance->out_time?->format('Y-m-d H:i:s') ?? '—' }}</td>
-        <td class="text-center">{{ collect($attendance->company_ids ?: ($attendance->company_id ? [$attendance->company_id] : []))->map(fn ($id) => $companiesById->get($id)?->name)->filter()->join(', ') ?: '—' }}</td>
-        <td class="text-center">{{ collect($attendance->location_ids ?: ($attendance->location_id ? [$attendance->location_id] : []))->map(fn ($id) => $locationsById->get($id)?->name)->filter()->join(', ') ?: '—' }}</td>
+        <td class="text-center">{{ collect($attendance->company_ids ?? [])->map(fn ($id) => $companiesById->get($id)?->name)->filter()->join(', ') ?: '—' }}</td>
+        <td class="text-center">{{ collect($attendance->location_ids ?? [])->map(fn ($id) => $locationsById->get($id)?->name)->filter()->join(', ') ?: '—' }}</td>
         <td class="text-center">{{ $attendance->reason ?: '—' }}</td>
         <td class="text-center">
             <div class="action-icon d-inline-flex">

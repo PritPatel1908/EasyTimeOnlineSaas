@@ -9,8 +9,8 @@
         return array_map('strval', (array) $value);
     };
     $selectedUsers = array_map('strval', (array) old('users', $punch?->Users->pluck('id')->all() ?? []));
-    $selectedLocations = $toIds(old('location_ids', $punch?->location_id ?? []));
-    $selectedCompanies = $toIds(old('company_ids', $punch?->company_id ?? []));
+    $selectedLocations = $toIds(old('location_ids', []));
+    $selectedCompanies = $toIds(old('company_ids', []));
     $selectedPunchType = \App\Models\Tenant\ManualPunch::normalizePunchType(old('punch_type', $punch?->punch_type));
     $employeeFilterFields = [
         'department_id' => ['label' => 'Department', 'options' => $departments],
@@ -66,7 +66,7 @@
 </div>
 
 <div class="card mb-4">
-    <div class="card-header"><h5 class="card-title mb-0">Organization</h5></div>
+    <div class="card-header"><h5 class="card-title mb-0">Filtration and Employees</h5></div>
     @if ($punch !== null)
         @foreach ($selectedCompanies as $companyId)
             <input type="hidden" name="company_ids[]" value="{{ $companyId }}">

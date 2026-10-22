@@ -4,7 +4,6 @@ namespace App\Helpers;
 
 use App\Exceptions\ManualPunchProcessingException;
 use App\Jobs\Tenant\ProcessPendingLogsBatch;
-use App\Models\Tenant\AttendanceLog;
 use App\Models\Tenant\ManualPunch;
 use App\Models\Tenant\ManualPunchApplication;
 use App\Models\Tenant\User;
@@ -42,7 +41,7 @@ class ManualPunchProcessor
         $punchType = ManualPunch::normalizePunchType($punch->punch_type);
 
         foreach ($users as $user) {
-            AttendanceLog::query()->updateOrCreate(
+            $logsChanged = AttendanceLogWriter::updateUnlessLocked(
                 [
                     'user_id' => $user->id,
                     'referance_type' => 'manual_punch',
@@ -60,7 +59,7 @@ class ManualPunchProcessor
                 ],
             );
 
-            $createdLogs = true;
+            $createdLogs = $createdLogs || $logsChanged;
         }
 
         if ($createdLogs) {

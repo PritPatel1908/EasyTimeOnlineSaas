@@ -27,8 +27,6 @@ class ManualAttendance extends Model
     protected $casts = [
         'in_time' => 'datetime',
         'out_time' => 'datetime',
-        'location_id' => 'int',
-        'company_id' => 'int',
         'location_ids' => 'array',
         'company_ids' => 'array',
         'created_by' => 'int',
@@ -37,8 +35,6 @@ class ManualAttendance extends Model
     ];
 
     protected $fillable = [
-        'location_id',
-        'company_id',
         'location_ids',
         'company_ids',
         'in_time',
@@ -59,16 +55,6 @@ class ManualAttendance extends Model
         return $this->belongsToMany(User::class, 'manual_attendance_users')
             ->withPivot('id')
             ->withTimestamps();
-    }
-
-    public function location()
-    {
-        return $this->belongsTo(Location::class);
-    }
-
-    public function company()
-    {
-        return $this->belongsTo(Company::class);
     }
 
     public function approval_status()

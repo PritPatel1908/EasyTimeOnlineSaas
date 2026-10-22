@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Jobs\Tenant;
 
-use App\Models\Tenant\Company;
-use App\Models\Tenant\Location;
 use App\Models\Tenant\ManualPunch;
 use App\Models\Tenant\Scopes\DataPolicyFilter;
 use App\Models\Tenant\User;
@@ -57,8 +55,6 @@ class GenerateManualPunchExport implements ShouldQueue
         foreach ($punches as $punch) {
             fputcsv($handle, [
                 $punch->Users->pluck('code')->filter()->implode(';'),
-                $this->namesAndCodesForIds($punch->location_id, Location::class),
-                $this->namesAndCodesForIds($punch->company_id, Company::class),
                 $punch->punch_type,
                 $this->formatValue($punch->punch_date, 'Y-m-d'),
                 $this->formatValue($punch->punch_time, 'H:i:s'),
@@ -97,23 +93,4 @@ class GenerateManualPunchExport implements ShouldQueue
             : ($value === null ? '' : (string) $value);
     }
 
-    private function namesAndCodesForIds(mixed $value, string $model): string
-    {
-        if (is_string($value)) {
-            $decoded = json_decode($value, true);
-            $value = json_last_error() === JSON_ERROR_NONE ? $decoded : [];
-        }
-        $ids = array_values(array_filter((array) $value, static fn (mixed $id): bool => is_int($id) || ctype_digit((string) $id)));
-
-        if ($ids === []) {
-            return '';
-        }
-
-        return $model::query()
-            ->whereIn('id', $ids)
-            ->orderBy('name')
-            ->get(['name', 'code'])
-            ->map(static fn ($record): string => $record->name . ($record->code ? ' (' . $record->code . ')' : ''))
-            ->implode(';');
-    }
 }
