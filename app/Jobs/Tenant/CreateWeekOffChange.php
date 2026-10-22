@@ -53,8 +53,6 @@ class CreateWeekOffChange implements ShouldBeUnique, ShouldQueue
                 'from_date' => $fromDate->copy(),
                 'is_forever' => true,
                 'to_date' => $toDate->copy(),
-                'location_id' => $this->user?->location_id,
-                'company_id' => $this->user?->company_id,
             ]);
 
             foreach ($this->user->user_week_offs as $user_week_off) {
@@ -76,8 +74,6 @@ class CreateWeekOffChange implements ShouldBeUnique, ShouldQueue
                     'from_date' => $fromDate->copy(),
                     'is_forever' => true,
                     'to_date' => $toDate->copy(),
-                    'location_id' => $this->user?->location_id,
-                    'company_id' => $this->user?->company_id,
                 ]);
 
                 foreach ($this->user->user_week_offs as $user_week_off) {
@@ -93,10 +89,6 @@ class CreateWeekOffChange implements ShouldBeUnique, ShouldQueue
                     ]);
                 }
             } else {
-                $week_off_change->location_id = $this->user?->location_id;
-                $week_off_change->company_id = $this->user?->company_id;
-                $week_off_change->save();
-
                 $week_off_change->WeekOffChangeDetails()->delete();
                 foreach ($this->user->user_week_offs as $user_week_off) {
                     $week_off_change->WeekOffChangeDetails()->create([

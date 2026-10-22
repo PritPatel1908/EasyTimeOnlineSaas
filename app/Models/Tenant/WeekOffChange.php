@@ -46,8 +46,6 @@ class WeekOffChange extends Model
         'from_date' => 'datetime',
         'is_forever' => 'bool',
         'to_date' => 'datetime',
-        'location_id' => 'array',
-        'company_id' => 'array',
         'created_by' => 'int',
         'updated_by' => 'int',
         'deleted_by' => 'int',
@@ -57,8 +55,6 @@ class WeekOffChange extends Model
         'reason',
         'from_date',
         'is_forever',
-        'location_id',
-        'company_id',
         'to_date',
         'created_by',
         'updated_by',
@@ -96,16 +92,6 @@ class WeekOffChange extends Model
     public function WeekOffChangeDetails()
     {
         return $this->hasMany(WeekOffChangeDetail::class);
-    }
-
-    public function location()
-    {
-        return $this->belongsTo(Location::class);
-    }
-
-    public function company()
-    {
-        return $this->belongsTo(Company::class);
     }
 
     public function departments()

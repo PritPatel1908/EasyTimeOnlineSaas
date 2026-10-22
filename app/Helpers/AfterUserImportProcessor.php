@@ -397,8 +397,6 @@ class AfterUserImportProcessor
                 'from_date' => $fromDate->copy(),
                 'is_forever' => true,
                 'to_date' => $toDate->copy(),
-                'location_id' => $user?->location_id,
-                'company_id' => $user?->company_id,
             ]);
 
             foreach ($user->user_week_offs as $user_week_off) {
@@ -420,8 +418,6 @@ class AfterUserImportProcessor
                     'from_date' => $fromDate->copy(),
                     'is_forever' => true,
                     'to_date' => $toDate->copy(),
-                    'location_id' => $user?->location_id,
-                    'company_id' => $user?->company_id,
                 ]);
 
                 foreach ($user->user_week_offs as $user_week_off) {
@@ -437,10 +433,6 @@ class AfterUserImportProcessor
                     ]);
                 }
             } else {
-                $week_off_change->location_id = $user?->location_id;
-                $week_off_change->company_id = $user?->company_id;
-                $week_off_change->save();
-
                 $week_off_change->WeekOffChangeDetails()->delete();
                 foreach ($user->user_week_offs as $user_week_off) {
                     $week_off_change->WeekOffChangeDetails()->create([
