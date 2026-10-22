@@ -32,6 +32,7 @@ use App\Http\Controllers\Tenant\NotificationController;
 use App\Http\Controllers\Tenant\DashboardController;
 use App\Http\Controllers\Tenant\LicenseController;
 use App\Http\Controllers\Tenant\RolePermissionController;
+use App\Http\Controllers\Tenant\WeekOffChangeController;
 use App\Http\Middleware\EnsureActiveDomain;
 use App\Http\Middleware\EnsureValidTenantLicense;
 use Illuminate\Support\Facades\Route;
@@ -225,6 +226,18 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:ShiftChange,write')
                         ->middlewareFor('destroy', 'tenant.permission:ShiftChange,delete')
                         ->names('manual-shift-changes');
+                    Route::get('week-off-changes/create', [WeekOffChangeController::class, 'create'])
+                        ->middleware('tenant.permission:WeekOffChange,create')->name('week-off-changes.create');
+                    Route::resource('week-off-changes', WeekOffChangeController::class)
+                        ->except(['create'])
+                        ->parameters(['week-off-changes' => 'week_off_change'])
+                        ->middlewareFor('index', 'tenant.permission:WeekOffChange,read')
+                        ->middlewareFor('show', 'tenant.permission:WeekOffChange,read')
+                        ->middlewareFor('store', 'tenant.permission:WeekOffChange,create')
+                        ->middlewareFor('edit', 'tenant.permission:WeekOffChange,write')
+                        ->middlewareFor('update', 'tenant.permission:WeekOffChange,write')
+                        ->middlewareFor('destroy', 'tenant.permission:WeekOffChange,delete')
+                        ->names('week-off-changes');
                     Route::get('shift-rotations/export', [ShiftRotationController::class, 'export'])
                         ->middleware('tenant.permission:ShiftRotation,export')
                         ->name('shift-rotations.export');

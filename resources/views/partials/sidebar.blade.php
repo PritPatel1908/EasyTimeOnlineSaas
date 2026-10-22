@@ -24,7 +24,7 @@
 		'time-management/shifts*',
 		'time-management/shift-rotations*'
 	);
-	$manualStructureActive = request()->is('time-management/manual-punches*', 'time-management/manual-attendances*', 'time-management/manual-shift-changes*');
+	$manualStructureActive = request()->is('time-management/manual-punches*', 'time-management/manual-attendances*', 'time-management/manual-shift-changes*', 'time-management/week-off-changes*');
 	$timingRuleStructureActive = request()->is('time-management/late-coming-rules*', 'time-management/early-going-rules*', 'time-management/half-day-rules*', 'time-management/overtime-rules*', 'time-management/absent-rules*');
 	$categoryActive = request()->is('employee-structure/categories*');
 	$approvalFlowsActive = request()->is('employee-structure/approval-flows*');
@@ -40,7 +40,8 @@
 	$canViewManualPunches = \App\Support\TenantPermissions::userCan('ManualPunch', 'read');
 	$canViewManualAttendances = \App\Support\TenantPermissions::userCan('ManualAttendance', 'read');
 	$canViewManualShiftChanges = \App\Support\TenantPermissions::userCan('ShiftChange', 'read');
-	$canViewManualStructure = $canViewManualPunches || $canViewManualAttendances || $canViewManualShiftChanges;
+	$canViewWeekOffChanges = \App\Support\TenantPermissions::userCan('WeekOffChange', 'read');
+	$canViewManualStructure = $canViewManualPunches || $canViewManualAttendances || $canViewManualShiftChanges || $canViewWeekOffChanges;
 	$canViewCompanyStructure =
 		\App\Support\TenantPermissions::userCan('Company', 'read') ||
 		\App\Support\TenantPermissions::userCan('Location', 'read') ||
@@ -336,6 +337,10 @@
 								@if ($canViewManualShiftChanges)
 								<li><a href="{{ url('time-management/manual-shift-changes') }}"
 									class="{{ request()->is('time-management/manual-shift-changes*') ? 'active' : '' }}">Manual Shift Change</a></li>
+								@endif
+								@if ($canViewWeekOffChanges)
+								<li><a href="{{ url('time-management/week-off-changes') }}"
+									class="{{ request()->is('time-management/week-off-changes*') ? 'active' : '' }}">Week-off Changes</a></li>
 								@endif
 							</ul>
 						</li>
