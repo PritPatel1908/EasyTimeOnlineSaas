@@ -35,6 +35,8 @@ class ProcessStagingLogSchedule extends Command
             }
         });
         Log::channel('attprocess')->debug('Dispatching chunked staging job');
-        ProcessPendingLogsBatch::dispatch(true)->onQueue('low');
+        ProcessPendingLogsBatch::dispatch(true)
+            ->onConnection('database_tenant')
+            ->onQueue('low');
     }
 }

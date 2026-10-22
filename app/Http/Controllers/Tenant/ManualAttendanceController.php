@@ -9,12 +9,19 @@ use App\Http\Requests\Tenant\StoreManualAttendanceRequest;
 use App\Http\Requests\Tenant\UpdateManualAttendanceRequest;
 use App\Jobs\Tenant\ApproveUserManualAttendance;
 use App\Jobs\Tenant\GenerateManualAttendanceExport;
+use App\Jobs\Tenant\ProcessManualAttendancePunches;
 use App\Jobs\Tenant\ProcessManualAttendanceImport;
+use App\Models\Tenant\BusRoute;
+use App\Models\Tenant\Category;
 use App\Models\Tenant\Company;
+use App\Models\Tenant\Department;
+use App\Models\Tenant\Designation;
+use App\Models\Tenant\Grade;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\ManualAttendance;
-use App\Models\Tenant\Shift;
-use App\Models\Tenant\ShiftRotation;
+use App\Models\Tenant\SubCategory;
+use App\Models\Tenant\SubDepartment;
+use App\Models\Tenant\Unit;
 use App\Models\Tenant\User;
 use App\Support\CsvImportTemplate;
 use Illuminate\Contracts\View\View;
@@ -24,6 +31,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -35,11 +43,13 @@ class ManualAttendanceController extends Controller
     {
         return view('time-management.manual-attendances.index', [
             'attendances' => ManualAttendance::query()
-                ->with(['Users', 'location', 'company', 'shift', 'shift_rotation'])
+                ->with(['Users', 'location', 'company'])
                 ->latest('in_time')
                 ->latest('id')
                 ->paginate(15)
                 ->withQueryString(),
+            'locationsById' => Location::query()->get(['id', 'name'])->keyBy('id'),
+            'companiesById' => Company::query()->get(['id', 'name'])->keyBy('id'),
         ]);
     }
 
@@ -51,7 +61,13 @@ class ManualAttendanceController extends Controller
     public function store(StoreManualAttendanceRequest $request): RedirectResponse
     {
         $validated = $request->validated();
-        $userIds = array_map('intval', $validated['users']);
+        $userIds = $this->resolveUserIds($validated);
+        if ($userIds === []) {
+            throw ValidationException::withMessages([
+                'users' => 'No employees match the selected filters.',
+            ]);
+        }
+
         unset($validated['users']);
         $validated = $this->preparePayload($validated);
         $validated['created_by'] = Auth::guard('tenant')->id();
@@ -72,10 +88,14 @@ class ManualAttendanceController extends Controller
     public function show(Request $request): View
     {
         $attendance = ManualAttendance::query()
-            ->with(['Users', 'location', 'company', 'shift', 'shift_rotation'])
+            ->with(['Users', 'location', 'company'])
             ->findOrFail($request->route('manual_attendance'));
 
-        return view('time-management.manual-attendances.show', ['attendance' => $attendance]);
+        return view('time-management.manual-attendances.show', [
+            'attendance' => $attendance,
+            'locations' => Location::query()->whereIn('id', $this->organizationIds($attendance->location_ids, $attendance->location_id))->orderBy('name')->get(),
+            'companies' => Company::query()->whereIn('id', $this->organizationIds($attendance->company_ids, $attendance->company_id))->orderBy('name')->get(),
+        ]);
     }
 
     public function edit(Request $request): View
@@ -90,7 +110,13 @@ class ManualAttendanceController extends Controller
     public function update(UpdateManualAttendanceRequest $request): RedirectResponse
     {
         $validated = $request->validated();
-        $userIds = array_map('intval', $validated['users']);
+        $userIds = $this->resolveUserIds($validated);
+        if ($userIds === []) {
+            throw ValidationException::withMessages([
+                'users' => 'No employees match the selected filters.',
+            ]);
+        }
+
         unset($validated['users']);
         $validated = $this->preparePayload($validated);
         $validated['updated_by'] = Auth::guard('tenant')->id();
@@ -142,11 +168,8 @@ class ManualAttendanceController extends Controller
 
             CsvImportTemplate::write($handle, ManualAttendance::IMPORT_EXPORT_COLUMNS, [
                 'employee_codes' => 'Required; employee codes separated by semicolons.',
-                'location' => 'Optional; one location name, code, or ID.',
-                'company' => 'Optional; one company name, code, or ID.',
-                'shift_type' => 'Optional; auto, fixed, or rotational.',
-                'shift' => 'Optional; shift name, code, or ID.',
-                'shift_rotation' => 'Optional; shift rotation code or ID.',
+                'location' => 'Optional; location names, codes, or IDs separated by semicolons.',
+                'company' => 'Optional; company names, codes, or IDs separated by semicolons.',
                 'in_time' => 'Required; date and time, for example YYYY-MM-DD HH:MM:SS.',
                 'out_time' => 'Required; date and time, for example YYYY-MM-DD HH:MM:SS.',
                 'reason' => 'Optional; text.',
@@ -208,11 +231,31 @@ class ManualAttendanceController extends Controller
     {
         return [
             'attendance' => $attendance,
-            'users' => User::query()->orderBy('code')->get(['id', 'name', 'code']),
+            'users' => User::query()->orderBy('code')->get([
+                'id',
+                'name',
+                'code',
+                'location_id',
+                'company_id',
+                'department_id',
+                'sub_department_id',
+                'category_id',
+                'sub_category_id',
+                'designation_id',
+                'grade_id',
+                'unit_id',
+                'bus_route_id',
+            ]),
             'locations' => Location::query()->orderBy('name')->get(['id', 'name', 'code']),
             'companies' => Company::query()->orderBy('name')->get(['id', 'name', 'code']),
-            'shifts' => Shift::query()->orderBy('name')->get(['id', 'name', 'code']),
-            'shiftRotations' => ShiftRotation::query()->orderBy('code')->get(['id', 'code']),
+            'departments' => Department::query()->orderBy('name')->get(['id', 'name']),
+            'subDepartments' => SubDepartment::query()->orderBy('name')->get(['id', 'name']),
+            'categories' => Category::query()->orderBy('name')->get(['id', 'name']),
+            'subCategories' => SubCategory::query()->orderBy('name')->get(['id', 'name']),
+            'designations' => Designation::query()->orderBy('name')->get(['id', 'name']),
+            'grades' => Grade::query()->orderBy('name')->get(['id', 'name']),
+            'units' => Unit::query()->orderBy('name')->get(['id', 'name']),
+            'busRoutes' => BusRoute::query()->orderBy('name')->get(['id', 'name']),
         ];
     }
 
@@ -222,18 +265,73 @@ class ManualAttendanceController extends Controller
      */
     private function preparePayload(array $validated): array
     {
-        $validated['location_id'] = $validated['location_id'] ?: null;
-        $validated['company_id'] = $validated['company_id'] ?: null;
-        $validated['shift_type'] = $validated['shift_type'] ?: null;
-        $validated['shift_id'] = $validated['shift_id'] ?: null;
-        $validated['shift_rotation_id'] = $validated['shift_rotation_id'] ?: null;
+        $validated['location_ids'] = array_values(array_map('intval', $validated['location_ids'] ?? []));
+        $validated['company_ids'] = array_values(array_map('intval', $validated['company_ids'] ?? []));
+        $validated['location_id'] = count($validated['location_ids']) === 1 ? $validated['location_ids'][0] : null;
+        $validated['company_id'] = count($validated['company_ids']) === 1 ? $validated['company_ids'][0] : null;
         $validated['reason'] = $validated['reason'] ?? null;
+        unset($validated['employee_filters']);
 
         return $validated;
     }
 
+    /**
+     * @param array<string, mixed> $validated
+     * @return array<int, int>
+     */
+    private function resolveUserIds(array $validated): array
+    {
+        $selectedUsers = $validated['users'] ?? [];
+        if ($selectedUsers !== []) {
+            return array_values(array_map('intval', $selectedUsers));
+        }
+
+        $filters = [
+            'company_id' => $validated['company_ids'] ?? [],
+            'location_id' => $validated['location_ids'] ?? [],
+            'department_id' => $validated['employee_filters']['department_id'] ?? [],
+            'sub_department_id' => $validated['employee_filters']['sub_department_id'] ?? [],
+            'category_id' => $validated['employee_filters']['category_id'] ?? [],
+            'sub_category_id' => $validated['employee_filters']['sub_category_id'] ?? [],
+            'designation_id' => $validated['employee_filters']['designation_id'] ?? [],
+            'grade_id' => $validated['employee_filters']['grade_id'] ?? [],
+            'unit_id' => $validated['employee_filters']['unit_id'] ?? [],
+            'bus_route_id' => $validated['employee_filters']['bus_route_id'] ?? [],
+        ];
+        $filters = array_filter($filters, static fn (mixed $ids): bool => is_array($ids) && $ids !== []);
+
+        $query = User::query();
+        foreach ($filters as $column => $ids) {
+            $query->where(function ($query) use ($column, $ids): void {
+                foreach ($ids as $id) {
+                    $query->orWhereJsonContains($column, (int) $id);
+                    $query->orWhereJsonContains($column, (string) (int) $id);
+                }
+            });
+        }
+
+        return $query->pluck('id')->map(static fn (mixed $id): int => (int) $id)->all();
+    }
+
+    /**
+     * @param array<int, int>|null $ids
+     * @return array<int, int>
+     */
+    private function organizationIds(?array $ids, ?int $legacyId): array
+    {
+        if ($ids !== null && $ids !== []) {
+            return array_map('intval', $ids);
+        }
+
+        return $legacyId === null ? [] : [$legacyId];
+    }
+
     private function dispatchAttendanceProcessing(ManualAttendance $attendance): void
     {
+        ProcessManualAttendancePunches::dispatch((int) $attendance->id)
+            ->onConnection('database_tenant')
+            ->onQueue('processing');
+
         ApproveUserManualAttendance::dispatch($attendance)
             ->onConnection('database_tenant')
             ->onQueue('processing');

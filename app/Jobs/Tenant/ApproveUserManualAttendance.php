@@ -6,6 +6,7 @@ use App\Helpers\GeneralHelper;
 use App\Models\Tenant\Attendance;
 use App\Models\Tenant\Coff;
 use App\Models\Tenant\LeaveApplication;
+use App\Models\Tenant\RotationMuster;
 use App\Models\Tenant\Shift;
 use App\Models\Tenant\ShiftMuster;
 use App\Models\Tenant\ShortLeaveApplication;
@@ -95,48 +96,42 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
     public function retriveAssignedShift(): void
     {
         $this->debug('~~~Retriving assigned shift');
-        if ($this->manualAttendance->shift_type == 'auto') {
+        $this->shift = null;
+        if ($this->user->shift_type == 'auto') {
             $this->debug('Shift type is auto');
-            $shift = $this->manualAttendance->shift->first();
-            $shift->auto_from = $this->manualAttendance->in_time->copy()->setTimeFromTimeString($shift->auto_from->toTimeString());
-            $shift->auto_to = $this->manualAttendance->in_time->copy()->setTimeFromTimeString($shift->auto_to->toTimeString());
-            if ($shift->auto_from > $shift->auto_to) {
-                if ($this->manualAttendance->in_time->between($shift->auto_from, $shift->auto_to->copy()->addDay())) {
-                    $this->debug('Auto Night Shift Assigned : '.$shift->id.'|'.$shift->code);
-                    $this->shift = $shift;
-                } elseif ($this->manualAttendance->in_time->between($att_day = $shift->auto_from->copy()->subDay(), $shift->auto_to)) {
-                    $this->debug('Auto Previous Night Shift Assigned : '.$shift->id.'|'.$shift->code);
-                    $this->shift = $shift;
+            foreach ($this->user->shifts as $shift) {
+                if ($shift->auto_from === null || $shift->auto_to === null) {
+                    continue;
                 }
-            } elseif ($this->manualAttendance->in_time->between($shift->auto_from, $shift->auto_to)) {
-                $this->debug('Auto Shift Assigned : '.$shift->id.'|'.$shift->code);
-                $this->shift = $shift;
-            }
-            $this->debug('Shift #'.$shift->code.' is not matched');
-            $this->debug('BOOL'.$this->manualAttendance->in_time.'|'.$shift->auto_from.'|'.$shift->auto_to);
-        } elseif ($this->manualAttendance->shift_type == 'rotational') {
-            $this->debug('Shift type is rotational');
-            $shift = $this->manualAttendance->shift_rotation->first();
 
-            $shift->auto_from = $this->manualAttendance->in_time->copy()->setTimeFromTimeString($shift->auto_from->toTimeString());
-            $shift->auto_to = $this->manualAttendance->in_time->copy()->setTimeFromTimeString($shift->auto_to->toTimeString());
-            if ($shift->auto_from > $shift->auto_to) {
-                if ($this->manualAttendance->in_time->between($shift->auto_from, $shift->auto_to->copy()->addDay())) {
-                    $this->debug('Rotational Night Shift Assigned : '.$shift->id.'|'.$shift->code);
-                    $this->shift = $shift;
-                } elseif ($this->manualAttendance->in_time->between($att_day = $shift->auto_from->copy()->subDay(), $shift->auto_to)) {
-                    $this->debug('Rotational Previous Night Shift Assigned : '.$shift->id.'|'.$shift->code);
+                $shift->auto_from = $this->manualAttendance->in_time->copy()->setTimeFromTimeString($shift->auto_from->toTimeString());
+                $shift->auto_to = $this->manualAttendance->in_time->copy()->setTimeFromTimeString($shift->auto_to->toTimeString());
+                if ($shift->auto_from > $shift->auto_to) {
+                    if ($this->manualAttendance->in_time->between($shift->auto_from, $shift->auto_to->copy()->addDay())) {
+                        $this->debug('Auto Night Shift Assigned : '.$shift->id.'|'.$shift->code);
+                        $this->shift = $shift;
+                    } elseif ($this->manualAttendance->in_time->between($shift->auto_from->copy()->subDay(), $shift->auto_to)) {
+                        $this->debug('Auto Previous Night Shift Assigned : '.$shift->id.'|'.$shift->code);
+                        $this->shift = $shift;
+                    }
+                } elseif ($this->manualAttendance->in_time->between($shift->auto_from, $shift->auto_to)) {
+                    $this->debug('Auto Shift Assigned : '.$shift->id.'|'.$shift->code);
                     $this->shift = $shift;
                 }
-            } elseif ($this->manualAttendance->in_time->between($shift->auto_from, $shift->auto_to)) {
-                $this->debug('Rotational Shift Assigned : '.$shift->id.'|'.$shift->code);
-                $this->shift = $shift;
+                if ($this->shift !== null) {
+                    break;
+                }
             }
-            $this->debug('Shift #'.$shift->code.' is not matched');
-            $this->debug('BOOL'.$this->manualAttendance->in_time.'|'.$shift->auto_from.'|'.$shift->auto_to);
+        } elseif ($this->user->shift_type == 'rotational') {
+            $this->debug('Shift type is rotational');
+            $rotationMuster = RotationMuster::query()
+                ->where('rotation_id', $this->user->shift_rotation_id)
+                ->where('date', $this->manualAttendance->in_time->format('Y-m-d'))
+                ->first();
+            $this->shift = $rotationMuster?->shift;
         } else {
-            $this->debug('Fixed Shift : '.$this->manualAttendance->shift?->code);
-            $this->shift = $this->manualAttendance->shift;
+            $this->debug('Fixed Shift : '.$this->user->shift?->code);
+            $this->shift = $this->user->shift;
         }
 
         if ($this->shift == null) {
@@ -161,8 +156,8 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
             'date' => $this->manualAttendance->in_time->copy()->format('Y-m-d'),
             'is_locked' => false,
         ], [
-            'location_id' => $this->manualAttendance->location_id,
-            'company_id' => $this->manualAttendance->company_id,
+            'location_id' => $this->assignedOrganizationId('location'),
+            'company_id' => $this->assignedOrganizationId('company'),
             'department_id' => $this->user->department_id,
             'sub_department_id' => $this->user->sub_department_id,
             'category_id' => $this->user->category_id,
@@ -170,12 +165,30 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
             'in_time' => $this->manualAttendance->in_time,
             'out_time' => $this->manualAttendance->out_time,
             'shift_id' => $this->shift->id,
-            'area_id' => $this->user->areas->first()->id,
+            'area_id' => $this->user->areas->first()?->id,
             'shift_code' => $this->shift->code,
             'shift_in_time' => $this->shift->in_time,
             'shift_out_time' => $this->shift->out_time,
             'is_manual' => true,
         ]);
+    }
+
+    private function assignedOrganizationId(string $field): ?int
+    {
+        $selectedIds = $this->manualAttendance->{$field . '_ids'};
+        if (is_array($selectedIds) && $selectedIds !== []) {
+            $userIds = $this->user->{$field . '_id'};
+            $matchingIds = array_values(array_intersect(
+                array_map('intval', $selectedIds),
+                array_map('intval', (array) $userIds),
+            ));
+
+            return $matchingIds[0] ?? null;
+        }
+
+        $legacyId = $this->manualAttendance->{$field . '_id'};
+
+        return $legacyId === null ? null : (int) $legacyId;
     }
 
     public function assignStatus(): void

@@ -17,9 +17,6 @@ class ManualAttendance extends Model
         'employee_codes',
         'location',
         'company',
-        'shift_type',
-        'shift',
-        'shift_rotation',
         'in_time',
         'out_time',
         'reason',
@@ -32,8 +29,8 @@ class ManualAttendance extends Model
         'out_time' => 'datetime',
         'location_id' => 'int',
         'company_id' => 'int',
-        'shift_rotation_id' => 'int',
-        'shift_id' => 'int',
+        'location_ids' => 'array',
+        'company_ids' => 'array',
         'created_by' => 'int',
         'updated_by' => 'int',
         'deleted_by' => 'int',
@@ -42,9 +39,8 @@ class ManualAttendance extends Model
     protected $fillable = [
         'location_id',
         'company_id',
-        'shift_rotation_id',
-        'shift_type',
-        'shift_id',
+        'location_ids',
+        'company_ids',
         'in_time',
         'out_time',
         'reason',
@@ -56,16 +52,6 @@ class ManualAttendance extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
-    }
-
-    public function shift()
-    {
-        return $this->belongsTo(Shift::class);
-    }
-
-    public function shift_rotation()
-    {
-        return $this->belongsTo(ShiftRotation::class);
     }
 
     public function Users()

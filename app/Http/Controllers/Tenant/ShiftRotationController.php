@@ -123,7 +123,6 @@ class ShiftRotationController extends Controller
             ['users', 'shift_rotation_id'],
             ['shift_changes', 'shift_rotation_id'],
             ['shift_change_applications', 'shift_rotation_id'],
-            ['manual_attendances', 'shift_rotation_id'],
             ['manual_attendance_applications', 'shift_rotation_id'],
             ['rotation_musters', 'rotation_id'],
         ];

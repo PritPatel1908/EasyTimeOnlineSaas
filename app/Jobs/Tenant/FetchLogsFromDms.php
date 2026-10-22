@@ -106,7 +106,9 @@ class FetchLogsFromDms implements ShouldBeUnique, ShouldQueue
         if ($this->lastId == $this->newLastId) {
             Log::channel('attprocess')->debug('No new logs found');
         } else {
-            ProcessPendingLogsBatch::dispatch()->onQueue('processing');
+            ProcessPendingLogsBatch::dispatch()
+                ->onConnection('database_tenant')
+                ->onQueue('processing');
             DmsSetting::where('key', 'dms_last_sync_id')->update(['value' => $this->newLastId]);
             Log::channel('attprocess')->debug('New logs added; one chunked processing job dispatched');
             GeneralConfiguration::updateOrCreate(

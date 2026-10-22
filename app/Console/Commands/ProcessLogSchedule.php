@@ -31,10 +31,14 @@ class ProcessLogSchedule extends Command
     {
         if (config('fetch_att_logs', 0) != 1) {
             Log::channel('attprocess')->debug('Fetching New jobs for pending logs');
-            FetchLogsFromDms::dispatch()->onQueue('processing');
+            FetchLogsFromDms::dispatch()
+                ->onConnection('database_tenant')
+                ->onQueue('processing');
         } else {
             Log::channel('attprocess')->debug('Dispatching chunked job for pending logs');
-            ProcessPendingLogsBatch::dispatch()->onQueue('processing');
+            ProcessPendingLogsBatch::dispatch()
+                ->onConnection('database_tenant')
+                ->onQueue('processing');
 
             GeneralConfiguration::updateOrCreate(
                 ['key' => 'last_log_process_time'],

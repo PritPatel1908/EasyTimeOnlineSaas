@@ -64,7 +64,10 @@ class ManualPunchProcessor
         }
 
         if ($createdLogs) {
-            ProcessPendingLogsBatch::dispatch()->onQueue('processing')->afterCommit();
+            ProcessPendingLogsBatch::dispatch()
+                ->onConnection('database_tenant')
+                ->onQueue('processing')
+                ->afterCommit();
             Log::channel('attprocess')->debug('Manual punch logs queued for chunked processing');
         }
     }

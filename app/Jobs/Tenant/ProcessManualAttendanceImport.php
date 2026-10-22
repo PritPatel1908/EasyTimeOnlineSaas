@@ -7,11 +7,10 @@ namespace App\Jobs\Tenant;
 use App\Models\Tenant\Company;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\ManualAttendance;
-use App\Models\Tenant\Shift;
-use App\Models\Tenant\ShiftRotation;
 use App\Models\Tenant\User;
 use App\Notifications\Tenant\ManualPunchImportExportCompleted;
 use App\Support\CsvImportTemplate;
+use App\Jobs\Tenant\ProcessManualAttendancePunches;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -92,6 +91,9 @@ class ProcessManualAttendanceImport implements ShouldQueue
             ApproveUserManualAttendance::dispatch($attendance)
                 ->onConnection('database_tenant')
                 ->onQueue('processing');
+            ProcessManualAttendancePunches::dispatch((int) $attendance->id)
+                ->onConnection('database_tenant')
+                ->onQueue('processing');
             $created++;
         }
 
@@ -161,37 +163,31 @@ class ProcessManualAttendanceImport implements ShouldQueue
     {
         $errors = [];
         $userIds = $this->resolveEmployeeIds($this->splitValues($row['employee_codes'] ?? ''), $errors);
-        $locationId = $this->resolveOptionalId(Location::class, trim($row['location'] ?? ''), 'location', $errors);
-        $companyId = $this->resolveOptionalId(Company::class, trim($row['company'] ?? ''), 'company', $errors);
-        $shiftId = $this->resolveOptionalId(Shift::class, trim($row['shift'] ?? ''), 'shift', $errors);
-        $shiftRotationId = $this->resolveOptionalId(ShiftRotation::class, trim($row['shift_rotation'] ?? ''), 'shift rotation', $errors);
-        $shiftType = strtolower(trim($row['shift_type'] ?? ''));
+        $locationIds = $this->resolveOptionalIds(Location::class, $row['location'] ?? '', 'location', $errors);
+        $companyIds = $this->resolveOptionalIds(Company::class, $row['company'] ?? '', 'company', $errors);
         $values = [
-            'shift_type' => $shiftType !== '' ? $shiftType : null,
             'in_time' => trim($row['in_time'] ?? ''),
             'out_time' => trim($row['out_time'] ?? ''),
             'reason' => $row['reason'] ?? '',
         ];
         $validator = Validator::make($values, [
-            'shift_type' => ['nullable', 'in:auto,fixed,rotational'],
             'in_time' => ['required', 'date'],
-            'out_time' => ['required', 'date', 'after_or_equal:in_time'],
+            'out_time' => [
+                'required',
+                'date',
+                'after_or_equal:in_time',
+                static function (string $attribute, mixed $value, \Closure $fail) use ($values): void {
+                    $inTime = strtotime((string) $values['in_time']);
+                    $outTime = strtotime((string) $value);
+
+                    if ($inTime !== false && $outTime !== false && $outTime - $inTime > 24 * 60 * 60) {
+                        $fail('The out time must be within 24 hours of the in time.');
+                    }
+                },
+            ],
             'reason' => ['nullable', 'string'],
         ]);
         $errors = array_merge($errors, $validator->errors()->all());
-
-        if (in_array($shiftType, ['auto', 'fixed'], true) && $shiftId === null) {
-            $errors[] = 'shift is required for auto and fixed shift types';
-        }
-        if ($shiftType === 'rotational' && $shiftRotationId === null) {
-            $errors[] = 'shift_rotation is required for rotational shift type';
-        }
-        if ($shiftType === 'rotational' && $shiftId !== null) {
-            $errors[] = 'shift must be blank for rotational shift type';
-        }
-        if (in_array($shiftType, ['auto', 'fixed'], true) && $shiftRotationId !== null) {
-            $errors[] = 'shift_rotation must be blank for auto and fixed shift types';
-        }
 
         $inTime = $values['in_time'];
         $outTime = $values['out_time'];
@@ -201,11 +197,10 @@ class ProcessManualAttendanceImport implements ShouldQueue
         }
 
         return [[
-            'location_id' => $locationId,
-            'company_id' => $companyId,
-            'shift_type' => $shiftType !== '' ? $shiftType : null,
-            'shift_id' => $shiftId,
-            'shift_rotation_id' => $shiftRotationId,
+            'location_ids' => $locationIds,
+            'company_ids' => $companyIds,
+            'location_id' => count($locationIds) === 1 ? $locationIds[0] : null,
+            'company_id' => count($companyIds) === 1 ? $companyIds[0] : null,
             'in_time' => $inTime,
             'out_time' => $outTime,
             'reason' => ($row['reason'] ?? '') !== '' ? $row['reason'] : null,
@@ -255,6 +250,23 @@ class ProcessManualAttendanceImport implements ShouldQueue
         }
 
         return (int) $record->id;
+    }
+
+    /**
+     * @param array<int, string> $errors
+     * @return array<int, int>
+     */
+    private function resolveOptionalIds(string $model, string $values, string $field, array &$errors): array
+    {
+        $ids = [];
+        foreach ($this->splitValues($values) as $value) {
+            $id = $this->resolveOptionalId($model, $value, $field, $errors);
+            if ($id !== null) {
+                $ids[] = $id;
+            }
+        }
+
+        return $ids;
     }
 
     /**

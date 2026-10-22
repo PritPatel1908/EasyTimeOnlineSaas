@@ -4,10 +4,8 @@
         <td class="text-center">{{ $attendance->Users->map(fn ($user) => $user->name . ($user->code ? ' ('.$user->code.')' : ''))->join(', ') ?: '—' }}</td>
         <td class="text-center">{{ $attendance->in_time?->format('Y-m-d H:i:s') ?? '—' }}</td>
         <td class="text-center">{{ $attendance->out_time?->format('Y-m-d H:i:s') ?? '—' }}</td>
-        <td class="text-center">{{ $attendance->company?->name ?? '—' }}</td>
-        <td class="text-center">{{ $attendance->location?->name ?? '—' }}</td>
-        <td class="text-center">{{ $attendance->shift_type ? ucfirst($attendance->shift_type) . ($attendance->shift?->name ? ' - '.$attendance->shift->name : '') : '—' }}</td>
-        <td class="text-center">{{ $attendance->shift_rotation?->code ?? '—' }}</td>
+        <td class="text-center">{{ collect($attendance->company_ids ?: ($attendance->company_id ? [$attendance->company_id] : []))->map(fn ($id) => $companiesById->get($id)?->name)->filter()->join(', ') ?: '—' }}</td>
+        <td class="text-center">{{ collect($attendance->location_ids ?: ($attendance->location_id ? [$attendance->location_id] : []))->map(fn ($id) => $locationsById->get($id)?->name)->filter()->join(', ') ?: '—' }}</td>
         <td class="text-center">{{ $attendance->reason ?: '—' }}</td>
         <td class="text-center">
             <div class="action-icon d-inline-flex">
@@ -29,5 +27,5 @@
         </td>
     </tr>
 @empty
-    <tr><td colspan="10" class="py-4 text-muted text-center"><i class="ti ti-clock-off fs-24 mb-2 d-block"></i>No manual attendances found.</td></tr>
+    <tr><td colspan="8" class="py-4 text-muted text-center"><i class="ti ti-clock-off fs-24 mb-2 d-block"></i>No manual attendances found.</td></tr>
 @endforelse

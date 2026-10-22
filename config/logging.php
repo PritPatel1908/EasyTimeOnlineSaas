@@ -73,6 +73,14 @@ return [
             'replace_placeholders' => true,
         ],
 
+        'attprocess' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/attprocess.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => env('LOG_DAILY_DAYS', 14),
+            'replace_placeholders' => true,
+        ],
+
         'monthly' => [
             'driver' => 'monthly',
             'path' => storage_path('logs/laravel.log'),

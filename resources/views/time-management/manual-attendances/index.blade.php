@@ -41,9 +41,13 @@
                 <table class="table datatable">
                     <thead class="thead-light"><tr>
                         <th></th><th>Employees</th><th>In Time</th><th>Out Time</th><th>Company</th>
-                        <th>Location</th><th>Shift</th><th>Shift Rotation</th><th>Reason</th><th></th>
+                        <th>Location</th><th>Reason</th><th></th>
                     </tr></thead>
-                    <tbody>@include('time-management.manual-attendances.partials.rows', ['attendances' => $attendances])</tbody>
+                    <tbody>@include('time-management.manual-attendances.partials.rows', [
+                        'attendances' => $attendances,
+                        'companiesById' => $companiesById,
+                        'locationsById' => $locationsById,
+                    ])</tbody>
                 </table>
             </div></div>
             @if ($attendances->hasPages())
@@ -87,7 +91,7 @@
                         <input id="manual_attendance_import_file" name="file" type="file" class="form-control" accept=".csv,.txt" required>
                         <a href="{{ url('time-management/manual-attendances/import/sample') }}" class="d-inline-flex align-items-center mt-2"><i class="ti ti-download me-1"></i>Download Sample CSV</a>
                     </div>
-                    <small class="text-muted">Use semicolons to separate multiple employee codes. Each attendance record uses one shift, company, and location.</small>
+                    <small class="text-muted">Use semicolons to separate multiple employee codes. Each attendance record uses one company and location.</small>
                 </div>
                 <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary"><i class="ti ti-file-import me-1"></i>Import</button></div>
             </form>

@@ -7,8 +7,6 @@ namespace App\Jobs\Tenant;
 use App\Models\Tenant\Company;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\ManualAttendance;
-use App\Models\Tenant\Shift;
-use App\Models\Tenant\ShiftRotation;
 use App\Models\Tenant\Scopes\DataPolicyFilter;
 use App\Models\Tenant\User;
 use App\Notifications\Tenant\ManualPunchImportExportCompleted;
@@ -48,10 +46,12 @@ class GenerateManualAttendanceExport implements ShouldQueue
         Auth::setUser($user);
 
         $attendances = ManualAttendance::query()
-            ->with(['Users', 'location', 'company', 'shift', 'shift_rotation'])
+            ->with(['Users', 'location', 'company'])
             ->orderBy('in_time')
             ->orderBy('id')
             ->get();
+        $locationsById = Location::query()->get(['id', 'name', 'code'])->keyBy('id');
+        $companiesById = Company::query()->get(['id', 'name', 'code'])->keyBy('id');
         $handle = fopen('php://temp', 'w+');
         if ($handle === false) {
             $user->notify(new ManualPunchImportExportCompleted('export', 'Unable to generate the manual attendance export file.'));
@@ -63,11 +63,8 @@ class GenerateManualAttendanceExport implements ShouldQueue
         foreach ($attendances as $attendance) {
             fputcsv($handle, [
                 $attendance->Users->pluck('code')->filter()->implode(';'),
-                $this->nameAndCode($attendance->location),
-                $this->nameAndCode($attendance->company),
-                $attendance->shift_type ?? '',
-                $this->nameAndCode($attendance->shift),
-                $attendance->shift_rotation?->code ?? '',
+                $this->organizationNames($attendance->location_ids, $attendance->location_id, $locationsById),
+                $this->organizationNames($attendance->company_ids, $attendance->company_id, $companiesById),
                 $this->formatValue($attendance->in_time, 'Y-m-d H:i:s'),
                 $this->formatValue($attendance->out_time, 'Y-m-d H:i:s'),
                 $attendance->reason ?? '',
@@ -108,5 +105,20 @@ class GenerateManualAttendanceExport implements ShouldQueue
         }
 
         return $record->name . ($record->code ? ' (' . $record->code . ')' : '');
+    }
+
+    /**
+     * @param array<int, int>|null $ids
+     * @param \Illuminate\Support\Collection<int, Company|Location> $recordsById
+     */
+    private function organizationNames(?array $ids, ?int $legacyId, $recordsById): string
+    {
+        $ids = $ids ?: ($legacyId === null ? [] : [$legacyId]);
+
+        return collect($ids)
+            ->map(fn (int $id) => $recordsById->get($id))
+            ->filter()
+            ->map(fn ($record) => $this->nameAndCode($record))
+            ->implode(';');
     }
 }

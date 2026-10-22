@@ -26,9 +26,6 @@
                 <div class="col-md-6 mb-3"><small class="text-muted d-block">Employees</small><span>{{ $attendance->Users->map(fn ($user) => $user->name . ($user->code ? ' ('.$user->code.')' : ''))->join(', ') ?: '—' }}</span></div>
                 <div class="col-md-3 mb-3"><small class="text-muted d-block">In Time</small><span>{{ $attendance->in_time?->format('Y-m-d H:i:s') ?? '—' }}</span></div>
                 <div class="col-md-3 mb-3"><small class="text-muted d-block">Out Time</small><span>{{ $attendance->out_time?->format('Y-m-d H:i:s') ?? '—' }}</span></div>
-                <div class="col-md-4 mb-3"><small class="text-muted d-block">Shift Type</small><span>{{ $attendance->shift_type ? ucfirst($attendance->shift_type) : '—' }}</span></div>
-                <div class="col-md-4 mb-3"><small class="text-muted d-block">Shift</small><span>{{ $attendance->shift?->name ?? '—' }}</span></div>
-                <div class="col-md-4 mb-3"><small class="text-muted d-block">Shift Rotation</small><span>{{ $attendance->shift_rotation?->code ?? '—' }}</span></div>
                 <div class="col-md-6 mb-3"><small class="text-muted d-block">Reason</small><span>{{ $attendance->reason ?: '—' }}</span></div>
             </div></div>
         </div>
@@ -36,8 +33,8 @@
         <div class="card mb-4">
             <div class="card-header"><h5 class="mb-0">Organization</h5></div>
             <div class="card-body"><div class="row">
-                <div class="col-md-6 mb-3"><small class="text-muted d-block">Company</small><span>{{ $attendance->company?->name ?? '—' }}</span></div>
-                <div class="col-md-6 mb-3"><small class="text-muted d-block">Location</small><span>{{ $attendance->location?->name ?? '—' }}</span></div>
+                <div class="col-md-6 mb-3"><small class="text-muted d-block">Companies</small><span>{{ $companies->pluck('name')->join(', ') ?: '—' }}</span></div>
+                <div class="col-md-6 mb-3"><small class="text-muted d-block">Locations</small><span>{{ $locations->pluck('name')->join(', ') ?: '—' }}</span></div>
             </div></div>
         </div>
         @include('partials.audit-users', ['record' => $attendance])
