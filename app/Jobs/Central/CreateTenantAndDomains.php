@@ -28,21 +28,23 @@ class CreateTenantAndDomains implements ShouldQueue
 
     public function handle(): void
     {
-        DB::transaction(function (): void {
-            $tenant = Tenant::firstOrNew(['id' => $this->tenantId]);
-            $tenant->company_id = $this->companyId;
-            $tenant->name = $this->companyName;
-            $tenant->setInternal('db_connection', $this->database['connection']);
-            $tenant->setInternal('db_host', $this->database['host']);
-            $tenant->setInternal('db_port', $this->database['port']);
-            $tenant->setInternal('db_name', $this->database['database']);
-            $tenant->setInternal('db_username', $this->database['username']);
-            $tenant->setInternal('db_password', $this->database['password']);
-            $tenant->save();
+        tenancy()->central(function (): void {
+            DB::transaction(function (): void {
+                $tenant = Tenant::firstOrNew(['id' => $this->tenantId]);
+                $tenant->company_id = $this->companyId;
+                $tenant->name = $this->companyName;
+                $tenant->setInternal('db_connection', $this->database['connection']);
+                $tenant->setInternal('db_host', $this->database['host']);
+                $tenant->setInternal('db_port', $this->database['port']);
+                $tenant->setInternal('db_name', $this->database['database']);
+                $tenant->setInternal('db_username', $this->database['username']);
+                $tenant->setInternal('db_password', $this->database['password']);
+                $tenant->save();
 
-            foreach ($this->domains as $domain) {
-                Domain::firstOrCreate(['domain' => $domain], ['tenant_id' => $tenant->id]);
-            }
+                foreach ($this->domains as $domain) {
+                    Domain::firstOrCreate(['domain' => $domain], ['tenant_id' => $tenant->id]);
+                }
+            });
         });
     }
 }

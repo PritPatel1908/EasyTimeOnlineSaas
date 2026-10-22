@@ -21,7 +21,7 @@ class MigrateTenantDatabase implements ShouldQueue
 
     public function handle(): void
     {
-        $tenant = Tenant::findOrFail($this->tenantId);
+        $tenant = tenancy()->central(fn (): Tenant => Tenant::findOrFail($this->tenantId));
         $connectionName = 'tenant_provision_'.$this->tenantId;
         $connectionConfig = $tenant->database()->connection();
         $driver = $connectionConfig['driver'];
@@ -35,9 +35,7 @@ class MigrateTenantDatabase implements ShouldQueue
         }
 
         config(['database.connections.'.$connectionName => $connectionConfig]);
-        config(['database.connections.'.$tenant->database()->getTemplateConnectionName() => $connectionConfig]);
         DB::purge($connectionName);
-        DB::purge($tenant->database()->getTemplateConnectionName());
         $databaseManager = $tenant->database()->manager();
         $databaseManager->setConnection($connectionName);
         $databaseName = $tenant->database()->getName();

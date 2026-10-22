@@ -68,7 +68,7 @@ class AdminCompanyController extends Controller
         $license = $this->licenseData($request);
         $companyRecord->update($this->validated($request, $company));
 
-        if ($license !== null && ! $this->licenseMatches($companyRecord, $companyRecord->licenses()->latest()->first(), $license)) {
+        if ($license !== null && ! $this->licenseMatches($companyRecord, $companyRecord->licenses()->first(), $license)) {
             $license['license_key'] = CompanyLicense::generateKey($companyRecord, $license);
             $companyRecord->licenses()->create($license);
         }

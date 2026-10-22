@@ -20,7 +20,7 @@ class SeedTenantData implements ShouldQueue
 
     public function handle(): void
     {
-        $tenant = Tenant::findOrFail($this->tenantId);
+        $tenant = tenancy()->central(fn (): Tenant => Tenant::findOrFail($this->tenantId));
 
         $tenant->run(function (): void {
             Artisan::call('db:seed', array_merge(

@@ -7,7 +7,9 @@ namespace Tests\Feature;
 use App\Models\Central\Company;
 use App\Models\Central\CompanyLicense;
 use App\Models\Central\User;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class AdminCompanyLicenseTest extends TestCase
@@ -47,5 +49,32 @@ class AdminCompanyLicenseTest extends TestCase
         $this->assertSame(40, CompanyLicense::query()->latest('id')->value('user_count'));
         $this->assertNotEmpty(CompanyLicense::query()->latest('id')->value('license_key'));
         $this->assertSame('Acme Labs', CompanyLicense::query()->latest('id')->first()->keyPayload()['company_name']);
+    }
+
+    public function test_company_update_orders_the_license_lookup_only_once(): void
+    {
+        $this->withoutMiddleware();
+        $company = Company::query()->create(['name' => 'Acme Labs', 'status' => 'Active']);
+        $licenseQueries = [];
+
+        DB::listen(static function (QueryExecuted $query) use (&$licenseQueries): void {
+            if (str_contains(strtolower($query->sql), 'company_licenses') && str_contains(strtolower($query->sql), 'order by')) {
+                $licenseQueries[] = strtolower($query->sql);
+            }
+        });
+
+        $this->put(route('admin.companies.update', $company), [
+            'name' => 'Acme Labs',
+            'status' => 'Active',
+            'have_leave' => '1',
+            'have_payroll' => '0',
+            'location_count' => '2',
+            'company_count' => '1',
+            'user_count' => '25',
+            'expiry_date' => '2026-12-31',
+        ])->assertRedirect(route('admin.companies.edit', $company));
+
+        $this->assertCount(1, $licenseQueries);
+        $this->assertSame(1, substr_count($licenseQueries[0], 'order by'));
     }
 }

@@ -22,16 +22,18 @@ class DispatchTenantReadyNotification implements ShouldQueue
 
     public function handle(): void
     {
-        $tenant = Tenant::findOrFail($this->tenantId);
+        tenancy()->central(function (): void {
+            $tenant = Tenant::findOrFail($this->tenantId);
 
-        $admin = User::query()->where('email', $this->adminEmail)->first();
+            $admin = User::query()->where('email', $this->adminEmail)->first();
 
-        if ($admin !== null) {
-            $admin->notify(new TenantReady($tenant, true));
+            if ($admin !== null) {
+                $admin->notify(new TenantReady($tenant, true));
 
-            return;
-        }
+                return;
+            }
 
-        Notification::route('mail', $this->adminEmail)->notify(new TenantReady($tenant));
+            Notification::route('mail', $this->adminEmail)->notify(new TenantReady($tenant));
+        });
     }
 }
