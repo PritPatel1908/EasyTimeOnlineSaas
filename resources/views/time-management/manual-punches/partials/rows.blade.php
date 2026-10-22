@@ -21,11 +21,6 @@
         <td class="text-center">{{ $locationNames ?: '—' }}</td>
         <td class="text-center">{{ $punch->reason ?: '—' }}</td>
         <td class="text-center">
-            <span class="badge {{ (int) $punch->status === 1 ? 'badge-success' : 'badge-danger' }} d-inline-flex align-items-center badge-xs">
-                <i class="ti ti-point-filled me-1"></i>{{ (int) $punch->status === 1 ? 'Active' : 'Inactive' }}
-            </span>
-        </td>
-        <td class="text-center">
             <div class="action-icon d-inline-flex">
                 @if (\App\Support\TenantPermissions::userCan('ManualPunch', 'read'))
                     <a href="{{ url('time-management/manual-punches/'.$punch->id) }}" class="me-2" title="View"><i class="ti ti-eye"></i></a>
@@ -45,5 +40,5 @@
         </td>
     </tr>
 @empty
-    <tr><td colspan="10" class="py-4 text-muted text-center"><i class="ti ti-clock-off fs-24 mb-2 d-block"></i>No manual punches found.</td></tr>
+    <tr><td colspan="9" class="py-4 text-muted text-center"><i class="ti ti-clock-off fs-24 mb-2 d-block"></i>No manual punches found.</td></tr>
 @endforelse

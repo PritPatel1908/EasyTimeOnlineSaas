@@ -2,8 +2,6 @@
 @section('content')
 @php
     $canCreate = \App\Support\TenantPermissions::userCan('ManualPunch', 'create');
-    $canImport = \App\Support\TenantPermissions::userCan('ManualPunch', 'import');
-    $canExport = \App\Support\TenantPermissions::userCan('ManualPunch', 'export');
 @endphp
 <div class="page-wrapper">
     <div class="content">
@@ -32,28 +30,15 @@
             </div>
         </div>
 
-        <div id="manual-punch-status-alert" class="alert alert-dismissible d-none align-items-center" role="alert">
-            <i class="ti ti-circle-check me-2 alert-icon"></i><span class="alert-message"></span>
-            <button type="button" class="btn-close" aria-label="Close"></button>
-        </div>
-
         <div class="card">
             <div class="card-header d-flex align-items-center justify-content-between flex-wrap row-gap-3">
                 <h5>Manual Punch List</h5>
-                <div class="dropdown">
-                    <button type="button" class="btn btn-white dropdown-toggle" data-bs-toggle="dropdown">Status</button>
-                    <ul class="dropdown-menu">
-                        <li><button type="button" class="dropdown-item manual-punch-status-filter" data-status="all">All</button></li>
-                        <li><button type="button" class="dropdown-item manual-punch-status-filter" data-status="1">Active</button></li>
-                        <li><button type="button" class="dropdown-item manual-punch-status-filter" data-status="0">Inactive</button></li>
-                    </ul>
-                </div>
             </div>
             <div class="card-body p-0"><div class="custom-datatable-filter table-responsive">
                 <table class="table datatable">
                     <thead class="thead-light"><tr>
                         <th></th><th>Employees</th><th>Punch Type</th><th>Date</th><th>Time</th>
-                        <th>Companies</th><th>Locations</th><th>Reason</th><th>Status</th><th></th>
+                        <th>Companies</th><th>Locations</th><th>Reason</th><th></th>
                     </tr></thead>
                     <tbody>@include('time-management.manual-punches.partials.rows', ['punches' => $punches])</tbody>
                 </table>
@@ -91,7 +76,7 @@
         <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
             <div class="modal-header"><h5 class="modal-title">Import Manual Punches</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
             <form method="POST" action="{{ url('time-management/manual-punches/import') }}" enctype="multipart/form-data"
-                data-import-form="true" data-status-alert="#manual-punch-status-alert" data-modal="#import_manual_punch_modal"
+                data-import-form="true" data-modal="#import_manual_punch_modal"
                 data-url-match="/time-management/manual-punches" data-entity-label="Manual punch">
                 @csrf
                 <div class="modal-body">
@@ -110,7 +95,6 @@
 --}}
 
 @push('scripts')
-@include('partials.import-poll')
 <script>
     document.addEventListener('click', function (event) {
         var button = event.target.closest('.delete-manual-punch-btn');
@@ -120,51 +104,6 @@
             'Are you sure you want to delete "' + button.dataset.name + '"? This action cannot be undone.';
     }, true);
 
-    document.addEventListener('click', function (event) {
-        var filterButton = event.target.closest('.manual-punch-status-filter');
-        if (!filterButton || filterButton.disabled) return;
-        event.preventDefault();
-        filterButton.disabled = true;
-        var alert = document.getElementById('manual-punch-status-alert');
-
-        fetch('{{ url('time-management/manual-punches/filter') }}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-            },
-            body: JSON.stringify({ status: filterButton.dataset.status })
-        }).then(function (response) {
-            return response.json().then(function (data) {
-                if (!response.ok) throw new Error(data.message || 'Unable to filter manual punches.');
-                return data;
-            });
-        }).then(function (data) {
-            var sourceBody = document.querySelector('table.datatable tbody');
-            sourceBody.innerHTML = data.html;
-            var visibleBody = document.querySelector('.gridjs-tbody');
-            if (visibleBody) {
-                visibleBody.innerHTML = '';
-                sourceBody.querySelectorAll('tr').forEach(function (row) {
-                    row.classList.add('gridjs-tr');
-                    row.querySelectorAll('td').forEach(function (cell) {
-                        cell.classList.add('gridjs-td');
-                    });
-                    visibleBody.appendChild(row.cloneNode(true));
-                });
-            }
-            if (typeof window.importPollShowAlert === 'function') {
-                window.importPollShowAlert(alert, 'success', 'Manual punch status filter applied successfully.');
-            }
-        }).catch(function (error) {
-            if (typeof window.importPollShowAlert === 'function') {
-                window.importPollShowAlert(alert, 'danger', error.message);
-            }
-        }).finally(function () {
-            filterButton.disabled = false;
-        });
-    }, true);
 </script>
 @endpush
 @endsection

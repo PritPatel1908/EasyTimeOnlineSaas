@@ -24,7 +24,6 @@ use App\Models\Tenant\Unit;
 use App\Models\Tenant\User;
 use App\Support\CsvImportTemplate;
 use Illuminate\Contracts\View\View;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -63,34 +62,6 @@ class ManualPunchController extends Controller
             'punch' => $punch,
             'locations' => Location::query()->whereIn('id', $this->idsFrom($punch->location_id))->orderBy('name')->get(),
             'companies' => Company::query()->whereIn('id', $this->idsFrom($punch->company_id))->orderBy('name')->get(),
-        ]);
-    }
-
-    public function filterStatus(Request $request): JsonResponse
-    {
-        $validated = $request->validate([
-            'status' => ['nullable', 'in:all,1,0'],
-        ]);
-
-        $query = ManualPunch::query()
-            ->with('Users')
-            ->latest('punch_date')
-            ->latest('id');
-        $status = $validated['status'] ?? 'all';
-
-        if ($status !== 'all') {
-            $query->where('status', (int) $status);
-        }
-
-        $punches = $query->get();
-
-        return response()->json([
-            'html' => view('time-management.manual-punches.partials.rows', [
-                'punches' => $punches,
-                'locationsById' => Location::query()->get(['id', 'name'])->keyBy('id'),
-                'companiesById' => Company::query()->get(['id', 'name'])->keyBy('id'),
-            ])->render(),
-            'count' => $punches->count(),
         ]);
     }
 
@@ -196,7 +167,6 @@ class ManualPunchController extends Controller
                 'punch_date' => 'Required; date in YYYY-MM-DD format.',
                 'punch_time' => 'Required; time in HH:MM or HH:MM:SS format.',
                 'reason' => 'Optional; text up to 255 characters.',
-                'status' => 'Optional; Active, Inactive, 1, or 0; blank defaults to Active.',
             ]);
             fclose($handle);
         }, 'manual_punches_import_sample.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);

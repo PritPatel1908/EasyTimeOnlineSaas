@@ -19,7 +19,6 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property Carbon $punch_date
  * @property Carbon $punch_time
  * @property string $reason
- * @property int $status
  * @property int|null $created_by
  * @property int|null $updated_by
  * @property int|null $deleted_by
@@ -47,7 +46,6 @@ class ManualPunch extends Model
         'punch_date',
         'punch_time',
         'reason',
-        'status',
     ];
 
     protected $table = 'manual_punches';
@@ -62,7 +60,6 @@ class ManualPunch extends Model
         'company_id' => 'array',
         'punch_date' => 'date',
         'punch_time' => 'datetime',
-        'status' => 'int',
         'created_by' => 'int',
         'updated_by' => 'int',
         'deleted_by' => 'int',
@@ -75,7 +72,6 @@ class ManualPunch extends Model
         'punch_date',
         'punch_time',
         'reason',
-        'status',
         'created_by',
         'updated_by',
         'deleted_by',

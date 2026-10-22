@@ -56,14 +56,6 @@
                     value="{{ old('punch_time', $punch?->punch_time?->format('H:i:s') ?? now()->format('H:i:s')) }}">
                 <x-validation-error field="punch_time" />
             </div>
-            <div class="col-md-3 mb-3">
-                <label class="form-label" for="punch_status">Status <span class="text-danger">*</span></label>
-                <select id="punch_status" name="status" class="form-control select2 @error('status') is-invalid @enderror" required>
-                    <option value="1" @selected(old('status', $punch?->status ?? 1) == 1)>Active</option>
-                    <option value="0" @selected(old('status', $punch?->status ?? 1) == 0)>Inactive</option>
-                </select>
-                <x-validation-error field="status" />
-            </div>
             <div class="col-12 mb-3">
                 <label class="form-label" for="manual_punch_reason">Reason</label>
                 <textarea id="manual_punch_reason" name="reason" rows="2" class="form-control @error('reason') is-invalid @enderror">{{ old('reason', $punch?->reason) }}</textarea>

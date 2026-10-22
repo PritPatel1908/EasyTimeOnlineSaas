@@ -25,11 +25,6 @@
             <div class="card-body"><div class="row">
                 <div class="col-md-6 mb-3"><small class="text-muted d-block">Employees</small><span>{{ $punch->Users->map(fn ($user) => $user->name . ($user->code ? ' ('.$user->code.')' : ''))->join(', ') ?: '—' }}</span></div>
                 <div class="col-md-3 mb-3"><small class="text-muted d-block">Punch Type</small><span>{{ \App\Models\Tenant\ManualPunch::punchTypeLabel($punch->punch_type) }}</span></div>
-                <div class="col-md-3 mb-3"><small class="text-muted d-block">Status</small>
-                    <span class="badge {{ (int) $punch->status === 1 ? 'badge-success' : 'badge-danger' }} d-inline-flex align-items-center badge-xs">
-                        <i class="ti ti-point-filled me-1"></i>{{ (int) $punch->status === 1 ? 'Active' : 'Inactive' }}
-                    </span>
-                </div>
                 <div class="col-md-3 mb-3"><small class="text-muted d-block">Punch Date</small><span>{{ $punch->punch_date?->format('Y-m-d') ?? '—' }}</span></div>
                 <div class="col-md-3 mb-3"><small class="text-muted d-block">Punch Time</small><span>{{ $punch->punch_time?->format('H:i:s') ?? '—' }}</span></div>
                 <div class="col-md-6 mb-3"><small class="text-muted d-block">Reason</small><span>{{ $punch->reason ?: '—' }}</span></div>

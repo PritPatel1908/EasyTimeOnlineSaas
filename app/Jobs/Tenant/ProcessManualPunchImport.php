@@ -159,7 +159,6 @@ class ProcessManualPunchImport implements ShouldQueue
         $companyIds = $this->resolveIds(Company::class, $this->splitValues($row['company'] ?? ''), 'company', $errors);
         $punchDate = trim((string) ($row['punch_date'] ?? ''));
         $punchTime = $this->normalizeTime(trim((string) ($row['punch_time'] ?? '')));
-        $status = $this->normalizeStatus(trim((string) ($row['status'] ?? '')));
 
         $validator = Validator::make([
             'punch_type' => trim((string) ($row['punch_type'] ?? '')),
@@ -173,9 +172,6 @@ class ProcessManualPunchImport implements ShouldQueue
             'reason' => ['nullable', 'string', 'max:255'],
         ]);
         $errors = array_merge($errors, $validator->errors()->all());
-        if ($status === null) {
-            $errors[] = 'status must be Active, Inactive, 1, or 0';
-        }
 
         return [[
             'location_id' => $locationIds,
@@ -184,7 +180,6 @@ class ProcessManualPunchImport implements ShouldQueue
             'punch_date' => $punchDate,
             'punch_time' => $punchTime,
             'reason' => ($row['reason'] ?? '') !== '' ? $row['reason'] : null,
-            'status' => $status ?? 1,
         ], $userIds, $errors];
     }
 
@@ -258,16 +253,4 @@ class ProcessManualPunchImport implements ShouldQueue
         return $value;
     }
 
-    private function normalizeStatus(string $value): ?int
-    {
-        if ($value === '') {
-            return 1;
-        }
-
-        return match (strtolower($value)) {
-            'active', '1' => 1,
-            'inactive', '0' => 0,
-            default => null,
-        };
-    }
 }

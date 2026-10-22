@@ -180,8 +180,6 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middleware('tenant.permission:ManualPunch,export')->name('manual-punches.download-export');
                     Route::post('manual-punches/import', [ManualPunchController::class, 'import'])
                         ->middleware('tenant.permission:ManualPunch,import')->name('manual-punches.import');
-                    Route::post('manual-punches/filter', [ManualPunchController::class, 'filterStatus'])
-                        ->middleware('tenant.permission:ManualPunch,read')->name('manual-punches.filter');
                     Route::get('manual-punches/create', [ManualPunchController::class, 'create'])
                         ->middleware('tenant.permission:ManualPunch,create')->name('manual-punches.create');
                     Route::resource('manual-punches', ManualPunchController::class)

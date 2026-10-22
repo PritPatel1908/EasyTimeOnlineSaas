@@ -4,4 +4,4 @@
 4. Add email in all application submit/approve/reject.
 5. Every Reprocess after make a new flow first manage all week off, after holiday, after leave, after all punches.
 6. Every Page Custome Error validatin ui.
-7. Manual Punch Na permision ma import/export disable karva nu
+7. Manual Punch, Manual attendance Na permision ma import/export disable karva nu

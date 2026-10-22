@@ -43,7 +43,6 @@ class StoreManualPunchRequest extends FormRequest
             'punch_date' => ['required', 'date'],
             'punch_time' => ['required', 'date_format:H:i,H:i:s'],
             'reason' => ['nullable', 'string', 'max:255'],
-            'status' => ['required', 'in:0,1'],
         ];
     }
 }

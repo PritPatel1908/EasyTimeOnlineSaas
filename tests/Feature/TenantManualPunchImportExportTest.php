@@ -35,7 +35,6 @@ class TenantManualPunchImportExportTest extends TestCase
             'punch_date',
             'punch_time',
             'reason',
-            'status',
         ], ManualPunch::IMPORT_EXPORT_COLUMNS);
     }
 
@@ -68,6 +67,7 @@ class TenantManualPunchImportExportTest extends TestCase
         $this->assertSame(['required', 'array', 'min:1'], $updateRequest->rules()['users']);
         $this->assertSame(['nullable', 'array'], $request->rules()['employee_filters.department_id']);
         $this->assertSame(['integer', 'distinct', 'exists:departments,id'], $request->rules()['employee_filters.department_id.*']);
+        $this->assertArrayNotHasKey('status', $request->rules());
     }
 
     public function test_edit_form_disables_organization_fields_and_preserves_existing_selections(): void
@@ -78,14 +78,13 @@ class TenantManualPunchImportExportTest extends TestCase
             'punch_type' => '1',
             'punch_date' => '2026-10-21',
             'punch_time' => '12:20:46',
-            'status' => 1,
             'reason' => 'Test',
             'company_id' => '[2]',
             'location_id' => '[3]',
         ]);
-        $punch->setRelation('Users', collect([
-            new User(['id' => 7, 'name' => 'Test Employee', 'code' => 'EMP007']),
-        ]));
+        $employee = new User();
+        $employee->setRawAttributes(['id' => 7, 'name' => 'Test Employee', 'code' => 'EMP007']);
+        $punch->setRelation('Users', collect([$employee]));
 
         $html = view('time-management.manual-punches.partials.form-fields', [
             'punch' => $punch,
@@ -108,6 +107,7 @@ class TenantManualPunchImportExportTest extends TestCase
         $this->assertStringContainsString('name="company_ids[]" value="2"', $html);
         $this->assertStringContainsString('name="location_ids[]" value="3"', $html);
         $this->assertStringContainsString('name="users[]" value="7"', $html);
+        $this->assertStringNotContainsString('name="status"', $html);
     }
 
     public function test_import_sample_uses_manual_punch_columns(): void
@@ -132,7 +132,7 @@ class TenantManualPunchImportExportTest extends TestCase
         $this->assertNotFalse($filePath);
 
         try {
-            file_put_contents($filePath, "employee_codes,location,company,punch_type,punch_date,punch_time,reason,status\nE001,,,In,2026-10-20,09:15,Correction,Active\n");
+            file_put_contents($filePath, "employee_codes,location,company,punch_type,punch_date,punch_time,reason\nE001,,,In,2026-10-20,09:15,Correction\n");
             $job = new ProcessManualPunchImport(1, 'unused');
             $parseCsv = new ReflectionMethod(ProcessManualPunchImport::class, 'parseCsv');
             $rows = $parseCsv->invoke($job, $filePath);
@@ -140,6 +140,7 @@ class TenantManualPunchImportExportTest extends TestCase
 
             $this->assertSame('E001', $rows[2]['employee_codes']);
             $this->assertSame('09:15:00', $normalizeTime->invoke($job, $rows[2]['punch_time']));
+            $this->assertArrayNotHasKey('status', $rows[2]);
         } finally {
             unlink($filePath);
         }
@@ -169,7 +170,7 @@ class TenantManualPunchImportExportTest extends TestCase
         $this->mockTenantUser(17);
         $file = UploadedFile::fake()->createWithContent(
             'manual_punches_import_sample.csv',
-            implode(',', ManualPunch::IMPORT_EXPORT_COLUMNS) . "\nE001,,,In,2026-10-20,09:15,Correction,Active\n",
+            implode(',', ManualPunch::IMPORT_EXPORT_COLUMNS) . "\nE001,,,In,2026-10-20,09:15,Correction\n",
         );
         $request = Request::create(
             '/time-management/manual-punches/import',

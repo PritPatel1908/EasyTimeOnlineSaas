@@ -18,22 +18,26 @@
                 </ol></nav>
             </div>
             <div class="d-flex my-xl-auto right-content align-items-center flex-wrap">
+                {{--
                 @if ($canExport)
                     <div class="mb-2 me-2"><a href="{{ url('time-management/manual-attendances/export') }}" class="btn btn-light d-flex align-items-center"><i class="ti ti-file-export me-2"></i>Export</a></div>
                 @endif
                 @if ($canImport)
                     <div class="mb-2 me-2"><button type="button" class="btn btn-light d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#import_manual_attendance_modal"><i class="ti ti-file-import me-2"></i>Import</button></div>
                 @endif
+                --}}
                 @if ($canCreate)
                     <div class="mb-2"><a href="{{ url('time-management/manual-attendances/create') }}" class="btn btn-primary d-flex align-items-center"><i class="ti ti-circle-plus me-2"></i>Add Manual Attendance</a></div>
                 @endif
             </div>
         </div>
 
+        {{--
         <div id="manual-attendance-status-alert" class="alert alert-dismissible d-none align-items-center" role="alert">
             <i class="ti ti-circle-check me-2 alert-icon"></i><span class="alert-message"></span>
             <button type="button" class="btn-close" aria-label="Close"></button>
         </div>
+        --}}
 
         <div class="card">
             <div class="card-header"><h5>Manual Attendance List</h5></div>
@@ -77,6 +81,7 @@
     </div></div>
 </div>
 
+{{--
 @if ($canImport)
     <div class="modal fade" id="import_manual_attendance_modal">
         <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
@@ -98,9 +103,12 @@
         </div></div>
     </div>
 @endif
+--}}
 
 @push('scripts')
+{{--
 @include('partials.import-poll')
+--}}
 <script>
     document.addEventListener('click', function (event) {
         var button = event.target.closest('.delete-manual-attendance-btn');

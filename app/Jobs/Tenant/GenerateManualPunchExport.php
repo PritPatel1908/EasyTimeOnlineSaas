@@ -63,7 +63,6 @@ class GenerateManualPunchExport implements ShouldQueue
                 $this->formatValue($punch->punch_date, 'Y-m-d'),
                 $this->formatValue($punch->punch_time, 'H:i:s'),
                 $punch->reason ?? '',
-                (int) $punch->status === 1 ? 'Active' : 'Inactive',
             ]);
         }
 
