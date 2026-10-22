@@ -6,6 +6,7 @@ use App\Models\Tenant\FinancialYear;
 use App\Models\Tenant\Holiday;
 use App\Models\Tenant\StatusMaster;
 use App\Models\Tenant\StatusMuster;
+use App\Models\Tenant\User;
 use App\Models\Tenant\WeekOffMuster;
 use Carbon\Carbon;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -14,12 +15,16 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Contracts\Database\ModelIdentifier;
+use UnexpectedValueException;
 
 class UserStatusMuster implements ShouldBeUnique, ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels {
+        SerializesModels::__unserialize as private restoreSerializedProperties;
+    }
 
-    protected $user;
+    protected $userId;
 
     protected $joinDate;
 
@@ -27,11 +32,27 @@ class UserStatusMuster implements ShouldBeUnique, ShouldQueue
     /**
      * Create a new job instance.
      */
-    public function __construct($user, $joinDate)
+    public function __construct(User $user, $joinDate)
     {
-        $this->user = $user;
+        $this->userId = $user->getKey();
         $this->joinDate = $joinDate;
         // $this->action = $action;
+    }
+
+    public function __unserialize(array $values): void
+    {
+        $legacyUserKey = "\0*\0user";
+        if (array_key_exists($legacyUserKey, $values)) {
+            $legacyUser = $values[$legacyUserKey];
+            if (! $legacyUser instanceof ModelIdentifier) {
+                throw new UnexpectedValueException('Invalid serialized user in UserStatusMuster job.');
+            }
+
+            $this->userId = $legacyUser->id;
+            unset($values[$legacyUserKey]);
+        }
+
+        $this->restoreSerializedProperties($values);
     }
 
     /**
@@ -39,6 +60,7 @@ class UserStatusMuster implements ShouldBeUnique, ShouldQueue
      */
     public function handle(): void
     {
+        $user = User::findOrFail($this->userId);
         $joinDate = Carbon::parse($this->joinDate);
         $year = $joinDate->copy()->format('Y');
         $financial_year = FinancialYear::where('is_started', true)->orderBy('id', 'desc')->first();
@@ -52,7 +74,7 @@ class UserStatusMuster implements ShouldBeUnique, ShouldQueue
             StatusMuster::updateOrCreate(
                 [
                     'date' => $joinDate->format('Y-m-d'),
-                    'user_id' => $this->user->id,
+                    'user_id' => $user->id,
                     'is_locked' => false,
                 ],
                 [
@@ -65,7 +87,7 @@ class UserStatusMuster implements ShouldBeUnique, ShouldQueue
         }
         // }
 
-        $week_offs = WeekOffMuster::where('user_id', $this->user->id)->where('is_locked', false)->where('wo_type', 1)->orWhere('wo_type', 2)->orWhere('wo_type', 3)->get();
+        $week_offs = WeekOffMuster::where('user_id', $user->id)->where('is_locked', false)->where('wo_type', 1)->orWhere('wo_type', 2)->orWhere('wo_type', 3)->get();
         if ($week_offs) {
             foreach ($week_offs as $week_off) {
                 if ($week_off->wo_type == 1) {
@@ -73,12 +95,12 @@ class UserStatusMuster implements ShouldBeUnique, ShouldQueue
                         StatusMuster::updateOrCreate(
                             [
                                 'date' => $week_off->date,
-                                'user_id' => $this->user->id,
+                                'user_id' => $user->id,
                                 'is_locked' => false,
                             ],
                             [
                                 'status_master_id' => StatusMaster::where('code', 'WO')->first()->id,
-                                'day_count' => $this->user?->category?->is_week_off_paid ? 1.0 : 0.0,
+                                'day_count' => $user->category?->is_week_off_paid ? 1.0 : 0.0,
                                 'year' => $year,
                             ]
                         );
@@ -88,12 +110,12 @@ class UserStatusMuster implements ShouldBeUnique, ShouldQueue
                         StatusMuster::updateOrCreate(
                             [
                                 'date' => $week_off->date,
-                                'user_id' => $this->user->id,
+                                'user_id' => $user->id,
                                 'is_locked' => false,
                             ],
                             [
                                 'status_master_id' => StatusMaster::where('code', 'WO')->first()->id,
-                                'day_count' => $this->user?->category?->is_week_off_paid ? 1.0 : 0.0,
+                                'day_count' => $user->category?->is_week_off_paid ? 1.0 : 0.0,
                                 'year' => $year,
                             ]
                         );
@@ -103,12 +125,12 @@ class UserStatusMuster implements ShouldBeUnique, ShouldQueue
                         StatusMuster::updateOrCreate(
                             [
                                 'date' => $week_off->date,
-                                'user_id' => $this->user->id,
+                                'user_id' => $user->id,
                                 'is_locked' => false,
                             ],
                             [
                                 'status_master_id' => StatusMaster::where('code', 'WO')->first()->id,
-                                'day_count' => $this->user?->category?->is_week_off_paid ? 1.0 : 0.0,
+                                'day_count' => $user->category?->is_week_off_paid ? 1.0 : 0.0,
                                 'year' => $year,
                             ]
                         );
@@ -120,17 +142,17 @@ class UserStatusMuster implements ShouldBeUnique, ShouldQueue
         $holidays = Holiday::with('locations')->with('categories')->get();
         if ($holidays) {
             foreach ($holidays as $holiday) {
-                if ($holiday->locations->contains($this->user?->location_id) && $holiday->categories->contains($this->user?->category_id)) {
+                if ($holiday->locations->contains($user->location_id) && $holiday->categories->contains($user->category_id)) {
                     if ($holiday->date < $endDate) {
                         StatusMuster::updateOrCreate(
                             [
                                 'date' => $holiday->date,
-                                'user_id' => $this->user->id,
+                                'user_id' => $user->id,
                                 'is_locked' => false,
                             ],
                             [
-                                'status_master_id' => $this->user?->category?->is_holiday_paid ? StatusMaster::where('code', 'PHL')->first()->id : StatusMaster::where('code', 'PH')->first()->id,
-                                'day_count' => $this->user?->category?->is_holiday_paid ? 1.0 : 0.0,
+                                'status_master_id' => $user->category?->is_holiday_paid ? StatusMaster::where('code', 'PHL')->first()->id : StatusMaster::where('code', 'PH')->first()->id,
+                                'day_count' => $user->category?->is_holiday_paid ? 1.0 : 0.0,
                                 'year' => $year,
                             ]
                         );

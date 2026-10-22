@@ -134,9 +134,6 @@ class CreateAllMusters implements ShouldBeUnique, ShouldQueue
                 } else {
                     $shift_change_old_record['shift_rotation'] = $shift_change->shift_rotation?->code;
                 }
-                if ($shift_change->areas()?->count() > 0) {
-                    $shift_change_old_record['areas'] = $shift_change->areas()?->pluck('name')->implode(',');
-                }
                 if ($shift_change->Users()?->count() > 0) {
                     $shift_change_old_record['users'] = $shift_change->Users()?->pluck('code')->implode(',');
                 }
@@ -175,19 +172,6 @@ class CreateAllMusters implements ShouldBeUnique, ShouldQueue
         ActivityLogger::log($authUser, $user, $user_old_record, $user_new_record, 'updated');
 
         $shift_change->Users()->sync($user->id);
-        $shift_change->areas()->sync($user?->areas()->pluck('area_id')->toArray());
-
-        $shift_change->departments()->sync(is_array($user->department_id) ? $user->department_id : [$user->department_id]);
-        $shift_change->sub_departments()->sync(is_array($user->sub_department_id) ? $user->sub_department_id : [$user->sub_department_id]);
-        $shift_change->categories()->sync(is_array($user->category_id) ? $user->category_id : [$user->category_id]);
-        $shift_change->sub_categories()->sync(is_array($user->sub_category_id) ? $user->sub_category_id : [$user->sub_category_id]);
-        $shift_change->designations()->sync(is_array($user->designation_id) ? $user->designation_id : [$user->designation_id]);
-
-        // $shift_change->departments()->sync(Arr::wrap($user->department_id));
-        // $shift_change->sub_departments()->sync(Arr::wrap($user->sub_department_id));
-        // $shift_change->categories()->sync(Arr::wrap($user->category_id));
-        // $shift_change->sub_categories()->sync(Arr::wrap($user->sub_category_id));
-        // $shift_change->designations()->sync(Arr::wrap($user->designation_id));
 
         if ($this->is_created == true) {
             $shift_change_old_record = [];
@@ -216,9 +200,6 @@ class CreateAllMusters implements ShouldBeUnique, ShouldQueue
                 $shift_change_new_record['shifts'] = $shift_change->shifts()?->pluck('name')->implode(',');
             } else {
                 $shift_change_new_record['shift_rotation'] = $shift_change->shift_rotation?->code;
-            }
-            if ($shift_change->areas()?->count() > 0) {
-                $shift_change_new_record['areas'] = $shift_change->areas()?->pluck('name')->implode(',');
             }
             if ($shift_change->Users()?->count() > 0) {
                 $shift_change_new_record['users'] = $shift_change->Users()?->pluck('code')->implode(',');
@@ -249,9 +230,6 @@ class CreateAllMusters implements ShouldBeUnique, ShouldQueue
                 $shift_change_new_record['shifts'] = $shift_change->shifts()?->pluck('name')->implode(',');
             } else {
                 $shift_change_new_record['shift_rotation'] = $shift_change->shift_rotation?->code;
-            }
-            if ($shift_change->areas()?->count() > 0) {
-                $shift_change_new_record['areas'] = $shift_change->areas()?->pluck('name')->implode(',');
             }
             if ($shift_change->Users()?->count() > 0) {
                 $shift_change_new_record['users'] = $shift_change->Users()?->pluck('code')->implode(',');

@@ -134,48 +134,6 @@ class ShiftChange extends Model
         return $this->belongsToMany(Company::class, 'shift_change_company');
     }
 
-    public function departments()
-    {
-        return $this->belongsToMany(Department::class, 'shift_change_department')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
-    public function sub_departments()
-    {
-        return $this->belongsToMany(SubDepartment::class, 'shift_change_sub_department')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
-    public function categories()
-    {
-        return $this->belongsToMany(Category::class, 'shift_change_category')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
-    public function sub_categories()
-    {
-        return $this->belongsToMany(SubCategory::class, 'shift_change_sub_category')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
-    public function designations()
-    {
-        return $this->belongsToMany(Designation::class, 'shift_change_designation')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
-    public function areas()
-    {
-        return $this->belongsToMany(Area::class, 'shift_change_area')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
     public function shift_musters(): MorphMany
     {
         return $this->morphMany(ShiftMuster::class, 'shiftchangeable');

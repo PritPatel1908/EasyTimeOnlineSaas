@@ -96,24 +96,6 @@ class CreateShiftChange implements ShouldBeUnique, ShouldQueue
                 } else {
                     $shift_change_old_record['shift_rotation'] = $shift_change->shift_rotation?->code;
                 }
-                if ($shift_change->departments()?->count() > 0) {
-                    $shift_change_old_record['departments'] = $shift_change->departments()?->pluck('name')->implode(',');
-                }
-                if ($shift_change->sub_departments()?->count() > 0) {
-                    $shift_change_old_record['sub_departments'] = $shift_change->sub_departments()?->pluck('name')->implode(',');
-                }
-                if ($shift_change->categories()?->count() > 0) {
-                    $shift_change_old_record['categories'] = $shift_change->categories()?->pluck('name')->implode(',');
-                }
-                if ($shift_change->sub_categories()?->count() > 0) {
-                    $shift_change_old_record['sub_categories'] = $shift_change->sub_categories()?->pluck('name')->implode(',');
-                }
-                if ($shift_change->designations()?->count() > 0) {
-                    $shift_change_old_record['designations'] = $shift_change->designations()?->pluck('name')->implode(',');
-                }
-                if ($shift_change->areas()?->count() > 0) {
-                    $shift_change_old_record['areas'] = $shift_change->areas()?->pluck('name')->implode(',');
-                }
                 if ($shift_change->Users()?->count() > 0) {
                     $shift_change_old_record['users'] = $shift_change->Users()?->pluck('code')->implode(',');
                 }
@@ -152,12 +134,6 @@ class CreateShiftChange implements ShouldBeUnique, ShouldQueue
         ActivityLogger::log($this->auth_user, $this->user, $user_old_record, $user_new_record, 'updated');
 
         $shift_change->Users()->sync($this->user->id);
-        $shift_change->departments()->sync($this->user?->department_id);
-        $shift_change->sub_departments()->sync($this->user?->sub_department_id);
-        $shift_change->categories()->sync($this->user?->category_id);
-        $shift_change->sub_categories()->sync($this->user?->sub_category_id);
-        $shift_change->designations()->sync($this->user?->designation_id);
-        $shift_change->areas()->sync($this->user?->areas()->pluck('area_id')->toArray());
 
         if ($this->is_created == true) {
             $shift_change_old_record = [];
@@ -181,24 +157,6 @@ class CreateShiftChange implements ShouldBeUnique, ShouldQueue
                 $shift_change_new_record['shifts'] = $shift_change->shifts()?->pluck('name')->implode(',');
             } else {
                 $shift_change_new_record['shift_rotation'] = $shift_change->shift_rotation?->code;
-            }
-            if ($shift_change->departments()?->count() > 0) {
-                $shift_change_new_record['departments'] = $shift_change->departments()?->pluck('name')->implode(',');
-            }
-            if ($shift_change->sub_departments()?->count() > 0) {
-                $shift_change_new_record['sub_departments'] = $shift_change->sub_departments()?->pluck('name')->implode(',');
-            }
-            if ($shift_change->categories()?->count() > 0) {
-                $shift_change_new_record['categories'] = $shift_change->categories()?->pluck('name')->implode(',');
-            }
-            if ($shift_change->sub_categories()?->count() > 0) {
-                $shift_change_new_record['sub_categories'] = $shift_change->sub_categories()?->pluck('name')->implode(',');
-            }
-            if ($shift_change->designations()?->count() > 0) {
-                $shift_change_new_record['designations'] = $shift_change->designations()?->pluck('name')->implode(',');
-            }
-            if ($shift_change->areas()?->count() > 0) {
-                $shift_change_new_record['areas'] = $shift_change->areas()?->pluck('name')->implode(',');
             }
             if ($shift_change->Users()?->count() > 0) {
                 $shift_change_new_record['users'] = $shift_change->Users()?->pluck('code')->implode(',');
@@ -224,24 +182,6 @@ class CreateShiftChange implements ShouldBeUnique, ShouldQueue
                 $shift_change_new_record['shifts'] = $shift_change->shifts()?->pluck('name')->implode(',');
             } else {
                 $shift_change_new_record['shift_rotation'] = $shift_change->shift_rotation?->code;
-            }
-            if ($shift_change->departments()?->count() > 0) {
-                $shift_change_new_record['departments'] = $shift_change->departments()?->pluck('name')->implode(',');
-            }
-            if ($shift_change->sub_departments()?->count() > 0) {
-                $shift_change_new_record['sub_departments'] = $shift_change->sub_departments()?->pluck('name')->implode(',');
-            }
-            if ($shift_change->categories()?->count() > 0) {
-                $shift_change_new_record['categories'] = $shift_change->categories()?->pluck('name')->implode(',');
-            }
-            if ($shift_change->sub_categories()?->count() > 0) {
-                $shift_change_new_record['sub_categories'] = $shift_change->sub_categories()?->pluck('name')->implode(',');
-            }
-            if ($shift_change->designations()?->count() > 0) {
-                $shift_change_new_record['designations'] = $shift_change->designations()?->pluck('name')->implode(',');
-            }
-            if ($shift_change->areas()?->count() > 0) {
-                $shift_change_new_record['areas'] = $shift_change->areas()?->pluck('name')->implode(',');
             }
             if ($shift_change->Users()?->count() > 0) {
                 $shift_change_new_record['users'] = $shift_change->Users()?->pluck('code')->implode(',');
