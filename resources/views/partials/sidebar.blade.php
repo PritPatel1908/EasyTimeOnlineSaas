@@ -24,7 +24,7 @@
 		'time-management/shifts*',
 		'time-management/shift-rotations*'
 	);
-	$manualStructureActive = request()->is('time-management/manual-punches*');
+	$manualStructureActive = request()->is('time-management/manual-punches*', 'time-management/manual-attendances*');
 	$timingRuleStructureActive = request()->is('time-management/late-coming-rules*', 'time-management/early-going-rules*', 'time-management/half-day-rules*', 'time-management/overtime-rules*', 'time-management/absent-rules*');
 	$categoryActive = request()->is('employee-structure/categories*');
 	$approvalFlowsActive = request()->is('employee-structure/approval-flows*');
@@ -37,7 +37,9 @@
 		\App\Support\TenantPermissions::userCan('EarlyGoingRule', 'read') ||
 		\App\Support\TenantPermissions::userCan('HalfDayRule', 'read') ||
 		\App\Support\TenantPermissions::userCan('OvertimeRule', 'read');
-	$canViewManualStructure = \App\Support\TenantPermissions::userCan('ManualPunch', 'read');
+	$canViewManualPunches = \App\Support\TenantPermissions::userCan('ManualPunch', 'read');
+	$canViewManualAttendances = \App\Support\TenantPermissions::userCan('ManualAttendance', 'read');
+	$canViewManualStructure = $canViewManualPunches || $canViewManualAttendances;
 	$canViewCompanyStructure =
 		\App\Support\TenantPermissions::userCan('Company', 'read') ||
 		\App\Support\TenantPermissions::userCan('Location', 'read') ||
@@ -322,8 +324,14 @@
 								<span class="menu-arrow"></span>
 							</a>
 							<ul>
+								@if ($canViewManualPunches)
 								<li><a href="{{ url('time-management/manual-punches') }}"
-									class="{{ $manualStructureActive ? 'active' : '' }}">Manual Punch</a></li>
+									class="{{ request()->is('time-management/manual-punches*') ? 'active' : '' }}">Manual Punch</a></li>
+								@endif
+								@if ($canViewManualAttendances)
+								<li><a href="{{ url('time-management/manual-attendances') }}"
+									class="{{ request()->is('time-management/manual-attendances*') ? 'active' : '' }}">Manual Attendance</a></li>
+								@endif
 							</ul>
 						</li>
 						@endif

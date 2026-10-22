@@ -12,6 +12,7 @@ use App\Http\Controllers\Tenant\CompanyController;
 use App\Http\Controllers\Tenant\ShiftController;
 use App\Http\Controllers\Tenant\ShiftRotationController;
 use App\Http\Controllers\Tenant\ManualPunchController;
+use App\Http\Controllers\Tenant\ManualAttendanceController;
 use App\Http\Controllers\Tenant\LateComingRuleController;
 use App\Http\Controllers\Tenant\EarlyGoingRuleController;
 use App\Http\Controllers\Tenant\HalfDayRuleController;
@@ -193,6 +194,26 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:ManualPunch,write')
                         ->middlewareFor('destroy', 'tenant.permission:ManualPunch,delete')
                         ->names('manual-punches');
+                    Route::get('manual-attendances/export', [ManualAttendanceController::class, 'export'])
+                        ->middleware('tenant.permission:ManualAttendance,export')->name('manual-attendances.export');
+                    Route::get('manual-attendances/import/sample', [ManualAttendanceController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:ManualAttendance,import')->name('manual-attendances.import-sample');
+                    Route::get('manual-attendances/export/download/{file}', [ManualAttendanceController::class, 'downloadExport'])
+                        ->middleware('tenant.permission:ManualAttendance,export')->name('manual-attendances.download-export');
+                    Route::post('manual-attendances/import', [ManualAttendanceController::class, 'import'])
+                        ->middleware('tenant.permission:ManualAttendance,import')->name('manual-attendances.import');
+                    Route::get('manual-attendances/create', [ManualAttendanceController::class, 'create'])
+                        ->middleware('tenant.permission:ManualAttendance,create')->name('manual-attendances.create');
+                    Route::resource('manual-attendances', ManualAttendanceController::class)
+                        ->except(['create'])
+                        ->parameters(['manual-attendances' => 'manual_attendance'])
+                        ->middlewareFor('index', 'tenant.permission:ManualAttendance,read')
+                        ->middlewareFor('show', 'tenant.permission:ManualAttendance,read')
+                        ->middlewareFor('store', 'tenant.permission:ManualAttendance,create')
+                        ->middlewareFor('edit', 'tenant.permission:ManualAttendance,write')
+                        ->middlewareFor('update', 'tenant.permission:ManualAttendance,write')
+                        ->middlewareFor('destroy', 'tenant.permission:ManualAttendance,delete')
+                        ->names('manual-attendances');
                     Route::get('shift-rotations/export', [ShiftRotationController::class, 'export'])
                         ->middleware('tenant.permission:ShiftRotation,export')
                         ->name('shift-rotations.export');

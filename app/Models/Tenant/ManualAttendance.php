@@ -13,6 +13,18 @@ class ManualAttendance extends Model
 {
     use SoftDeletes;
 
+    public const IMPORT_EXPORT_COLUMNS = [
+        'employee_codes',
+        'location',
+        'company',
+        'shift_type',
+        'shift',
+        'shift_rotation',
+        'in_time',
+        'out_time',
+        'reason',
+    ];
+
     protected $table = 'manual_attendances';
 
     protected $casts = [
