@@ -20,6 +20,12 @@ class TenantAuthGuardTest extends TestCase
         $this->assertSame('tenant', (new User)->getDefaultGuardName());
     }
 
+    public function test_sessions_use_the_central_database_connection(): void
+    {
+        $this->assertSame('central', config('session.connection'));
+        $this->assertSame('central', config('tenancy.database.central_connection'));
+    }
+
     public function test_tenant_initialization_runs_after_session_and_before_authentication(): void
     {
         $route = app('router')->getRoutes()->getByName('tenant.dashboard');

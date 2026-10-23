@@ -94,9 +94,9 @@
                             <button type="button" class="btn btn-sm btn-outline-danger remove-week-off-detail"><i class="ti ti-trash me-1"></i>Remove</button>
                         </div>
                         <div class="row">
-                            <div class="col-md-4 mb-3">
+                            <div class="col-md-6 mb-3">
                                 <label class="form-label">Day</label>
-                                <select name="details[{{ $index }}][week_days]" class="form-control @error('details.'.$index.'.week_days') is-invalid @enderror" required>
+                                <select name="details[{{ $index }}][week_days]" class="form-control select2 @error('details.'.$index.'.week_days') is-invalid @enderror" required>
                                     <option value="">Select day</option>
                                     @foreach ($weekDays as $day => $label)
                                         <option value="{{ $day }}" @selected((string) data_get($detail, 'week_days') === (string) $day)>{{ $label }}</option>
@@ -104,9 +104,9 @@
                                 </select>
                                 <x-validation-error field="details.{{ $index }}.week_days" />
                             </div>
-                            <div class="col-md-4 mb-3">
+                            <div class="col-md-6 mb-3">
                                 <label class="form-label">Week-off Type</label>
-                                <select name="details[{{ $index }}][wo_type]" class="form-control @error('details.'.$index.'.wo_type') is-invalid @enderror" required>
+                                <select name="details[{{ $index }}][wo_type]" class="form-control select2 @error('details.'.$index.'.wo_type') is-invalid @enderror" required>
                                     <option value="">Select type</option>
                                     @foreach ($weekOffTypes as $type => $label)
                                         <option value="{{ $type }}" @selected((string) data_get($detail, 'wo_type', 1) === (string) $type)>{{ $label }}</option>
@@ -116,13 +116,13 @@
                             </div>
                             <div class="col-12 mb-2">
                                 <label class="form-label d-block">Applicable Weeks</label>
-                                <div class="d-flex flex-wrap gap-3">
+                                <div class="d-flex flex-wrap justify-content-between gap-3">
                                     @foreach ($weekOffWeekFields as $field => $label)
-                                        <label class="form-check form-check-inline mb-0">
+                                        <div class="form-check form-check-lg form-switch mb-0">
                                             <input type="hidden" name="details[{{ $index }}][{{ $field }}]" value="0">
-                                            <input class="form-check-input" type="checkbox" name="details[{{ $index }}][{{ $field }}]" value="1" @checked((bool) data_get($detail, $field, false))>
-                                            <span class="form-check-label">{{ $label }}</span>
-                                        </label>
+                                            <input class="form-check-input" type="checkbox" role="switch" name="details[{{ $index }}][{{ $field }}]" value="1" @checked((bool) data_get($detail, $field, false))>
+                                            <label class="form-check-label">{{ $label }}</label>
+                                        </div>
                                     @endforeach
                                 </div>
                             </div>
@@ -137,29 +137,29 @@
                     <button type="button" class="btn btn-sm btn-outline-danger remove-week-off-detail"><i class="ti ti-trash me-1"></i>Remove</button>
                 </div>
                 <div class="row">
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-6 mb-3">
                         <label class="form-label">Day</label>
-                        <select name="details[__INDEX__][week_days]" class="form-control" required>
+                        <select name="details[__INDEX__][week_days]" class="form-control select2" required>
                             <option value="">Select day</option>
                             @foreach ($weekDays as $day => $label)<option value="{{ $day }}">{{ $label }}</option>@endforeach
                         </select>
                     </div>
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-6 mb-3">
                         <label class="form-label">Week-off Type</label>
-                        <select name="details[__INDEX__][wo_type]" class="form-control" required>
+                        <select name="details[__INDEX__][wo_type]" class="form-control select2" required>
                             <option value="">Select type</option>
                             @foreach ($weekOffTypes as $type => $label)<option value="{{ $type }}">{{ $label }}</option>@endforeach
                         </select>
                     </div>
                     <div class="col-12 mb-2">
                         <label class="form-label d-block">Applicable Weeks</label>
-                        <div class="d-flex flex-wrap gap-3">
+                        <div class="d-flex flex-wrap justify-content-between gap-3">
                             @foreach ($weekOffWeekFields as $field => $label)
-                                <label class="form-check form-check-inline mb-0">
+                                <div class="form-check form-check-lg form-switch mb-0">
                                     <input type="hidden" name="details[__INDEX__][{{ $field }}]" value="0">
-                                    <input class="form-check-input" type="checkbox" name="details[__INDEX__][{{ $field }}]" value="1">
-                                    <span class="form-check-label">{{ $label }}</span>
-                                </label>
+                                    <input class="form-check-input" type="checkbox" role="switch" name="details[__INDEX__][{{ $field }}]" value="1">
+                                    <label class="form-check-label">{{ $label }}</label>
+                                </div>
                             @endforeach
                         </div>
                     </div>
@@ -263,8 +263,14 @@ document.addEventListener('DOMContentLoaded', function () {
             row.querySelector('.week-off-day-number').textContent = index + 1;
         });
     };
+    const initializeDetailSelects = function (row) {
+        row.querySelectorAll('select.select2').forEach(function (select) {
+            if (!select.tomselect) new TomSelect(select);
+        });
+    };
     document.getElementById('add-week-off-detail').addEventListener('click', function () {
         detailRows.insertAdjacentHTML('beforeend', detailTemplate.innerHTML.replaceAll('__INDEX__', nextDetailIndex++));
+        initializeDetailSelects(detailRows.lastElementChild);
         refreshDetailNumbers();
     });
     detailRows.addEventListener('click', function (event) {

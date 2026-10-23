@@ -17,8 +17,8 @@ return [
     |
     | ARCHITECTURE — Central vs Tenant Queue Isolation:
     |
-    | Both central and tenant jobs use the same queue database by default
-    | (DB_QUEUE_CONNECTION, falling back to DB_CONNECTION). Isolation is achieved through:
+    | Both central and tenant jobs use the central database queue table.
+    | Tenant isolation is achieved through:
     |
     |   1. QUEUE NAMES  — central jobs → 'default' queue name
     |                      tenant jobs  → 'tenant' queue name (+ processing, low)
@@ -67,7 +67,7 @@ return [
         */
         'database' => [
             'driver'       => 'database',
-            'connection'   => env('DB_QUEUE_CONNECTION', env('DB_CONNECTION', 'sqlite')),
+            'connection'   => 'central',
             'table'        => env('DB_QUEUE_TABLE', 'jobs'),
             'queue'        => 'default',
             'retry_after'  => (int) env('DB_QUEUE_RETRY_AFTER', 90),
@@ -92,12 +92,14 @@ return [
         */
         'database_tenant' => [
             'driver'       => 'database',
-            'connection'   => env('DB_QUEUE_CONNECTION', env('DB_CONNECTION', 'sqlite')),
+            'connection'   => 'central',
             'table'        => env('DB_QUEUE_TABLE', 'jobs'),
             'queue'        => 'notifications',
             'retry_after'  => (int) env('DB_QUEUE_RETRY_AFTER', 90),
             'after_commit' => false,
-            // NO 'central' flag → QueueTenancyBootstrapper injects tenant_id
+            // NO 'central' flag → QueueTenancyBootstrapper injects tenant_id.
+            // Keep this on the shared central queue DB so workers can find jobs
+            // before initializing the tenant from the payload.
             // Workloads are separated by queue names: notifications, import, export, activity-log
         ],
 
@@ -155,7 +157,7 @@ return [
     */
 
     'batching' => [
-        'database' => env('DB_QUEUE_CONNECTION', env('DB_CONNECTION', 'sqlite')),
+        'database' => 'central',
         'table'    => 'job_batches',
     ],
 
@@ -167,7 +169,7 @@ return [
 
     'failed' => [
         'driver'   => env('QUEUE_FAILED_DRIVER', 'database-uuids'),
-        'database' => env('DB_QUEUE_CONNECTION', env('DB_CONNECTION', 'sqlite')),
+        'database' => 'central',
         'table'    => 'failed_jobs',
     ],
 

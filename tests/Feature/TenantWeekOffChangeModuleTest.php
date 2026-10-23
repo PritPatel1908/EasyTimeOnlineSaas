@@ -62,6 +62,12 @@ class TenantWeekOffChangeModuleTest extends TestCase
         $this->assertTrue(method_exists($weekOffChange, 'WeekOffChangeDetails'));
     }
 
+    public function test_tenant_queue_uses_the_shared_central_database_connection(): void
+    {
+        $this->assertSame('central', config('queue.connections.database_tenant.connection'));
+        $this->assertArrayNotHasKey('central', config('queue.connections.database_tenant'));
+    }
+
     public function test_edit_form_disables_employee_selection_and_preserves_selected_employees(): void
     {
         view()->share('errors', new ViewErrorBag);
