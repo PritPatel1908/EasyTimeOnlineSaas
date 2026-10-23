@@ -18,39 +18,31 @@
                 </ol></nav>
             </div>
             <div class="d-flex my-xl-auto right-content align-items-center flex-wrap">
-                {{--
                 @if ($canExport)
                     <div class="mb-2 me-2"><a href="{{ url('time-management/manual-attendances/export') }}" class="btn btn-light d-flex align-items-center"><i class="ti ti-file-export me-2"></i>Export</a></div>
                 @endif
                 @if ($canImport)
                     <div class="mb-2 me-2"><button type="button" class="btn btn-light d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#import_manual_attendance_modal"><i class="ti ti-file-import me-2"></i>Import</button></div>
                 @endif
-                --}}
                 @if ($canCreate)
                     <div class="mb-2"><a href="{{ url('time-management/manual-attendances/create') }}" class="btn btn-primary d-flex align-items-center"><i class="ti ti-circle-plus me-2"></i>Add Manual Attendance</a></div>
                 @endif
             </div>
         </div>
 
-        {{--
         <div id="manual-attendance-status-alert" class="alert alert-dismissible d-none align-items-center" role="alert">
             <i class="ti ti-circle-check me-2 alert-icon"></i><span class="alert-message"></span>
             <button type="button" class="btn-close" aria-label="Close"></button>
         </div>
-        --}}
 
         <div class="card">
             <div class="card-header"><h5>Manual Attendance List</h5></div>
             <div class="card-body p-0"><div class="custom-datatable-filter table-responsive">
                 <table class="table datatable">
                     <thead class="thead-light"><tr>
-                        <th></th><th>Employees</th><th>In Time</th><th>Out Time</th><th>Company</th><th>Location</th><th>Reason</th><th></th>
+                        <th></th><th>Employees</th><th>In Time</th><th>Out Time</th><th>Reason</th><th></th>
                     </tr></thead>
-                    <tbody>@include('time-management.manual-attendances.partials.rows', [
-                        'attendances' => $attendances,
-                        'companiesById' => $companiesById,
-                        'locationsById' => $locationsById,
-                    ])</tbody>
+                    <tbody>@include('time-management.manual-attendances.partials.rows', ['attendances' => $attendances])</tbody>
                 </table>
             </div></div>
             @if ($attendances->hasPages())
@@ -80,7 +72,6 @@
     </div></div>
 </div>
 
-{{--
 @if ($canImport)
     <div class="modal fade" id="import_manual_attendance_modal">
         <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
@@ -95,19 +86,18 @@
                         <input id="manual_attendance_import_file" name="file" type="file" class="form-control" accept=".csv,.txt" required>
                         <a href="{{ url('time-management/manual-attendances/import/sample') }}" class="d-inline-flex align-items-center mt-2"><i class="ti ti-download me-1"></i>Download Sample CSV</a>
                     </div>
-                    <small class="text-muted">Use semicolons to separate multiple employee codes. Each attendance record uses one company and location.</small>
+                    <small class="text-muted">Separate multiple employee codes with commas.</small>
                 </div>
                 <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary"><i class="ti ti-file-import me-1"></i>Import</button></div>
             </form>
         </div></div>
     </div>
 @endif
---}}
 
 @push('scripts')
-{{--
+@if ($canImport)
 @include('partials.import-poll')
---}}
+@endif
 <script>
     document.addEventListener('click', function (event) {
         var button = event.target.closest('.delete-manual-attendance-btn');

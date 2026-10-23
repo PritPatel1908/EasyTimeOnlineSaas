@@ -4,13 +4,10 @@ declare(strict_types=1);
 
 namespace App\Jobs\Tenant;
 
-use App\Models\Tenant\Company;
-use App\Models\Tenant\Location;
 use App\Models\Tenant\ManualAttendance;
 use App\Models\Tenant\User;
 use App\Notifications\Tenant\ManualPunchImportExportCompleted;
 use App\Support\CsvImportTemplate;
-use App\Jobs\Tenant\ProcessManualAttendancePunches;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -50,7 +47,11 @@ class ProcessManualAttendanceImport implements ShouldQueue
         Auth::guard('tenant')->setUser($user);
 
         if (! Storage::disk('local')->exists($this->filePath)) {
-            $user->notify(new ManualPunchImportExportCompleted('import', 'The uploaded manual attendance import file could not be found.'));
+            $user->notify(new ManualPunchImportExportCompleted(
+                'import',
+                'The uploaded manual attendance import file could not be found.',
+                url: '/time-management/manual-attendances',
+            ));
 
             return;
         }
@@ -58,7 +59,11 @@ class ProcessManualAttendanceImport implements ShouldQueue
         $rows = $this->parseCsv(Storage::disk('local')->path($this->filePath));
         if ($rows === null) {
             Storage::disk('local')->delete($this->filePath);
-            $user->notify(new ManualPunchImportExportCompleted('import', 'The manual attendance import file is empty, invalid, or missing required columns.'));
+            $user->notify(new ManualPunchImportExportCompleted(
+                'import',
+                'The manual attendance import file is empty, invalid, or missing required columns.',
+                url: '/time-management/manual-attendances',
+            ));
 
             return;
         }
@@ -88,12 +93,7 @@ class ProcessManualAttendanceImport implements ShouldQueue
                 return $attendance->load('Users');
             });
 
-            ApproveUserManualAttendance::dispatch($attendance)
-                ->onConnection('database_tenant')
-                ->onQueue('processing');
-            ProcessManualAttendancePunches::dispatch((int) $attendance->id)
-                ->onConnection('database_tenant')
-                ->onQueue('processing');
+            $this->dispatchPunchProcessing($attendance);
             $created++;
         }
 
@@ -101,7 +101,11 @@ class ProcessManualAttendanceImport implements ShouldQueue
         $message = $errors === []
             ? 'Imported ' . $created . ' manual attendance record(s).'
             : 'Import completed with ' . count($errors) . ' error(s). ' . implode(' | ', array_slice($errors, 0, 5));
-        $user->notify(new ManualPunchImportExportCompleted('import', $message));
+        $user->notify(new ManualPunchImportExportCompleted(
+            'import',
+            $message,
+            url: '/time-management/manual-attendances',
+        ));
     }
 
     /**
@@ -163,8 +167,6 @@ class ProcessManualAttendanceImport implements ShouldQueue
     {
         $errors = [];
         $userIds = $this->resolveEmployeeIds($this->splitValues($row['employee_codes'] ?? ''), $errors);
-        $locationIds = $this->resolveOptionalIds(Location::class, $row['location'] ?? '', 'location', $errors);
-        $companyIds = $this->resolveOptionalIds(Company::class, $row['company'] ?? '', 'company', $errors);
         $values = [
             'in_time' => trim($row['in_time'] ?? ''),
             'out_time' => trim($row['out_time'] ?? ''),
@@ -197,8 +199,6 @@ class ProcessManualAttendanceImport implements ShouldQueue
         }
 
         return [[
-            'location_ids' => $locationIds,
-            'company_ids' => $companyIds,
             'in_time' => $inTime,
             'out_time' => $outTime,
             'reason' => ($row['reason'] ?? '') !== '' ? $row['reason'] : null,
@@ -227,47 +227,6 @@ class ProcessManualAttendanceImport implements ShouldQueue
     }
 
     /**
-     * @param array<int, string> $errors
-     */
-    private function resolveOptionalId(string $model, string $value, string $field, array &$errors): ?int
-    {
-        if ($value === '') {
-            return null;
-        }
-
-        $record = ctype_digit($value) ? $model::query()->find((int) $value) : null;
-        if ($model !== ShiftRotation::class) {
-            $record ??= $model::query()->where('name', $value)->first();
-        }
-        $record ??= $model::query()->where('code', $value)->first();
-
-        if ($record === null) {
-            $errors[] = 'the ' . $field . ' value could not be resolved';
-
-            return null;
-        }
-
-        return (int) $record->id;
-    }
-
-    /**
-     * @param array<int, string> $errors
-     * @return array<int, int>
-     */
-    private function resolveOptionalIds(string $model, string $values, string $field, array &$errors): array
-    {
-        $ids = [];
-        foreach ($this->splitValues($values) as $value) {
-            $id = $this->resolveOptionalId($model, $value, $field, $errors);
-            if ($id !== null) {
-                $ids[] = $id;
-            }
-        }
-
-        return $ids;
-    }
-
-    /**
      * @return array<int, string>
      */
     private function splitValues(string $values): array
@@ -276,5 +235,12 @@ class ProcessManualAttendanceImport implements ShouldQueue
             array_map('trim', preg_split('/[;,]/', $values) ?: []),
             static fn (string $value): bool => $value !== '',
         )));
+    }
+
+    private function dispatchPunchProcessing(ManualAttendance $attendance): void
+    {
+        ProcessManualAttendancePunches::dispatch((int) $attendance->id)
+            ->onConnection('database_tenant')
+            ->onQueue('processing');
     }
 }

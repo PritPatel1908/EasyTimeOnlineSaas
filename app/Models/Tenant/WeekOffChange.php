@@ -42,6 +42,21 @@ class WeekOffChange extends Model
 
     protected $table = 'week_off_changes';
 
+    public const IMPORT_EXPORT_COLUMNS = [
+        'employee_codes',
+        'from_date',
+        'is_forever',
+        'to_date',
+        'reason',
+        'week_days',
+        'wo_types',
+        'first_week',
+        'second_week',
+        'third_week',
+        'fourth_week',
+        'fifth_week',
+    ];
+
     protected $casts = [
         'from_date' => 'datetime',
         'is_forever' => 'bool',

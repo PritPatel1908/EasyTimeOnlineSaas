@@ -12,6 +12,7 @@ use App\Jobs\Tenant\GenerateManualPunchExport;
 use App\Jobs\Tenant\ProcessManualPunchImport;
 use App\Models\Tenant\ManualPunch;
 use App\Models\Tenant\User;
+use App\Notifications\Tenant\ManualPunchImportExportCompleted;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
@@ -154,6 +155,24 @@ class TenantManualPunchImportExportTest extends TestCase
         }
     }
 
+    public function test_import_job_splits_comma_separated_employee_codes(): void
+    {
+        $splitValues = new ReflectionMethod(ProcessManualPunchImport::class, 'splitValues');
+
+        $this->assertSame(['E001', 'E002'], $splitValues->invoke(new ProcessManualPunchImport(1, 'unused'), 'E001, E002'));
+    }
+
+    public function test_manual_punch_import_notification_includes_the_page_path_for_refresh_polling(): void
+    {
+        $notification = new ManualPunchImportExportCompleted(
+            'import',
+            'Import completed.',
+            url: '/time-management/manual-punches',
+        );
+
+        $this->assertSame('/time-management/manual-punches', $notification->toArray(new \stdClass)['url']);
+    }
+
     public function test_export_dispatches_manual_punch_export_job(): void
     {
         Bus::fake();
@@ -200,7 +219,7 @@ class TenantManualPunchImportExportTest extends TestCase
     {
         Storage::fake('local');
         $fileName = 'manual_punches_20261020_123456.csv';
-        Storage::disk('local')->put('manual-punch-exports/' . $fileName, "employee_codes,punch_type\nE001,In\n");
+        Storage::disk('local')->put('manual-punch-exports/' . $fileName, "employee_codes,punch_type\nE001,In Punch\n");
         $controller = app(NotificationController::class);
         $readPreview = new ReflectionMethod(NotificationController::class, 'readExportPreview');
 
@@ -208,7 +227,23 @@ class TenantManualPunchImportExportTest extends TestCase
 
         $this->assertNull($error);
         $this->assertSame(['employee_codes', 'punch_type'], $preview['headers']);
-        $this->assertSame([['E001', 'In']], $preview['rows']);
+        $this->assertSame([['E001', 'In Punch']], $preview['rows']);
+    }
+
+    public function test_manual_punch_export_notification_includes_page_link_for_details_action(): void
+    {
+        $notification = new ManualPunchImportExportCompleted(
+            'export',
+            'Manual punch export is ready.',
+            '/time-management/manual-punches/export/download/manual_punches_20261020_123456.csv',
+            '/time-management/manual-punches',
+        );
+
+        $data = $notification->toArray(new \stdClass());
+
+        $this->assertSame('/time-management/manual-punches', $data['url']);
+        $this->assertSame('export', $data['type']);
+        $this->assertNotEmpty($data['download_url']);
     }
 
     private function mockTenantUser(int $id): void

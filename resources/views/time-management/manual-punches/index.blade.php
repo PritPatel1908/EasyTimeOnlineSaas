@@ -2,6 +2,8 @@
 @section('content')
 @php
     $canCreate = \App\Support\TenantPermissions::userCan('ManualPunch', 'create');
+    $canImport = \App\Support\TenantPermissions::userCan('ManualPunch', 'import');
+    $canExport = \App\Support\TenantPermissions::userCan('ManualPunch', 'export');
 @endphp
 <div class="page-wrapper">
     <div class="content">
@@ -16,14 +18,12 @@
                 </ol></nav>
             </div>
             <div class="d-flex my-xl-auto right-content align-items-center flex-wrap">
-                {{--
                 @if ($canExport)
                     <div class="mb-2 me-2"><a href="{{ url('time-management/manual-punches/export') }}" class="btn btn-light d-flex align-items-center"><i class="ti ti-file-export me-2"></i>Export</a></div>
                 @endif
                 @if ($canImport)
                     <div class="mb-2 me-2"><button type="button" class="btn btn-light d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#import_manual_punch_modal"><i class="ti ti-file-import me-2"></i>Import</button></div>
                 @endif
-                --}}
                 @if ($canCreate)
                     <div class="mb-2"><a href="{{ url('time-management/manual-punches/create') }}" class="btn btn-primary d-flex align-items-center"><i class="ti ti-circle-plus me-2"></i>Add Manual Punch</a></div>
                 @endif
@@ -69,7 +69,6 @@
     </div></div>
 </div>
 
-{{--
 @if ($canImport)
     <div class="modal fade" id="import_manual_punch_modal">
         <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
@@ -84,16 +83,18 @@
                         <input id="manual_punch_import_file" name="file" type="file" class="form-control" accept=".csv,.txt" required>
                         <a href="{{ url('time-management/manual-punches/import/sample') }}" class="d-inline-flex align-items-center mt-2"><i class="ti ti-download me-1"></i>Download Sample CSV</a>
                     </div>
-                    <small class="text-muted">Use semicolons to separate multiple employee, location, or company codes.</small>
+                    <small class="text-muted">Separate multiple employee codes with commas.</small>
                 </div>
                 <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary"><i class="ti ti-file-import me-1"></i>Import</button></div>
             </form>
         </div></div>
     </div>
 @endif
---}}
 
 @push('scripts')
+@if ($canImport)
+@include('partials.import-poll')
+@endif
 <script>
     document.addEventListener('click', function (event) {
         var button = event.target.closest('.delete-manual-punch-btn');

@@ -48,8 +48,6 @@ class ManualAttendanceController extends Controller
                 ->latest('id')
                 ->paginate(15)
                 ->withQueryString(),
-            'locationsById' => Location::query()->get(['id', 'name'])->keyBy('id'),
-            'companiesById' => Company::query()->get(['id', 'name'])->keyBy('id'),
         ]);
     }
 
@@ -167,9 +165,7 @@ class ManualAttendanceController extends Controller
             }
 
             CsvImportTemplate::write($handle, ManualAttendance::IMPORT_EXPORT_COLUMNS, [
-                'employee_codes' => 'Required; employee codes separated by semicolons.',
-                'location' => 'Optional; location names, codes, or IDs separated by semicolons.',
-                'company' => 'Optional; company names, codes, or IDs separated by semicolons.',
+                'employee_codes' => 'Required; employee codes separated by commas.',
                 'in_time' => 'Required; date and time, for example YYYY-MM-DD HH:MM:SS.',
                 'out_time' => 'Required; date and time, for example YYYY-MM-DD HH:MM:SS.',
                 'reason' => 'Optional; text.',

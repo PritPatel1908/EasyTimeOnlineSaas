@@ -16,6 +16,7 @@ class ManualPunchImportExportCompleted extends Notification
         private readonly string $type,
         private readonly string $message,
         private readonly ?string $downloadUrl = null,
+        private readonly ?string $url = null,
     ) {
     }
 
@@ -30,9 +31,13 @@ class ManualPunchImportExportCompleted extends Notification
     public function toArray(object $notifiable): array
     {
         return [
+            'title' => $this->type === 'export'
+                ? 'Manual export completed'
+                : 'Manual import completed',
             'type' => $this->type,
             'message' => $this->message,
             'download_url' => $this->downloadUrl,
+            'url' => $this->url,
         ];
     }
 

@@ -47,7 +47,11 @@ class ProcessManualPunchImport implements ShouldQueue
         Auth::guard('tenant')->setUser($user);
 
         if (! Storage::disk('local')->exists($this->filePath)) {
-            $user->notify(new ManualPunchImportExportCompleted('import', 'The uploaded manual punch import file could not be found.'));
+            $user->notify(new ManualPunchImportExportCompleted(
+                'import',
+                'The uploaded manual punch import file could not be found.',
+                url: '/time-management/manual-punches',
+            ));
 
             return;
         }
@@ -55,7 +59,11 @@ class ProcessManualPunchImport implements ShouldQueue
         $rows = $this->parseCsv(Storage::disk('local')->path($this->filePath));
         if ($rows === null) {
             Storage::disk('local')->delete($this->filePath);
-            $user->notify(new ManualPunchImportExportCompleted('import', 'The manual punch import file is empty, invalid, or missing required columns.'));
+            $user->notify(new ManualPunchImportExportCompleted(
+                'import',
+                'The manual punch import file is empty, invalid, or missing required columns.',
+                url: '/time-management/manual-punches',
+            ));
 
             return;
         }
@@ -90,7 +98,11 @@ class ProcessManualPunchImport implements ShouldQueue
         $message = $errors === []
             ? 'Imported ' . $created . ' manual punch record(s).'
             : 'Import completed with ' . count($errors) . ' error(s). ' . implode(' | ', array_slice($errors, 0, 5));
-        $user->notify(new ManualPunchImportExportCompleted('import', $message));
+        $user->notify(new ManualPunchImportExportCompleted(
+            'import',
+            $message,
+            url: '/time-management/manual-punches',
+        ));
     }
 
     /**

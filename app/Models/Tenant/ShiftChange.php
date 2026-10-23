@@ -49,6 +49,17 @@ class ShiftChange extends Model
 
     protected $table = 'shift_changes';
 
+    public const IMPORT_EXPORT_COLUMNS = [
+        'employee_codes',
+        'shift_type',
+        'shifts',
+        'shift_rotation_code',
+        'from_date',
+        'is_forever',
+        'to_date',
+        'reason',
+    ];
+
     protected $casts = [
         // 'shift_id' => 'int',
         'shift_rotation_id' => 'int',

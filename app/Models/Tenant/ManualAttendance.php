@@ -15,8 +15,6 @@ class ManualAttendance extends Model
 
     public const IMPORT_EXPORT_COLUMNS = [
         'employee_codes',
-        'location',
-        'company',
         'in_time',
         'out_time',
         'reason',

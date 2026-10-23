@@ -214,6 +214,14 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:ManualAttendance,write')
                         ->middlewareFor('destroy', 'tenant.permission:ManualAttendance,delete')
                         ->names('manual-attendances');
+                    Route::get('manual-shift-changes/export', [ManualShiftChangeController::class, 'export'])
+                        ->middleware('tenant.permission:ShiftChange,export')->name('manual-shift-changes.export');
+                    Route::get('manual-shift-changes/export/download/{file}', [ManualShiftChangeController::class, 'downloadExport'])
+                        ->middleware('tenant.permission:ShiftChange,export')->name('manual-shift-changes.download-export');
+                    Route::get('manual-shift-changes/import/sample', [ManualShiftChangeController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:ShiftChange,import')->name('manual-shift-changes.import-sample');
+                    Route::post('manual-shift-changes/import', [ManualShiftChangeController::class, 'import'])
+                        ->middleware('tenant.permission:ShiftChange,import')->name('manual-shift-changes.import');
                     Route::get('manual-shift-changes/create', [ManualShiftChangeController::class, 'create'])
                         ->middleware('tenant.permission:ShiftChange,create')->name('manual-shift-changes.create');
                     Route::resource('manual-shift-changes', ManualShiftChangeController::class)
@@ -226,6 +234,14 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:ShiftChange,write')
                         ->middlewareFor('destroy', 'tenant.permission:ShiftChange,delete')
                         ->names('manual-shift-changes');
+                    Route::get('week-off-changes/export', [WeekOffChangeController::class, 'export'])
+                        ->middleware('tenant.permission:WeekOffChange,export')->name('week-off-changes.export');
+                    Route::get('week-off-changes/export/download/{file}', [WeekOffChangeController::class, 'downloadExport'])
+                        ->middleware('tenant.permission:WeekOffChange,export')->name('week-off-changes.download-export');
+                    Route::get('week-off-changes/import/sample', [WeekOffChangeController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:WeekOffChange,import')->name('week-off-changes.import-sample');
+                    Route::post('week-off-changes/import', [WeekOffChangeController::class, 'import'])
+                        ->middleware('tenant.permission:WeekOffChange,import')->name('week-off-changes.import');
                     Route::get('week-off-changes/create', [WeekOffChangeController::class, 'create'])
                         ->middleware('tenant.permission:WeekOffChange,create')->name('week-off-changes.create');
                     Route::resource('week-off-changes', WeekOffChangeController::class)

@@ -1,6 +1,10 @@
 @extends('layout.mainlayout')
 @section('content')
-@php($canCreate = \App\Support\TenantPermissions::userCan('WeekOffChange', 'create'))
+@php
+    $canCreate = \App\Support\TenantPermissions::userCan('WeekOffChange', 'create');
+    $canImport = \App\Support\TenantPermissions::userCan('WeekOffChange', 'import');
+    $canExport = \App\Support\TenantPermissions::userCan('WeekOffChange', 'export');
+@endphp
 <div class="page-wrapper">
     <div class="content">
         @include('partials.flash-alerts')
@@ -14,9 +18,17 @@
                     <li class="breadcrumb-item active" aria-current="page">Week-off Changes</li>
                 </ol></nav>
             </div>
-            @if ($canCreate)
+            @if ($canCreate || $canImport || $canExport)
                 <div class="d-flex my-xl-auto right-content align-items-center flex-wrap">
+                    @if ($canExport)
+                        <div class="mb-2 me-2"><a href="{{ url('time-management/week-off-changes/export') }}" class="btn btn-light d-flex align-items-center"><i class="ti ti-file-export me-2"></i>Export</a></div>
+                    @endif
+                    @if ($canImport)
+                        <div class="mb-2 me-2"><button type="button" class="btn btn-light d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#import_week_off_change_modal"><i class="ti ti-file-import me-2"></i>Import</button></div>
+                    @endif
+                    @if ($canCreate)
                     <div class="mb-2"><a href="{{ url('time-management/week-off-changes/create') }}" class="btn btn-primary d-flex align-items-center"><i class="ti ti-circle-plus me-2"></i>Add Week-off Change</a></div>
+                    @endif
                 </div>
             @endif
         </div>
@@ -69,6 +81,23 @@
     </div>
     @include('partials.footer')
 </div>
+@if ($canImport)
+    <div class="modal fade" id="import_week_off_change_modal">
+        <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Import Week-off Changes</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+            <form method="POST" action="{{ url('time-management/week-off-changes/import') }}" enctype="multipart/form-data">
+                @csrf
+                <div class="modal-body">
+                    <label for="week_off_change_import_file" class="form-label">CSV File</label>
+                    <input id="week_off_change_import_file" name="file" type="file" class="form-control" accept=".csv,.txt" required>
+                    <a href="{{ url('time-management/week-off-changes/import/sample') }}" class="d-inline-flex align-items-center mt-2"><i class="ti ti-download me-1"></i>Download Sample CSV</a>
+                    <small class="text-muted d-block mt-2">Separate employee codes and each parallel week-off detail list with commas.</small>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary"><i class="ti ti-file-import me-1"></i>Import</button></div>
+            </form>
+        </div></div>
+    </div>
+@endif
 <div class="modal fade" id="delete_week_off_change_modal">
     <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
         <div class="modal-body text-center">

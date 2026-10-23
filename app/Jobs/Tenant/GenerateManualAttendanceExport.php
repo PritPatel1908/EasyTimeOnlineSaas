@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Jobs\Tenant;
 
-use App\Models\Tenant\Company;
-use App\Models\Tenant\Location;
 use App\Models\Tenant\ManualAttendance;
 use App\Models\Tenant\Scopes\DataPolicyFilter;
 use App\Models\Tenant\User;
@@ -50,8 +48,6 @@ class GenerateManualAttendanceExport implements ShouldQueue
             ->orderBy('in_time')
             ->orderBy('id')
             ->get();
-        $locationsById = Location::query()->get(['id', 'name', 'code'])->keyBy('id');
-        $companiesById = Company::query()->get(['id', 'name', 'code'])->keyBy('id');
         $handle = fopen('php://temp', 'w+');
         if ($handle === false) {
             $user->notify(new ManualPunchImportExportCompleted('export', 'Unable to generate the manual attendance export file.'));
@@ -62,9 +58,7 @@ class GenerateManualAttendanceExport implements ShouldQueue
         fputcsv($handle, ManualAttendance::IMPORT_EXPORT_COLUMNS);
         foreach ($attendances as $attendance) {
             fputcsv($handle, [
-                $attendance->Users->pluck('code')->filter()->implode(';'),
-                $this->organizationNames($attendance->location_ids, $locationsById),
-                $this->organizationNames($attendance->company_ids, $companiesById),
+                $attendance->Users->pluck('code')->filter()->implode(','),
                 $this->formatValue($attendance->in_time, 'Y-m-d H:i:s'),
                 $this->formatValue($attendance->out_time, 'Y-m-d H:i:s'),
                 $attendance->reason ?? '',
@@ -88,6 +82,7 @@ class GenerateManualAttendanceExport implements ShouldQueue
             'export',
             'Manual attendance export is ready for download.',
             $downloadUrl,
+            '/time-management/manual-attendances',
         ));
     }
 
@@ -98,25 +93,4 @@ class GenerateManualAttendanceExport implements ShouldQueue
             : ($value === null ? '' : (string) $value);
     }
 
-    private function nameAndCode(mixed $record): string
-    {
-        if ($record === null) {
-            return '';
-        }
-
-        return $record->name . ($record->code ? ' (' . $record->code . ')' : '');
-    }
-
-    /**
-     * @param array<int, int>|null $ids
-     * @param \Illuminate\Support\Collection<int, Company|Location> $recordsById
-     */
-    private function organizationNames(?array $ids, $recordsById): string
-    {
-        return collect($ids ?? [])
-            ->map(fn (int $id) => $recordsById->get($id))
-            ->filter()
-            ->map(fn ($record) => $this->nameAndCode($record))
-            ->implode(';');
-    }
 }

@@ -7,11 +7,13 @@ namespace Tests\Feature;
 use App\Http\Controllers\Tenant\ManualAttendanceController;
 use App\Http\Controllers\Tenant\NotificationController;
 use App\Http\Requests\Tenant\StoreManualAttendanceRequest;
+use App\Jobs\Tenant\ApproveUserManualAttendance;
 use App\Jobs\Tenant\ProcessManualAttendancePunches;
 use App\Jobs\Tenant\GenerateManualAttendanceExport;
 use App\Jobs\Tenant\ProcessManualAttendanceImport;
 use App\Models\Tenant\ManualAttendance;
 use App\Models\Tenant\User;
+use App\Notifications\Tenant\ManualPunchImportExportCompleted;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
@@ -30,12 +32,12 @@ class TenantManualAttendanceModuleTest extends TestCase
     {
         $this->assertSame([
             'employee_codes',
-            'location',
-            'company',
             'in_time',
             'out_time',
             'reason',
         ], ManualAttendance::IMPORT_EXPORT_COLUMNS);
+        $this->assertNotContains('location', ManualAttendance::IMPORT_EXPORT_COLUMNS);
+        $this->assertNotContains('company', ManualAttendance::IMPORT_EXPORT_COLUMNS);
         $this->assertNotContains('status', ManualAttendance::IMPORT_EXPORT_COLUMNS);
     }
 
@@ -115,7 +117,7 @@ class TenantManualAttendanceModuleTest extends TestCase
         $this->assertSame(ManualAttendance::IMPORT_EXPORT_COLUMNS, $rows[0]);
         $this->assertCount(count(ManualAttendance::IMPORT_EXPORT_COLUMNS), $rows[1]);
         $this->assertStringContainsString('employee codes', $rows[1][0]);
-        $this->assertStringContainsString('YYYY-MM-DD HH:MM:SS', $rows[1][3]);
+        $this->assertStringContainsString('YYYY-MM-DD HH:MM:SS', $rows[1][1]);
     }
 
     public function test_import_job_parses_attendance_headers_and_values(): void
@@ -126,7 +128,7 @@ class TenantManualAttendanceModuleTest extends TestCase
         try {
             file_put_contents(
                 $filePath,
-                "employee_codes,location,company,in_time,out_time,reason\nE001,Main,ACME,2026-10-20 09:00:00,2026-10-20 18:00:00,Correction\n",
+                "employee_codes,in_time,out_time,reason\nE001,2026-10-20 09:00:00,2026-10-20 18:00:00,Correction\n",
             );
             $job = new ProcessManualAttendanceImport(1, 'unused');
             $parseCsv = new ReflectionMethod(ProcessManualAttendanceImport::class, 'parseCsv');
@@ -137,6 +139,43 @@ class TenantManualAttendanceModuleTest extends TestCase
         } finally {
             unlink($filePath);
         }
+    }
+
+    public function test_import_job_splits_comma_separated_relation_values(): void
+    {
+        $splitValues = new ReflectionMethod(ProcessManualAttendanceImport::class, 'splitValues');
+
+        $this->assertSame(
+            ['E001', 'E002'],
+            $splitValues->invoke(new ProcessManualAttendanceImport(1, 'unused'), 'E001, E002'),
+        );
+    }
+
+    public function test_attendance_import_ignores_legacy_company_and_location_columns(): void
+    {
+        $resolveRow = new ReflectionMethod(ProcessManualAttendanceImport::class, 'resolveRow');
+        [$payload, , $errors] = $resolveRow->invoke(new ProcessManualAttendanceImport(1, 'unused'), [
+            'employee_codes' => '',
+            'location' => 'unknown-location',
+            'company' => 'unknown-company',
+            'in_time' => '2026-10-20 09:00:00',
+            'out_time' => '2026-10-20 18:00:00',
+        ]);
+
+        $this->assertArrayNotHasKey('location_ids', $payload);
+        $this->assertArrayNotHasKey('company_ids', $payload);
+        $this->assertSame(['employee_codes is required'], $errors);
+    }
+
+    public function test_manual_attendance_import_notification_includes_the_page_path_for_refresh_polling(): void
+    {
+        $notification = new ManualPunchImportExportCompleted(
+            'import',
+            'Import completed.',
+            url: '/time-management/manual-attendances',
+        );
+
+        $this->assertSame('/time-management/manual-attendances', $notification->toArray(new \stdClass)['url']);
     }
 
     public function test_manual_attendance_import_rejects_time_ranges_over_24_hours(): void
@@ -167,6 +206,24 @@ class TenantManualAttendanceModuleTest extends TestCase
                 && $job->connection === 'database_tenant'
                 && $job->queue === 'processing';
         });
+    }
+
+    public function test_manual_attendance_import_dispatches_one_punch_job_without_approval(): void
+    {
+        Bus::fake();
+        $attendance = new ManualAttendance();
+        $attendance->id = 42;
+        $dispatchPunchProcessing = new ReflectionMethod(ProcessManualAttendanceImport::class, 'dispatchPunchProcessing');
+
+        $dispatchPunchProcessing->invoke(new ProcessManualAttendanceImport(17, 'unused'), $attendance);
+
+        Bus::assertDispatchedTimes(ProcessManualAttendancePunches::class, 1);
+        Bus::assertDispatched(ProcessManualAttendancePunches::class, static function (ProcessManualAttendancePunches $job): bool {
+            return $job->manualAttendanceId === 42
+                && $job->connection === 'database_tenant'
+                && $job->queue === 'processing';
+        });
+        Bus::assertNotDispatched(ApproveUserManualAttendance::class);
     }
 
     public function test_export_dispatches_manual_attendance_export_job(): void
@@ -226,6 +283,22 @@ class TenantManualAttendanceModuleTest extends TestCase
         $this->assertNull($error);
         $this->assertSame(['employee_codes', 'in_time'], $preview['headers']);
         $this->assertSame([['E001', '2026-10-20 09:00:00']], $preview['rows']);
+    }
+
+    public function test_manual_attendance_export_notification_includes_page_link_for_details_action(): void
+    {
+        $notification = new ManualPunchImportExportCompleted(
+            'export',
+            'Manual attendance export is ready.',
+            '/time-management/manual-attendances/export/download/manual_attendances_20261020_123456.csv',
+            '/time-management/manual-attendances',
+        );
+
+        $data = $notification->toArray(new \stdClass());
+
+        $this->assertSame('/time-management/manual-attendances', $data['url']);
+        $this->assertSame('export', $data['type']);
+        $this->assertNotEmpty($data['download_url']);
     }
 
     public function test_manual_attendance_form_uses_schema_fields_without_status(): void

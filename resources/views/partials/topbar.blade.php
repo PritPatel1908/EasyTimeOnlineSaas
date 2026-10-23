@@ -1674,6 +1674,7 @@
                                                 </a>
                                                 @if (data_get($notification->data, 'download_url'))
                                                     <a href="{{ data_get($notification->data, 'download_url') }}" class="btn btn-primary btn-sm ms-3 align-self-center">Download</a>
+                                                    <a href="{{ url('/notifications/' . $notification->id) }}" class="btn btn-light btn-sm ms-1 align-self-center">Details</a>
                                                 @endif
                                             </div>
                                         </li>

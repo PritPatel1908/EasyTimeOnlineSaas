@@ -54,8 +54,8 @@ class GenerateManualPunchExport implements ShouldQueue
         fputcsv($handle, ManualPunch::IMPORT_EXPORT_COLUMNS);
         foreach ($punches as $punch) {
             fputcsv($handle, [
-                $punch->Users->pluck('code')->filter()->implode(';'),
-                $punch->punch_type,
+                $punch->Users->pluck('code')->filter()->implode(','),
+                ManualPunch::punchTypeLabel($punch->punch_type),
                 $this->formatValue($punch->punch_date, 'Y-m-d'),
                 $this->formatValue($punch->punch_time, 'H:i:s'),
                 $punch->reason ?? '',
@@ -83,6 +83,7 @@ class GenerateManualPunchExport implements ShouldQueue
             'export',
             'Manual punch export is ready for download.',
             $downloadUrl,
+            '/time-management/manual-punches',
         ));
     }
 

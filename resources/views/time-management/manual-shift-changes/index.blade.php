@@ -1,6 +1,10 @@
 @extends('layout.mainlayout')
 @section('content')
-@php($canCreate = \App\Support\TenantPermissions::userCan('ShiftChange', 'create'))
+@php
+    $canCreate = \App\Support\TenantPermissions::userCan('ShiftChange', 'create');
+    $canImport = \App\Support\TenantPermissions::userCan('ShiftChange', 'import');
+    $canExport = \App\Support\TenantPermissions::userCan('ShiftChange', 'export');
+@endphp
 <div class="page-wrapper">
     <div class="content">
         @include('partials.flash-alerts')
@@ -15,6 +19,12 @@
                 </ol></nav>
             </div>
             <div class="d-flex my-xl-auto right-content align-items-center flex-wrap">
+                @if ($canExport)
+                    <div class="mb-2 me-2"><a href="{{ url('time-management/manual-shift-changes/export') }}" class="btn btn-light d-flex align-items-center"><i class="ti ti-file-export me-2"></i>Export</a></div>
+                @endif
+                @if ($canImport)
+                    <div class="mb-2 me-2"><button type="button" class="btn btn-light d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#import_manual_shift_change_modal"><i class="ti ti-file-import me-2"></i>Import</button></div>
+                @endif
                 @if ($canCreate)
                     <div class="mb-2"><a href="{{ url('time-management/manual-shift-changes/create') }}" class="btn btn-primary d-flex align-items-center"><i class="ti ti-circle-plus me-2"></i>Add Manual Shift Change</a></div>
                 @endif
@@ -59,6 +69,24 @@
         </div>
     </div></div>
 </div>
+
+@if ($canImport)
+    <div class="modal fade" id="import_manual_shift_change_modal">
+        <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Import Manual Shift Changes</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+            <form method="POST" action="{{ url('time-management/manual-shift-changes/import') }}" enctype="multipart/form-data">
+                @csrf
+                <div class="modal-body">
+                    <label for="manual_shift_change_import_file" class="form-label">CSV File</label>
+                    <input id="manual_shift_change_import_file" name="file" type="file" class="form-control" accept=".csv,.txt" required>
+                    <a href="{{ url('time-management/manual-shift-changes/import/sample') }}" class="d-inline-flex align-items-center mt-2"><i class="ti ti-download me-1"></i>Download Sample CSV</a>
+                    <small class="text-muted d-block mt-2">Separate employee and shift codes with commas.</small>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary"><i class="ti ti-file-import me-1"></i>Import</button></div>
+            </form>
+        </div></div>
+    </div>
+@endif
 
 @push('scripts')
 <script>

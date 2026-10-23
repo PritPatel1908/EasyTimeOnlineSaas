@@ -156,9 +156,7 @@ class ManualPunchController extends Controller
             }
 
             CsvImportTemplate::write($handle, ManualPunch::IMPORT_EXPORT_COLUMNS, [
-                'employee_codes' => 'Required; employee codes separated by semicolons.',
-                'location' => 'Optional; location names, codes or IDs separated by semicolons.',
-                'company' => 'Optional; company names, codes or IDs separated by semicolons.',
+                'employee_codes' => 'Required; employee codes separated by commas.',
                 'punch_type' => 'Required; use 1 (In Punch), 2 (Out Punch), 3 (Break Start), or 4 (Break End).',
                 'punch_date' => 'Required; date in YYYY-MM-DD format.',
                 'punch_time' => 'Required; time in HH:MM or HH:MM:SS format.',
