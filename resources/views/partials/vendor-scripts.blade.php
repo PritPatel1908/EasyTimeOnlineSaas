@@ -182,6 +182,15 @@
 @endif
 
 @if (Route::is([
+    'tenant.time-management.week-off-swap-applications.create',
+    'tenant.time-management.week-off-swap-applications.edit',
+    'tenant.myapp_com.tenant.time-management.week-off-swap-applications.create',
+    'tenant.myapp_com.tenant.time-management.week-off-swap-applications.edit',
+]))
+    <script src="{{URL::asset('build/js/custom-tom-select.js')}}"></script>
+@endif
+
+@if (Route::is([
     'tenant.time-management.manual-attendance-applications.create',
     'tenant.time-management.manual-attendance-applications.edit',
     'tenant.myapp_com.tenant.time-management.manual-attendance-applications.create',

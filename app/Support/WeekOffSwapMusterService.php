@@ -8,6 +8,7 @@ use App\Enums\WOTypeEnumn;
 use App\Models\Tenant\User;
 use App\Models\Tenant\WeekOffMuster;
 use App\Models\Tenant\WeekOffSwap;
+use App\Models\Tenant\WeekOffSwapApplication;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -44,7 +45,7 @@ final class WeekOffSwapMusterService
         )->values();
     }
 
-    public static function applySwap(WeekOffSwap $weekOffSwap): void
+    public static function applySwap(WeekOffSwap|WeekOffSwapApplication $weekOffSwap): void
     {
         $weekOffTypes = array_map(
             static fn (WOTypeEnumn $type): int => $type->value,

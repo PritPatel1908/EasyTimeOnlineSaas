@@ -38,6 +38,7 @@ use App\Http\Controllers\Tenant\RolePermissionController;
 use App\Http\Controllers\Tenant\WeekOffChangeController;
 use App\Http\Controllers\Tenant\WeekOffChangeApplicationController;
 use App\Http\Controllers\Tenant\WeekOffSwapController;
+use App\Http\Controllers\Tenant\WeekOffSwapApplicationController;
 use App\Http\Middleware\EnsureActiveDomain;
 use App\Http\Middleware\EnsureValidTenantLicense;
 use Illuminate\Support\Facades\Route;
@@ -361,6 +362,28 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:WeekOffSwap,write')
                         ->middlewareFor('destroy', 'tenant.permission:WeekOffSwap,delete')
                         ->names('week-off-swaps');
+                    Route::get('week-off-swap-applications/export', [WeekOffSwapApplicationController::class, 'export'])
+                        ->middleware('tenant.permission:WeekOffSwapApplication,export')->name('week-off-swap-applications.export');
+                    Route::get('week-off-swap-applications/import/sample', [WeekOffSwapApplicationController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:WeekOffSwapApplication,import')->name('week-off-swap-applications.import-sample');
+                    Route::get('week-off-swap-applications/export/download/{file}', [WeekOffSwapApplicationController::class, 'downloadExport'])
+                        ->middleware('tenant.permission:WeekOffSwapApplication,export')->name('week-off-swap-applications.download-export');
+                    Route::post('week-off-swap-applications/import', [WeekOffSwapApplicationController::class, 'import'])
+                        ->middleware('tenant.permission:WeekOffSwapApplication,import')->name('week-off-swap-applications.import');
+                    Route::post('week-off-swap-applications/check-week-off', [WeekOffSwapApplicationController::class, 'checkWeekOff'])
+                        ->name('week-off-swap-applications.check-week-off');
+                    Route::get('week-off-swap-applications/create', [WeekOffSwapApplicationController::class, 'create'])
+                        ->middleware('tenant.permission:WeekOffSwapApplication,create')->name('week-off-swap-applications.create');
+                    Route::resource('week-off-swap-applications', WeekOffSwapApplicationController::class)
+                        ->except(['create'])
+                        ->parameters(['week-off-swap-applications' => 'week_off_swap_application'])
+                        ->middlewareFor('index', 'tenant.permission:WeekOffSwapApplication,read')
+                        ->middlewareFor('show', 'tenant.permission:WeekOffSwapApplication,read')
+                        ->middlewareFor('store', 'tenant.permission:WeekOffSwapApplication,create')
+                        ->middlewareFor('edit', 'tenant.permission:WeekOffSwapApplication,write')
+                        ->middlewareFor('update', 'tenant.permission:WeekOffSwapApplication,write')
+                        ->middlewareFor('destroy', 'tenant.permission:WeekOffSwapApplication,delete')
+                        ->names('week-off-swap-applications');
                     Route::get('shift-rotations/export', [ShiftRotationController::class, 'export'])
                         ->middleware('tenant.permission:ShiftRotation,export')
                         ->name('shift-rotations.export');

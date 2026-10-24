@@ -85,7 +85,10 @@ class ApprovalApprove
             // ];
             // ActivityLogger::log(auth()->user(), $record, $old_record, $new_record, 'approved');
 
-            CreateWeekOffSwap::dispatch($record)->onQueue('processing');
+            CreateWeekOffSwap::dispatch($record)
+                ->onConnection('database_tenant')
+                ->onQueue('processing')
+                ->afterCommit();
         } elseif (get_class($record) === "App\Models\Tenant\ManualPunchApplication") {
             // $old_record = [];
             // $agent = new Agent();

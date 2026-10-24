@@ -3,6 +3,7 @@
 namespace App\Jobs\Tenant;
 
 use App\Models\Tenant\WeekOffSwap;
+use App\Models\Tenant\WeekOffSwapApplication;
 use App\Support\WeekOffSwapMusterService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -14,7 +15,7 @@ class CreateWeekOffSwap implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public function __construct(protected WeekOffSwap $weekOffSwap)
+    public function __construct(protected WeekOffSwap|WeekOffSwapApplication $weekOffSwap)
     {
     }
 
