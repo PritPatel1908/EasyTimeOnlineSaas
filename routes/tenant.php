@@ -36,6 +36,7 @@ use App\Http\Controllers\Tenant\DashboardController;
 use App\Http\Controllers\Tenant\LicenseController;
 use App\Http\Controllers\Tenant\RolePermissionController;
 use App\Http\Controllers\Tenant\WeekOffChangeController;
+use App\Http\Controllers\Tenant\WeekOffChangeApplicationController;
 use App\Http\Controllers\Tenant\WeekOffSwapController;
 use App\Http\Middleware\EnsureActiveDomain;
 use App\Http\Middleware\EnsureValidTenantLicense;
@@ -318,6 +319,26 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:WeekOffChange,write')
                         ->middlewareFor('destroy', 'tenant.permission:WeekOffChange,delete')
                         ->names('week-off-changes');
+                    Route::get('week-off-change-applications/export', [WeekOffChangeApplicationController::class, 'export'])
+                        ->middleware('tenant.permission:WeekOffChangeApplication,export')->name('week-off-change-applications.export');
+                    Route::get('week-off-change-applications/import/sample', [WeekOffChangeApplicationController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:WeekOffChangeApplication,import')->name('week-off-change-applications.import-sample');
+                    Route::get('week-off-change-applications/export/download/{file}', [WeekOffChangeApplicationController::class, 'downloadExport'])
+                        ->middleware('tenant.permission:WeekOffChangeApplication,export')->name('week-off-change-applications.download-export');
+                    Route::post('week-off-change-applications/import', [WeekOffChangeApplicationController::class, 'import'])
+                        ->middleware('tenant.permission:WeekOffChangeApplication,import')->name('week-off-change-applications.import');
+                    Route::get('week-off-change-applications/create', [WeekOffChangeApplicationController::class, 'create'])
+                        ->middleware('tenant.permission:WeekOffChangeApplication,create')->name('week-off-change-applications.create');
+                    Route::resource('week-off-change-applications', WeekOffChangeApplicationController::class)
+                        ->except(['create'])
+                        ->parameters(['week-off-change-applications' => 'week_off_change_application'])
+                        ->middlewareFor('index', 'tenant.permission:WeekOffChangeApplication,read')
+                        ->middlewareFor('show', 'tenant.permission:WeekOffChangeApplication,read')
+                        ->middlewareFor('store', 'tenant.permission:WeekOffChangeApplication,create')
+                        ->middlewareFor('edit', 'tenant.permission:WeekOffChangeApplication,write')
+                        ->middlewareFor('update', 'tenant.permission:WeekOffChangeApplication,write')
+                        ->middlewareFor('destroy', 'tenant.permission:WeekOffChangeApplication,delete')
+                        ->names('week-off-change-applications');
                     Route::get('week-off-swaps/export', [WeekOffSwapController::class, 'export'])
                         ->middleware('tenant.permission:WeekOffSwap,export')->name('week-off-swaps.export');
                     Route::get('week-off-swaps/export/download/{file}', [WeekOffSwapController::class, 'downloadExport'])

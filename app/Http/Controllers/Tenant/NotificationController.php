@@ -79,6 +79,7 @@ class NotificationController extends Controller
             preg_match('/\Amanual_attendances_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'manual-attendance-exports/'.$fileName,
             preg_match('/\Ashift_change_applications_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'shift-change-application-exports/'.$fileName,
             preg_match('/\Amanual_shift_changes_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'manual-shift-change-exports/'.$fileName,
+            preg_match('/\Aweek_off_change_applications_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'week-off-change-application-exports/'.$fileName,
             preg_match('/\Aweek_off_changes_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'week-off-change-exports/'.$fileName,
             preg_match('/\Aweek_off_swaps_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'week-off-swap-exports/'.$fileName,
             preg_match('/\Ashift_rotations_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'shift-rotation-exports/'.$fileName,

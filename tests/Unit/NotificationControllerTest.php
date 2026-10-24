@@ -92,6 +92,30 @@ class NotificationControllerTest extends TestCase
         );
     }
 
+    public function test_it_reads_preview_for_week_off_change_application_export(): void
+    {
+        Storage::fake('local');
+
+        $fileName = 'week_off_change_applications_20261024_123456.csv';
+        Storage::disk('local')->put(
+            'week-off-change-application-exports/'.$fileName,
+            "employee_codes,from_date,approval_status\nE001,2026-10-24,pending\n",
+        );
+
+        $controller = new NotificationController;
+        $method = new \ReflectionMethod($controller, 'readExportPreview');
+        $method->setAccessible(true);
+
+        [$preview, $error] = $method->invoke(
+            $controller,
+            '/time-management/week-off-change-applications/export/download/'.$fileName,
+        );
+
+        $this->assertNull($error);
+        $this->assertSame(['employee_codes', 'from_date', 'approval_status'], $preview['headers']);
+        $this->assertSame([['E001', '2026-10-24', 'pending']], $preview['rows']);
+    }
+
     public function test_it_reads_preview_for_shift_rotation_export(): void
     {
         Storage::fake('local');
