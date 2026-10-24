@@ -57,6 +57,7 @@ class ManualPunchApplicationController extends Controller
 
         return view('time-management.manual-punch-applications.show', [
             'application' => $application,
+            'employeesByApprovalFlow' => $application->Users->groupBy('manual_punch_approval_flow_id'),
         ]);
     }
 

@@ -19,8 +19,6 @@ return new class extends Migration
             $table->dateTime('in_time');
             $table->dateTime('out_time');
             $table->tinyInteger('status')->default(1);
-            $table->foreignId('location_id')->nullable()->constrained('locations')->onDelete('cascade');
-            $table->foreignId('company_id')->nullable()->constrained('companies')->onDelete('cascade');
             $table->text('reason')->nullable();
             $table->softDeletes();
             $table->foreignId('created_by')->nullable()->constrained('users', 'id');

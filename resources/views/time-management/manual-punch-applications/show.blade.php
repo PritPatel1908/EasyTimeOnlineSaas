@@ -39,6 +39,10 @@
                 @forelse ($application->approval_statuses as $approvalStatus)
                     <div class="mb-3">
                         <h6>{{ $approvalStatus->approval_flow?->approval_flow_code ?? 'Approval Flow' }} — {{ ucfirst($approvalStatus->approval_status) }}</h6>
+                        @php($employees = $employeesByApprovalFlow->get($approvalStatus->approval_flow_id, collect()))
+                        <div class="small text-muted mb-2">
+                            Employees: {{ $employees->map(fn ($user) => $user->name . ($user->code ? ' ('.$user->code.')' : ''))->join(', ') ?: 'No matching employee' }}
+                        </div>
                         @forelse ($approvalStatus->approval_status_details as $detail)
                             <div class="d-flex justify-content-between border-bottom py-2">
                                 <span>Level {{ $detail->level }}{{ $detail->user?->name ? ' — '.$detail->user->name : '' }}</span>

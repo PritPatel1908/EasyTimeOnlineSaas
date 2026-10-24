@@ -42,8 +42,6 @@ class ManualAttendanceApplication extends Model
         'in_time' => 'datetime',
         'out_time' => 'datetime',
         'status' => 'int',
-        'location_id' => 'int',
-        'company_id' => 'int',
         'created_by' => 'int',
         'updated_by' => 'int',
         'deleted_by' => 'int',
@@ -56,8 +54,6 @@ class ManualAttendanceApplication extends Model
         'shift_id',
         'in_time',
         'out_time',
-        'location_id',
-        'company_id',
         'status',
         'reason',
         'created_by',
@@ -75,16 +71,6 @@ class ManualAttendanceApplication extends Model
         return $this->belongsToMany(User::class, 'manual_attendance_application_users')
             ->withPivot('id')
             ->withTimestamps();
-    }
-
-    public function location()
-    {
-        return $this->belongsTo(Location::class);
-    }
-
-    public function company()
-    {
-        return $this->belongsTo(Company::class);
     }
 
     public function shift()

@@ -52,6 +52,59 @@ class TenantManualPunchApplicationModuleTest extends TestCase
         $this->assertNotContains('status', $application->getFillable());
     }
 
+    public function test_show_groups_employees_by_their_manual_punch_approval_flow(): void
+    {
+        $this->createWorkflowTables();
+
+        try {
+            DB::table('approval_flows')->insert([
+                ['id' => 10, 'approval_flow_code' => 'first-flow', 'status' => 1],
+                ['id' => 11, 'approval_flow_code' => 'second-flow', 'status' => 1],
+            ]);
+            DB::table('users')->insert([
+                ['id' => 101, 'name' => 'Employee One', 'code' => 'E001', 'manual_punch_approval_flow_id' => 10],
+                ['id' => 102, 'name' => 'Employee Two', 'code' => 'E002', 'manual_punch_approval_flow_id' => 11],
+            ]);
+            DB::table('manual_punch_applications')->insert([
+                'id' => 1,
+                'punch_type' => '1',
+                'punch_date' => '2026-10-24',
+                'punch_time' => '09:30:00',
+            ]);
+            DB::table('manual_punch_application_users')->insert([
+                ['manual_punch_application_id' => 1, 'user_id' => 101],
+                ['manual_punch_application_id' => 1, 'user_id' => 102],
+            ]);
+            DB::table('approval_statuses')->insert([
+                [
+                    'approvable_id' => 1,
+                    'approvable_type' => ManualPunchApplication::class,
+                    'approval_status' => 'pending',
+                    'approval_flow_id' => 10,
+                ],
+                [
+                    'approvable_id' => 1,
+                    'approvable_type' => ManualPunchApplication::class,
+                    'approval_status' => 'pending',
+                    'approval_flow_id' => 11,
+                ],
+            ]);
+
+            $route = Mockery::mock();
+            $route->shouldReceive('parameter')->with('manual_punch_application', null)->andReturn(1);
+            $request = Request::create('/');
+            $request->setRouteResolver(static fn () => $route);
+
+            $view = app(ManualPunchApplicationController::class)->show($request);
+            $employeesByFlow = $view->getData()['employeesByApprovalFlow'];
+
+            $this->assertSame('Employee One', $employeesByFlow->get(10)->first()->name);
+            $this->assertSame('Employee Two', $employeesByFlow->get(11)->first()->name);
+        } finally {
+            $this->dropWorkflowTables();
+        }
+    }
+
     public function test_create_update_and_list_persist_application_and_employee_pivot_records(): void
     {
         $this->createWorkflowTables();
