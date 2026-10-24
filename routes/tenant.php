@@ -14,6 +14,7 @@ use App\Http\Controllers\Tenant\ShiftRotationController;
 use App\Http\Controllers\Tenant\ManualPunchController;
 use App\Http\Controllers\Tenant\ManualPunchApplicationController;
 use App\Http\Controllers\Tenant\ManualAttendanceController;
+use App\Http\Controllers\Tenant\ManualAttendanceApplicationController;
 use App\Http\Controllers\Tenant\ManualShiftChangeController;
 use App\Http\Controllers\Tenant\LateComingRuleController;
 use App\Http\Controllers\Tenant\EarlyGoingRuleController;
@@ -216,6 +217,26 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:ManualPunchApplication,write')
                         ->middlewareFor('destroy', 'tenant.permission:ManualPunchApplication,delete')
                         ->names('manual-punch-applications');
+                    Route::get('manual-attendance-applications/export', [ManualAttendanceApplicationController::class, 'export'])
+                        ->middleware('tenant.permission:ManualAttendanceApplication,export')->name('manual-attendance-applications.export');
+                    Route::get('manual-attendance-applications/import/sample', [ManualAttendanceApplicationController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:ManualAttendanceApplication,import')->name('manual-attendance-applications.import-sample');
+                    Route::get('manual-attendance-applications/export/download/{file}', [ManualAttendanceApplicationController::class, 'downloadExport'])
+                        ->middleware('tenant.permission:ManualAttendanceApplication,export')->name('manual-attendance-applications.download-export');
+                    Route::post('manual-attendance-applications/import', [ManualAttendanceApplicationController::class, 'import'])
+                        ->middleware('tenant.permission:ManualAttendanceApplication,import')->name('manual-attendance-applications.import');
+                    Route::get('manual-attendance-applications/create', [ManualAttendanceApplicationController::class, 'create'])
+                        ->middleware('tenant.permission:ManualAttendanceApplication,create')->name('manual-attendance-applications.create');
+                    Route::resource('manual-attendance-applications', ManualAttendanceApplicationController::class)
+                        ->except(['create'])
+                        ->parameters(['manual-attendance-applications' => 'manual_attendance_application'])
+                        ->middlewareFor('index', 'tenant.permission:ManualAttendanceApplication,read')
+                        ->middlewareFor('show', 'tenant.permission:ManualAttendanceApplication,read')
+                        ->middlewareFor('store', 'tenant.permission:ManualAttendanceApplication,create')
+                        ->middlewareFor('edit', 'tenant.permission:ManualAttendanceApplication,write')
+                        ->middlewareFor('update', 'tenant.permission:ManualAttendanceApplication,write')
+                        ->middlewareFor('destroy', 'tenant.permission:ManualAttendanceApplication,delete')
+                        ->names('manual-attendance-applications');
                     Route::get('manual-attendances/export', [ManualAttendanceController::class, 'export'])
                         ->middleware('tenant.permission:ManualAttendance,export')->name('manual-attendances.export');
                     Route::get('manual-attendances/import/sample', [ManualAttendanceController::class, 'downloadImportSample'])

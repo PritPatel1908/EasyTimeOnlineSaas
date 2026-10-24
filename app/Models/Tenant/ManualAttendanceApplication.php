@@ -16,9 +16,6 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  *
  * @property int $id
  * @property int $user_id
- * @property int $shift_rotation_id
- * @property int $shift_id
- * @property int $shift_type
  * @property Carbon $in_time
  * @property Carbon $out_time
  * @property string|null $reason
@@ -36,6 +33,14 @@ class ManualAttendanceApplication extends Model
     use CUDby;
     use SoftDeletes;
 
+    public const IMPORT_EXPORT_COLUMNS = [
+        'employee_codes',
+        'in_time',
+        'out_time',
+        'reason',
+        'approval_status',
+    ];
+
     protected $table = 'manual_attendance_applications';
 
     protected $casts = [
@@ -49,9 +54,6 @@ class ManualAttendanceApplication extends Model
 
     protected $fillable = [
         // 'user_id',
-        'shift_rotation_id',
-        'shift_type',
-        'shift_id',
         'in_time',
         'out_time',
         'status',
@@ -73,18 +75,40 @@ class ManualAttendanceApplication extends Model
             ->withTimestamps();
     }
 
-    public function shift()
-    {
-        return $this->belongsTo(Shift::class);
-    }
-
-    public function shift_rotation()
-    {
-        return $this->belongsTo(ShiftRotation::class);
-    }
-
     public function approval_status()
     {
         return $this->morphOne(ApprovalStatus::class, 'approvable');
+    }
+
+    public function approval_statuses()
+    {
+        return $this->morphMany(ApprovalStatus::class, 'approvable');
+    }
+
+    public function overallApprovalStatus(): string
+    {
+        $statuses = $this->relationLoaded('approval_statuses')
+            ? $this->approval_statuses
+            : $this->approval_statuses()->get();
+
+        if ($statuses->isEmpty()) {
+            return 'unknown';
+        }
+
+        if ($statuses->contains('approval_status', 'rejected')) {
+            return 'rejected';
+        }
+
+        if ($statuses->contains(static fn (ApprovalStatus $status): bool => in_array(
+            $status->approval_status,
+            ['draft', 'pending'],
+            true,
+        ))) {
+            return 'pending';
+        }
+
+        return $statuses->every(
+            static fn (ApprovalStatus $status): bool => $status->approval_status === 'approved',
+        ) ? 'approved' : 'unknown';
     }
 }

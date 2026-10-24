@@ -13,9 +13,6 @@ return new class extends Migration
     {
         Schema::create('manual_attendance_applications', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('shift_rotation_id')->nullable()->constrained();
-            $table->string('shift_type')->nullable();
-            $table->foreignId('shift_id')->nullable()->constrained();
             $table->dateTime('in_time');
             $table->dateTime('out_time');
             $table->tinyInteger('status')->default(1);

@@ -25,7 +25,7 @@
 		'time-management/shift-rotations*'
 	);
 	$manualStructureActive = request()->is('time-management/manual-punches*', 'time-management/manual-attendances*', 'time-management/manual-shift-changes*', 'time-management/week-off-changes*', 'time-management/week-off-swaps*');
-	$applicationStructureActive = request()->is('time-management/manual-punch-applications*');
+	$applicationStructureActive = request()->is('time-management/manual-punch-applications*', 'time-management/manual-attendance-applications*');
 	$timingRuleStructureActive = request()->is('time-management/late-coming-rules*', 'time-management/early-going-rules*', 'time-management/half-day-rules*', 'time-management/overtime-rules*', 'time-management/absent-rules*');
 	$categoryActive = request()->is('employee-structure/categories*');
 	$approvalFlowsActive = request()->is('employee-structure/approval-flows*');
@@ -40,11 +40,12 @@
 		\App\Support\TenantPermissions::userCan('OvertimeRule', 'read');
 	$canViewManualPunches = \App\Support\TenantPermissions::userCan('ManualPunch', 'read');
 	$canViewManualPunchApplications = \App\Support\TenantPermissions::userCan('ManualPunchApplication', 'read');
+	$canViewManualAttendanceApplications = \App\Support\TenantPermissions::userCan('ManualAttendanceApplication', 'read');
 	$canViewManualAttendances = \App\Support\TenantPermissions::userCan('ManualAttendance', 'read');
 	$canViewManualShiftChanges = \App\Support\TenantPermissions::userCan('ShiftChange', 'read');
 	$canViewWeekOffChanges = \App\Support\TenantPermissions::userCan('WeekOffChange', 'read');
 	$canViewWeekOffSwaps = \App\Support\TenantPermissions::userCan('WeekOffSwap', 'read');
-	$canViewManualStructure = $canViewManualPunches || $canViewManualPunchApplications || $canViewManualAttendances || $canViewManualShiftChanges || $canViewWeekOffChanges || $canViewWeekOffSwaps;
+	$canViewManualStructure = $canViewManualPunches || $canViewManualPunchApplications || $canViewManualAttendanceApplications || $canViewManualAttendances || $canViewManualShiftChanges || $canViewWeekOffChanges || $canViewWeekOffSwaps;
 	$canViewCompanyStructure =
 		\App\Support\TenantPermissions::userCan('Company', 'read') ||
 		\App\Support\TenantPermissions::userCan('Location', 'read') ||
@@ -363,8 +364,9 @@
 								<li><a href="{{ url('time-management/manual-punch-applications') }}"
 									class="{{ request()->is('time-management/manual-punch-applications*') ? 'active' : '' }}">Manual Punch Application</a></li>
 								@endif
-								@if ($canViewManualAttendances)
-								<li><a href="{{ url('time-management/manual-attendances') }}">Manual Attendance Application</a></li>
+								@if ($canViewManualAttendanceApplications)
+								<li><a href="{{ url('time-management/manual-attendance-applications') }}"
+									class="{{ request()->is('time-management/manual-attendance-applications*') ? 'active' : '' }}">Manual Attendance Application</a></li>
 								@endif
 								@if ($canViewManualShiftChanges)
 								<li><a href="{{ url('time-management/manual-shift-changes') }}">Manual Shift Change Application</a></li>

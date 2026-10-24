@@ -1,5 +1,9 @@
 @php
     $attendance = $attendance ?? null;
+    $lockEmployees = $lockEmployees ?? ($attendance !== null);
+    $filterHelpText = ($isApplication ?? false)
+        ? 'Used to filter employees.'
+        : 'Saved with the attendance and used to filter employees.';
     $dateTimeValue = static function ($value) {
         if ($value instanceof \Carbon\CarbonInterface) {
             return $value->format('Y-m-d\TH:i');
@@ -78,7 +82,7 @@
 
 <div class="card mb-4">
     <div class="card-header"><h5 class="card-title mb-0">Filtration and Employees</h5></div>
-    @if ($attendance !== null)
+    @if ($lockEmployees)
         @foreach ($selectedCompanies as $companyId)
             <input type="hidden" name="company_ids[]" value="{{ $companyId }}">
         @endforeach
@@ -90,30 +94,30 @@
         @endforeach
     @endif
     <div class="card-body">
-        <fieldset class="manual-attendance-organization-fields border-0 p-0 m-0 w-100" @disabled($attendance !== null)>
+        <fieldset class="manual-attendance-organization-fields border-0 p-0 m-0 w-100" @disabled($lockEmployees)>
         <div class="row">
             <div class="col-md-6 mb-3">
                 <label class="form-label" for="manual_attendance_companies">Companies</label>
-                <select id="manual_attendance_companies" name="company_ids[]" class="form-control select2 @error('company_ids') is-invalid @enderror" multiple @disabled($attendance !== null)>
+                <select id="manual_attendance_companies" name="company_ids[]" class="form-control select2 @error('company_ids') is-invalid @enderror" multiple @disabled($lockEmployees)>
                     @foreach ($companies as $company)
                         <option value="{{ $company->id }}" @selected(in_array((string) $company->id, $selectedCompanies, true))>
                             {{ $company->name }}{{ $company->code ? ' ('.$company->code.')' : '' }}
                         </option>
                     @endforeach
                 </select>
-                <small class="form-text text-muted">Saved with the attendance and used to filter employees.</small>
+                <small class="form-text text-muted">{{ $filterHelpText }}</small>
                 <x-validation-error field="company_ids" />
             </div>
             <div class="col-md-6 mb-3">
                 <label class="form-label" for="manual_attendance_locations">Locations</label>
-                <select id="manual_attendance_locations" name="location_ids[]" class="form-control select2 @error('location_ids') is-invalid @enderror" multiple @disabled($attendance !== null)>
+                <select id="manual_attendance_locations" name="location_ids[]" class="form-control select2 @error('location_ids') is-invalid @enderror" multiple @disabled($lockEmployees)>
                     @foreach ($locations as $location)
                         <option value="{{ $location->id }}" @selected(in_array((string) $location->id, $selectedLocations, true))>
                             {{ $location->name }}{{ $location->code ? ' ('.$location->code.')' : '' }}
                         </option>
                     @endforeach
                 </select>
-                <small class="form-text text-muted">Saved with the attendance and used to filter employees.</small>
+                <small class="form-text text-muted">{{ $filterHelpText }}</small>
                 <x-validation-error field="location_ids" />
             </div>
             @foreach ($employeeFilterFields as $field => $filter)
@@ -121,7 +125,7 @@
                 <div class="col-md-3 mb-3">
                     <label class="form-label" for="manual_attendance_employee_filter_{{ $field }}">{{ $filter['label'] }}</label>
                     <select id="manual_attendance_employee_filter_{{ $field }}" name="employee_filters[{{ $field }}][]"
-                        class="form-control select2 manual-attendance-employee-filter" multiple @disabled($attendance !== null)>
+                        class="form-control select2 manual-attendance-employee-filter" multiple @disabled($lockEmployees)>
                         @foreach ($filter['options'] as $option)
                             <option value="{{ $option->id }}" @selected(in_array((string) $option->id, $selectedFilterIds, true))>
                                 {{ $option->name }}
@@ -132,7 +136,7 @@
             @endforeach
             <div class="col-12 mb-3">
                 <label class="form-label" for="manual_attendance_users">Employees</label>
-                <select id="manual_attendance_users" name="users[]" class="form-control select2 @error('users') is-invalid @enderror" multiple @disabled($attendance !== null)>
+                <select id="manual_attendance_users" name="users[]" class="form-control select2 @error('users') is-invalid @enderror" multiple @disabled($lockEmployees)>
                     @foreach ($users as $user)
                         <option value="{{ $user->id }}"
                             data-company-ids="{{ implode(',', $toIds($user->company_id)) }}"
