@@ -350,6 +350,29 @@
 							</ul>
 						</li>
 						@endif
+						<li class="submenu">
+							<a href="javascript:void(0);">
+								<i class="ti ti-layout-grid-add"></i><span>Application Structure</span>
+								<span class="menu-arrow"></span>
+							</a>
+							<ul>
+								@if ($canViewManualPunches)
+								<li><a href="{{ url('time-management/manual-punches') }}">Manual Punch Application</a></li>
+								@endif
+								@if ($canViewManualAttendances)
+								<li><a href="{{ url('time-management/manual-attendances') }}">Manual Attendance Application</a></li>
+								@endif
+								@if ($canViewManualShiftChanges)
+								<li><a href="{{ url('time-management/manual-shift-changes') }}">Manual Shift Change Application</a></li>
+								@endif
+								@if ($canViewWeekOffChanges)
+								<li><a href="{{ url('time-management/week-off-changes') }}">Week-off Change Application</a></li>
+								@endif
+								@if ($canViewWeekOffSwaps)
+								<li><a href="{{ url('time-management/week-off-swaps') }}">Week-off Swap Application</a></li>
+								@endif
+							</ul>
+						</li>
 					</ul>
 				</li>
 				@endif
