@@ -87,48 +87,6 @@ class WeekOffSwap extends Model
         return $this->belongsTo(Company::class);
     }
 
-    public function departments()
-    {
-        return $this->belongsToMany(Department::class, 'week_off_swap_department')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
-    public function sub_departments()
-    {
-        return $this->belongsToMany(SubDepartment::class, 'week_off_swap_sub_department')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
-    public function categories()
-    {
-        return $this->belongsToMany(Category::class, 'week_off_swap_category')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
-    public function sub_categories()
-    {
-        return $this->belongsToMany(SubCategory::class, 'week_off_swap_sub_category')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
-    public function designations()
-    {
-        return $this->belongsToMany(Designation::class, 'week_off_swap_designation')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
-    public function areas()
-    {
-        return $this->belongsToMany(Area::class, 'week_off_swap_area')
-            ->withPivot('id')
-            ->withTimestamps();
-    }
-
     public function WeekOffMuster()
     {
         return $this->belongsToMany(WeekOffMuster::class);
