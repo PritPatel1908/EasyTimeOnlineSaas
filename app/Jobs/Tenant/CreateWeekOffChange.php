@@ -106,12 +106,6 @@ class CreateWeekOffChange implements ShouldBeUnique, ShouldQueue
         }
 
         $week_off_change->Users()->sync($this->user->id);
-        $week_off_change->departments()->sync($this->user?->department_id);
-        $week_off_change->sub_departments()->sync($this->user?->sub_department_id);
-        $week_off_change->categories()->sync($this->user?->category_id);
-        $week_off_change->sub_categories()->sync($this->user?->sub_category_id);
-        $week_off_change->designations()->sync($this->user?->designation_id);
-        $week_off_change->areas()->sync($this->user?->areas()->pluck('area_id')->toArray());
 
         $this->user->week_off_change_id = $week_off_change->id;
         $this->user->save();

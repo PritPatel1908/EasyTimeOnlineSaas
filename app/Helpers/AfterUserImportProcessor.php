@@ -450,19 +450,6 @@ class AfterUserImportProcessor
         }
 
         $week_off_change->Users()->sync($user->id);
-        $week_off_change->areas()->sync($user?->areas()->pluck('area_id')->toArray());
-
-        $week_off_change->departments()->sync(array_values(array_filter(Arr::wrap($user->department_id))));
-        $week_off_change->sub_departments()->sync(array_values(array_filter(Arr::wrap($user->sub_department_id))));
-        $week_off_change->categories()->sync(array_values(array_filter(Arr::wrap($user->category_id))));
-        $week_off_change->sub_categories()->sync(array_values(array_filter(Arr::wrap($user->sub_category_id))));
-        $week_off_change->designations()->sync(array_values(array_filter(Arr::wrap($user->designation_id))));
-
-        // $week_off_change->departments()->sync(Arr::wrap($user->department_id));
-        // $week_off_change->sub_departments()->sync(Arr::wrap($user->sub_department_id));
-        // $week_off_change->categories()->sync(Arr::wrap($user->category_id));
-        // $week_off_change->sub_categories()->sync(Arr::wrap($user->sub_category_id));
-        // $week_off_change->designations()->sync(Arr::wrap($user->designation_id));
 
         $user->week_off_change_id = $week_off_change->id;
         $user->save();

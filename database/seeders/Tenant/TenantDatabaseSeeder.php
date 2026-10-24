@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Seeders\Tenant;
 
+use App\Helpers\AfterUserImportProcessor;
 use App\Models\Tenant\AbsentRule;
 use App\Models\Tenant\ApprovalFlow;
 use App\Models\Tenant\BloodGroup;
@@ -287,6 +288,8 @@ class TenantDatabaseSeeder extends Seeder
             'fourth_week' => true,
             'fifth_week' => true,
         ]);
+
+        AfterUserImportProcessor::processAfterImportUsersSynchronously([$employee->code]);
     }
 
     private function logCreatedActivity(Model $model, User $user): void
