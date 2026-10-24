@@ -162,7 +162,8 @@
 						\App\Support\TenantPermissions::userCan('SubDepartment', 'read') ||
 						\App\Support\TenantPermissions::userCan('Unit', 'read') ||
 						\App\Support\TenantPermissions::userCan('Team', 'read') ||
-						\App\Support\TenantPermissions::userCan('CanteenFacility', 'read');
+						\App\Support\TenantPermissions::userCan('CanteenFacility', 'read') ||
+						\App\Support\TenantPermissions::userCan('Area', 'read');
 					$canViewEmployeeStructure = \App\Support\TenantPermissions::userCan('Category', 'read') || \App\Support\TenantPermissions::userCan('LeaveType', 'read') || (\Illuminate\Support\Facades\Auth::guard('tenant')->id() === 1);
 				@endphp
 				@if ($canViewCompanyStructure)
@@ -187,6 +188,8 @@
 								class="{{ Request::is('company-structure/teams*') ? 'active' : '' }}">Team</a></li>@endif
 						@if (\App\Support\TenantPermissions::userCan('CanteenFacility', 'read'))<li><a href="{{url('company-structure/canteen-facilities')}}"
 								class="{{ Request::is('company-structure/canteen-facilities*') ? 'active' : '' }}">Canteen Facility</a></li>@endif
+						@if (\App\Support\TenantPermissions::userCan('Area', 'read'))<li><a href="{{url('company-structure/areas')}}"
+								class="{{ Request::is('company-structure/areas*') ? 'active' : '' }}">Areas</a></li>@endif
 					</ul>
 				</li>
 				@endif

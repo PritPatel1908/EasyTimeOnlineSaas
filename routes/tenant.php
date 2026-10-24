@@ -9,6 +9,7 @@ use App\Http\Controllers\Tenant\ApprovalFlowController;
 use App\Http\Controllers\Tenant\DesignationController;
 use App\Http\Controllers\Tenant\EmployeeController;
 use App\Http\Controllers\Tenant\CompanyController;
+use App\Http\Controllers\Tenant\AreaController;
 use App\Http\Controllers\Tenant\ShiftController;
 use App\Http\Controllers\Tenant\ShiftRotationController;
 use App\Http\Controllers\Tenant\ManualPunchController;
@@ -813,6 +814,27 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:Location,write')
                         ->middlewareFor('destroy', 'tenant.permission:Location,delete')
                         ->names('locations');
+                    Route::get('areas/export', [AreaController::class, 'export'])
+                        ->middleware('tenant.permission:Area,export')->name('areas.export');
+                    Route::get('areas/import/sample', [AreaController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:Area,import')->name('areas.import-sample');
+                    Route::get('areas/export/download/{file}', [AreaController::class, 'downloadExport'])
+                        ->middleware('tenant.permission:Area,export')->name('areas.download-export');
+                    Route::post('areas/import', [AreaController::class, 'import'])
+                        ->middleware('tenant.permission:Area,import')->name('areas.import');
+                    Route::post('areas/filter', [AreaController::class, 'filterStatus'])
+                        ->middleware('tenant.permission:Area,read')->name('areas.filter');
+                    Route::get('areas/create', [AreaController::class, 'create'])
+                        ->middleware('tenant.permission:Area,create')->name('areas.create');
+                    Route::resource('areas', AreaController::class)
+                        ->except(['create'])
+                        ->middlewareFor('index', 'tenant.permission:Area,read')
+                        ->middlewareFor('show', 'tenant.permission:Area,read')
+                        ->middlewareFor('store', 'tenant.permission:Area,create')
+                        ->middlewareFor('edit', 'tenant.permission:Area,write')
+                        ->middlewareFor('update', 'tenant.permission:Area,write')
+                        ->middlewareFor('destroy', 'tenant.permission:Area,delete')
+                        ->names('areas');
                     Route::get('data-policies', function () {
                         return redirect('data-policy');
                     })->name('data-policies.legacy');

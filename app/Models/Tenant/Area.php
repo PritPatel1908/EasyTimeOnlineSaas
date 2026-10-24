@@ -21,8 +21,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $id
  * @property string $code
  * @property string $name
- * @property int $location_id
+ * @property array<int, int>|null $location_id
+ * @property array<int, int>|null $company_id
  * @property int|null $time_limit_in_min
+ * @property int|null $dms_area_id
+ * @property int $status
  * @property int|null $created_by
  * @property int|null $updated_by
  * @property int|null $deleted_by
@@ -31,6 +34,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property Carbon|null $updated_at
  * @property User|null $user
  * @property Location $location
+ * @property Collection|Location[] $locations
+ * @property Collection|Company[] $companies
  * @property Collection|GuestAccess[] $guest_accesses
  * @property Collection|Machine[] $machines
  */
@@ -42,6 +47,16 @@ class Area extends Model
     use SoftDeletes;
 
     protected $table = 'areas';
+
+    public const IMPORT_EXPORT_COLUMNS = [
+        'code',
+        'name',
+        'company',
+        'location',
+        'time_limit_in_min',
+        'dms_area_id',
+        'status',
+    ];
 
     /**
      * The "booted" method of the model.
@@ -58,7 +73,10 @@ class Area extends Model
 
     protected $casts = [
         'location_id' => 'array',
+        'company_id' => 'array',
         'time_limit_in_min' => 'int',
+        'dms_area_id' => 'int',
+        'status' => 'int',
         'created_by' => 'int',
         'updated_by' => 'int',
         'deleted_by' => 'int',
@@ -70,7 +88,48 @@ class Area extends Model
         'dms_area_id',
         'time_limit_in_min',
         'location_id',
+        'company_id',
+        'status',
     ];
+
+    public static function getImportUniqueFields(): array
+    {
+        return ['code'];
+    }
+
+    public function getLocationsAttribute(): Collection
+    {
+        $locationIds = $this->getRawOriginal('location_id');
+
+        if (is_string($locationIds)) {
+            $decodedLocationIds = json_decode($locationIds, true);
+            $locationIds = json_last_error() === JSON_ERROR_NONE ? $decodedLocationIds : [$locationIds];
+        }
+
+        $locationIds = array_values(array_filter(
+            (array) $locationIds,
+            static fn ($locationId): bool => is_int($locationId) || ctype_digit((string) $locationId),
+        ));
+
+        return Location::query()->whereIn('id', $locationIds)->orderBy('name')->get();
+    }
+
+    public function getCompaniesAttribute(): Collection
+    {
+        $companyIds = $this->getRawOriginal('company_id');
+
+        if (is_string($companyIds)) {
+            $decodedCompanyIds = json_decode($companyIds, true);
+            $companyIds = json_last_error() === JSON_ERROR_NONE ? $decodedCompanyIds : [$companyIds];
+        }
+
+        $companyIds = array_values(array_filter(
+            (array) $companyIds,
+            static fn ($companyId): bool => is_int($companyId) || ctype_digit((string) $companyId),
+        ));
+
+        return Company::query()->whereIn('id', $companyIds)->orderBy('name')->get();
+    }
 
     public function location()
     {
