@@ -24,7 +24,7 @@
 		'time-management/shifts*',
 		'time-management/shift-rotations*'
 	);
-	$manualStructureActive = request()->is('time-management/manual-punches*', 'time-management/manual-attendances*', 'time-management/manual-shift-changes*', 'time-management/week-off-changes*');
+	$manualStructureActive = request()->is('time-management/manual-punches*', 'time-management/manual-attendances*', 'time-management/manual-shift-changes*', 'time-management/week-off-changes*', 'time-management/week-off-swaps*');
 	$timingRuleStructureActive = request()->is('time-management/late-coming-rules*', 'time-management/early-going-rules*', 'time-management/half-day-rules*', 'time-management/overtime-rules*', 'time-management/absent-rules*');
 	$categoryActive = request()->is('employee-structure/categories*');
 	$approvalFlowsActive = request()->is('employee-structure/approval-flows*');
@@ -41,7 +41,8 @@
 	$canViewManualAttendances = \App\Support\TenantPermissions::userCan('ManualAttendance', 'read');
 	$canViewManualShiftChanges = \App\Support\TenantPermissions::userCan('ShiftChange', 'read');
 	$canViewWeekOffChanges = \App\Support\TenantPermissions::userCan('WeekOffChange', 'read');
-	$canViewManualStructure = $canViewManualPunches || $canViewManualAttendances || $canViewManualShiftChanges || $canViewWeekOffChanges;
+	$canViewWeekOffSwaps = \App\Support\TenantPermissions::userCan('WeekOffSwap', 'read');
+	$canViewManualStructure = $canViewManualPunches || $canViewManualAttendances || $canViewManualShiftChanges || $canViewWeekOffChanges || $canViewWeekOffSwaps;
 	$canViewCompanyStructure =
 		\App\Support\TenantPermissions::userCan('Company', 'read') ||
 		\App\Support\TenantPermissions::userCan('Location', 'read') ||
@@ -341,6 +342,10 @@
 								@if ($canViewWeekOffChanges)
 								<li><a href="{{ url('time-management/week-off-changes') }}"
 									class="{{ request()->is('time-management/week-off-changes*') ? 'active' : '' }}">Week-off Changes</a></li>
+								@endif
+								@if ($canViewWeekOffSwaps)
+								<li><a href="{{ url('time-management/week-off-swaps') }}"
+									class="{{ request()->is('time-management/week-off-swaps*') ? 'active' : '' }}">Week-off Swaps</a></li>
 								@endif
 							</ul>
 						</li>

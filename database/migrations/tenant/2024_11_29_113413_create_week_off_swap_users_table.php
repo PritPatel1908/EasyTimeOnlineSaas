@@ -24,6 +24,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('week_off_swaps_users');
+        Schema::dropIfExists('week_off_swap_users');
     }
 };

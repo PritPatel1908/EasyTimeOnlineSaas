@@ -18,7 +18,6 @@ return new class extends Migration
             $table->date('swap_date')->nullable();
             $table->foreignId('location_id')->nullable()->constrained('locations')->onDelete('cascade');
             $table->foreignId('company_id')->nullable()->constrained('companies')->onDelete('cascade');
-            $table->tinyInteger('wo_type')->nullable();
             $table->foreignId('created_by')->nullable()->constrained('users', 'id');
             $table->foreignId('updated_by')->nullable()->constrained('users', 'id');
             $table->foreignId('deleted_by')->nullable()->constrained('users', 'id');

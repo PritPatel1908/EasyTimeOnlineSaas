@@ -7,11 +7,14 @@ namespace Tests\Feature;
 use App\Http\Controllers\Tenant\ManualShiftChangeController;
 use App\Http\Controllers\Tenant\NotificationController;
 use App\Http\Controllers\Tenant\WeekOffChangeController;
+use App\Http\Controllers\Tenant\WeekOffSwapController;
 use App\Jobs\Tenant\CreateWeekOffMuster;
 use App\Jobs\Tenant\ProcessWeekOffChangeImport;
+use App\Jobs\Tenant\ProcessWeekOffSwapImport;
 use App\Models\Tenant\ShiftChange;
 use App\Models\Tenant\User;
 use App\Models\Tenant\WeekOffChange;
+use App\Models\Tenant\WeekOffSwap;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
@@ -81,6 +84,48 @@ class TenantManualStructureImportExportTest extends TestCase
         Bus::assertNotDispatched(CreateWeekOffMuster::class);
     }
 
+    public function test_week_off_swap_import_sample_matches_export_columns(): void
+    {
+        $response = app(WeekOffSwapController::class)->downloadImportSample();
+
+        $this->assertInstanceOf(StreamedResponse::class, $response);
+        $rows = $this->readCsvResponse($response);
+
+        $this->assertSame(WeekOffSwap::IMPORT_EXPORT_COLUMNS, $rows[0]);
+        $this->assertCount(count(WeekOffSwap::IMPORT_EXPORT_COLUMNS), $rows[1]);
+        $this->assertStringContainsString('employee codes separated by commas', $rows[1][0]);
+        $this->assertStringContainsString('YYYY-MM-DD', $rows[1][1]);
+        $this->assertStringContainsString('Optional', $rows[1][3]);
+    }
+
+    public function test_week_off_swap_import_dispatches_an_import_job(): void
+    {
+        Bus::fake();
+        Storage::fake('local');
+        $this->mockTenantUser(17);
+        $file = UploadedFile::fake()->createWithContent(
+            'week_off_swaps_import_sample.csv',
+            implode(',', WeekOffSwap::IMPORT_EXPORT_COLUMNS)."\nE001,2026-10-23,2026-10-24,Correction\n",
+        );
+        $request = Request::create(
+            '/time-management/week-off-swaps/import',
+            'POST',
+            [],
+            [],
+            ['file' => $file],
+        );
+
+        $response = app(WeekOffSwapController::class)->import($request);
+
+        $this->assertStringContainsString('Week-off swap import has started', $response->getSession()->get('success', ''));
+        Bus::assertDispatched(ProcessWeekOffSwapImport::class, static function (ProcessWeekOffSwapImport $job): bool {
+            return $job->userId === 17
+                && $job->connection === 'database_tenant'
+                && $job->queue === 'import'
+                && str_contains($job->filePath, 'week-off-swap-imports/');
+        });
+    }
+
     public function test_notification_preview_reads_manual_shift_change_exports(): void
     {
         Storage::fake('local');
@@ -119,6 +164,26 @@ class TenantManualStructureImportExportTest extends TestCase
         $this->assertNull($error);
         $this->assertSame(['employee_codes', 'from_date', 'week_days', 'wo_types', 'first_week'], $preview['headers']);
         $this->assertSame([['E001', '2026-10-23', 'Sunday', 'Full Day', 'Yes']], $preview['rows']);
+    }
+
+    public function test_notification_preview_reads_week_off_swap_exports(): void
+    {
+        Storage::fake('local');
+        $fileName = 'week_off_swaps_20261023_123456.csv';
+        Storage::disk('local')->put(
+            'week-off-swap-exports/'.$fileName,
+            "employee_codes,week_date,swap_date,reason\nE001,2026-10-23,2026-10-24,Correction\n",
+        );
+        $readPreview = new \ReflectionMethod(NotificationController::class, 'readExportPreview');
+
+        [$preview, $error] = $readPreview->invoke(
+            app(NotificationController::class),
+            '/time-management/week-off-swaps/export/download/'.$fileName,
+        );
+
+        $this->assertNull($error);
+        $this->assertSame(['employee_codes', 'week_date', 'swap_date', 'reason'], $preview['headers']);
+        $this->assertSame([['E001', '2026-10-23', '2026-10-24', 'Correction']], $preview['rows']);
     }
 
     /**

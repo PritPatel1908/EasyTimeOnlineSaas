@@ -56,6 +56,12 @@ class DataPolicyFilter implements Scope
                 return;
             }
 
+            if ($table === 'week_off_swaps') {
+                $this->applyWeekOffSwapScope($builder, $model, $data_policy);
+
+                return;
+            }
+
             if ($table === 'canteen_facilities') {
                 if (! $data_policy->all_locations) {
                     $locationIds = $data_policy->locations()->withoutGlobalScopes([DataPolicyFilter::class])->pluck('locations.id');
@@ -311,6 +317,19 @@ class DataPolicyFilter implements Scope
     }
 
     /**
+     * Apply special scope for WeekOffSwap model
+     */
+    private function applyWeekOffSwapScope(Builder $builder, Model $model, $data_policy): void
+    {
+        $builder->where(function (Builder $query) use ($data_policy) {
+            $this->addSelfCreatedRecordAccess($query, 'week_off_swaps', false);
+            $query->orWhereHas('Users', function (Builder $userQuery) use ($data_policy) {
+                $this->applyUserFilters($userQuery, $data_policy);
+            });
+        });
+    }
+
+    /**
      * Apply user filters based on data policy
      */
     private function applyUserFilters(Builder $query, $data_policy): void
@@ -355,7 +374,7 @@ class DataPolicyFilter implements Scope
     private function applySelfScope(Builder $builder, Model $model)
     {
         $table = $model->getTable();
-        if (in_array($table, ['shift_changes', 'week_off_changes'])) {
+        if (in_array($table, ['shift_changes', 'week_off_changes', 'week_off_swaps'])) {
             $builder->where(function (Builder $query) use ($table) {
                 $this->addSelfCreatedRecordAccess($query, $table, false);
                 $query->orWhereHas('Users', function (Builder $userQuery) {

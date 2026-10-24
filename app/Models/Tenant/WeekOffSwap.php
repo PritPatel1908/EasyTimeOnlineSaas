@@ -6,11 +6,12 @@
 
 namespace App\Models\Tenant;
 
-use App\Enums\WOTypeEnumn;
+use App\Models\Tenant\Scopes\DataPolicyFilter;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * Class WeekOffSwap
@@ -35,24 +36,42 @@ class WeekOffSwap extends Model
 
     protected $table = 'week_off_swaps';
 
+    public const IMPORT_EXPORT_COLUMNS = [
+        'employee_codes',
+        'week_date',
+        'swap_date',
+        'reason',
+    ];
+
     protected $casts = [
         'week_date' => 'datetime',
         'swap_date' => 'datetime',
         'created_by' => 'int',
         'updated_by' => 'int',
         'deleted_by' => 'int',
-        'wo_type' => WOTypeEnumn::class,
     ];
 
     protected $fillable = [
         'reason',
         'week_date',
-        'wo_type',
         'swap_date',
         'created_by',
         'updated_by',
         'deleted_by',
     ];
+
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new DataPolicyFilter);
+
+        static::retrieved(function (WeekOffSwap $weekOffSwap): void {
+            if ($weekOffSwap->relationLoaded('Users')) {
+                $weekOffSwap->setRelation('Users', $weekOffSwap->Users->filter(
+                    static fn (User $user): bool => $user->id === Auth::id() || (Auth::user() && Auth::user()->data_policy)
+                ));
+            }
+        });
+    }
 
     public function user()
     {

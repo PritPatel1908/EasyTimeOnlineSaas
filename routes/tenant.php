@@ -33,6 +33,7 @@ use App\Http\Controllers\Tenant\DashboardController;
 use App\Http\Controllers\Tenant\LicenseController;
 use App\Http\Controllers\Tenant\RolePermissionController;
 use App\Http\Controllers\Tenant\WeekOffChangeController;
+use App\Http\Controllers\Tenant\WeekOffSwapController;
 use App\Http\Middleware\EnsureActiveDomain;
 use App\Http\Middleware\EnsureValidTenantLicense;
 use Illuminate\Support\Facades\Route;
@@ -254,6 +255,28 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:WeekOffChange,write')
                         ->middlewareFor('destroy', 'tenant.permission:WeekOffChange,delete')
                         ->names('week-off-changes');
+                    Route::get('week-off-swaps/export', [WeekOffSwapController::class, 'export'])
+                        ->middleware('tenant.permission:WeekOffSwap,export')->name('week-off-swaps.export');
+                    Route::get('week-off-swaps/export/download/{file}', [WeekOffSwapController::class, 'downloadExport'])
+                        ->middleware('tenant.permission:WeekOffSwap,export')->name('week-off-swaps.download-export');
+                    Route::get('week-off-swaps/import/sample', [WeekOffSwapController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:WeekOffSwap,import')->name('week-off-swaps.import-sample');
+                    Route::post('week-off-swaps/import', [WeekOffSwapController::class, 'import'])
+                        ->middleware('tenant.permission:WeekOffSwap,import')->name('week-off-swaps.import');
+                    Route::post('week-off-swaps/check-week-off', [WeekOffSwapController::class, 'checkWeekOff'])
+                        ->name('week-off-swaps.check-week-off');
+                    Route::get('week-off-swaps/create', [WeekOffSwapController::class, 'create'])
+                        ->middleware('tenant.permission:WeekOffSwap,create')->name('week-off-swaps.create');
+                    Route::resource('week-off-swaps', WeekOffSwapController::class)
+                        ->except(['create'])
+                        ->parameters(['week-off-swaps' => 'week_off_swap'])
+                        ->middlewareFor('index', 'tenant.permission:WeekOffSwap,read')
+                        ->middlewareFor('show', 'tenant.permission:WeekOffSwap,read')
+                        ->middlewareFor('store', 'tenant.permission:WeekOffSwap,create')
+                        ->middlewareFor('edit', 'tenant.permission:WeekOffSwap,write')
+                        ->middlewareFor('update', 'tenant.permission:WeekOffSwap,write')
+                        ->middlewareFor('destroy', 'tenant.permission:WeekOffSwap,delete')
+                        ->names('week-off-swaps');
                     Route::get('shift-rotations/export', [ShiftRotationController::class, 'export'])
                         ->middleware('tenant.permission:ShiftRotation,export')
                         ->name('shift-rotations.export');
