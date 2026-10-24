@@ -243,6 +243,18 @@ class TenantManualAttendanceModuleTest extends TestCase
         });
     }
 
+    public function test_export_download_url_falls_back_when_tenant_route_parameter_is_unavailable(): void
+    {
+        $fileName = 'manual_attendances_20261020_123456.csv';
+        $downloadUrl = (new ReflectionMethod(GenerateManualAttendanceExport::class, 'downloadUrl'))
+            ->invoke(new GenerateManualAttendanceExport(17, $fileName));
+
+        $this->assertSame(
+            '/time-management/manual-attendances/export/download/' . rawurlencode($fileName),
+            $downloadUrl,
+        );
+    }
+
     public function test_import_dispatches_manual_attendance_import_job(): void
     {
         Bus::fake();

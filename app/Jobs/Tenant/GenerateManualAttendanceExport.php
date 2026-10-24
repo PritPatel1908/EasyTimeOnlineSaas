@@ -14,6 +14,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Routing\Exceptions\UrlGenerationException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
@@ -76,14 +77,21 @@ class GenerateManualAttendanceExport implements ShouldQueue
             return;
         }
 
-        $downloadUrl = route('tenant.time-management.manual-attendances.download-export', ['file' => $this->fileName]);
-
         $user->notify(new ManualPunchImportExportCompleted(
             'export',
             'Manual attendance export is ready for download.',
-            $downloadUrl,
+            $this->downloadUrl(),
             '/time-management/manual-attendances',
         ));
+    }
+
+    private function downloadUrl(): string
+    {
+        try {
+            return route('tenant.time-management.manual-attendances.download-export', ['file' => $this->fileName]);
+        } catch (UrlGenerationException) {
+            return '/time-management/manual-attendances/export/download/' . rawurlencode($this->fileName);
+        }
     }
 
     private function formatValue(mixed $value, string $format): string

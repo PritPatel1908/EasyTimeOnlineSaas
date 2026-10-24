@@ -9,6 +9,7 @@ use App\Http\Requests\Tenant\StoreWeekOffChangeRequest;
 use App\Models\Tenant\User;
 use App\Models\Tenant\WeekOffChange;
 use App\Models\Tenant\WeekOffChangeDetail;
+use App\Support\WeekOffChangeCsv;
 use Illuminate\Support\ViewErrorBag;
 use Tests\TestCase;
 
@@ -60,6 +61,20 @@ class TenantWeekOffChangeModuleTest extends TestCase
         $this->assertSame(WOTypeEnumn::FullDay, WOTypeEnumn::from(1));
         $this->assertTrue(method_exists($weekOffChange, 'Users'));
         $this->assertTrue(method_exists($weekOffChange, 'WeekOffChangeDetails'));
+    }
+
+    public function test_week_off_csv_uses_readable_values_and_accepts_them_on_import(): void
+    {
+        $this->assertSame('Sunday', WeekOffChangeCsv::formatWeekDay(0));
+        $this->assertSame(0, WeekOffChangeCsv::parseWeekDay('sunday'));
+        $this->assertSame('Full Day', WeekOffChangeCsv::formatWeekOffType(1));
+        $this->assertSame(2, WeekOffChangeCsv::parseWeekOffType('First Half'));
+        $this->assertSame('Yes', WeekOffChangeCsv::formatWeekFlag(true));
+        $this->assertFalse(WeekOffChangeCsv::parseWeekFlag('No'));
+
+        $this->assertSame(0, WeekOffChangeCsv::parseWeekDay('0'));
+        $this->assertSame(3, WeekOffChangeCsv::parseWeekOffType('3'));
+        $this->assertTrue(WeekOffChangeCsv::parseWeekFlag('1'));
     }
 
     public function test_tenant_queue_uses_the_shared_central_database_connection(): void

@@ -7,9 +7,18 @@ namespace Tests\Feature;
 use App\Http\Controllers\Tenant\ManualShiftChangeController;
 use App\Http\Controllers\Tenant\NotificationController;
 use App\Http\Controllers\Tenant\WeekOffChangeController;
+use App\Jobs\Tenant\CreateWeekOffMuster;
+use App\Jobs\Tenant\ProcessWeekOffChangeImport;
 use App\Models\Tenant\ShiftChange;
+use App\Models\Tenant\User;
 use App\Models\Tenant\WeekOffChange;
+use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Contracts\Auth\Guard;
+use Mockery;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Tests\TestCase;
 
@@ -38,7 +47,38 @@ class TenantManualStructureImportExportTest extends TestCase
         $this->assertSame(WeekOffChange::IMPORT_EXPORT_COLUMNS, $rows[0]);
         $this->assertCount(count(WeekOffChange::IMPORT_EXPORT_COLUMNS), $rows[1]);
         $this->assertStringContainsString('employee codes separated by commas', $rows[1][0]);
-        $this->assertStringContainsString('comma-separated', $rows[1][5]);
+        $this->assertStringContainsString('weekday name', $rows[1][5]);
+        $this->assertStringContainsString('Yes/No', $rows[1][7]);
+    }
+
+    public function test_week_off_change_import_dispatches_an_import_job(): void
+    {
+        Bus::fake();
+        Storage::fake('local');
+        $this->mockTenantUser(17);
+        $file = UploadedFile::fake()->createWithContent(
+            'week_off_changes_import_sample.csv',
+            implode(',', WeekOffChange::IMPORT_EXPORT_COLUMNS)
+                . "\nE001,2026-10-23,0,2026-10-24,Correction,0,1,1,0,0,0,0\n",
+        );
+        $request = Request::create(
+            '/time-management/week-off-changes/import',
+            'POST',
+            [],
+            [],
+            ['file' => $file],
+        );
+
+        $response = app(WeekOffChangeController::class)->import($request);
+
+        $this->assertStringContainsString('Week-off change import has started', $response->getSession()->get('success', ''));
+        Bus::assertDispatched(ProcessWeekOffChangeImport::class, static function (ProcessWeekOffChangeImport $job): bool {
+            return $job->userId === 17
+                && $job->connection === 'database_tenant'
+                && $job->queue === 'import'
+                && str_contains($job->filePath, 'week-off-change-imports/');
+        });
+        Bus::assertNotDispatched(CreateWeekOffMuster::class);
     }
 
     public function test_notification_preview_reads_manual_shift_change_exports(): void
@@ -67,7 +107,7 @@ class TenantManualStructureImportExportTest extends TestCase
         $fileName = 'week_off_changes_20261023_123456.csv';
         Storage::disk('local')->put(
             'week-off-change-exports/'.$fileName,
-            "employee_codes,from_date,week_days,wo_types,first_week\nE001,2026-10-23,0,1,1\n",
+            "employee_codes,from_date,week_days,wo_types,first_week\nE001,2026-10-23,Sunday,Full Day,Yes\n",
         );
         $readPreview = new \ReflectionMethod(NotificationController::class, 'readExportPreview');
 
@@ -78,7 +118,7 @@ class TenantManualStructureImportExportTest extends TestCase
 
         $this->assertNull($error);
         $this->assertSame(['employee_codes', 'from_date', 'week_days', 'wo_types', 'first_week'], $preview['headers']);
-        $this->assertSame([['E001', '2026-10-23', '0', '1', '1']], $preview['rows']);
+        $this->assertSame([['E001', '2026-10-23', 'Sunday', 'Full Day', 'Yes']], $preview['rows']);
     }
 
     /**
@@ -91,5 +131,15 @@ class TenantManualStructureImportExportTest extends TestCase
         $contents = ob_get_clean();
 
         return array_map('str_getcsv', explode("\n", trim((string) $contents)));
+    }
+
+    private function mockTenantUser(int $id): void
+    {
+        $user = Mockery::mock(User::class);
+        $user->shouldReceive('getAuthIdentifier')->andReturn($id);
+        $guard = Mockery::mock(Guard::class);
+        $guard->shouldReceive('user')->andReturn($user);
+        $guard->shouldReceive('id')->andReturn($id);
+        Auth::shouldReceive('guard')->with('tenant')->andReturn($guard);
     }
 }

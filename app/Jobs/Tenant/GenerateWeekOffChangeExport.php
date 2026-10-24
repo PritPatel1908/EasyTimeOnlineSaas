@@ -8,6 +8,7 @@ use App\Models\Tenant\Scopes\DataPolicyFilter;
 use App\Models\Tenant\User;
 use App\Models\Tenant\WeekOffChange;
 use App\Notifications\Tenant\ManualPunchImportExportCompleted;
+use App\Support\WeekOffChangeCsv;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -66,13 +67,13 @@ class GenerateWeekOffChangeExport implements ShouldQueue
                 $change->is_forever ? '1' : '0',
                 $change->to_date?->format('Y-m-d') ?? '',
                 $change->reason ?? '',
-                $details->pluck('week_days')->implode(','),
-                $details->map(static fn ($detail): string => (string) ($detail->wo_type?->value ?? $detail->getRawOriginal('wo_type')))->implode(','),
-                $details->pluck('first_week')->map(static fn (bool $value): int => (int) $value)->implode(','),
-                $details->pluck('second_week')->map(static fn (bool $value): int => (int) $value)->implode(','),
-                $details->pluck('third_week')->map(static fn (bool $value): int => (int) $value)->implode(','),
-                $details->pluck('fourth_week')->map(static fn (bool $value): int => (int) $value)->implode(','),
-                $details->pluck('fifth_week')->map(static fn (bool $value): int => (int) $value)->implode(','),
+                $details->map(static fn ($detail): string => WeekOffChangeCsv::formatWeekDay((int) $detail->week_days))->implode(','),
+                $details->map(static fn ($detail): string => WeekOffChangeCsv::formatWeekOffType((int) ($detail->wo_type?->value ?? $detail->getRawOriginal('wo_type'))))->implode(','),
+                $details->pluck('first_week')->map(static fn (bool $value): string => WeekOffChangeCsv::formatWeekFlag($value))->implode(','),
+                $details->pluck('second_week')->map(static fn (bool $value): string => WeekOffChangeCsv::formatWeekFlag($value))->implode(','),
+                $details->pluck('third_week')->map(static fn (bool $value): string => WeekOffChangeCsv::formatWeekFlag($value))->implode(','),
+                $details->pluck('fourth_week')->map(static fn (bool $value): string => WeekOffChangeCsv::formatWeekFlag($value))->implode(','),
+                $details->pluck('fifth_week')->map(static fn (bool $value): string => WeekOffChangeCsv::formatWeekFlag($value))->implode(','),
             ]);
         }
 

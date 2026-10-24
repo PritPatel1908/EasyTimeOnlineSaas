@@ -7,8 +7,9 @@ namespace App\Http\Controllers\Tenant;
 use App\Enums\WOTypeEnumn;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tenant\StoreWeekOffChangeRequest;
-use App\Jobs\Tenant\GenerateWeekOffChangeExport;
 use App\Jobs\Tenant\CreateWeekOffMuster;
+use App\Jobs\Tenant\GenerateWeekOffChangeExport;
+use App\Jobs\Tenant\ProcessWeekOffChangeImport;
 use App\Models\Tenant\BusRoute;
 use App\Models\Tenant\Category;
 use App\Models\Tenant\Company;
@@ -28,7 +29,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Validator;
 use RuntimeException;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -84,13 +84,13 @@ class WeekOffChangeController extends Controller
                 'is_forever' => 'Optional; use 1 for no end date or 0 otherwise.',
                 'to_date' => 'Required unless is_forever is 1; YYYY-MM-DD format.',
                 'reason' => 'Optional; text up to 255 characters.',
-                'week_days' => 'Required; one day number (0 Sunday to 6 Saturday) per detail, comma-separated.',
-                'wo_types' => 'Required; one type (1 FullDay, 2 FirstHalf, 3 SecondHalf) per detail, comma-separated.',
-                'first_week' => 'Required; one 1/0 value per detail, comma-separated.',
-                'second_week' => 'Required; one 1/0 value per detail, comma-separated.',
-                'third_week' => 'Required; one 1/0 value per detail, comma-separated.',
-                'fourth_week' => 'Required; one 1/0 value per detail, comma-separated.',
-                'fifth_week' => 'Required; one 1/0 value per detail, comma-separated.',
+                'week_days' => 'Required; one weekday name or day number (0 Sunday to 6 Saturday) per detail, comma-separated.',
+                'wo_types' => 'Required; one type (Full Day, First Half, Second Half, or 1, 2, 3) per detail, comma-separated.',
+                'first_week' => 'Required; one Yes/No value per detail, comma-separated.',
+                'second_week' => 'Required; one Yes/No value per detail, comma-separated.',
+                'third_week' => 'Required; one Yes/No value per detail, comma-separated.',
+                'fourth_week' => 'Required; one Yes/No value per detail, comma-separated.',
+                'fifth_week' => 'Required; one Yes/No value per detail, comma-separated.',
             ]);
             fclose($handle);
         }, 'week_off_changes_import_sample.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
@@ -103,61 +103,23 @@ class WeekOffChangeController extends Controller
         $request->validate([
             'file' => ['required', 'file', 'mimes:csv,txt', 'max:2048'],
         ]);
-        $path = $request->file('file')->getRealPath();
-        $handle = is_string($path) ? fopen($path, 'r') : false;
-        if ($handle === false) {
-            throw new RuntimeException('Unable to open the uploaded week-off change CSV.');
+        $file = $request->file('file');
+        $storedPath = Storage::disk('local')->putFileAs(
+            'week-off-change-imports',
+            $file,
+            'week_off_change_import_' . now()->format('Ymd_His') . '_' . uniqid() . '.' . $file->getClientOriginalExtension(),
+        );
+        if (! is_string($storedPath)) {
+            throw new RuntimeException('Unable to store the uploaded week-off change CSV.');
         }
 
-        $headers = fgetcsv($handle);
-        if ($headers === false || $headers === []) {
-            fclose($handle);
+        $userId = Auth::guard('tenant')->id();
+        ProcessWeekOffChangeImport::dispatch($userId === null ? null : (int) $userId, $storedPath)
+            ->onConnection('database_tenant')
+            ->onQueue('import');
 
-            return redirect(url(self::INDEX_URL))->with('error', 'The week-off change CSV is empty.');
-        }
-        $headers = array_map(static fn ($header): string => CsvImportTemplate::normalizeHeader((string) $header), $headers);
-        if (array_diff(WeekOffChange::IMPORT_EXPORT_COLUMNS, $headers) !== []) {
-            fclose($handle);
-
-            return redirect(url(self::INDEX_URL))->with('error', 'The CSV is missing one or more required week-off change columns.');
-        }
-
-        $created = 0;
-        $errors = [];
-        $line = 1;
-        while (($values = fgetcsv($handle)) !== false) {
-            $line++;
-            if (CsvImportTemplate::isHintRow($values) || collect($values)->every(static fn ($value): bool => trim((string) $value) === '')) {
-                continue;
-            }
-            $row = [];
-            foreach ($headers as $index => $header) {
-                $row[$header] = trim((string) ($values[$index] ?? ''));
-            }
-
-            [$payload, $userIds, $details, $validationErrors] = $this->resolveImportRow($row);
-            if ($validationErrors !== []) {
-                $errors[] = 'Row '.$line.': '.implode(', ', $validationErrors);
-                continue;
-            }
-
-            $change = DB::transaction(function () use ($payload, $userIds, $details): WeekOffChange {
-                $change = WeekOffChange::query()->create($payload);
-                $change->Users()->sync($userIds);
-                $change->WeekOffChangeDetails()->createMany($details);
-
-                return $change;
-            });
-            $this->dispatchMusterCreation($change);
-            $created++;
-        }
-        fclose($handle);
-
-        $message = $errors === []
-            ? "Imported {$created} week-off change record(s)."
-            : 'Imported '.$created.' week-off change record(s) with '.count($errors).' error(s): '.implode(' | ', array_slice($errors, 0, 3));
-
-        return redirect(url(self::INDEX_URL))->with($errors === [] ? 'success' : 'error', $message);
+        return redirect(url(self::INDEX_URL))
+            ->with('success', 'Week-off change import has started. You will receive a notification when it finishes.');
     }
 
     public function index(): View
@@ -371,112 +333,6 @@ class WeekOffChangeController extends Controller
             ->onConnection('database_tenant')
             ->onQueue('processing')
             ->afterCommit();
-    }
-
-    /**
-     * @param array<string, string> $row
-     * @return array{0: array<string, mixed>, 1: array<int, int>, 2: array<int, array<string, int>>, 3: array<int, string>}
-     */
-    private function resolveImportRow(array $row): array
-    {
-        $errors = [];
-        $employeeCodes = $this->splitCsvValues($row['employee_codes'] ?? '');
-        $users = User::query()->whereIn('code', $employeeCodes)->get(['id', 'code'])->keyBy('code');
-        if ($employeeCodes === [] || $users->count() !== count($employeeCodes)) {
-            $errors[] = 'employee_codes is required and every employee code must exist';
-        }
-        $userIds = $users->pluck('id')->map(static fn ($id): int => (int) $id)->all();
-
-        $days = $this->splitCsvValues($row['week_days'] ?? '');
-        $types = $this->splitCsvValues($row['wo_types'] ?? '');
-        $weekFields = ['first_week', 'second_week', 'third_week', 'fourth_week', 'fifth_week'];
-        $weekValues = [];
-        foreach ($weekFields as $field) {
-            $weekValues[$field] = $this->splitCsvValues($row[$field] ?? '');
-        }
-        $count = count($days);
-        if ($count === 0 || count($types) !== $count) {
-            $errors[] = 'week_days and wo_types must contain the same non-zero number of values';
-        }
-        foreach ($weekValues as $field => $values) {
-            if (count($values) !== $count) {
-                $errors[] = $field.' must contain one value per week-off detail';
-            }
-        }
-
-        $details = [];
-        $validDays = $this->weekDays();
-        for ($index = 0; $index < $count; $index++) {
-            $day = $days[$index] ?? '';
-            $type = $types[$index] ?? '';
-            $dayNumber = is_numeric($day) ? (int) $day : array_search(ucfirst(strtolower($day)), $validDays, true);
-            if ($dayNumber === false || $dayNumber < 0 || $dayNumber > 6) {
-                $errors[] = 'week_days values must be day numbers 0 through 6 or weekday names';
-                continue;
-            }
-            if (! in_array((int) $type, array_map(static fn (WOTypeEnumn $item): int => $item->value, WOTypeEnumn::cases()), true)) {
-                $errors[] = 'wo_types values must be 1, 2, or 3';
-                continue;
-            }
-
-            $detail = [
-                'week_days' => $dayNumber,
-                'wo_type' => (int) $type,
-            ];
-            $hasWeek = false;
-            foreach ($weekFields as $field) {
-                $value = strtolower($weekValues[$field][$index] ?? '');
-                if (! in_array($value, ['0', '1', 'false', 'true', 'no', 'yes'], true)) {
-                    $errors[] = $field.' values must be 1 or 0';
-                    $detail[$field] = 0;
-                    continue;
-                }
-                $detail[$field] = in_array($value, ['1', 'true', 'yes'], true) ? 1 : 0;
-                $hasWeek = $hasWeek || $detail[$field] === 1;
-            }
-            if (! $hasWeek) {
-                $errors[] = 'each weekly-off detail must apply to at least one week';
-            }
-            $details[] = $detail;
-        }
-
-        $isForever = $this->importBoolean($row['is_forever'] ?? '');
-        if (($row['is_forever'] ?? '') !== '' && ! in_array(strtolower($row['is_forever']), ['0', '1', 'true', 'false', 'yes', 'no'], true)) {
-            $errors[] = 'is_forever must be 1 or 0';
-        }
-        $values = [
-            'from_date' => $row['from_date'] ?? '',
-            'to_date' => $isForever ? null : ($row['to_date'] ?? ''),
-            'reason' => $row['reason'] ?? '',
-        ];
-        $validator = Validator::make($values, [
-            'from_date' => ['required', 'date_format:Y-m-d'],
-            'to_date' => [$isForever ? 'nullable' : 'required', 'date_format:Y-m-d', 'after_or_equal:from_date'],
-            'reason' => ['nullable', 'string', 'max:255'],
-        ]);
-        $errors = array_merge($errors, $validator->errors()->all());
-
-        return [[
-            'from_date' => $values['from_date'],
-            'is_forever' => $isForever,
-            'to_date' => $values['to_date'],
-            'reason' => ($values['reason'] ?? '') !== '' ? $values['reason'] : null,
-            'created_by' => Auth::guard('tenant')->id(),
-            'updated_by' => Auth::guard('tenant')->id(),
-        ], $userIds, $details, array_values(array_unique($errors))];
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    private function splitCsvValues(string $value): array
-    {
-        return array_values(array_map('trim', preg_split('/[,;]/', $value) ?: []));
-    }
-
-    private function importBoolean(string $value): bool
-    {
-        return in_array(strtolower(trim($value)), ['1', 'true', 'yes'], true);
     }
 
     /**

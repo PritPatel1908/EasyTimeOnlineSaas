@@ -4,13 +4,21 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\Tenant\ManualShiftChangeController;
 use App\Http\Requests\Tenant\StoreManualShiftChangeRequest;
 use App\Jobs\Tenant\CreateShiftMuster;
+use App\Jobs\Tenant\ProcessManualShiftChangeImport;
 use App\Models\Tenant\ShiftChange;
 use App\Models\Tenant\User;
+use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\ViewErrorBag;
 use Illuminate\Validation\Rules\In;
+use Mockery;
 use Tests\TestCase;
 
 class TenantManualShiftChangeModuleTest extends TestCase
@@ -64,6 +72,35 @@ class TenantManualShiftChangeModuleTest extends TestCase
         $this->assertFalse(is_subclass_of(CreateShiftMuster::class, ShouldBeUnique::class));
     }
 
+    public function test_manual_shift_change_import_dispatches_an_import_job(): void
+    {
+        Bus::fake();
+        Storage::fake('local');
+        $this->mockTenantUser(17);
+        $file = UploadedFile::fake()->createWithContent(
+            'manual_shift_changes_import_sample.csv',
+            implode(',', ShiftChange::IMPORT_EXPORT_COLUMNS) . "\nE001,fixed,DAY,,2026-10-20,0,2026-10-21,Correction\n",
+        );
+        $request = Request::create(
+            '/time-management/manual-shift-changes/import',
+            'POST',
+            [],
+            [],
+            ['file' => $file],
+        );
+
+        $response = app(ManualShiftChangeController::class)->import($request);
+
+        $this->assertStringContainsString('Manual shift change import has started', $response->getSession()->get('success', ''));
+        Bus::assertDispatched(ProcessManualShiftChangeImport::class, static function (ProcessManualShiftChangeImport $job): bool {
+            return $job->userId === 17
+                && $job->connection === 'database_tenant'
+                && $job->queue === 'import'
+                && str_contains($job->filePath, 'manual-shift-change-imports/');
+        });
+        Bus::assertNotDispatched(CreateShiftMuster::class);
+    }
+
     public function test_manual_shift_change_edit_disables_employee_filtration_and_preserves_selected_users(): void
     {
         view()->share('errors', new ViewErrorBag);
@@ -97,5 +134,15 @@ class TenantManualShiftChangeModuleTest extends TestCase
         $this->assertStringContainsString('name="users[]" value="7"', $html);
         $this->assertMatchesRegularExpression('/<select[^>]*id="manual_shift_change_users"[^>]*disabled/', $html);
         $this->assertMatchesRegularExpression('/<select[^>]*id="manual_shift_change_employee_filter_department_id"[^>]*disabled/', $html);
+    }
+
+    private function mockTenantUser(int $id): void
+    {
+        $user = Mockery::mock(User::class);
+        $user->shouldReceive('getAuthIdentifier')->andReturn($id);
+        $guard = Mockery::mock(\Illuminate\Contracts\Auth\Guard::class);
+        $guard->shouldReceive('user')->andReturn($user);
+        $guard->shouldReceive('id')->andReturn($id);
+        Auth::shouldReceive('guard')->with('tenant')->andReturn($guard);
     }
 }
