@@ -19,8 +19,6 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $reason
  * @property Carbon|null $week_date
  * @property Carbon|null $swap_date
- * @property int|null $location_id
- * @property int|null $company_id
  * @property int|null $created_by
  * @property int|null $updated_by
  * @property int|null $deleted_by
@@ -40,8 +38,6 @@ class WeekOffSwap extends Model
     protected $casts = [
         'week_date' => 'datetime',
         'swap_date' => 'datetime',
-        'location_id' => 'int',
-        'company_id' => 'int',
         'created_by' => 'int',
         'updated_by' => 'int',
         'deleted_by' => 'int',
@@ -53,8 +49,6 @@ class WeekOffSwap extends Model
         'week_date',
         'wo_type',
         'swap_date',
-        'location_id',
-        'company_id',
         'created_by',
         'updated_by',
         'deleted_by',
@@ -75,16 +69,6 @@ class WeekOffSwap extends Model
     public function approval_status()
     {
         return $this->morphOne(ApprovalStatus::class, 'approvable');
-    }
-
-    public function location()
-    {
-        return $this->belongsTo(Location::class);
-    }
-
-    public function company()
-    {
-        return $this->belongsTo(Company::class);
     }
 
     public function WeekOffMuster()

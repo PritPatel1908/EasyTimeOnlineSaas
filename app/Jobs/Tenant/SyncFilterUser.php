@@ -4,6 +4,7 @@ namespace App\Jobs\Tenant;
 
 use App\Models\Tenant\User;
 use App\Models\Tenant\WeekOffMuster;
+use App\Models\Tenant\WeekOffSwap;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\Builder;
@@ -35,17 +36,17 @@ class SyncFilterUser implements ShouldBeUnique, ShouldQueue
     {
         $users = User::where(function (Builder $query) {
             // $query->where('id', '!=', $this->user_id);
-            // $locationIds = $this->record?->location?->id ?? $this->record?->location_id ?? null;
-            $locationIds = is_array($this->record?->location_id) ? $this->record?->location_id : $this->record?->location->id;
-            if ($locationIds) {
-                $locationIds = is_array($locationIds) ? $locationIds : [$locationIds];
-                $query->whereIn('location_id', $locationIds);
-            }
-            // $companyIds = $this->record?->company?->id ?? $this->record?->company_id ?? null;
-            $companyIds = is_array($this->record?->company_id) ? $this->record?->company_id : $this->record?->company->id;
-            if ($companyIds) {
-                $companyIds = is_array($companyIds) ? $companyIds : [$companyIds];
-                $query->whereIn('company_id', $companyIds);
+            if (! ($this->record instanceof WeekOffSwap)) {
+                $locationIds = is_array($this->record?->location_id) ? $this->record?->location_id : $this->record?->location->id;
+                if ($locationIds) {
+                    $locationIds = is_array($locationIds) ? $locationIds : [$locationIds];
+                    $query->whereIn('location_id', $locationIds);
+                }
+                $companyIds = is_array($this->record?->company_id) ? $this->record?->company_id : $this->record?->company->id;
+                if ($companyIds) {
+                    $companyIds = is_array($companyIds) ? $companyIds : [$companyIds];
+                    $query->whereIn('company_id', $companyIds);
+                }
             }
             if ($this->record->departments()->get() != null && $this->record->departments()->get()->count() > 0) {
                 $query->whereIn('department_id', $this->record->departments()->pluck('department_id'));
