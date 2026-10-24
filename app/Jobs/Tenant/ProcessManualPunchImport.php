@@ -8,6 +8,7 @@ use App\Helpers\ManualPunchProcessor;
 use App\Models\Tenant\ManualPunch;
 use App\Models\Tenant\User;
 use App\Notifications\Tenant\ManualPunchImportExportCompleted;
+use App\Services\Tenant\ManualPunchApplicationWorkflow;
 use App\Support\CsvImportTemplate;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -18,6 +19,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 class ProcessManualPunchImport implements ShouldQueue
@@ -27,7 +29,11 @@ class ProcessManualPunchImport implements ShouldQueue
     use Queueable;
     use SerializesModels;
 
-    public function __construct(public ?int $userId, public string $filePath)
+    public function __construct(
+        public ?int $userId,
+        public string $filePath,
+        public bool $createApplications = false,
+    )
     {
         $this->onConnection('database_tenant')->onQueue('import');
     }
@@ -50,7 +56,7 @@ class ProcessManualPunchImport implements ShouldQueue
             $user->notify(new ManualPunchImportExportCompleted(
                 'import',
                 'The uploaded manual punch import file could not be found.',
-                url: '/time-management/manual-punches',
+                url: $this->indexUrl(),
             ));
 
             return;
@@ -62,7 +68,7 @@ class ProcessManualPunchImport implements ShouldQueue
             $user->notify(new ManualPunchImportExportCompleted(
                 'import',
                 'The manual punch import file is empty, invalid, or missing required columns.',
-                url: '/time-management/manual-punches',
+                url: $this->indexUrl(),
             ));
 
             return;
@@ -83,26 +89,48 @@ class ProcessManualPunchImport implements ShouldQueue
                 continue;
             }
 
-            DB::transaction(function () use ($payload, $userIds): void {
-                $punch = ManualPunch::query()->create($payload + [
-                    'created_by' => $this->userId,
-                    'updated_by' => $this->userId,
-                ]);
-                $punch->Users()->sync($userIds);
-                ManualPunchProcessor::process($punch);
-            });
-            $created++;
+            try {
+                if ($this->createApplications) {
+                    $applications = app(ManualPunchApplicationWorkflow::class)->create(
+                        $payload,
+                        $userIds,
+                        (int) $this->userId,
+                    );
+                    $created += $applications->count();
+                } else {
+                    DB::transaction(function () use ($payload, $userIds): void {
+                        $punch = ManualPunch::query()->create($payload + [
+                            'created_by' => $this->userId,
+                            'updated_by' => $this->userId,
+                        ]);
+                        $punch->Users()->sync($userIds);
+                        ManualPunchProcessor::process($punch);
+                    });
+                    $created++;
+                }
+            } catch (ValidationException $exception) {
+                $errors[] = 'Row ' . $lineNumber . ': ' . collect($exception->errors())->flatten()->implode(', ');
+            }
         }
 
         Storage::disk('local')->delete($this->filePath);
         $message = $errors === []
-            ? 'Imported ' . $created . ' manual punch record(s).'
+            ? 'Imported ' . $created . ($this->createApplications
+                ? ' manual punch application(s) submitted for approval.'
+                : ' manual punch record(s).')
             : 'Import completed with ' . count($errors) . ' error(s). ' . implode(' | ', array_slice($errors, 0, 5));
         $user->notify(new ManualPunchImportExportCompleted(
             'import',
             $message,
-            url: '/time-management/manual-punches',
+            url: $this->indexUrl(),
         ));
+    }
+
+    private function indexUrl(): string
+    {
+        return $this->createApplications
+            ? '/time-management/manual-punch-applications'
+            : '/time-management/manual-punches';
     }
 
     /**

@@ -44,10 +44,8 @@ class ManualPunchApplication extends Model
 
     protected $casts = [
         'manual_punch_id' => 'int',
-        // 'user_id' => 'int',
-        'punch_date' => 'datetime',
+        'punch_date' => 'date',
         'punch_time' => 'datetime',
-        'status' => 'int',
         'created_by' => 'int',
         'updated_by' => 'int',
         'deleted_by' => 'int',
@@ -55,15 +53,22 @@ class ManualPunchApplication extends Model
 
     protected $fillable = [
         'manual_punch_id',
-        // 'user_id',
         'punch_type',
         'punch_date',
         'punch_time',
         'reason',
-        'status',
         'created_by',
         'updated_by',
         'deleted_by',
+    ];
+
+    public const IMPORT_EXPORT_COLUMNS = [
+        'employee_codes',
+        'punch_type',
+        'punch_date',
+        'punch_time',
+        'reason',
+        'approval_status',
     ];
 
     public function user()
@@ -86,5 +91,37 @@ class ManualPunchApplication extends Model
     public function approval_status()
     {
         return $this->morphOne(ApprovalStatus::class, 'approvable');
+    }
+
+    public function approval_statuses()
+    {
+        return $this->morphMany(ApprovalStatus::class, 'approvable');
+    }
+
+    public function overallApprovalStatus(): string
+    {
+        $statuses = $this->relationLoaded('approval_statuses')
+            ? $this->approval_statuses
+            : $this->approval_statuses()->get();
+
+        if ($statuses->isEmpty()) {
+            return 'unknown';
+        }
+
+        if ($statuses->contains('approval_status', 'rejected')) {
+            return 'rejected';
+        }
+
+        if ($statuses->contains(static fn (ApprovalStatus $status): bool => in_array(
+            $status->approval_status,
+            ['draft', 'pending'],
+            true,
+        ))) {
+            return 'pending';
+        }
+
+        return $statuses->every(
+            static fn (ApprovalStatus $status): bool => $status->approval_status === 'approved',
+        ) ? 'approved' : 'unknown';
     }
 }

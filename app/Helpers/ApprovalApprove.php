@@ -100,7 +100,10 @@ class ApprovalApprove
             // ];
             // ActivityLogger::log(auth()->user(), $record, $old_record, $new_record, 'approved');
 
-            ApproveUserManualPunch::dispatch($record)->onQueue('processing');
+            ApproveUserManualPunch::dispatch($record)
+                ->onConnection('database_tenant')
+                ->onQueue('processing')
+                ->afterCommit();
         } elseif (get_class($record) === "App\Models\Tenant\ManualAttendanceApplication") {
             // $old_record = [];
             // $agent = new Agent();

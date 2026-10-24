@@ -3,6 +3,7 @@
 namespace App\Helpers;
 
 use App\Enums\WOTypeEnumn;
+use App\Models\Tenant\ManualPunch;
 use Carbon\Carbon;
 use Filament\Infolists\Components\Fieldset;
 use Filament\Infolists\Components\Group;
@@ -301,7 +302,9 @@ class ApprovalInfolist
                         ->schema([
                             TextEntry::make('punch_date')->label('Punch Date'),
                             TextEntry::make('punch_time')->label('Punch Time'),
-                            TextEntry::make('approval_status.approval_status')->label('Approval Status')->badge()->color(function (string $state): string {
+                            TextEntry::make('approval_status.approval_status')
+                                ->formatStateUsing(fn ($state, $record) => $record->overallApprovalStatus())
+                                ->label('Approval Status')->badge()->color(function (string $state): string {
                                 $approval_status = strtolower($state ?? 'unknown');
 
                                 return match ($approval_status) {
@@ -323,7 +326,7 @@ class ApprovalInfolist
                                 ->schema([
                                     TextEntry::make('Users.name')->badge()->label('User Name'),
                                     TextEntry::make('Users.code')->badge()->label('User Code'),
-                                    TextEntry::make('punch_type')->formatStateUsing(fn ($state) => $state == 1 ? 'In Punch' : 'Out Punch')->badge()->label('Punch Type'),
+                                    TextEntry::make('punch_type')->formatStateUsing(fn ($state) => ManualPunch::punchTypeLabel($state))->badge()->label('Punch Type'),
                                     TextEntry::make('reason')->badge()->label('Manual Punch Reason'),
                                 ]),
 

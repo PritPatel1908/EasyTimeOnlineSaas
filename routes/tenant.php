@@ -12,6 +12,7 @@ use App\Http\Controllers\Tenant\CompanyController;
 use App\Http\Controllers\Tenant\ShiftController;
 use App\Http\Controllers\Tenant\ShiftRotationController;
 use App\Http\Controllers\Tenant\ManualPunchController;
+use App\Http\Controllers\Tenant\ManualPunchApplicationController;
 use App\Http\Controllers\Tenant\ManualAttendanceController;
 use App\Http\Controllers\Tenant\ManualShiftChangeController;
 use App\Http\Controllers\Tenant\LateComingRuleController;
@@ -195,6 +196,26 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:ManualPunch,write')
                         ->middlewareFor('destroy', 'tenant.permission:ManualPunch,delete')
                         ->names('manual-punches');
+                    Route::get('manual-punch-applications/export', [ManualPunchApplicationController::class, 'export'])
+                        ->middleware('tenant.permission:ManualPunchApplication,export')->name('manual-punch-applications.export');
+                    Route::get('manual-punch-applications/import/sample', [ManualPunchApplicationController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:ManualPunchApplication,import')->name('manual-punch-applications.import-sample');
+                    Route::get('manual-punch-applications/export/download/{file}', [ManualPunchApplicationController::class, 'downloadExport'])
+                        ->middleware('tenant.permission:ManualPunchApplication,export')->name('manual-punch-applications.download-export');
+                    Route::post('manual-punch-applications/import', [ManualPunchApplicationController::class, 'import'])
+                        ->middleware('tenant.permission:ManualPunchApplication,import')->name('manual-punch-applications.import');
+                    Route::get('manual-punch-applications/create', [ManualPunchApplicationController::class, 'create'])
+                        ->middleware('tenant.permission:ManualPunchApplication,create')->name('manual-punch-applications.create');
+                    Route::resource('manual-punch-applications', ManualPunchApplicationController::class)
+                        ->except(['create'])
+                        ->parameters(['manual-punch-applications' => 'manual_punch_application'])
+                        ->middlewareFor('index', 'tenant.permission:ManualPunchApplication,read')
+                        ->middlewareFor('show', 'tenant.permission:ManualPunchApplication,read')
+                        ->middlewareFor('store', 'tenant.permission:ManualPunchApplication,create')
+                        ->middlewareFor('edit', 'tenant.permission:ManualPunchApplication,write')
+                        ->middlewareFor('update', 'tenant.permission:ManualPunchApplication,write')
+                        ->middlewareFor('destroy', 'tenant.permission:ManualPunchApplication,delete')
+                        ->names('manual-punch-applications');
                     Route::get('manual-attendances/export', [ManualAttendanceController::class, 'export'])
                         ->middleware('tenant.permission:ManualAttendance,export')->name('manual-attendances.export');
                     Route::get('manual-attendances/import/sample', [ManualAttendanceController::class, 'downloadImportSample'])

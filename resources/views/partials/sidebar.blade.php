@@ -25,6 +25,7 @@
 		'time-management/shift-rotations*'
 	);
 	$manualStructureActive = request()->is('time-management/manual-punches*', 'time-management/manual-attendances*', 'time-management/manual-shift-changes*', 'time-management/week-off-changes*', 'time-management/week-off-swaps*');
+	$applicationStructureActive = request()->is('time-management/manual-punch-applications*');
 	$timingRuleStructureActive = request()->is('time-management/late-coming-rules*', 'time-management/early-going-rules*', 'time-management/half-day-rules*', 'time-management/overtime-rules*', 'time-management/absent-rules*');
 	$categoryActive = request()->is('employee-structure/categories*');
 	$approvalFlowsActive = request()->is('employee-structure/approval-flows*');
@@ -38,11 +39,12 @@
 		\App\Support\TenantPermissions::userCan('HalfDayRule', 'read') ||
 		\App\Support\TenantPermissions::userCan('OvertimeRule', 'read');
 	$canViewManualPunches = \App\Support\TenantPermissions::userCan('ManualPunch', 'read');
+	$canViewManualPunchApplications = \App\Support\TenantPermissions::userCan('ManualPunchApplication', 'read');
 	$canViewManualAttendances = \App\Support\TenantPermissions::userCan('ManualAttendance', 'read');
 	$canViewManualShiftChanges = \App\Support\TenantPermissions::userCan('ShiftChange', 'read');
 	$canViewWeekOffChanges = \App\Support\TenantPermissions::userCan('WeekOffChange', 'read');
 	$canViewWeekOffSwaps = \App\Support\TenantPermissions::userCan('WeekOffSwap', 'read');
-	$canViewManualStructure = $canViewManualPunches || $canViewManualAttendances || $canViewManualShiftChanges || $canViewWeekOffChanges || $canViewWeekOffSwaps;
+	$canViewManualStructure = $canViewManualPunches || $canViewManualPunchApplications || $canViewManualAttendances || $canViewManualShiftChanges || $canViewWeekOffChanges || $canViewWeekOffSwaps;
 	$canViewCompanyStructure =
 		\App\Support\TenantPermissions::userCan('Company', 'read') ||
 		\App\Support\TenantPermissions::userCan('Location', 'read') ||
@@ -351,13 +353,15 @@
 						</li>
 						@endif
 						<li class="submenu">
-							<a href="javascript:void(0);">
+							<a href="javascript:void(0);"
+								class="{{ $applicationStructureActive ? 'active subdrop' : '' }}">
 								<i class="ti ti-layout-grid-add"></i><span>Application Structure</span>
 								<span class="menu-arrow"></span>
 							</a>
 							<ul>
-								@if ($canViewManualPunches)
-								<li><a href="{{ url('time-management/manual-punches') }}">Manual Punch Application</a></li>
+								@if ($canViewManualPunchApplications)
+								<li><a href="{{ url('time-management/manual-punch-applications') }}"
+									class="{{ request()->is('time-management/manual-punch-applications*') ? 'active' : '' }}">Manual Punch Application</a></li>
 								@endif
 								@if ($canViewManualAttendances)
 								<li><a href="{{ url('time-management/manual-attendances') }}">Manual Attendance Application</a></li>
