@@ -44,12 +44,23 @@ class ShiftChangeApplication extends Model
 
     protected $table = 'shift_change_applications';
 
+    public const IMPORT_EXPORT_COLUMNS = [
+        'employee_codes',
+        'shift_type',
+        'shifts',
+        'shift_rotation_code',
+        'from_date',
+        'is_forever',
+        'to_date',
+        'reason',
+        'approval_status',
+    ];
+
     protected $casts = [
-        // 'shift_id' => 'int',
         'shift_rotation_id' => 'int',
-        'from_date' => 'datetime',
+        'from_date' => 'date',
         'is_forever' => 'bool',
-        'to_date' => 'datetime',
+        'to_date' => 'date',
         'status' => 'int',
         'created_by' => 'int',
         'updated_by' => 'int',
@@ -58,7 +69,6 @@ class ShiftChangeApplication extends Model
 
     protected $fillable = [
         'shift_type',
-        // 'shift_id',
         'shift_rotation_id',
         'from_date',
         'is_forever',
@@ -107,5 +117,37 @@ class ShiftChangeApplication extends Model
     public function approval_status()
     {
         return $this->morphOne(ApprovalStatus::class, 'approvable');
+    }
+
+    public function approval_statuses()
+    {
+        return $this->morphMany(ApprovalStatus::class, 'approvable');
+    }
+
+    public function overallApprovalStatus(): string
+    {
+        $statuses = $this->relationLoaded('approval_statuses')
+            ? $this->approval_statuses
+            : $this->approval_statuses()->get();
+
+        if ($statuses->isEmpty()) {
+            return 'unknown';
+        }
+
+        if ($statuses->contains('approval_status', 'rejected')) {
+            return 'rejected';
+        }
+
+        if ($statuses->contains(static fn (ApprovalStatus $status): bool => in_array(
+            $status->approval_status,
+            ['draft', 'pending'],
+            true,
+        ))) {
+            return 'pending';
+        }
+
+        return $statuses->every(
+            static fn (ApprovalStatus $status): bool => $status->approval_status === 'approved',
+        ) ? 'approved' : 'unknown';
     }
 }

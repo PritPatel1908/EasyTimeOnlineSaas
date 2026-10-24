@@ -16,6 +16,7 @@ use App\Http\Controllers\Tenant\ManualPunchApplicationController;
 use App\Http\Controllers\Tenant\ManualAttendanceController;
 use App\Http\Controllers\Tenant\ManualAttendanceApplicationController;
 use App\Http\Controllers\Tenant\ManualShiftChangeController;
+use App\Http\Controllers\Tenant\ShiftChangeApplicationController;
 use App\Http\Controllers\Tenant\LateComingRuleController;
 use App\Http\Controllers\Tenant\EarlyGoingRuleController;
 use App\Http\Controllers\Tenant\HalfDayRuleController;
@@ -277,6 +278,26 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:ShiftChange,write')
                         ->middlewareFor('destroy', 'tenant.permission:ShiftChange,delete')
                         ->names('manual-shift-changes');
+                    Route::get('shift-change-applications/export', [ShiftChangeApplicationController::class, 'export'])
+                        ->middleware('tenant.permission:ShiftChangeApplication,export')->name('shift-change-applications.export');
+                    Route::get('shift-change-applications/export/download/{file}', [ShiftChangeApplicationController::class, 'downloadExport'])
+                        ->middleware('tenant.permission:ShiftChangeApplication,export')->name('shift-change-applications.download-export');
+                    Route::get('shift-change-applications/import/sample', [ShiftChangeApplicationController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:ShiftChangeApplication,import')->name('shift-change-applications.import-sample');
+                    Route::post('shift-change-applications/import', [ShiftChangeApplicationController::class, 'import'])
+                        ->middleware('tenant.permission:ShiftChangeApplication,import')->name('shift-change-applications.import');
+                    Route::get('shift-change-applications/create', [ShiftChangeApplicationController::class, 'create'])
+                        ->middleware('tenant.permission:ShiftChangeApplication,create')->name('shift-change-applications.create');
+                    Route::resource('shift-change-applications', ShiftChangeApplicationController::class)
+                        ->except(['create'])
+                        ->parameters(['shift-change-applications' => 'shift_change_application'])
+                        ->middlewareFor('index', 'tenant.permission:ShiftChangeApplication,read')
+                        ->middlewareFor('show', 'tenant.permission:ShiftChangeApplication,read')
+                        ->middlewareFor('store', 'tenant.permission:ShiftChangeApplication,create')
+                        ->middlewareFor('edit', 'tenant.permission:ShiftChangeApplication,write')
+                        ->middlewareFor('update', 'tenant.permission:ShiftChangeApplication,write')
+                        ->middlewareFor('destroy', 'tenant.permission:ShiftChangeApplication,delete')
+                        ->names('shift-change-applications');
                     Route::get('week-off-changes/export', [WeekOffChangeController::class, 'export'])
                         ->middleware('tenant.permission:WeekOffChange,export')->name('week-off-changes.export');
                     Route::get('week-off-changes/export/download/{file}', [WeekOffChangeController::class, 'downloadExport'])

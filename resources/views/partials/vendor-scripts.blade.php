@@ -186,6 +186,10 @@
     'tenant.time-management.manual-attendance-applications.edit',
     'tenant.myapp_com.tenant.time-management.manual-attendance-applications.create',
     'tenant.myapp_com.tenant.time-management.manual-attendance-applications.edit',
+    'tenant.time-management.shift-change-applications.create',
+    'tenant.time-management.shift-change-applications.edit',
+    'tenant.myapp_com.tenant.time-management.shift-change-applications.create',
+    'tenant.myapp_com.tenant.time-management.shift-change-applications.edit',
 ]))
     <script src="{{URL::asset('build/js/custom-tom-select.js')}}"></script>
 @endif

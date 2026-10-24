@@ -57,35 +57,36 @@ class NotificationController extends Controller
         $path = parse_url($downloadUrl, PHP_URL_PATH);
         $fileName = is_string($path) ? basename(rawurldecode($path)) : '';
         $storagePath = match (true) {
-            preg_match('/\Afinancial_years_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'financial-year-exports/' . $fileName,
-            preg_match('/\Acompanies_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'company-exports/' . $fileName,
-            preg_match('/\Acanteen_facilities_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'canteen-facility-exports/' . $fileName,
-            preg_match('/\Alocations_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'location-exports/' . $fileName,
-            preg_match('/\Adepartments_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'department-exports/' . $fileName,
-            preg_match('/\Asub_departments_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'sub-department-exports/' . $fileName,
-            preg_match('/\Ateams_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'team-exports/' . $fileName,
-            preg_match('/\Acategories_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'category-exports/' . $fileName,
-            preg_match('/\Adesignations_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'designation-exports/' . $fileName,
-            preg_match('/\Aemployees_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'employee-exports/' . $fileName,
-            preg_match('/\Aapproval_flows_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'approval-flow-exports/' . $fileName,
-            preg_match('/\Aunits_\d+_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'unit-exports/' . $fileName,
-            preg_match('/\Aleave_types_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'leave-type-exports/' . $fileName,
-            preg_match('/\Aleave_groups_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'leave-group-exports/' . $fileName,
-            preg_match('/\Amanual_leave_balances_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'manual-leave-balance-exports/' . $fileName,
-            preg_match('/\Ashifts_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'shift-exports/' . $fileName,
-            preg_match('/\Amanual_punches_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'manual-punch-exports/' . $fileName,
-            preg_match('/\Amanual_punch_applications_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'manual-punch-application-exports/' . $fileName,
-            preg_match('/\Amanual_attendance_applications_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'manual-attendance-application-exports/' . $fileName,
-            preg_match('/\Amanual_attendances_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'manual-attendance-exports/' . $fileName,
-            preg_match('/\Amanual_shift_changes_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'manual-shift-change-exports/' . $fileName,
-            preg_match('/\Aweek_off_changes_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'week-off-change-exports/' . $fileName,
-            preg_match('/\Aweek_off_swaps_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'week-off-swap-exports/' . $fileName,
-            preg_match('/\Ashift_rotations_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'shift-rotation-exports/' . $fileName,
-            preg_match('/\Alate_coming_rules_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'late-coming-rule-exports/' . $fileName,
-            preg_match('/\Aearly_going_rules_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'early-going-rule-exports/' . $fileName,
-            preg_match('/\Ahalf_day_rules_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'half-day-rule-exports/' . $fileName,
-            preg_match('/\Aovertime_rules_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'overtime-rule-exports/' . $fileName,
-            preg_match('/\Aabsent_rules_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'absent-rule-exports/' . $fileName,
+            preg_match('/\Afinancial_years_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'financial-year-exports/'.$fileName,
+            preg_match('/\Acompanies_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'company-exports/'.$fileName,
+            preg_match('/\Acanteen_facilities_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'canteen-facility-exports/'.$fileName,
+            preg_match('/\Alocations_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'location-exports/'.$fileName,
+            preg_match('/\Adepartments_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'department-exports/'.$fileName,
+            preg_match('/\Asub_departments_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'sub-department-exports/'.$fileName,
+            preg_match('/\Ateams_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'team-exports/'.$fileName,
+            preg_match('/\Acategories_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'category-exports/'.$fileName,
+            preg_match('/\Adesignations_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'designation-exports/'.$fileName,
+            preg_match('/\Aemployees_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'employee-exports/'.$fileName,
+            preg_match('/\Aapproval_flows_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'approval-flow-exports/'.$fileName,
+            preg_match('/\Aunits_\d+_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'unit-exports/'.$fileName,
+            preg_match('/\Aleave_types_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'leave-type-exports/'.$fileName,
+            preg_match('/\Aleave_groups_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'leave-group-exports/'.$fileName,
+            preg_match('/\Amanual_leave_balances_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'manual-leave-balance-exports/'.$fileName,
+            preg_match('/\Ashifts_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'shift-exports/'.$fileName,
+            preg_match('/\Amanual_punches_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'manual-punch-exports/'.$fileName,
+            preg_match('/\Amanual_punch_applications_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'manual-punch-application-exports/'.$fileName,
+            preg_match('/\Amanual_attendance_applications_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'manual-attendance-application-exports/'.$fileName,
+            preg_match('/\Amanual_attendances_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'manual-attendance-exports/'.$fileName,
+            preg_match('/\Ashift_change_applications_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'shift-change-application-exports/'.$fileName,
+            preg_match('/\Amanual_shift_changes_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'manual-shift-change-exports/'.$fileName,
+            preg_match('/\Aweek_off_changes_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'week-off-change-exports/'.$fileName,
+            preg_match('/\Aweek_off_swaps_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'week-off-swap-exports/'.$fileName,
+            preg_match('/\Ashift_rotations_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'shift-rotation-exports/'.$fileName,
+            preg_match('/\Alate_coming_rules_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'late-coming-rule-exports/'.$fileName,
+            preg_match('/\Aearly_going_rules_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'early-going-rule-exports/'.$fileName,
+            preg_match('/\Ahalf_day_rules_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'half-day-rule-exports/'.$fileName,
+            preg_match('/\Aovertime_rules_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'overtime-rule-exports/'.$fileName,
+            preg_match('/\Aabsent_rules_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'absent-rule-exports/'.$fileName,
             default => null,
         };
 
@@ -103,13 +104,13 @@ class NotificationController extends Controller
         $rows = [];
 
         while (count($rows) < 1000 && ($row = fgetcsv($handle)) !== false) {
-            $rows[] = array_map(static fn($value): string => (string) ($value ?? ''), $row);
+            $rows[] = array_map(static fn ($value): string => (string) ($value ?? ''), $row);
         }
 
         fclose($handle);
 
         return [[
-            'headers' => array_map(static fn($value): string => (string) ($value ?? ''), $headers),
+            'headers' => array_map(static fn ($value): string => (string) ($value ?? ''), $headers),
             'rows' => $rows,
         ], null];
     }
