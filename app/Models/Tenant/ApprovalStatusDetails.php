@@ -23,6 +23,8 @@ class ApprovalStatusDetails extends Model // implements Auditable
         'user_id',
         'approval_status',
         'timestamp',
+        'created_by',
+        'updated_by',
     ];
 
     protected $casts = [

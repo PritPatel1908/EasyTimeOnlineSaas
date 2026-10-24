@@ -20,6 +20,8 @@ class ApprovalStatus extends Model // implements Auditable
         'approvable_type',
         'approval_status',
         'approval_flow_id',
+        'created_by',
+        'updated_by',
     ];
 
     public function approvable()

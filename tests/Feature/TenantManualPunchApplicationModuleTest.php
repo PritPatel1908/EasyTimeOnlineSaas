@@ -123,12 +123,16 @@ class TenantManualPunchApplicationModuleTest extends TestCase
                 'approvable_type' => ManualPunchApplication::class,
                 'approval_status' => 'pending',
                 'approval_flow_id' => 10,
+                'created_by' => 101,
+                'updated_by' => 101,
             ]);
             $this->assertDatabaseHas('approval_statuses', [
                 'approvable_id' => $applicationId,
                 'approvable_type' => ManualPunchApplication::class,
                 'approval_status' => 'pending',
                 'approval_flow_id' => 11,
+                'created_by' => 101,
+                'updated_by' => 101,
             ]);
             $this->assertDatabaseCount('manual_punch_applications', 1);
             $this->assertSame(2, DB::table('approval_statuses')
@@ -148,6 +152,8 @@ class TenantManualPunchApplicationModuleTest extends TestCase
                 'level' => 1,
                 'approval_flow_detail_id' => 20,
                 'approval_status' => 'pending',
+                'created_by' => 101,
+                'updated_by' => 101,
             ]);
             $this->assertDatabaseHas('approval_status_details', [
                 'approval_status_id' => DB::table('approval_statuses')
@@ -157,6 +163,8 @@ class TenantManualPunchApplicationModuleTest extends TestCase
                 'level' => 2,
                 'approval_flow_detail_id' => 22,
                 'approval_status' => 'pending',
+                'created_by' => 101,
+                'updated_by' => 101,
             ]);
             $this->assertSame(
                 'pending',
@@ -172,13 +180,13 @@ class TenantManualPunchApplicationModuleTest extends TestCase
                 'punch_date' => '2026-10-21 00:00:00',
                 'punch_time' => '18:00:00',
                 'reason' => 'Updated correction',
-            ], [102], 101);
+            ], [102], 102);
             Bus::assertDispatched(CreateManualPunchApplicationApprovals::class, static fn ($job): bool => (
                 $job->applicationId === $applicationId
                 && $job->approvalFlowIds === [11]
-                && $job->actorId === 101
+                && $job->actorId === 102
             ));
-            (new CreateManualPunchApplicationApprovals($applicationId, [11], 101))->handle();
+            (new CreateManualPunchApplicationApprovals($applicationId, [11], 102))->handle();
 
             $this->assertDatabaseHas('manual_punch_applications', [
                 'id' => $applicationId,
@@ -208,6 +216,18 @@ class TenantManualPunchApplicationModuleTest extends TestCase
                 'approvable_type' => ManualPunchApplication::class,
                 'approval_status' => 'pending',
                 'approval_flow_id' => 11,
+                'created_by' => 101,
+                'updated_by' => 102,
+            ]);
+            $this->assertDatabaseHas('approval_status_details', [
+                'approval_status_id' => DB::table('approval_statuses')
+                    ->where('approvable_id', $applicationId)
+                    ->where('approval_flow_id', 11)
+                    ->value('id'),
+                'approval_flow_detail_id' => 21,
+                'approval_status' => 'pending',
+                'created_by' => 102,
+                'updated_by' => 102,
             ]);
 
             $listView = app(ManualPunchApplicationController::class)->index();
