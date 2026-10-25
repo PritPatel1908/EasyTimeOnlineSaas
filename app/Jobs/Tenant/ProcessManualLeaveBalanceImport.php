@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs\Tenant;
 
+use App\Helpers\GeneralHelper;
 use App\Models\Tenant\Company;
 use App\Models\Tenant\LeaveType;
 use App\Models\Tenant\Location;
@@ -77,12 +78,14 @@ class ProcessManualLeaveBalanceImport implements ShouldQueue
                 if ($existing !== null) {
                     $existing->update($attributes);
                     $existing->Users()->sync($userIds);
+                    GeneralHelper::syncManualLeaveBalanceToAccounts($existing);
                     $updated++;
                     return;
                 }
 
                 $balance = ManualLeaveBalance::query()->create($attributes + ['created_by' => $this->userId]);
                 $balance->Users()->sync($userIds);
+                GeneralHelper::syncManualLeaveBalanceToAccounts($balance);
                 $created++;
             });
         }

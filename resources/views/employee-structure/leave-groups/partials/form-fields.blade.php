@@ -32,14 +32,6 @@
                 </select>
                 <x-validation-error field="financial_year_id" />
             </div>
-            <div class="col-md-6 mb-3">
-                <label class="form-label" for="{{ $isEdit ? 'edit_is_monthly' : 'add_is_monthly' }}">Leave Frequency <span class="text-danger">*</span></label>
-                <select id="{{ $isEdit ? 'edit_is_monthly' : 'add_is_monthly' }}" name="is_monthly" class="form-control select @error('is_monthly') is-invalid @enderror" required>
-                    <option value="1" @selected((string) old('is_monthly', $leaveGroup?->is_monthly ?? 1) === '1')>Monthly</option>
-                    <option value="0" @selected((string) old('is_monthly', $leaveGroup?->is_monthly ?? 1) === '0')>Yearly</option>
-                </select>
-                <x-validation-error field="is_monthly" />
-            </div>
         </div>
     </div>
 </div>
@@ -60,56 +52,55 @@
     </div>
 </div>
 
-@if ($isEdit)
-    @php
-        $conditionalLimitToggles = [
-            'negative_balance' => 'allow_negative_balance',
-            'backdate_day_limit' => 'allow_backdate_leave',
-            'advance_day_limit' => 'allow_advance_leave',
-        ];
-        $monthlyRuleFields = [
-            ['name' => 'leave_type_id', 'label' => 'Leave Type', 'type' => 'leave_type', 'required' => true],
-            ['name' => 'is_paid', 'label' => 'Paid?', 'type' => 'switch'],
-            ['name' => 'keeps_balance', 'label' => 'Keeps Balance?', 'type' => 'switch'],
-            ['name' => 'allow_negative_balance', 'label' => 'Allow Negative Balance?', 'type' => 'switch'],
-            ['name' => 'negative_balance', 'label' => 'Negative Limit', 'type' => 'decimal', 'required' => true],
-            ['name' => 'allow_backdate_leave', 'label' => 'Allow Backdated Leave?', 'type' => 'switch'],
-            ['name' => 'backdate_day_limit', 'label' => 'Backdated Day Limit', 'type' => 'number'],
-            ['name' => 'allow_advance_leave', 'label' => 'Allow Advance Leave?', 'type' => 'switch'],
-            ['name' => 'advance_day_limit', 'label' => 'Advance Day Limit', 'type' => 'number'],
-            ['name' => 'count_weekly_off_as_present', 'label' => 'Count Week Off As Present?', 'type' => 'switch'],
-            ['name' => 'count_holiday_as_present', 'label' => 'Count Holiday As Present?', 'type' => 'switch'],
-            ['name' => 'allow_c_f', 'label' => 'Carried Forward?', 'type' => 'switch'],
-            ['name' => 'allow_leave_encashment', 'label' => 'Encashment?', 'type' => 'switch'],
-            ['name' => 'allow_leave_lapse', 'label' => 'Allow Leave Lapse?', 'type' => 'switch'],
-            ['name' => 'allow_sandwich', 'label' => 'Allow Sandwich?', 'type' => 'switch'],
-            ['name' => 'max_accumulation', 'label' => 'Maximum Accumulation', 'type' => 'tiny_number', 'hint' => '0 for unrestricted'],
-            ['name' => 'maximum_request_in_a_month', 'label' => 'Maximum Request in a Month', 'type' => 'number', 'hint' => '0 for unrestricted'],
-            ['name' => 'maximum_request_in_a_year', 'label' => 'Maximum Request in a Year', 'type' => 'number', 'hint' => '0 for unrestricted'],
-            ['name' => 'eligible_after_days', 'label' => 'Eligible Leave After Days', 'type' => 'number', 'hint' => '0 for unrestricted'],
-            ['name' => 'credit_after_days', 'label' => 'Credit Leave After Days', 'type' => 'number', 'hint' => '0 for unrestricted'],
-            ['name' => 'min_avail', 'label' => 'Min Avail', 'type' => 'decimal', 'hint' => '0 for unrestricted'],
-            ['name' => 'max_avail', 'label' => 'Max Avail', 'type' => 'decimal', 'hint' => '365 for unrestricted'],
-            ['name' => 'leave_types_not_to_be_clubbed', 'label' => 'Leave not to be clubbed', 'type' => 'leave_type_multiple'],
-            ['name' => 'leave_credit_type', 'label' => 'Leave Credit Type', 'type' => 'leave_credit_type', 'default' => 'monthly'],
-        ];
-        $balanceIndependentFields = [
-            'leave_type_id',
-            'is_paid',
-            'allow_backdate_leave',
-            'backdate_day_limit',
-            'allow_advance_leave',
-            'advance_day_limit',
-            'allow_sandwich',
-            'maximum_request_in_a_month',
-            'maximum_request_in_a_year',
-            'leave_types_not_to_be_clubbed',
-            'eligible_after_days',
-            'credit_after_days',
-            'min_avail',
-            'max_avail',
-        ];
-    @endphp
+@php
+    $conditionalLimitToggles = [
+        'negative_balance' => 'allow_negative_balance',
+        'backdate_day_limit' => 'allow_backdate_leave',
+        'advance_day_limit' => 'allow_advance_leave',
+    ];
+    $monthlyRuleFields = [
+        ['name' => 'leave_type_id', 'label' => 'Leave Type', 'type' => 'leave_type', 'required' => true],
+        ['name' => 'is_paid', 'label' => 'Paid?', 'type' => 'switch'],
+        ['name' => 'keeps_balance', 'label' => 'Keeps Balance?', 'type' => 'switch'],
+        ['name' => 'allow_negative_balance', 'label' => 'Allow Negative Balance?', 'type' => 'switch'],
+        ['name' => 'negative_balance', 'label' => 'Negative Limit', 'type' => 'decimal', 'required' => true, 'hint' => '0 for unrestricted'],
+        ['name' => 'allow_backdate_leave', 'label' => 'Allow Backdated Leave?', 'type' => 'switch'],
+        ['name' => 'backdate_day_limit', 'label' => 'Backdated Day Limit', 'type' => 'number', 'hint' => '0 for unrestricted'],
+        ['name' => 'allow_advance_leave', 'label' => 'Allow Advance Leave?', 'type' => 'switch'],
+        ['name' => 'advance_day_limit', 'label' => 'Advance Day Limit', 'type' => 'number', 'hint' => '0 for unrestricted'],
+        ['name' => 'count_weekly_off_as_present', 'label' => 'Count Week Off As Present?', 'type' => 'switch'],
+        ['name' => 'count_holiday_as_present', 'label' => 'Count Holiday As Present?', 'type' => 'switch'],
+        ['name' => 'allow_c_f', 'label' => 'Carried Forward?', 'type' => 'switch'],
+        ['name' => 'allow_leave_encashment', 'label' => 'Encashment?', 'type' => 'switch'],
+        ['name' => 'allow_leave_lapse', 'label' => 'Allow Leave Lapse?', 'type' => 'switch'],
+        ['name' => 'allow_sandwich', 'label' => 'Allow Sandwich?', 'type' => 'switch'],
+        ['name' => 'max_accumulation', 'label' => 'Maximum Accumulation', 'type' => 'tiny_number', 'hint' => '0 for unrestricted'],
+        ['name' => 'maximum_request_in_a_month', 'label' => 'Maximum Request in a Month', 'type' => 'number', 'hint' => '0 for unrestricted'],
+        ['name' => 'maximum_request_in_a_year', 'label' => 'Maximum Request in a Year', 'type' => 'number', 'hint' => '0 for unrestricted'],
+        ['name' => 'eligible_after_days', 'label' => 'Eligible Leave After Days', 'type' => 'number', 'hint' => '0 for unrestricted'],
+        ['name' => 'credit_after_days', 'label' => 'Credit Leave After Days', 'type' => 'number', 'hint' => '0 for unrestricted'],
+        ['name' => 'min_avail', 'label' => 'Min Avail', 'type' => 'decimal', 'hint' => '0 for unrestricted'],
+        ['name' => 'max_avail', 'label' => 'Max Avail', 'type' => 'decimal', 'hint' => '365 for unrestricted'],
+        ['name' => 'leave_types_not_to_be_clubbed', 'label' => 'Leave not to be clubbed', 'type' => 'leave_type_multiple'],
+        ['name' => 'leave_credit_type', 'label' => 'Leave Credit Type', 'type' => 'leave_credit_type', 'default' => 'monthly'],
+    ];
+    $balanceIndependentFields = [
+        'leave_type_id',
+        'is_paid',
+        'allow_backdate_leave',
+        'backdate_day_limit',
+        'allow_advance_leave',
+        'advance_day_limit',
+        'allow_sandwich',
+        'maximum_request_in_a_month',
+        'maximum_request_in_a_year',
+        'leave_types_not_to_be_clubbed',
+        'eligible_after_days',
+        'credit_after_days',
+        'min_avail',
+        'max_avail',
+    ];
+@endphp
 
     <div class="card mb-4">
         <div class="card-header d-flex align-items-center justify-content-between">
@@ -121,9 +112,10 @@
         <div class="card-body">
             @php
                 $monthlyRulesForView = old('monthly_rules');
-                if ($monthlyRulesForView === null) {
+                if ($monthlyRulesForView === null && $isEdit) {
                     $monthlyRulesForView = $leaveGroup->grade_wise_monthly_leave_details->all();
                 }
+                $monthlyRulesForView ??= [];
                 $hasMonthlyRules = count($monthlyRulesForView) > 0;
                 $nextRuleIndex = $monthlyRulesForView === []
                     ? 0
@@ -351,8 +343,6 @@
             </div>
         </div>
     </div>
-
-@endif
 
 @push('scripts')
 <script>

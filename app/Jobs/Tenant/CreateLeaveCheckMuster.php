@@ -7,6 +7,7 @@ use App\Models\Tenant\LeaveCheckMuster;
 use App\Models\Tenant\User;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Database\ModelIdentifier;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -15,12 +16,15 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use UnexpectedValueException;
 
 class CreateLeaveCheckMuster implements ShouldBeUnique, ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels {
+        SerializesModels::__unserialize as private restoreSerializedProperties;
+    }
 
-    protected $user;
+    protected $userId;
 
     /**
      * The number of seconds after which the job's unique lock will be released.
@@ -34,7 +38,7 @@ class CreateLeaveCheckMuster implements ShouldBeUnique, ShouldQueue
      */
     public function uniqueId(): string
     {
-        return $this->user->id;
+        return (string) $this->userId;
     }
 
     /**
@@ -42,7 +46,23 @@ class CreateLeaveCheckMuster implements ShouldBeUnique, ShouldQueue
      */
     public function __construct(User $user)
     {
-        $this->user = $user;
+        $this->userId = $user->getKey();
+    }
+
+    public function __unserialize(array $values): void
+    {
+        $legacyUserKey = "\0*\0user";
+        if (array_key_exists($legacyUserKey, $values)) {
+            $legacyUser = $values[$legacyUserKey];
+            if (! $legacyUser instanceof ModelIdentifier) {
+                throw new UnexpectedValueException('Invalid serialized user in CreateLeaveCheckMuster job.');
+            }
+
+            $this->userId = $legacyUser->id;
+            unset($values[$legacyUserKey]);
+        }
+
+        $this->restoreSerializedProperties($values);
     }
 
     /**
@@ -50,32 +70,34 @@ class CreateLeaveCheckMuster implements ShouldBeUnique, ShouldQueue
      */
     public function handle(): void
     {
+        $user = User::query()->findOrFail($this->userId);
+
         DB::beginTransaction();
         try {
-            if ($this->user?->last_check_date != null && $this->user?->last_check_id != null) {
-                if (LeaveCheckMuster::where('user_id', $this->user?->id)->where('is_checked', false)->orderBy('check_date', 'desc')->first() == null) {
-                    $user_leave_check_muster = LeaveCheckMuster::where('user_id', $this->user?->id)
+            if ($user?->last_check_date != null && $user?->last_check_id != null) {
+                if (LeaveCheckMuster::where('user_id', $user?->id)->where('is_checked', false)->orderBy('check_date', 'desc')->first() == null) {
+                    $user_leave_check_muster = LeaveCheckMuster::where('user_id', $user?->id)
                         ->where('is_checked', true)
                         ->orderBy('check_date', 'desc')
                         ->first();
-                    if ($this->user?->grade_wise_leave?->is_monthly) {
+                    if ($user?->grade_wise_leave?->is_monthly) {
                         if ($user_leave_check_muster) {
                             $leave_check_date = GeneralConfiguration::where('key', 'monthly_leave_check_date')?->first();
                             if ($leave_check_date?->value != null) {
                                 if (Carbon::today()->format('d') == $leave_check_date?->value && Carbon::today()->format('Y-m-d') != $user_leave_check_muster->check_date) {
                                     LeaveCheckMuster::create([
-                                        'user_id' => $this->user?->id,
+                                        'user_id' => $user?->id,
                                         'check_date' => Carbon::today()->format('Y-m-d'),
                                     ]);
-                                    Log::channel('attprocess')->debug('Crete Leave Muster For | '.$this->user?->name.'('.$this->user?->code.')');
+                                    Log::channel('attprocess')->debug('Crete Leave Muster For | '.$user?->name.'('.$user?->code.')');
                                 }
                             } else {
                                 $new_check_date = $user_leave_check_muster->check_date->modify('+1 month')->format('Y-m-d');
                                 LeaveCheckMuster::create([
-                                    'user_id' => $this->user?->id,
+                                    'user_id' => $user?->id,
                                     'check_date' => $new_check_date,
                                 ]);
-                                Log::channel('attprocess')->debug('Crete Leave Muster For | '.$this->user?->name.'('.$this->user?->code.')');
+                                Log::channel('attprocess')->debug('Crete Leave Muster For | '.$user?->name.'('.$user?->code.')');
                             }
                         }
                     } else {
@@ -84,29 +106,29 @@ class CreateLeaveCheckMuster implements ShouldBeUnique, ShouldQueue
                             if ($leave_check_date?->value !== null) {
                                 if (Carbon::today()->format('d') == $leave_check_date?->value && Carbon::today()->format('Y-m-d') != $user_leave_check_muster->check_date) {
                                     LeaveCheckMuster::create([
-                                        'user_id' => $this->user?->id,
+                                        'user_id' => $user?->id,
                                         'check_date' => Carbon::today()->format('Y-m-d'),
                                     ]);
-                                    Log::channel('attprocess')->debug('Crete Leave Muster For | '.$this->user?->name.'('.$this->user?->code.')');
+                                    Log::channel('attprocess')->debug('Crete Leave Muster For | '.$user?->name.'('.$user?->code.')');
                                 }
                             } else {
                                 $new_check_date = $user_leave_check_muster->check_date->modify('+1 year')->format('Y-m-d');
                                 LeaveCheckMuster::create([
-                                    'user_id' => $this->user?->id,
+                                    'user_id' => $user?->id,
                                     'check_date' => $new_check_date,
                                 ]);
-                                Log::channel('attprocess')->debug('Crete Leave Muster For | '.$this->user?->name.'('.$this->user?->code.')');
+                                Log::channel('attprocess')->debug('Crete Leave Muster For | '.$user?->name.'('.$user?->code.')');
                             }
                         }
                     }
                 }
             } else {
-                if (LeaveCheckMuster::where('user_id', $this->user?->id)->where('is_checked', false)->orderBy('check_date', 'desc')->first() == null) {
+                if (LeaveCheckMuster::where('user_id', $user?->id)->where('is_checked', false)->orderBy('check_date', 'desc')->first() == null) {
                     LeaveCheckMuster::create([
-                        'user_id' => $this->user?->id,
-                        'check_date' => $this->user?->join_date,
+                        'user_id' => $user?->id,
+                        'check_date' => $user?->join_date,
                     ]);
-                    Log::channel('attprocess')->debug('Crete Leave Muster For | '.$this->user?->name.'('.$this->user?->code.')');
+                    Log::channel('attprocess')->debug('Crete Leave Muster For | '.$user?->name.'('.$user?->code.')');
                 }
             }
             DB::commit();

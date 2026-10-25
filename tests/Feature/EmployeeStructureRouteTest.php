@@ -153,6 +153,8 @@ class EmployeeStructureRouteTest extends TestCase
         ])->render();
 
         $this->assertStringContainsString('Annual Leave', $html);
+        $this->assertStringNotContainsString('Leave Frequency', $html);
+        $this->assertStringNotContainsString('name="is_monthly"', $html);
         $this->assertStringContainsString('data-add-leave-rule', $html);
         $this->assertStringContainsString('data-remove-leave-rule', $html);
         $this->assertStringContainsString('data-rule-prototype', $html);
@@ -196,6 +198,7 @@ class EmployeeStructureRouteTest extends TestCase
         foreach (['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'] as $month) {
             $this->assertStringContainsString('name="monthly_rules[0]['.$month.']"', $html);
         }
+
         $this->assertStringContainsString('Based On Working Hrs', $html);
         $this->assertStringNotContainsString('Yearly Leave Rules', $html);
         $this->assertStringContainsString('name="monthly_rules[0][allow_leave_encashment]"', $html);
@@ -230,6 +233,26 @@ class EmployeeStructureRouteTest extends TestCase
             $suffix = $field === 'leave_types_not_to_be_clubbed' ? '][]' : ']';
             $this->assertStringContainsString('name="monthly_rules[0]['.$field.$suffix.'"', $html);
         }
+    }
+
+    public function test_add_leave_group_form_renders_monthly_rule_fields(): void
+    {
+        view()->share('errors', new \Illuminate\Support\ViewErrorBag());
+
+        $html = view('employee-structure.leave-groups.add', [
+            'leaveGroup' => null,
+            'financialYears' => collect(),
+            'leaveTypes' => collect([
+                new LeaveType(['id' => 3, 'code' => 'AL', 'description' => 'Annual Leave']),
+            ]),
+        ])->render();
+
+        $this->assertStringContainsString('Leave Rules', $html);
+        $this->assertStringContainsString('data-add-leave-rule', $html);
+        $this->assertStringContainsString('name="monthly_rules[0][leave_type_id]"', $html);
+        $this->assertStringContainsString('Maximum Accumulation', $html);
+        $this->assertStringContainsString('Annual Leave', $html);
+        $this->assertStringNotContainsString('Leave Frequency', $html);
     }
 
     public function test_leave_group_edit_form_does_not_render_yearly_leave_rules(): void

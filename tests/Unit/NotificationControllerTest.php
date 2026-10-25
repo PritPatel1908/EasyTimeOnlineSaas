@@ -403,7 +403,7 @@ class NotificationControllerTest extends TestCase
         $path = 'leave-group-exports/'.$fileName;
         Storage::disk('local')->put(
             $path,
-            "name,financial_year,financial_year_code,is_monthly,status,assigned_employee_count\nStandard,FY 2026-27,FY26-27,Yearly,Active,4\n",
+            "name,financial_year,financial_year_code,status,assigned_employee_count\nStandard,FY 2026-27,FY26-27,Active,4\n",
         );
 
         $controller = new NotificationController;
@@ -414,10 +414,10 @@ class NotificationControllerTest extends TestCase
 
         $this->assertNull($error);
         $this->assertSame(
-            ['name', 'financial_year', 'financial_year_code', 'is_monthly', 'status', 'assigned_employee_count'],
+            ['name', 'financial_year', 'financial_year_code', 'status', 'assigned_employee_count'],
             $preview['headers'],
         );
-        $this->assertSame([['Standard', 'FY 2026-27', 'FY26-27', 'Yearly', 'Active', '4']], $preview['rows']);
+        $this->assertSame([['Standard', 'FY 2026-27', 'FY26-27', 'Active', '4']], $preview['rows']);
     }
 
     public function test_it_reads_preview_for_manual_leave_balance_export(): void

@@ -3,11 +3,18 @@
 namespace App\Helpers;
 
 use App\Enums\StatusEnumn;
+use App\Models\Tenant\LeaveAccount;
+use App\Models\Tenant\LeaveApplication;
 use App\Models\Tenant\LeaveLapse;
+use App\Models\Tenant\LeaveType;
+use App\Models\Tenant\ManualLeaveBalance;
 use App\Models\Tenant\Transaction;
 use App\Models\Tenant\User;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
+use InvalidArgumentException;
 
 class GeneralHelper
 {
@@ -96,14 +103,13 @@ class GeneralHelper
         $transaction = $transaction
             ->where('accountable_type', $accountable_type)
             ->where('accountable_id', $accountable_id)
-            // ->where('referenceable_type', $referenceable_type)
-            // ->where('referenceable_id', $referenceable_id)
             ->where('leave_type_id', $leave_type_id)
             ->where('authable_type', $authable_type)
             ->where('authable_id', $authable_id)
             ->where('trx_datetime', $trx_datetime)
-            ->limit(1)
-            ->first();
+            ->where('referenceable_type', $referenceable_type)
+            ->where('referenceable_id', $referenceable_id);
+        $transaction = $transaction->limit(1)->first();
 
         if ($transaction) {
             // Update the existing transaction
@@ -129,6 +135,7 @@ class GeneralHelper
                 ->where('authable_type', $authable_type)
                 ->where('authable_id', $authable_id)
                 ->orderBy('trx_datetime', 'desc')
+                ->orderBy('id', 'desc')
                 ->first();
 
             // Calculate the opening balance for the new transaction
@@ -177,43 +184,224 @@ class GeneralHelper
 
         // Calculate the new balance
         // Step 2: Update the balances of subsequent transactions
-        $subsequentTransactions = (new Transaction(year: $year));
-        $subsequentTransactions->setDynamicTable($year);
-        $subsequentTransactions = $subsequentTransactions
+        $transactions = (new Transaction(year: $year));
+        $transactions->setDynamicTable($year);
+        $transactions = $transactions
             ->where('accountable_type', $accountable_type)
             ->where('accountable_id', $accountable_id)
-            // ->where('referenceable_type', $referenceable_type)
-            // ->where('referenceable_id', $referenceable_id)
             ->where('leave_type_id', $leave_type_id)
             ->where('authable_type', $authable_type)
             ->where('authable_id', $authable_id)
-            ->where('trx_datetime', '>', $trx_datetime)
             ->orderBy('trx_datetime', 'asc')
+            ->orderBy('id', 'asc')
             ->get();
 
-        $new_opening_balance = $transaction->balance;
-        foreach ($subsequentTransactions as $subsequentTransaction) {
-            $subsequentTransaction->opening_balance = $new_opening_balance;
-            $subsequentTransaction->balance
-                = $subsequentTransaction->opening_balance
-                + $subsequentTransaction->credit
-                - $subsequentTransaction->debit;
-            $subsequentTransaction->save();
-            $new_opening_balance = $subsequentTransaction->balance;
+        $new_opening_balance = 0.0;
+        foreach ($transactions as $index => $ledgerTransaction) {
+            if ($index === 0) {
+                $new_opening_balance = (float) $ledgerTransaction->opening_balance;
+            } else {
+                $ledgerTransaction->opening_balance = $new_opening_balance;
+            }
+            $ledgerTransaction->balance = $ledgerTransaction->opening_balance
+                + $ledgerTransaction->credit
+                - $ledgerTransaction->debit;
+            $ledgerTransaction->save();
+            $new_opening_balance = (float) $ledgerTransaction->balance;
         }
 
-        // UPDATE ACOUNT BALANCE FROM ACCOUNTABLE
-        $account = $accountable_type::find($accountable_id);
-        $leave_detail = $referenceable_type::find($referenceable_id);
-        $account->leave_account_details()->updateOrCreate(
-            [
+        $account = $accountable_type::findOrFail($accountable_id);
+        self::syncLeaveAccountDetails($account, $year, $leave_type_id);
+    }
+
+    private static function syncLeaveAccountDetails(
+        LeaveAccount $account,
+        string $year,
+        int $leaveTypeId,
+    ): void {
+        $transactions = (new Transaction(year: $year))
+            ->where('accountable_type', $account::class)
+            ->where('accountable_id', $account->id)
+            ->where('leave_type_id', $leaveTypeId)
+            ->where('authable_type', User::class)
+            ->where('authable_id', $account->user_id)
+            ->orderBy('trx_datetime')
+            ->orderBy('id')
+            ->get();
+
+        foreach ($transactions as $transaction) {
+            $detail = $account->leave_account_details()->firstOrNew([
                 'leave_account_id' => $account->id,
-                'leave_type_id' => $leave_detail->leave_type_id,
-            ],
-            [
-                'balance' => $new_opening_balance,
-            ]
-        );
+                'leave_type_id' => $leaveTypeId,
+                'transaction_year' => $year,
+                'transaction_id' => $transaction->id,
+            ]);
+            $detail->fill([
+                'balance' => $transaction->balance,
+                'type' => $transaction->referenceable_type,
+                'type_id' => $transaction->referenceable_id,
+                'credit_balance' => $transaction->credit,
+                'debit_balance' => $transaction->debit,
+            ])->save();
+        }
+    }
+
+    public static function syncManualLeaveBalanceToAccounts(ManualLeaveBalance $manualLeaveBalance): void
+    {
+        $manualLeaveBalance->load(['Users', 'leave_type']);
+        $date = $manualLeaveBalance->date;
+        $leaveType = $manualLeaveBalance->leave_type;
+
+        if ($date === null || $leaveType === null) {
+            throw new InvalidArgumentException('A manual leave balance must have a date and leave type before it can be applied.');
+        }
+
+        $credit = max((float) $manualLeaveBalance->balance, 0);
+        $debit = max(-(float) $manualLeaveBalance->balance, 0);
+
+        foreach ($manualLeaveBalance->Users as $user) {
+            $account = LeaveAccount::query()->firstOrCreate(
+                ['user_id' => $user->id],
+                ['code' => $user->code],
+            );
+
+            self::createOrUpdateTransaction(
+                $date->format('Y'),
+                $account::class,
+                (int) $account->id,
+                $manualLeaveBalance::class,
+                (int) $manualLeaveBalance->id,
+                (int) $manualLeaveBalance->leave_type_id,
+                $user::class,
+                (int) $user->id,
+                Carbon::parse($date),
+                (int) $user->id,
+                $credit,
+                $debit,
+                ($credit > 0 ? 'Credit #' : 'Debit #').$leaveType->code.' '.$date->toDateTimeString(),
+                (int) ($manualLeaveBalance->created_by ?? $user->id),
+                (int) ($manualLeaveBalance->updated_by ?? $user->id),
+                false,
+            );
+        }
+    }
+
+    /**
+     * @param  array<int, int>  $userIds
+     */
+    public static function reverseLeaveApplicationBalance(
+        LeaveApplication $application,
+        array $userIds,
+        ?int $actorId,
+    ): void {
+        DB::transaction(static function () use ($application, $userIds, $actorId): void {
+            self::updateLeaveApplicationTransactions($application, $userIds, $actorId, true);
+        });
+    }
+
+    /**
+     * @param  array<int, int>  $userIds
+     */
+    public static function clearLeaveApplicationBalance(
+        LeaveApplication $application,
+        array $userIds,
+        ?int $actorId,
+    ): void {
+        DB::transaction(static function () use ($application, $userIds, $actorId): void {
+            self::updateLeaveApplicationTransactions($application, $userIds, $actorId, false);
+        });
+    }
+
+    /**
+     * @param  array<int, int>  $userIds
+     */
+    private static function updateLeaveApplicationTransactions(
+        LeaveApplication $application,
+        array $userIds,
+        ?int $actorId,
+        bool $reverse,
+    ): void {
+        $year = $application->created_at?->format('Y');
+        if ($year === null) {
+            throw new InvalidArgumentException('A leave application must have a creation date before its balance can be reversed.');
+        }
+
+        $applicationLedger = new Transaction(year: $year);
+        $applicationLedger->setDynamicTable($year);
+        $ledgerUserIds = $applicationLedger
+            ->where('referenceable_type', LeaveApplication::class)
+            ->where('referenceable_id', $application->id)
+            ->where('accountable_type', LeaveAccount::class)
+            ->pluck('authable_id')
+            ->map(static fn (mixed $userId): int => (int) $userId)
+            ->all();
+
+        $userIds = array_values(array_unique(array_merge($userIds, $ledgerUserIds)));
+        foreach (array_unique($userIds) as $userId) {
+            $user = User::query()->findOrFail($userId);
+            $account = LeaveAccount::query()->where('user_id', $user->id)->first();
+            if ($account === null) {
+                continue;
+            }
+
+            $ledger = new Transaction(year: $year);
+            $ledger->setDynamicTable($year);
+            $applicationTransactions = $ledger
+                ->where('accountable_type', LeaveAccount::class)
+                ->where('accountable_id', $account->id)
+                ->where('referenceable_type', LeaveApplication::class)
+                ->where('referenceable_id', $application->id)
+                ->where('authable_type', User::class)
+                ->where('authable_id', $user->id)
+                ->get();
+
+            foreach ($applicationTransactions as $applicationTransaction) {
+                if ($reverse && (float) $applicationTransaction->debit <= 0) {
+                    continue;
+                }
+
+                $applicationTransaction->credit = $reverse
+                    ? (float) $applicationTransaction->debit
+                    : 0;
+                $applicationTransaction->debit = 0;
+                $applicationTransaction->remarks = $reverse
+                    ? 'Reversed debit for leave application #'.$application->id
+                    : 'Reset leave debit for application #'.$application->id;
+                $applicationTransaction->updated_by = $actorId;
+                $applicationTransaction->save();
+
+                $transactions = (new Transaction(year: $year))
+                    ->where('accountable_type', LeaveAccount::class)
+                    ->where('accountable_id', $account->id)
+                    ->where('leave_type_id', $applicationTransaction->leave_type_id)
+                    ->where('authable_type', User::class)
+                    ->where('authable_id', $user->id)
+                    ->orderBy('trx_datetime')
+                    ->orderBy('id')
+                    ->get();
+
+                $balance = null;
+                foreach ($transactions as $index => $transaction) {
+                    if ($index > 0) {
+                        $transaction->opening_balance = $balance;
+                    }
+                    $transaction->balance = $transaction->opening_balance
+                        + $transaction->credit
+                        - $transaction->debit;
+                    $transaction->save();
+                    $balance = $transaction->balance;
+                }
+
+                $latestTransaction = $transactions->last();
+                if ($latestTransaction !== null) {
+                    self::syncLeaveAccountDetails(
+                        $account,
+                        $year,
+                        (int) $applicationTransaction->leave_type_id,
+                    );
+                }
+            }
+        }
     }
 
     public static function handleCarryForwardLeave(

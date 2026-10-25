@@ -33,6 +33,8 @@ class EmployeeStructureImportTemplateTest extends TestCase
         $this->assertInstanceOf(HasMany::class, $leaveGroup->grade_wise_yearly_leave_details());
         $this->assertSame('grade_wise_leave_id', $leaveGroup->grade_wise_monthly_leave_details()->getForeignKeyName());
         $this->assertSame('grade_wise_leave_id', $leaveGroup->grade_wise_yearly_leave_details()->getForeignKeyName());
+        $this->assertTrue($leaveGroup->is_monthly);
+        $this->assertNotContains('is_monthly', LeaveGroup::IMPORT_EXPORT_COLUMNS);
         $this->assertInstanceOf(BelongsTo::class, (new GradeWiseMonthlyLeaveDetail())->grade_wise_leave());
         $this->assertInstanceOf(BelongsTo::class, (new GradeWiseYearlyLeaveDetail())->grade_wise_leave());
         $legacyAssignment = (new User())->leave_group();

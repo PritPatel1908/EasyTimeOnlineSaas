@@ -20,10 +20,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int|null $leave_reason_id
  * @property string|null $reason_explanation
  * @property bool $is_only_half
+ * @property Carbon|null $application_date
  * @property Carbon|null $from_date
  * @property bool $is_second_half
  * @property Carbon|null $to_date
  * @property bool $is_first_half
+ * @property string|null $leave_count
  * @property int $status
  * @property int|null $created_by
  * @property int|null $updated_by
@@ -80,6 +82,21 @@ class LeaveApplication extends Model
         'deleted_by',
     ];
 
+    public const IMPORT_EXPORT_COLUMNS = [
+        'employee_codes',
+        'leave_type_code',
+        'leave_reason',
+        'reason_explanation',
+        'is_only_half',
+        'from_date',
+        'is_second_half',
+        'application_date',
+        'to_date',
+        'is_first_half',
+        'leave_count',
+        'status',
+    ];
+
     public function users()
     {
         return $this->belongsToMany(User::class, 'leave_application_users')
@@ -100,5 +117,37 @@ class LeaveApplication extends Model
     public function approval_status()
     {
         return $this->morphOne(ApprovalStatus::class, 'approvable');
+    }
+
+    public function approval_statuses()
+    {
+        return $this->morphMany(ApprovalStatus::class, 'approvable');
+    }
+
+    public function overallApprovalStatus(): string
+    {
+        $statuses = $this->relationLoaded('approval_statuses')
+            ? $this->approval_statuses
+            : $this->approval_statuses()->get();
+
+        if ($statuses->isEmpty()) {
+            return 'unknown';
+        }
+
+        if ($statuses->contains('approval_status', 'rejected')) {
+            return 'rejected';
+        }
+
+        if ($statuses->contains(static fn (ApprovalStatus $status): bool => in_array(
+            $status->approval_status,
+            ['draft', 'pending'],
+            true,
+        ))) {
+            return 'pending';
+        }
+
+        return $statuses->every(
+            static fn (ApprovalStatus $status): bool => $status->approval_status === 'approved',
+        ) ? 'approved' : 'unknown';
     }
 }

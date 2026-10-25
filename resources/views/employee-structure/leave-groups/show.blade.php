@@ -7,10 +7,9 @@
         @if(\App\Support\TenantPermissions::userCan('LeaveGroup', 'write'))<a class="btn btn-primary" href="{{ url('employee-structure/leave-groups/'.$leaveGroup->id.'/edit') }}"><i class="ti ti-edit me-1"></i>Edit</a>@endif
     </div>
     <div class="card mb-4"><div class="card-header"><h5 class="mb-0">Leave Group Details</h5></div><div class="card-body"><div class="row">
-        <div class="col-md-3 mb-3"><small class="text-muted d-block">Financial Year</small>{{ $leaveGroup->financial_year?->name ?? '—' }}</div>
-        <div class="col-md-3 mb-3"><small class="text-muted d-block">Frequency</small>{{ $leaveGroup->is_monthly ? 'Monthly' : 'Yearly' }}</div>
-        <div class="col-md-3 mb-3"><small class="text-muted d-block">Status</small>{{ $leaveGroup->status === 1 ? 'Active' : 'Inactive' }}</div>
-        <div class="col-md-3 mb-3"><small class="text-muted d-block">Assigned Employees</small>{{ $leaveGroup->users()->count() }}</div>
+        <div class="col-md-4 mb-3"><small class="text-muted d-block">Financial Year</small>{{ $leaveGroup->financial_year?->name ?? '—' }}</div>
+        <div class="col-md-4 mb-3"><small class="text-muted d-block">Status</small>{{ $leaveGroup->status === 1 ? 'Active' : 'Inactive' }}</div>
+        <div class="col-md-4 mb-3"><small class="text-muted d-block">Assigned Employees</small>{{ $leaveGroup->users()->count() }}</div>
     </div></div></div>
     <div class="card mb-4"><div class="card-header"><h5 class="mb-0">Leave Rules</h5></div><div class="card-body p-0"><div class="table-responsive"><table class="table mb-0">
         <thead><tr><th>Leave Type</th><th>Increment</th><th>Max Accumulation</th><th>Paid?</th><th>Keeps Balance?</th></tr></thead><tbody>

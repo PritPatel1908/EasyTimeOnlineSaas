@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Tenant\AuthController;
 use App\Http\Controllers\Tenant\CategoryController;
+use App\Http\Controllers\Tenant\LeaveApplicationController;
 use App\Http\Controllers\Tenant\LeaveGroupController;
 use App\Http\Controllers\Tenant\ApprovalFlowController;
 use App\Http\Controllers\Tenant\DesignationController;
@@ -282,6 +283,26 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:ShiftChange,write')
                         ->middlewareFor('destroy', 'tenant.permission:ShiftChange,delete')
                         ->names('manual-shift-changes');
+                    Route::get('leave-applications/export', [LeaveApplicationController::class, 'export'])
+                        ->middleware('tenant.permission:LeaveApplication,export')->name('leave-applications.export');
+                    Route::get('leave-applications/import/sample', [LeaveApplicationController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:LeaveApplication,import')->name('leave-applications.import-sample');
+                    Route::get('leave-applications/export/download/{file}', [LeaveApplicationController::class, 'downloadExport'])
+                        ->middleware('tenant.permission:LeaveApplication,export')->name('leave-applications.download-export');
+                    Route::post('leave-applications/import', [LeaveApplicationController::class, 'import'])
+                        ->middleware('tenant.permission:LeaveApplication,import')->name('leave-applications.import');
+                    Route::get('leave-applications/create', [LeaveApplicationController::class, 'create'])
+                        ->middleware('tenant.permission:LeaveApplication,create')->name('leave-applications.create');
+                    Route::resource('leave-applications', LeaveApplicationController::class)
+                        ->except(['create'])
+                        ->parameters(['leave-applications' => 'leave_application'])
+                        ->middlewareFor('index', 'tenant.permission:LeaveApplication,read')
+                        ->middlewareFor('show', 'tenant.permission:LeaveApplication,read')
+                        ->middlewareFor('store', 'tenant.permission:LeaveApplication,create')
+                        ->middlewareFor('edit', 'tenant.permission:LeaveApplication,write')
+                        ->middlewareFor('update', 'tenant.permission:LeaveApplication,write')
+                        ->middlewareFor('destroy', 'tenant.permission:LeaveApplication,delete')
+                        ->names('leave-applications');
                     Route::get('shift-change-applications/export', [ShiftChangeApplicationController::class, 'export'])
                         ->middleware('tenant.permission:ShiftChangeApplication,export')->name('shift-change-applications.export');
                     Route::get('shift-change-applications/export/download/{file}', [ShiftChangeApplicationController::class, 'downloadExport'])

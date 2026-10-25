@@ -15,6 +15,9 @@ class StoreLeaveGroupRequest extends FormRequest
 
     public function rules(): array
     {
-        return LeaveGroupRequestRules::rules(null, $this->integer('financial_year_id') ?: null);
+        return array_merge(
+            LeaveGroupRequestRules::rules(null, $this->integer('financial_year_id') ?: null),
+            LeaveGroupMonthlyRuleRules::rules(),
+        );
     }
 }

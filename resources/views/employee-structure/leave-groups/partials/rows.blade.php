@@ -3,7 +3,6 @@
     <td><input id="leave_group_{{ $leaveGroup->id }}" class="form-check-input" type="checkbox"></td>
     <td><h6 class="fw-medium fs-14 mb-0">{{ $leaveGroup->name }}</h6></td>
     <td>{{ $leaveGroup->financial_year?->name ?? '—' }}</td>
-    <td>{{ $leaveGroup->is_monthly ? 'Monthly' : 'Yearly' }}</td>
     <td>{{ $leaveGroup->monthly_rules_count }}</td>
     <td>{{ $leaveGroup->yearly_rules_count }}</td>
     <td><span class="badge {{ $leaveGroup->status === 1 ? 'badge-success' : 'badge-danger' }}">{{ $leaveGroup->status === 1 ? 'Active' : 'Inactive' }}</span></td>
@@ -14,5 +13,5 @@
     </div></td>
 </tr>
 @empty
-<tr><td colspan="8" class="py-4 text-center text-muted">No Leave Groups found.</td></tr>
+<tr><td colspan="7" class="py-4 text-center text-muted">No Leave Groups found.</td></tr>
 @endforelse

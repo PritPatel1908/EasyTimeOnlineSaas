@@ -168,7 +168,7 @@ class StoreEmployeeRequest extends FormRequest
             'manual_attendance_approval_flow_id' => ['nullable', 'integer', 'exists:approval_flows,id'],
             'leave_approval_flow_id' => ['nullable', 'integer', 'exists:approval_flows,id'],
             'short_leave_approval_flow_id' => ['nullable', 'integer', 'exists:approval_flows,id'],
-            'grade_wise_leave_id' => ['nullable', 'integer'],
+            'grade_wise_leave_id' => ['nullable', 'integer', 'exists:grade_wise_leaves,id'],
             'last_check_date' => ['nullable', 'date'],
             'last_check_id' => ['nullable', 'integer'],
             'short_leave_minutes' => ['nullable', 'integer', 'min:0'],

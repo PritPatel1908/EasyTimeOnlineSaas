@@ -11,9 +11,13 @@ class LeaveGroup extends Model
 {
     use SoftDeletes;
 
-    public const IMPORT_EXPORT_COLUMNS = ['name', 'financial_year_id', 'is_monthly', 'status'];
+    public const IMPORT_EXPORT_COLUMNS = ['name', 'financial_year_id', 'status'];
 
     protected $table = 'grade_wise_leaves';
+
+    protected $attributes = [
+        'is_monthly' => true,
+    ];
 
     protected $casts = [
         'financial_year_id' => 'int',

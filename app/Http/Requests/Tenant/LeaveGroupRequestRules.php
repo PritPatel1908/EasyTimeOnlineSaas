@@ -20,7 +20,6 @@ final class LeaveGroupRequestRules
                     ->ignore($leaveGroupId),
             ],
             'financial_year_id' => ['nullable', 'integer', 'exists:financial_years,id'],
-            'is_monthly' => ['required', 'boolean'],
             'status' => ['required', 'integer', 'in:1,0'],
         ];
     }

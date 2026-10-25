@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Tenant;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tenant\StoreManualLeaveBalanceRequest;
 use App\Http\Requests\Tenant\UpdateManualLeaveBalanceRequest;
+use App\Jobs\Tenant\CreateUserManualBalance;
 use App\Jobs\Tenant\GenerateManualLeaveBalanceExport;
 use App\Jobs\Tenant\ProcessManualLeaveBalanceImport;
 use App\Models\Tenant\Company;
@@ -79,6 +80,7 @@ class ManualLeaveBalanceController extends Controller
         DB::transaction(function () use ($validated, $userIds): void {
             $balance = ManualLeaveBalance::query()->create($validated);
             $balance->Users()->sync($userIds);
+            CreateUserManualBalance::dispatch($balance)->afterCommit();
         });
 
         return redirect(url(self::INDEX_URL))->with('success', 'Manual leave balance created successfully.');

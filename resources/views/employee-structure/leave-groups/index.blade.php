@@ -39,7 +39,7 @@
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table datatable">
-                        <thead class="thead-light"><tr><th></th><th>Name</th><th>Financial Year</th><th>Frequency</th><th>Monthly Rules</th><th>Yearly Rules</th><th>Status</th><th></th></tr></thead>
+                        <thead class="thead-light"><tr><th></th><th>Name</th><th>Financial Year</th><th>Monthly Rules</th><th>Yearly Rules</th><th>Status</th><th></th></tr></thead>
                         <tbody>@include('employee-structure.leave-groups.partials.rows')</tbody>
                     </table>
                 </div>

@@ -199,6 +199,10 @@
     'tenant.time-management.shift-change-applications.edit',
     'tenant.myapp_com.tenant.time-management.shift-change-applications.create',
     'tenant.myapp_com.tenant.time-management.shift-change-applications.edit',
+    'tenant.time-management.leave-applications.create',
+    'tenant.time-management.leave-applications.edit',
+    'tenant.myapp_com.tenant.time-management.leave-applications.create',
+    'tenant.myapp_com.tenant.time-management.leave-applications.edit',
 ]))
     <script src="{{URL::asset('build/js/custom-tom-select.js')}}"></script>
 @endif

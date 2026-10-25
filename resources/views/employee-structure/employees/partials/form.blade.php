@@ -1391,15 +1391,16 @@
                                     @endif
                                 </div>
                             @endforeach
-                            <div class="col-md-6 mb-3"><label class="form-label">Leave Group</label><select
-                                    name="leave_group_id" class="form-control">
+                            <div class="col-md-6 mb-3"><label class="form-label">Grade Wise Leave Group</label><select
+                                    name="grade_wise_leave_id" class="form-control @error('grade_wise_leave_id') is-invalid @enderror">
                                     <option value="">Select</option>
-                                    @foreach ($leaveGroups as $leaveGroup)
-                                        <option value="{{ $leaveGroup->id }}" @selected((string) $value('leave_group_id') === (string) $leaveGroup->id)>
-                                            {{ $leaveGroup->code }}{{ $leaveGroup->description ? ' - ' . $leaveGroup->description : '' }}
+                                    @foreach ($gradeWiseLeaves as $gradeWiseLeave)
+                                        <option value="{{ $gradeWiseLeave->id }}" @selected((string) $value('grade_wise_leave_id') === (string) $gradeWiseLeave->id)>
+                                            {{ $gradeWiseLeave->name }}
                                         </option>
                                     @endforeach
                                 </select>
+                                <x-validation-error field="grade_wise_leave_id" />
                             </div>
                             <div class="col-md-6 mb-3"><label class="form-label">Team</label><select name="team_id"
                                     class="form-control">

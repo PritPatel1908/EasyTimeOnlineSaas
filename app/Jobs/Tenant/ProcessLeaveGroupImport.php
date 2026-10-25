@@ -114,11 +114,6 @@ class ProcessLeaveGroupImport implements ShouldQueue
             }
         }
 
-        $isMonthly = $this->parseBoolean($row['is_monthly'] ?? '');
-        if ($isMonthly === null) {
-            return ['created' => 0, 'updated' => 0, 'error' => 'Frequency must be Monthly or Yearly for '.$name];
-        }
-
         $status = $this->parseStatus($row['status'] ?? '');
         if ($status === null) {
             return ['created' => 0, 'updated' => 0, 'error' => 'Status must be Active or Inactive for '.$name];
@@ -135,7 +130,6 @@ class ProcessLeaveGroupImport implements ShouldQueue
         $payload = [
             'name' => $name,
             'financial_year_id' => $financialYear?->id,
-            'is_monthly' => $isMonthly,
             'status' => $status,
         ];
         if ($leaveGroup !== null) {
@@ -147,15 +141,6 @@ class ProcessLeaveGroupImport implements ShouldQueue
         LeaveGroup::query()->create($payload);
 
         return ['created' => 1, 'updated' => 0, 'error' => null];
-    }
-
-    private function parseBoolean(string $value): ?bool
-    {
-        return match (strtolower(trim($value))) {
-            '1', 'true', 'yes', 'y', 'monthly' => true,
-            '0', 'false', 'no', 'n', 'yearly' => false,
-            default => null,
-        };
     }
 
     private function parseStatus(string $value): ?int

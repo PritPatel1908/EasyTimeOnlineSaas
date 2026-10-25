@@ -17,8 +17,8 @@ use App\Models\Tenant\DataPolicy;
 use App\Models\Tenant\Department;
 use App\Models\Tenant\Designation;
 use App\Models\Tenant\Grade;
+use App\Models\Tenant\GradeWiseLeave;
 use App\Models\Tenant\Location;
-use App\Models\Tenant\LegacyLeaveGroup as LeaveGroup;
 use App\Models\Tenant\Role;
 use App\Models\Tenant\Shift;
 use App\Models\Tenant\ShiftRotation;
@@ -226,7 +226,7 @@ class EmployeeController extends Controller
             $options[$key] = $model::query()->where(fn($query) => $query->where('status', 1)->orWhereNull('status'))->orderBy('name')->get();
         }
         return array_merge($options, [
-            'leaveGroups' => LeaveGroup::query()->where('status', 1)->orderBy('code')->get(),
+            'gradeWiseLeaves' => GradeWiseLeave::query()->where('status', 1)->orderBy('name')->get(),
             'teams' => Team::query()->where('status', 1)->orderBy('name')->get(),
             'canteenFacilities' => CanteenFacility::query()->where('status', 1)->orderBy('name')->get(),
             'passwordPolicies' => PasswordPolicy::query()->orderBy('policy_name')->get(),

@@ -56,7 +56,6 @@ class GenerateLeaveGroupExportTest extends TestCase
             'id' => 5,
             'name' => 'Annual Leave Group',
             'financial_year_id' => 3,
-            'is_monthly' => 0,
             'status' => 1,
         ], true);
         $leaveGroup->setAttribute('users_count', 4);
@@ -86,7 +85,7 @@ class GenerateLeaveGroupExportTest extends TestCase
 
         $this->assertSame('FY 2026-27', $row['financial_year']);
         $this->assertSame('FY26-27', $row['financial_year_code']);
-        $this->assertSame('Yearly', $row['is_monthly']);
+        $this->assertArrayNotHasKey('is_monthly', $row);
         $this->assertSame('4', $row['assigned_employee_count']);
         $this->assertSame('AL - Annual Leave', $row['monthly_rule_1_leave_type']);
         $this->assertSame('AL', $row['monthly_rule_1_leave_type_code']);

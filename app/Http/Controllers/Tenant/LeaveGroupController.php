@@ -83,12 +83,25 @@ class LeaveGroupController extends Controller
         return view('employee-structure.leave-groups.add', [
             'leaveGroup' => null,
             'financialYears' => FinancialYear::query()->orderByDesc('id')->get(),
+            'leaveTypes' => LeaveType::withTrashed()->orderBy('description')->get(),
         ]);
     }
 
     public function store(StoreLeaveGroupRequest $request): RedirectResponse
     {
-        LeaveGroup::query()->create($request->validated());
+        $validated = $request->validated();
+        $monthlyRules = $validated['monthly_rules'] ?? [];
+        unset($validated['monthly_rules']);
+
+        DB::transaction(function () use ($validated, $monthlyRules): void {
+            $leaveGroup = LeaveGroup::query()->create($validated);
+
+            foreach ($monthlyRules as $rule) {
+                $rule['leave_types_not_to_be_clubbed'] ??= [];
+                $rule['include_leaves'] ??= [];
+                $leaveGroup->grade_wise_monthly_leave_details()->create($rule);
+            }
+        });
 
         return redirect(url(self::INDEX_URL))->with('success', 'Leave Group created successfully.');
     }
@@ -189,7 +202,6 @@ class LeaveGroupController extends Controller
             CsvImportTemplate::write($handle, LeaveGroup::IMPORT_EXPORT_COLUMNS, [
                 'name' => 'Required; text, maximum 255 characters.',
                 'financial_year_id' => 'Optional; an existing financial year ID.',
-                'is_monthly' => 'Required; Yes or No.',
                 'status' => 'Optional; Active or Inactive; blank defaults to Active.',
             ]);
             fclose($handle);
