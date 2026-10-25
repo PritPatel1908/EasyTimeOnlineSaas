@@ -25,6 +25,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string $network_status
  * @property string|null $access_direction
  * @property int|null $location_id
+ * @property int|null $company_id
  * @property int|null $area_id
  * @property int $status
  * @property string|null $deleted_at
@@ -35,6 +36,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property Carbon|null $updated_at
  * @property User|null $user
  * @property Location|null $location
+ * @property Company|null $company
+ * @property Area|null $area
  */
 class Machine extends Model
 {
@@ -43,16 +46,34 @@ class Machine extends Model
 
     protected $table = 'machines';
 
+    public const IMPORT_EXPORT_COLUMNS = [
+        'name',
+        'machine_ip',
+        'machine_serial_number',
+        'dms_device_id',
+        'dms_area_id',
+        'sync_dms',
+        'network_status',
+        'access_direction',
+        'location',
+        'company',
+        'area',
+        'status',
+    ];
+
     protected static function booted(): void
     {
         static::addGlobalScope(new DataPolicyFilter);
     }
 
     protected $casts = [
+        'dms_device_id' => 'int',
+        'dms_area_id' => 'int',
         'sync_dms' => 'int',
         'location_id' => 'int',
         'company_id' => 'int',
         'area_id' => 'int',
+        'status' => 'int',
         'created_by' => 'int',
         'updated_by' => 'int',
         'deleted_by' => 'int',
@@ -72,6 +93,11 @@ class Machine extends Model
         'area_id',
         'status',
     ];
+
+    public static function getImportUniqueFields(): array
+    {
+        return ['machine_serial_number'];
+    }
 
     public function area()
     {

@@ -280,6 +280,8 @@
 									class="{{ Request::is('company-structure/canteen-facilities*') ? 'active' : '' }}">Canteen Facility</a></li>@endif
 							@if (\App\Support\TenantPermissions::userCan('Area', 'read'))<li><a href="{{url('company-structure/areas')}}"
 									class="{{ Request::is('company-structure/areas*') ? 'active' : '' }}">Areas</a></li>@endif
+							@if (\App\Support\TenantPermissions::userCan('Machine', 'read'))<li><a href="{{url('company-structure/machines')}}"
+									class="{{ Request::is('company-structure/machines*') ? 'active' : '' }}">Machines</a></li>@endif
 						</ul>
 					</div>
 					@endif

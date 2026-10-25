@@ -10,6 +10,7 @@ use App\Http\Controllers\Tenant\DesignationController;
 use App\Http\Controllers\Tenant\EmployeeController;
 use App\Http\Controllers\Tenant\CompanyController;
 use App\Http\Controllers\Tenant\AreaController;
+use App\Http\Controllers\Tenant\MachineController;
 use App\Http\Controllers\Tenant\ShiftController;
 use App\Http\Controllers\Tenant\ShiftRotationController;
 use App\Http\Controllers\Tenant\ManualPunchController;
@@ -835,6 +836,27 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:Area,write')
                         ->middlewareFor('destroy', 'tenant.permission:Area,delete')
                         ->names('areas');
+                    Route::get('machines/export', [MachineController::class, 'export'])
+                        ->middleware('tenant.permission:Machine,export')->name('machines.export');
+                    Route::get('machines/import/sample', [MachineController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:Machine,import')->name('machines.import-sample');
+                    Route::get('machines/export/download/{file}', [MachineController::class, 'downloadExport'])
+                        ->middleware('tenant.permission:Machine,export')->name('machines.download-export');
+                    Route::post('machines/import', [MachineController::class, 'import'])
+                        ->middleware('tenant.permission:Machine,import')->name('machines.import');
+                    Route::post('machines/filter', [MachineController::class, 'filterStatus'])
+                        ->middleware('tenant.permission:Machine,read')->name('machines.filter');
+                    Route::get('machines/create', [MachineController::class, 'create'])
+                        ->middleware('tenant.permission:Machine,create')->name('machines.create');
+                    Route::resource('machines', MachineController::class)
+                        ->except(['create'])
+                        ->middlewareFor('index', 'tenant.permission:Machine,read')
+                        ->middlewareFor('show', 'tenant.permission:Machine,read')
+                        ->middlewareFor('store', 'tenant.permission:Machine,create')
+                        ->middlewareFor('edit', 'tenant.permission:Machine,write')
+                        ->middlewareFor('update', 'tenant.permission:Machine,write')
+                        ->middlewareFor('destroy', 'tenant.permission:Machine,delete')
+                        ->names('machines');
                     Route::get('data-policies', function () {
                         return redirect('data-policy');
                     })->name('data-policies.legacy');

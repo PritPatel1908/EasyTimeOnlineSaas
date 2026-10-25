@@ -4,6 +4,7 @@
 	$companyStructureActive = request()->is('company-structure/*');
 	$locationsActive = request()->is('company-structure/locations*');
 	$areasActive = request()->is('company-structure/areas*');
+	$machinesActive = request()->is('company-structure/machines*');
 	$departmentsActive = request()->is('company-structure/departments*');
 	$subDepartmentsActive = request()->is('company-structure/sub-departments*');
 	$unitsActive = request()->is('company-structure/units*');
@@ -213,6 +214,8 @@
 													@endif
 								@if (\App\Support\TenantPermissions::userCan('Area', 'read'))<li><a href="{{ url('company-structure/areas') }}"
 										class="{{ $areasActive ? 'active' : '' }}">Areas</a></li>@endif
+								@if (\App\Support\TenantPermissions::userCan('Machine', 'read'))<li><a href="{{ url('company-structure/machines') }}"
+										class="{{ $machinesActive ? 'active' : '' }}">Machines</a></li>@endif
 							</ul>
 						</li>
 					</ul>
