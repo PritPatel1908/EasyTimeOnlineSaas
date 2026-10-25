@@ -23,6 +23,7 @@ class ApprovalStatusDetails extends Model // implements Auditable
         'approval_flow_detail_id',
         'user_id',
         'approval_status',
+        'rejection_reason',
         'timestamp',
         'created_by',
         'updated_by',

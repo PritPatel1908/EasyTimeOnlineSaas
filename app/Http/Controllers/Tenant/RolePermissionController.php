@@ -177,6 +177,12 @@ class RolePermissionController extends Controller
             'role' => $role->load('permissions:id,name'),
             'modules' => self::getModules(),
             'actions' => self::ACTIONS,
+            'customPermissions' => [
+                'Pending Request' => [
+                    'module' => 'pendingrequest',
+                    'actions' => ['read', 'approve', 'reject'],
+                ],
+            ],
         ]);
     }
 

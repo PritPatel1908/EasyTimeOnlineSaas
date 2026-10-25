@@ -48,6 +48,7 @@
 	$canViewLeaveApplications = \App\Support\TenantPermissions::userCan('LeaveApplication', 'read');
 	$canViewWeekOffChangeApplications = \App\Support\TenantPermissions::userCan('WeekOffChangeApplication', 'read');
 	$canViewWeekOffSwapApplications = \App\Support\TenantPermissions::userCan('WeekOffSwapApplication', 'read');
+	$canViewPendingRequests = \App\Support\TenantPermissions::userCan('PendingRequest', 'read');
 	$canViewManualAttendances = \App\Support\TenantPermissions::userCan('ManualAttendance', 'read');
 	$canViewManualShiftChanges = \App\Support\TenantPermissions::userCan('ShiftChange', 'read');
 	$canViewWeekOffChanges = \App\Support\TenantPermissions::userCan('WeekOffChange', 'read');
@@ -404,6 +405,7 @@
 					</ul>
 				</li>
 				@endif
+				@if ($canViewPendingRequests)
 				<li class="menu-title"><span>REQUEST MANAGEMENT STRUCTURE</span></li>
 				<li>
 					<ul>
@@ -414,12 +416,13 @@
 								<span class="menu-arrow"></span>
 							</a>
 							<ul>
-								<li><a href="javascript:void(0);"
+								<li><a href="{{ url('requests/pending') }}"
 									class="{{ $requestManagementStructureActive ? 'active' : '' }}">Pending Request</a></li>
 							</ul>
 						</li>
 					</ul>
 				</li>
+				@endif
 				@if (false)
 				<li class="menu-title"><span>MAIN MENU</span></li>
 				<li>

@@ -125,6 +125,8 @@ final class TenantPermissions
             'write' => ['update_'.$module],
             'create' => ['create_'.$module],
             'delete' => ['delete_any_'.$module, 'delete_'.$module],
+            'approve' => ['approve_'.$module],
+            'reject' => ['reject_'.$module],
             default => [],
         };
 

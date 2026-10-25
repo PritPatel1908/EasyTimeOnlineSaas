@@ -35,6 +35,7 @@ use App\Http\Controllers\Tenant\LocationController;
 use App\Http\Controllers\Tenant\LeaveTypeController;
 use App\Http\Controllers\Tenant\ManualLeaveBalanceController;
 use App\Http\Controllers\Tenant\NotificationController;
+use App\Http\Controllers\Tenant\PendingApprovalController;
 use App\Http\Controllers\Tenant\DashboardController;
 use App\Http\Controllers\Tenant\LicenseController;
 use App\Http\Controllers\Tenant\RolePermissionController;
@@ -96,6 +97,11 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                 Route::post('/notifications/mark-read', [\App\Http\Controllers\Central\AdminNotificationController::class, 'markRead'])->name('tenant.notifications.mark-read');
                 Route::get('/notifications', [NotificationController::class, 'index'])->name('tenant.notifications.index');
                 Route::get('/notifications/{notification}', [NotificationController::class, 'show'])->name('tenant.notifications.show');
+                Route::prefix('requests/pending')->name('tenant.requests.pending.')->controller(PendingApprovalController::class)->group(function (): void {
+                    Route::get('/', 'index')->middleware('tenant.permission:PendingRequest,read')->name('index');
+                    Route::get('/{detail}', 'show')->middleware('tenant.permission:PendingRequest,read')->whereNumber('detail')->name('show');
+                    Route::post('/{detail}/decision', 'decide')->whereNumber('detail')->name('decision');
+                });
                 Route::get('data-policy', [DataPolicyController::class, 'index'])
                     ->middleware('tenant.permission:DataPolicy,read')
                     ->name('tenant.data-policy');

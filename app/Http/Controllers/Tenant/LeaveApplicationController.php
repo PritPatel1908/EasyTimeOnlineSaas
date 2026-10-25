@@ -89,7 +89,13 @@ class LeaveApplicationController extends Controller
     public function show(Request $request): View
     {
         $application = LeaveApplication::query()
-            ->with(['users', 'leave_type', 'leave_reason'])
+            ->with([
+                'users',
+                'leave_type',
+                'leave_reason',
+                'approval_statuses.approval_flow',
+                'approval_statuses.approval_status_details.user',
+            ])
             ->findOrFail($this->applicationId($request));
 
         return view('time-management.leave-applications.show', compact('application'));

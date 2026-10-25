@@ -70,4 +70,9 @@ class OutDuty extends Model
     {
         return $this->morphOne(ApprovalStatus::class, 'approvable');
     }
+
+    public function approval_statuses()
+    {
+        return $this->morphMany(ApprovalStatus::class, 'approvable');
+    }
 }

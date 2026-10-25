@@ -43,6 +43,9 @@
                                 <span>Level {{ $detail->level }}{{ $detail->user?->name ? ' — '.$detail->user->name : '' }}</span>
                                 <span>{{ ucfirst($detail->approval_status) }}{{ $detail->timestamp ? ' on '.$detail->timestamp->format('Y-m-d H:i:s') : '' }}</span>
                             </div>
+                            @if ($detail->rejection_reason)
+                                <div class="small text-danger text-end">Rejection reason: {{ $detail->rejection_reason }}</div>
+                            @endif
                         @empty
                             <span class="text-muted">No level history is available.</span>
                         @endforelse

@@ -36,6 +36,29 @@
                 <div class="col-md-12 mb-3"><small class="text-muted d-block">Reason Explanation</small><span>{{ $application->reason_explanation ?: '—' }}</span></div>
             </div></div>
         </div>
+        <div class="card my-4">
+            <div class="card-header"><h5 class="mb-0">Approval History</h5></div>
+            <div class="card-body">
+                @forelse ($application->approval_statuses as $approvalStatus)
+                    <div class="mb-3">
+                        <h6>{{ $approvalStatus->approval_flow?->approval_flow_code ?? 'Approval Flow' }} — {{ ucfirst($approvalStatus->approval_status) }}</h6>
+                        @forelse ($approvalStatus->approval_status_details as $detail)
+                            <div class="d-flex justify-content-between border-bottom py-2">
+                                <span>Level {{ $detail->level }}{{ $detail->user?->name ? ' — '.$detail->user->name : '' }}</span>
+                                <span>{{ ucfirst($detail->approval_status) }}{{ $detail->timestamp ? ' on '.$detail->timestamp->format('Y-m-d H:i:s') : '' }}</span>
+                            </div>
+                            @if ($detail->rejection_reason)
+                                <div class="small text-danger text-end">Rejection reason: {{ $detail->rejection_reason }}</div>
+                            @endif
+                        @empty
+                            <span class="text-muted">No level history is available.</span>
+                        @endforelse
+                    </div>
+                @empty
+                    <span class="text-muted">No approval history is available.</span>
+                @endforelse
+            </div>
+        </div>
         @include('partials.audit-users', ['record' => $application])
     </div>
     @include('partials.footer')
