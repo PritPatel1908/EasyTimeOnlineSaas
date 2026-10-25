@@ -29,6 +29,7 @@
 	$manualStructureActive = request()->is('time-management/manual-punches*', 'time-management/manual-attendances*', 'time-management/manual-shift-changes*', 'time-management/week-off-changes*', 'time-management/week-off-swaps*');
 	$applicationStructureActive = request()->is('time-management/manual-punch-applications*', 'time-management/manual-attendance-applications*', 'time-management/shift-change-applications*', 'time-management/leave-applications*', 'time-management/week-off-change-applications*', 'time-management/week-off-swap-applications*');
 	$timingRuleStructureActive = request()->is('time-management/late-coming-rules*', 'time-management/early-going-rules*', 'time-management/half-day-rules*', 'time-management/overtime-rules*', 'time-management/absent-rules*');
+	$requestManagementStructureActive = request()->is('requests/pending*');
 	$categoryActive = request()->is('employee-structure/categories*');
 	$approvalFlowsActive = request()->is('employee-structure/approval-flows*');
 	$employeeActive = request()->is('employee-structure/employees*');
@@ -403,6 +404,22 @@
 					</ul>
 				</li>
 				@endif
+				<li class="menu-title"><span>REQUEST MANAGEMENT STRUCTURE</span></li>
+				<li>
+					<ul>
+						<li class="submenu">
+							<a href="javascript:void(0);"
+								class="{{ $requestManagementStructureActive ? 'active subdrop' : '' }}">
+								<i class="ti ti-inbox"></i><span>Pending Request</span>
+								<span class="menu-arrow"></span>
+							</a>
+							<ul>
+								<li><a href="javascript:void(0);"
+									class="{{ $requestManagementStructureActive ? 'active' : '' }}">Pending Request</a></li>
+							</ul>
+						</li>
+					</ul>
+				</li>
 				@if (false)
 				<li class="menu-title"><span>MAIN MENU</span></li>
 				<li>
