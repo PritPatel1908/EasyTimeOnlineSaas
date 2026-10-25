@@ -59,12 +59,17 @@ class DebitLeaveApplication implements ShouldBeUnique, ShouldQueue
         DB::beginTransaction();
         try {
             // $userLeaveAccount = $user->leave_account()->create(['user_id' => $user->id]);
-            if ($this->leave_application?->is_only_second_half) {
-                $userLeaveAccount = LeaveAccount::firstOrCreate(['user_id' => $this->leave_application?->user?->id]);
+            $this->leave_application->loadMissing('users');
+
+            foreach ($this->leave_application->users as $user) {
+                $this->sandwich_leave = false;
+
+            if ($this->leave_application?->is_only_half) {
+                $userLeaveAccount = LeaveAccount::firstOrCreate(['user_id' => $user?->id]);
                 $application_leave_count = 0.5;
 
-                if ($this->leave_application?->user?->grade_wise_leave?->is_monthly) {
-                    $grade_wise_detail = $this->leave_application?->user?->grade_wise_leave?->grade_wise_monthly_leave_details->where('leave_type_id', $this->leave_application?->leave_type_id)->first();
+                if ($user?->grade_wise_leave?->is_monthly) {
+                    $grade_wise_detail = $user?->grade_wise_leave?->grade_wise_monthly_leave_details->where('leave_type_id', $this->leave_application?->leave_type_id)->first();
                     if ($grade_wise_detail->leave_type_id == $this->leave_application?->leave_type_id) {
                         $adjusted_leave_count = $application_leave_count;
                         $this->sandwich_leave = false;
@@ -72,7 +77,7 @@ class DebitLeaveApplication implements ShouldBeUnique, ShouldQueue
                         $this->makeTransaction(
                             $this->leave_application,
                             $userLeaveAccount,
-                            $this->leave_application?->user,
+                            $user,
                             $grade_wise_detail,
                             [],
                             $adjusted_leave_count,
@@ -81,7 +86,7 @@ class DebitLeaveApplication implements ShouldBeUnique, ShouldQueue
                         );
                     }
                 } else {
-                    $grade_wise_detail = $this->leave_application?->user?->grade_wise_leave?->grade_wise_yearly_leave_details->where('leave_type_id', $this->leave_application?->leave_type_id)->first();
+                    $grade_wise_detail = $user?->grade_wise_leave?->grade_wise_yearly_leave_details->where('leave_type_id', $this->leave_application?->leave_type_id)->first();
                     if ($grade_wise_detail->leave_type_id == $this->leave_application?->leave_type_id) {
                         $adjusted_leave_count = $application_leave_count;
                         $this->sandwich_leave = false;
@@ -89,7 +94,7 @@ class DebitLeaveApplication implements ShouldBeUnique, ShouldQueue
                         $this->makeTransaction(
                             $this->leave_application,
                             $userLeaveAccount,
-                            $this->leave_application?->user,
+                            $user,
                             $grade_wise_detail,
                             [],
                             $adjusted_leave_count,
@@ -99,7 +104,7 @@ class DebitLeaveApplication implements ShouldBeUnique, ShouldQueue
                     }
                 }
             } else {
-                $userLeaveAccount = LeaveAccount::firstOrCreate(['user_id' => $this->leave_application?->user?->id]);
+                $userLeaveAccount = LeaveAccount::firstOrCreate(['user_id' => $user?->id]);
                 $application_leave_count = $this->leave_application?->from_date->diffInDays($this->leave_application?->to_date);
 
                 if ($this->leave_application?->is_second_half) {
@@ -110,15 +115,15 @@ class DebitLeaveApplication implements ShouldBeUnique, ShouldQueue
                     $application_leave_count = $application_leave_count - 0.5;
                 }
 
-                if ($this->leave_application?->user?->grade_wise_leave?->is_monthly) {
-                    $grade_wise_detail = $this->leave_application?->user?->grade_wise_leave?->grade_wise_monthly_leave_details->where('leave_type_id', $this->leave_application?->leave_type_id)->first();
+                if ($user?->grade_wise_leave?->is_monthly) {
+                    $grade_wise_detail = $user?->grade_wise_leave?->grade_wise_monthly_leave_details->where('leave_type_id', $this->leave_application?->leave_type_id)->first();
                     if ($grade_wise_detail->leave_type_id == $this->leave_application?->leave_type_id) {
                         if ($grade_wise_detail->allow_sandwich) {
                             if ($grade_wise_detail->leave_type_id == $grade_wise_detail->sandwich_leave_id) {
                                 $adjusted_leave_count = $application_leave_count + 1;
                                 $this->sandwich_leave = false;
                             } else {
-                                $weekoffOrHolidayDates = StatusMuster::where('user_id', $this->leave_application?->user?->id)
+                                $weekoffOrHolidayDates = StatusMuster::where('user_id', $user?->id)
                                     ->whereBetween('date', [$this->leave_application?->from_date, $this->leave_application?->to_date])
                                     ->where(function ($query) {
                                         $query->where('status_master_id', StatusMaster::where('code', 'WO')->first()->id)
@@ -133,7 +138,7 @@ class DebitLeaveApplication implements ShouldBeUnique, ShouldQueue
                                 }
                             }
                         } else {
-                            $weekOffsAndHolidays = StatusMuster::where('user_id', $this->leave_application?->user?->id)
+                            $weekOffsAndHolidays = StatusMuster::where('user_id', $user?->id)
                                 ->whereBetween('date', [$this->leave_application?->from_date, $this->leave_application?->to_date])
                                 ->where(function ($query) {
                                     $query->where('status_master_id', StatusMaster::where('code', 'WO')->first()->id)
@@ -151,7 +156,7 @@ class DebitLeaveApplication implements ShouldBeUnique, ShouldQueue
                         $this->makeTransaction(
                             $this->leave_application,
                             $userLeaveAccount,
-                            $this->leave_application?->user,
+                            $user,
                             $grade_wise_detail,
                             $weekoffOrHolidayDates,
                             $adjusted_leave_count,
@@ -160,14 +165,14 @@ class DebitLeaveApplication implements ShouldBeUnique, ShouldQueue
                         );
                     }
                 } else {
-                    $grade_wise_detail = $this->leave_application?->user?->grade_wise_leave?->grade_wise_yearly_leave_details->where('leave_type_id', $this->leave_application?->leave_type_id)->first();
+                    $grade_wise_detail = $user?->grade_wise_leave?->grade_wise_yearly_leave_details->where('leave_type_id', $this->leave_application?->leave_type_id)->first();
                     if ($grade_wise_detail->leave_type_id == $this->leave_application?->leave_type_id) {
                         if ($grade_wise_detail->allow_sandwich) {
                             if ($grade_wise_detail->leave_type_id == $grade_wise_detail->sandwich_leave_id) {
                                 $adjusted_leave_count = $application_leave_count + 1;
                                 $this->sandwich_leave = false;
                             } else {
-                                $weekoffOrHolidayDates = StatusMuster::where('user_id', $this->leave_application?->user?->id)
+                                $weekoffOrHolidayDates = StatusMuster::where('user_id', $user?->id)
                                     ->whereBetween('date', [$this->leave_application?->from_date, $this->leave_application?->to_date])
                                     ->where(function ($query) {
                                         $query->where('status_master_id', StatusMaster::where('code', 'WO')->first()->id)
@@ -182,7 +187,7 @@ class DebitLeaveApplication implements ShouldBeUnique, ShouldQueue
                                 }
                             }
                         } else {
-                            $weekOffsAndHolidays = StatusMuster::where('user_id', $this->leave_application?->user?->id)
+                            $weekOffsAndHolidays = StatusMuster::where('user_id', $user?->id)
                                 ->whereBetween('date', [$this->leave_application?->from_date, $this->leave_application?->to_date])
                                 ->where(function ($query) {
                                     $query->where('status_master_id', StatusMaster::where('code', 'WO')->first()->id)
@@ -200,7 +205,7 @@ class DebitLeaveApplication implements ShouldBeUnique, ShouldQueue
                         $this->makeTransaction(
                             $this->leave_application,
                             $userLeaveAccount,
-                            $this->leave_application?->user,
+                            $user,
                             $grade_wise_detail,
                             $weekoffOrHolidayDates,
                             $adjusted_leave_count,
@@ -210,6 +215,8 @@ class DebitLeaveApplication implements ShouldBeUnique, ShouldQueue
                     }
                 }
             }
+            }
+
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();

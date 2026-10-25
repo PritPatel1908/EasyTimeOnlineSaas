@@ -627,7 +627,9 @@ class User extends Authenticatable implements FilamentUser, HasTenants
 
     public function leave_applications()
     {
-        return $this->hasMany(LeaveApplication::class);
+        return $this->belongsToMany(LeaveApplication::class, 'leave_application_users')
+            ->withPivot('id')
+            ->withTimestamps();
     }
 
     public function short_leave_applications()

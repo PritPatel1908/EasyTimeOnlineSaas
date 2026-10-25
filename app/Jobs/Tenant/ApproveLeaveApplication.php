@@ -6,7 +6,6 @@ use App\Models\Tenant\Attendance;
 use App\Models\Tenant\LeaveApplication;
 use App\Models\Tenant\StatusMaster;
 use App\Models\Tenant\StatusMuster;
-use App\Models\Tenant\User;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -54,62 +53,64 @@ class ApproveLeaveApplication implements ShouldBeUnique, ShouldQueue
     {
         DB::beginTransaction();
         try {
-            $this->leave_application->user = User::find($this->leave_application->user_id);
-            if ($this->leave_application->is_only_second_half) {
-                if ($this->leave_application->user?->grade_wise_leave?->is_monthly) {
-                    $grade_wise_detail = $this->leave_application->user?->grade_wise_leave?->grade_wise_monthly_leave_details->where('leave_type_id', $this->leave_application?->leave_type_id)->first();
+            $this->leave_application->loadMissing('users');
+
+            foreach ($this->leave_application->users as $user) {
+            if ($this->leave_application->is_only_half) {
+                if ($user?->grade_wise_leave?->is_monthly) {
+                    $grade_wise_detail = $user?->grade_wise_leave?->grade_wise_monthly_leave_details->where('leave_type_id', $this->leave_application?->leave_type_id)->first();
                     if ($grade_wise_detail->leave_type_id == $this->leave_application->leave_type_id) {
                         if ($grade_wise_detail->is_paid) {
-                            StatusMuster::where('user_id', $this->leave_application->user?->id)
+                            StatusMuster::where('user_id', $user?->id)
                                 ->where('date', $this->leave_application?->from_date)
                                 ->where('is_locked', false)
                                 ->update([
                                     'status_master_id' => StatusMaster::where('code', 'A'.$this->leave_application->leave_type->code)->first()->id,
                                     'day_count' => '0.5',
                                 ]);
-                            self::createAttendance($this->leave_application, null, $this->leave_application->user, true, false);
+                            self::createAttendance($this->leave_application, null, $user, true, false);
                         } else {
-                            StatusMuster::where('user_id', $this->leave_application->user?->id)
+                            StatusMuster::where('user_id', $user?->id)
                                 ->where('date', $this->leave_application?->from_date)
                                 ->where('is_locked', false)
                                 ->update([
                                     'status_master_id' => StatusMaster::where('code', 'A'.$this->leave_application->leave_type->code)->first()->id,
                                     'day_count' => '0.5',
                                 ]);
-                            self::createAttendance($this->leave_application, null, $this->leave_application->user, true, false);
+                            self::createAttendance($this->leave_application, null, $user, true, false);
                         }
                     }
                 } else {
-                    $grade_wise_detail = $this->leave_application->user?->grade_wise_leave?->grade_wise_yearly_leave_details->where('leave_type_id', $this->leave_application?->leave_type_id)->first();
+                    $grade_wise_detail = $user?->grade_wise_leave?->grade_wise_yearly_leave_details->where('leave_type_id', $this->leave_application?->leave_type_id)->first();
                     if ($grade_wise_detail->leave_type_id == $this->leave_application->leave_type_id) {
                         if ($grade_wise_detail->is_paid) {
-                            StatusMuster::where('user_id', $this->leave_application->user?->id)
+                            StatusMuster::where('user_id', $user?->id)
                                 ->where('date', $this->leave_application?->from_date)
                                 ->where('is_locked', false)
                                 ->update([
                                     'status_master_id' => StatusMaster::where('code', 'A'.$this->leave_application->leave_type->code)->first()->id,
                                     'day_count' => '0.5',
                                 ]);
-                            self::createAttendance($this->leave_application, null, $this->leave_application->user, true, false);
+                            self::createAttendance($this->leave_application, null, $user, true, false);
                         } else {
-                            StatusMuster::where('user_id', $this->leave_application->user?->id)
+                            StatusMuster::where('user_id', $user?->id)
                                 ->where('date', $this->leave_application?->from_date)
                                 ->where('is_locked', false)
                                 ->update([
                                     'status_master_id' => StatusMaster::where('code', 'A'.$this->leave_application->leave_type->code)->first()->id,
                                     'day_count' => '0.5',
                                 ]);
-                            self::createAttendance($this->leave_application, null, $this->leave_application->user, true, false);
+                            self::createAttendance($this->leave_application, null, $user, true, false);
                         }
                     }
                 }
             } else {
-                if ($this->leave_application->user?->grade_wise_leave?->is_monthly) {
-                    $grade_wise_detail = $this->leave_application->user?->grade_wise_leave?->grade_wise_monthly_leave_details->where('leave_type_id', $this->leave_application?->leave_type_id)->first();
+                if ($user?->grade_wise_leave?->is_monthly) {
+                    $grade_wise_detail = $user?->grade_wise_leave?->grade_wise_monthly_leave_details->where('leave_type_id', $this->leave_application?->leave_type_id)->first();
                     if ($grade_wise_detail->leave_type_id == $this->leave_application->leave_type_id) {
                         if ($grade_wise_detail->is_paid) {
                             if ($grade_wise_detail->allow_sandwich) {
-                                $weekoffOrHolidayDates = StatusMuster::where('user_id', $this->leave_application->user?->id)
+                                $weekoffOrHolidayDates = StatusMuster::where('user_id', $user?->id)
                                     ->whereBetween('date', [$this->leave_application?->from_date, $this->leave_application?->to_date])
                                     ->where('is_locked', false)
                                     ->where(function ($query) {
@@ -118,7 +119,7 @@ class ApproveLeaveApplication implements ShouldBeUnique, ShouldQueue
                                     })
                                     ->pluck('date');
 
-                                StatusMuster::where('user_id', $this->leave_application->user?->id)
+                                StatusMuster::where('user_id', $user?->id)
                                     ->whereBetween('date', [$this->leave_application?->from_date, $this->leave_application?->to_date])
                                     ->whereNotIn('date', $weekoffOrHolidayDates)
                                     ->where('is_locked', false)
@@ -128,7 +129,7 @@ class ApproveLeaveApplication implements ShouldBeUnique, ShouldQueue
                                     ]);
 
                                 if ($weekoffOrHolidayDates->isNotEmpty()) {
-                                    StatusMuster::where('user_id', $this->leave_application->user?->id)
+                                    StatusMuster::where('user_id', $user?->id)
                                         ->whereBetween('date', [$this->leave_application?->from_date, $this->leave_application?->to_date])
                                         ->whereIn('date', $weekoffOrHolidayDates)
                                         ->where('is_locked', false)
@@ -138,15 +139,15 @@ class ApproveLeaveApplication implements ShouldBeUnique, ShouldQueue
                                         ]);
                                 }
 
-                                self::createAttendance($this->leave_application, $weekoffOrHolidayDates->toArray(), $this->leave_application->user, true, true);
+                                self::createAttendance($this->leave_application, $weekoffOrHolidayDates->toArray(), $user, true, true);
                             } else {
                                 $dates = [];
                                 for ($date = $this->leave_application?->from_date; $date <= $this->leave_application?->to_date; $date = date('Y-m-d', strtotime($date.' +1 day'))) {
-                                    if (! self::isWeekoffOrHoliday($date, $this->leave_application->user?->id)) {
+                                    if (! self::isWeekoffOrHoliday($date, $user?->id)) {
                                         $dates[] = $date;
                                     }
                                 }
-                                StatusMuster::whereIn('user_id', [$this->leave_application->user?->id])
+                                StatusMuster::whereIn('user_id', [$user?->id])
                                     ->whereIn('date', $dates)
                                     ->where('is_locked', false)
                                     ->update([
@@ -154,11 +155,11 @@ class ApproveLeaveApplication implements ShouldBeUnique, ShouldQueue
                                         'day_count' => '1',
                                     ]);
 
-                                self::createAttendance($this->leave_application, $dates, $this->leave_application->user, true, false);
+                                self::createAttendance($this->leave_application, $dates, $user, true, false);
                             }
 
                             if ($this->leave_application?->is_second_half) {
-                                StatusMuster::where('user_id', [$this->leave_application->user?->id])
+                                StatusMuster::where('user_id', [$user?->id])
                                     ->where('date', $this->leave_application?->from_date)
                                     ->where('is_locked', false)
                                     ->update([
@@ -168,7 +169,7 @@ class ApproveLeaveApplication implements ShouldBeUnique, ShouldQueue
                             }
 
                             if ($this->leave_application?->is_first_half) {
-                                StatusMuster::where('user_id', [$this->leave_application->user?->id])
+                                StatusMuster::where('user_id', [$user?->id])
                                     ->where('date', $this->leave_application?->to_date)
                                     ->where('is_locked', false)
                                     ->update([
@@ -178,7 +179,7 @@ class ApproveLeaveApplication implements ShouldBeUnique, ShouldQueue
                             }
                         } else {
                             if ($grade_wise_detail->allow_sandwich) {
-                                $weekoffOrHolidayDates = StatusMuster::where('user_id', $this->leave_application->user?->id)
+                                $weekoffOrHolidayDates = StatusMuster::where('user_id', $user?->id)
                                     ->whereBetween('date', [$this->leave_application?->from_date, $this->leave_application?->to_date])
                                     ->where('is_locked', false)
                                     ->where(function ($query) {
@@ -187,7 +188,7 @@ class ApproveLeaveApplication implements ShouldBeUnique, ShouldQueue
                                     })
                                     ->pluck('date');
 
-                                StatusMuster::where('user_id', $this->leave_application->user?->id)
+                                StatusMuster::where('user_id', $user?->id)
                                     ->whereBetween('date', [$this->leave_application?->from_date, $this->leave_application?->to_date])
                                     ->where('is_locked', false)
                                     ->whereNotIn('date', $weekoffOrHolidayDates)
@@ -197,7 +198,7 @@ class ApproveLeaveApplication implements ShouldBeUnique, ShouldQueue
                                     ]);
 
                                 if ($weekoffOrHolidayDates->isNotEmpty()) {
-                                    StatusMuster::where('user_id', $this->leave_application->user?->id)
+                                    StatusMuster::where('user_id', $user?->id)
                                         ->whereBetween('date', [$this->leave_application?->from_date, $this->leave_application?->to_date])
                                         ->where('is_locked', false)
                                         ->whereIn('date', $weekoffOrHolidayDates)
@@ -207,15 +208,15 @@ class ApproveLeaveApplication implements ShouldBeUnique, ShouldQueue
                                         ]);
                                 }
 
-                                self::createAttendance($this->leave_application, $weekoffOrHolidayDates->toArray(), $this->leave_application->user, true, true);
+                                self::createAttendance($this->leave_application, $weekoffOrHolidayDates->toArray(), $user, true, true);
                             } else {
                                 $dates = [];
                                 for ($date = $this->leave_application?->from_date; $date <= $this->leave_application?->to_date; $date = date('Y-m-d', strtotime($date.' +1 day'))) {
-                                    if (! self::isWeekoffOrHoliday($date, $this->leave_application->user?->id)) {
+                                    if (! self::isWeekoffOrHoliday($date, $user?->id)) {
                                         $dates[] = $date;
                                     }
                                 }
-                                StatusMuster::whereIn('user_id', [$this->leave_application->user?->id])
+                                StatusMuster::whereIn('user_id', [$user?->id])
                                     ->whereIn('date', $dates)
                                     ->where('is_locked', false)
                                     ->update([
@@ -223,11 +224,11 @@ class ApproveLeaveApplication implements ShouldBeUnique, ShouldQueue
                                         'day_count' => '0',
                                     ]);
 
-                                self::createAttendance($this->leave_application, $dates, $this->leave_application->user, true, false);
+                                self::createAttendance($this->leave_application, $dates, $user, true, false);
                             }
 
                             if ($this->leave_application?->is_second_half) {
-                                StatusMuster::where('user_id', [$this->leave_application->user?->id])
+                                StatusMuster::where('user_id', [$user?->id])
                                     ->where('date', $this->leave_application?->from_date)
                                     ->where('is_locked', false)
                                     ->update([
@@ -237,7 +238,7 @@ class ApproveLeaveApplication implements ShouldBeUnique, ShouldQueue
                             }
 
                             if ($this->leave_application?->is_first_half) {
-                                StatusMuster::where('user_id', [$this->leave_application->user?->id])
+                                StatusMuster::where('user_id', [$user?->id])
                                     ->where('date', $this->leave_application?->to_date)
                                     ->where('is_locked', false)
                                     ->update([
@@ -248,11 +249,11 @@ class ApproveLeaveApplication implements ShouldBeUnique, ShouldQueue
                         }
                     }
                 } else {
-                    $grade_wise_detail = $this->leave_application->user?->grade_wise_leave?->grade_wise_yearly_leave_details->where('leave_type_id', $this->leave_application?->leave_type_id)->first();
+                    $grade_wise_detail = $user?->grade_wise_leave?->grade_wise_yearly_leave_details->where('leave_type_id', $this->leave_application?->leave_type_id)->first();
                     if ($grade_wise_detail->leave_type_id == $this->leave_application->leave_type_id) {
                         if ($grade_wise_detail->is_paid) {
                             if ($grade_wise_detail->allow_sandwich) {
-                                $weekoffOrHolidayDates = StatusMuster::where('user_id', $this->leave_application->user?->id)
+                                $weekoffOrHolidayDates = StatusMuster::where('user_id', $user?->id)
                                     ->where('is_locked', false)
                                     ->whereBetween('date', [$this->leave_application?->from_date, $this->leave_application?->to_date])
                                     ->where(function ($query) {
@@ -261,7 +262,7 @@ class ApproveLeaveApplication implements ShouldBeUnique, ShouldQueue
                                     })
                                     ->pluck('date');
 
-                                StatusMuster::where('user_id', $this->leave_application->user?->id)
+                                StatusMuster::where('user_id', $user?->id)
                                     ->where('is_locked', false)
                                     ->whereBetween('date', [$this->leave_application?->from_date, $this->leave_application?->to_date])
                                     ->whereNotIn('date', $weekoffOrHolidayDates)
@@ -271,7 +272,7 @@ class ApproveLeaveApplication implements ShouldBeUnique, ShouldQueue
                                     ]);
 
                                 if ($weekoffOrHolidayDates->isNotEmpty()) {
-                                    StatusMuster::where('user_id', $this->leave_application->user?->id)
+                                    StatusMuster::where('user_id', $user?->id)
                                         ->where('is_locked', false)
                                         ->whereBetween('date', [$this->leave_application?->from_date, $this->leave_application?->to_date])
                                         ->whereIn('date', $weekoffOrHolidayDates)
@@ -281,15 +282,15 @@ class ApproveLeaveApplication implements ShouldBeUnique, ShouldQueue
                                         ]);
                                 }
 
-                                self::createAttendance($this->leave_application, $weekoffOrHolidayDates->toArray(), $this->leave_application->user, false, true);
+                                self::createAttendance($this->leave_application, $weekoffOrHolidayDates->toArray(), $user, false, true);
                             } else {
                                 $dates = [];
                                 for ($date = $this->leave_application?->from_date; $date <= $this->leave_application?->to_date; $date = date('Y-m-d', strtotime($date.' +1 day'))) {
-                                    if (! self::isWeekoffOrHoliday($date, $this->leave_application->user?->id)) {
+                                    if (! self::isWeekoffOrHoliday($date, $user?->id)) {
                                         $dates[] = $date;
                                     }
                                 }
-                                StatusMuster::whereIn('user_id', [$this->leave_application->user?->id])
+                                StatusMuster::whereIn('user_id', [$user?->id])
                                     ->whereIn('date', $dates)
                                     ->where('is_locked', false)
                                     ->update([
@@ -297,11 +298,11 @@ class ApproveLeaveApplication implements ShouldBeUnique, ShouldQueue
                                         'day_count' => '1',
                                     ]);
 
-                                self::createAttendance($this->leave_application, $dates, $this->leave_application->user, false, false);
+                                self::createAttendance($this->leave_application, $dates, $user, false, false);
                             }
 
                             if ($this->leave_application?->is_second_half) {
-                                StatusMuster::where('user_id', [$this->leave_application->user?->id])
+                                StatusMuster::where('user_id', [$user?->id])
                                     ->where('date', $this->leave_application?->from_date)
                                     ->where('is_locked', false)
                                     ->update([
@@ -311,7 +312,7 @@ class ApproveLeaveApplication implements ShouldBeUnique, ShouldQueue
                             }
 
                             if ($this->leave_application?->is_first_half) {
-                                StatusMuster::where('user_id', [$this->leave_application->user?->id])
+                                StatusMuster::where('user_id', [$user?->id])
                                     ->where('date', $this->leave_application?->to_date)
                                     ->where('is_locked', false)
                                     ->update([
@@ -321,7 +322,7 @@ class ApproveLeaveApplication implements ShouldBeUnique, ShouldQueue
                             }
                         } else {
                             if ($grade_wise_detail->allow_sandwich) {
-                                $weekoffOrHolidayDates = StatusMuster::where('user_id', $this->leave_application->user?->id)
+                                $weekoffOrHolidayDates = StatusMuster::where('user_id', $user?->id)
                                     ->where('is_locked', false)
                                     ->whereBetween('date', [$this->leave_application?->from_date, $this->leave_application?->to_date])
                                     ->where(function ($query) {
@@ -330,7 +331,7 @@ class ApproveLeaveApplication implements ShouldBeUnique, ShouldQueue
                                     })
                                     ->pluck('date');
 
-                                StatusMuster::where('user_id', $this->leave_application->user?->id)
+                                StatusMuster::where('user_id', $user?->id)
                                     ->whereBetween('date', [$this->leave_application?->from_date, $this->leave_application?->to_date])
                                     ->where('is_locked', false)
                                     ->whereNotIn('date', $weekoffOrHolidayDates)
@@ -340,7 +341,7 @@ class ApproveLeaveApplication implements ShouldBeUnique, ShouldQueue
                                     ]);
 
                                 if ($weekoffOrHolidayDates->isNotEmpty()) {
-                                    StatusMuster::where('user_id', $this->leave_application->user?->id)
+                                    StatusMuster::where('user_id', $user?->id)
                                         ->whereBetween('date', [$this->leave_application?->from_date, $this->leave_application?->to_date])
                                         ->where('is_locked', false)
                                         ->whereIn('date', $weekoffOrHolidayDates)
@@ -350,15 +351,15 @@ class ApproveLeaveApplication implements ShouldBeUnique, ShouldQueue
                                         ]);
                                 }
 
-                                self::createAttendance($this->leave_application, $weekoffOrHolidayDates->toArray(), $this->leave_application->user, false, true);
+                                self::createAttendance($this->leave_application, $weekoffOrHolidayDates->toArray(), $user, false, true);
                             } else {
                                 $dates = [];
                                 for ($date = $this->leave_application?->from_date; $date <= $this->leave_application?->to_date; $date = date('Y-m-d', strtotime($date.' +1 day'))) {
-                                    if (! self::isWeekoffOrHoliday($date, $this->leave_application->user?->id)) {
+                                    if (! self::isWeekoffOrHoliday($date, $user?->id)) {
                                         $dates[] = $date;
                                     }
                                 }
-                                StatusMuster::whereIn('user_id', [$this->leave_application->user?->id])
+                                StatusMuster::whereIn('user_id', [$user?->id])
                                     ->whereIn('date', $dates)
                                     ->where('is_locked', false)
                                     ->update([
@@ -366,11 +367,11 @@ class ApproveLeaveApplication implements ShouldBeUnique, ShouldQueue
                                         'day_count' => '0',
                                     ]);
 
-                                self::createAttendance($this->leave_application, $dates, $this->leave_application->user, false, false);
+                                self::createAttendance($this->leave_application, $dates, $user, false, false);
                             }
 
                             if ($this->leave_application?->is_second_half) {
-                                StatusMuster::where('user_id', [$this->leave_application->user?->id])
+                                StatusMuster::where('user_id', [$user?->id])
                                     ->where('is_locked', false)
                                     ->where('date', $this->leave_application?->from_date)
                                     ->update([
@@ -380,7 +381,7 @@ class ApproveLeaveApplication implements ShouldBeUnique, ShouldQueue
                             }
 
                             if ($this->leave_application?->is_first_half) {
-                                StatusMuster::where('user_id', [$this->leave_application->user?->id])
+                                StatusMuster::where('user_id', [$user?->id])
                                     ->where('is_locked', false)
                                     ->where('date', $this->leave_application?->to_date)
                                     ->update([
@@ -392,6 +393,8 @@ class ApproveLeaveApplication implements ShouldBeUnique, ShouldQueue
                     }
                 }
             }
+            }
+
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();
@@ -420,7 +423,7 @@ class ApproveLeaveApplication implements ShouldBeUnique, ShouldQueue
     public static function createAttendance($record, $weekoffOrHolidayDatesArray, $user, $isMonthly = true, $isSandwich = false)
     {
         if ($isMonthly) {
-            if ($record->is_only_second_half) {
+            if ($record->is_only_half) {
                 $attendance = (new Attendance(year: Carbon::parse($record->from_date)?->format('Y')));
                 $attendance->setDynamicTable(Carbon::parse($record->from_date)?->format('Y'));
                 $attendance = $attendance->updateOrCreate([
@@ -624,7 +627,7 @@ class ApproveLeaveApplication implements ShouldBeUnique, ShouldQueue
                 }
             }
         } else {
-            if ($record->is_only_second_half) {
+            if ($record->is_only_half) {
                 $attendance = (new Attendance(year: Carbon::parse($record->from_date)?->format('Y')));
                 $attendance->setDynamicTable(Carbon::parse($record->from_date)?->format('Y'));
                 $attendance = $attendance->updateOrCreate([

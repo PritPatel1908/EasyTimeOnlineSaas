@@ -510,7 +510,7 @@ class AttCalculator
             $shift_muster->save();
         }
 
-        $leave_application = LeaveApplication::where('user_id', $this->log->user->id)
+        $leave_application = LeaveApplication::whereHas('users', fn ($query) => $query->whereKey($this->log->user->id))
             ->where('from_date', '<=', $this->log->datetime->format('Y-m-d'))
             ->where('to_date', '>=', $this->log->datetime->format('Y-m-d'))
             ->first();
@@ -521,7 +521,7 @@ class AttCalculator
             ->first();
 
         if ($leave_application != null) {
-            if ($leave_application->is_only_second_half) {
+            if ($leave_application->is_only_half) {
                 if ($this->log->user->category->single_punch_allowed_present && $this->curatt->in_time) {
                     $this->debug('Single Punch Allowed For Only Second Half Leave');
                     $this->curatt->status_master_id = StatusMaster::where('code', $leave_application->leave_type->code.'P')->first()->id;
@@ -1125,7 +1125,7 @@ class AttCalculator
     // TODO:check halfday rule and calculate according shift after testing
     public function checkHalfDayRule(): void
     {
-        $leave_application = LeaveApplication::where('user_id', $this->log->user->id)
+        $leave_application = LeaveApplication::whereHas('users', fn ($query) => $query->whereKey($this->log->user->id))
             ->where('from_date', '<=', $this->log->datetime->format('Y-m-d'))
             ->where('to_date', '>=', $this->log->datetime->format('Y-m-d'))
             ->first();
@@ -1556,7 +1556,7 @@ class AttCalculator
     // TODO:check absent rule and calculate according shift after testing
     public function checkAbsentRule(): void
     {
-        $leave_application = LeaveApplication::where('user_id', $this->log->user->id)
+        $leave_application = LeaveApplication::whereHas('users', fn ($query) => $query->whereKey($this->log->user->id))
             ->where('from_date', '<=', $this->log->datetime->format('Y-m-d'))
             ->where('to_date', '>=', $this->log->datetime->format('Y-m-d'))
             ->first();
@@ -1972,7 +1972,7 @@ class AttCalculator
     // TODO:check earlygoing rule and calculate according shift after testing
     public function checkEarlyGoingRule(): void
     {
-        $leave_application = LeaveApplication::where('user_id', $this->log->user->id)
+        $leave_application = LeaveApplication::whereHas('users', fn ($query) => $query->whereKey($this->log->user->id))
             ->where('from_date', '<=', $this->log->datetime->format('Y-m-d'))
             ->where('to_date', '>=', $this->log->datetime->format('Y-m-d'))
             ->first();
@@ -2604,7 +2604,7 @@ class AttCalculator
     // TODO:check latecoming rule and calculate according shift after testing
     public function checkLateComingRule(): void
     {
-        $leave_application = LeaveApplication::where('user_id', $this->log->user->id)
+        $leave_application = LeaveApplication::whereHas('users', fn ($query) => $query->whereKey($this->log->user->id))
             ->where('from_date', '<=', $this->log->datetime->format('Y-m-d'))
             ->where('to_date', '>=', $this->log->datetime->format('Y-m-d'))
             ->first();

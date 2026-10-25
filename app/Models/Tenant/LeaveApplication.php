@@ -16,11 +16,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * Class LeaveApplication
  *
  * @property int $id
- * @property int|null $user_id
  * @property int|null $leave_type_id
  * @property int|null $leave_reason_id
  * @property string|null $reason_explanation
- * @property bool $is_half_day
+ * @property bool $is_only_half
  * @property Carbon|null $from_date
  * @property bool $is_second_half
  * @property Carbon|null $to_date
@@ -32,7 +31,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $deleted_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
- * @property User|null $user
+ * @property Collection|User[] $users
  * @property LeaveReason|null $leave_reason
  * @property LeaveType|null $leave_type
  */
@@ -49,10 +48,9 @@ class LeaveApplication extends Model
     // }
 
     protected $casts = [
-        'user_id' => 'int',
         'leave_type_id' => 'int',
         'leave_reason_id' => 'int',
-        'is_only_second_half' => 'bool',
+        'is_only_half' => 'bool',
         'application_date' => 'datetime',
         'from_date' => 'datetime',
         'is_second_half' => 'bool',
@@ -66,11 +64,10 @@ class LeaveApplication extends Model
     ];
 
     protected $fillable = [
-        'user_id',
         'leave_type_id',
         'leave_reason_id',
         'reason_explanation',
-        'is_only_second_half',
+        'is_only_half',
         'application_date',
         'from_date',
         'is_second_half',
@@ -83,16 +80,11 @@ class LeaveApplication extends Model
         'deleted_by',
     ];
 
-    // public function Users()
-    // {
-    //     return $this->belongsToMany(User::class, 'leave_application_users')
-    //         ->withPivot('id')
-    //         ->withTimestamps();
-    // }
-
-    public function user()
+    public function users()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsToMany(User::class, 'leave_application_users')
+            ->withPivot('id')
+            ->withTimestamps();
     }
 
     public function leave_reason()

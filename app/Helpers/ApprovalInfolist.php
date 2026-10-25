@@ -447,17 +447,17 @@ class ApprovalInfolist
                                     TextEntry::make('user.code')->badge()->label('User Code'),
                                     TextEntry::make('leave_type.code')->badge()->label('Leave Type'),
                                     TextEntry::make('leave_reason.leave_reason')->badge()->label('Leave Reason'),
-                                    TextEntry::make('is_only_second_half')->badge()->label('Is Only Second Half')->formatStateUsing(fn ($state) => $state ? 'Yes' : 'No'),
+                                    TextEntry::make('is_only_half')->badge()->label('Is Only Half')->formatStateUsing(fn ($state) => $state ? 'Yes' : 'No'),
                                     TextEntry::make('from_date')
                                         ->formatStateUsing(function ($state, $record) {
-                                            if (! $record->is_only_second_half) {
+                                            if (! $record->is_only_half) {
                                                 return Carbon::parse($state)
                                                     ->format('Y-m-d');
                                             }
                                         })->badge()->label('From Date'),
                                     TextEntry::make('is_second_half')->badge()->label('Is Second Half')
                                         ->formatStateUsing(function ($state, $record) {
-                                            if (! $record->is_only_second_half) {
+                                            if (! $record->is_only_half) {
                                                 if ($state) {
                                                     return 'Yes';
                                                 } else {
@@ -469,7 +469,7 @@ class ApprovalInfolist
                                         }),
                                     TextEntry::make('to_date')
                                         ->formatStateUsing(function ($state, $record) {
-                                            if (! $record->is_only_second_half) {
+                                            if (! $record->is_only_half) {
                                                 return Carbon::parse($state)
                                                     ->format('Y-m-d');
                                             } else {
@@ -478,7 +478,7 @@ class ApprovalInfolist
                                         })->badge()->label('To Date'),
                                     TextEntry::make('is_first_half')->badge()->label('Is First Half')
                                         ->formatStateUsing(function ($state, $record) {
-                                            if (! $record->is_only_second_half) {
+                                            if (! $record->is_only_half) {
                                                 if ($state) {
                                                     return 'Yes';
                                                 } else {

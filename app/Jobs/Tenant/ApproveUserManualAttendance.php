@@ -260,7 +260,7 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
 
     public function checkHalfDayRule(): void
     {
-        $leave_application = LeaveApplication::where('user_id', $this->user->id)
+        $leave_application = LeaveApplication::whereHas('users', fn ($query) => $query->whereKey($this->user->id))
             ->where('from_date', '<=', Carbon::parse($this->manualAttendance->in_time)->format('Y-m-d'))
             ->where('to_date', '>=', Carbon::parse($this->manualAttendance->in_time)->format('Y-m-d'))
             ->first();
@@ -699,7 +699,7 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
 
     public function checkAbsentRule(): void
     {
-        $leave_application = LeaveApplication::where('user_id', $this->user->id)
+        $leave_application = LeaveApplication::whereHas('users', fn ($query) => $query->whereKey($this->user->id))
             ->where('from_date', '<=', Carbon::parse($this->manualAttendance->in_time)->format('Y-m-d'))
             ->where('to_date', '>=', Carbon::parse($this->manualAttendance->in_time)->format('Y-m-d'))
             ->first();
@@ -1128,7 +1128,7 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
 
     public function checkEarlyGoingRule(): void
     {
-        $leave_application = LeaveApplication::where('user_id', $this->user->id)
+        $leave_application = LeaveApplication::whereHas('users', fn ($query) => $query->whereKey($this->user->id))
             ->where('from_date', '<=', Carbon::parse($this->manualAttendance->in_time)->format('Y-m-d'))
             ->where('to_date', '>=', Carbon::parse($this->manualAttendance->in_time)->format('Y-m-d'))
             ->first();
@@ -1799,7 +1799,7 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
 
     public function checkLateComingRule(): void
     {
-        $leave_application = LeaveApplication::where('user_id', $this->user->id)
+        $leave_application = LeaveApplication::whereHas('users', fn ($query) => $query->whereKey($this->user->id))
             ->where('from_date', '<=', Carbon::parse($this->manualAttendance->in_time)->format('Y-m-d'))
             ->where('to_date', '>=', Carbon::parse($this->manualAttendance->in_time)->format('Y-m-d'))
             ->first();
