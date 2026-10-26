@@ -146,8 +146,14 @@ class LeaveApplication extends Model
             return 'pending';
         }
 
-        return $statuses->every(
+        if ($statuses->every(
             static fn (ApprovalStatus $status): bool => $status->approval_status === 'approved',
-        ) ? 'approved' : 'unknown';
+        )) {
+            return 'approved';
+        }
+
+        return $statuses->every(
+            static fn (ApprovalStatus $status): bool => $status->approval_status === 'cancelled',
+        ) ? 'cancelled' : 'unknown';
     }
 }

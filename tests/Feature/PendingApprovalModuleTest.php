@@ -10,11 +10,14 @@ use App\Jobs\Tenant\FinalizeApprovedApplication;
 use App\Models\Tenant\ManualPunchApplication;
 use App\Models\Tenant\User;
 use Illuminate\Contracts\Auth\Guard;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\URL;
 use Mockery;
 use RuntimeException;
 use Tests\TestCase;
@@ -123,6 +126,81 @@ class PendingApprovalModuleTest extends TestCase
         $this->assertTrue(Route::has('tenant.requests.pending.index'));
         $this->assertTrue(Route::has('tenant.requests.pending.show'));
         $this->assertTrue(Route::has('tenant.requests.pending.decision'));
+        $this->assertTrue(Route::has('tenant.requests.pending.bulk-decision'));
+    }
+
+    public function test_bulk_decisions_dispatch_one_job_per_selected_request(): void
+    {
+        $this->createApprovalTables();
+
+        try {
+            $this->createApplicationWithFlow();
+            DB::table('manual_punch_applications')->insert([
+                'id' => 10,
+                'punch_type' => '1',
+                'punch_date' => '2026-10-25',
+                'punch_time' => '10:00:00',
+            ]);
+            DB::table('approval_statuses')->insert([
+                'id' => 110,
+                'approvable_id' => 10,
+                'approvable_type' => ManualPunchApplication::class,
+                'approval_status' => 'pending',
+                'approval_flow_id' => 1,
+            ]);
+            DB::table('approval_status_details')->insert([
+                'id' => 204,
+                'level' => 1,
+                'approval_status_id' => 110,
+                'approval_flow_detail_id' => 20,
+                'approval_status' => 'pending',
+            ]);
+
+            Bus::fake();
+            $this->mockTenantUser(10);
+            URL::defaults(['tenant' => 'sample']);
+            $controller = app(PendingApprovalController::class);
+
+            $approveRequest = Request::create('/requests/pending/bulk-decision', 'POST', [
+                'approval_details' => [201],
+                'decision' => 'approved',
+            ]);
+            $approveRequest->setRouteResolver(static fn () => new class
+            {
+                public function parameter(string $key): ?string
+                {
+                    return $key === 'tenant' ? 'sample' : null;
+                }
+            });
+            $controller->bulkDecide($approveRequest);
+
+            $rejectRequest = Request::create('/requests/pending/bulk-decision', 'POST', [
+                'approval_details' => [204],
+                'decision' => 'rejected',
+                'rejection_reason' => 'Incorrect details.',
+            ]);
+            $rejectRequest->setRouteResolver(static fn () => new class
+            {
+                public function parameter(string $key): ?string
+                {
+                    return $key === 'tenant' ? 'sample' : null;
+                }
+            });
+            $controller->bulkDecide($rejectRequest);
+
+            $this->assertDatabaseHas('approval_status_details', [
+                'id' => 201,
+                'approval_status' => 'approved',
+            ]);
+            $this->assertDatabaseHas('approval_status_details', [
+                'id' => 204,
+                'approval_status' => 'rejected',
+                'rejection_reason' => 'Incorrect details.',
+            ]);
+            Bus::assertNotDispatched(FinalizeApprovedApplication::class);
+        } finally {
+            $this->dropApprovalTables();
+        }
     }
 
     private function createApprovalTables(): void
@@ -245,9 +323,17 @@ class PendingApprovalModuleTest extends TestCase
     {
         $user = Mockery::mock(User::class);
         $user->shouldReceive('getAuthIdentifier')->andReturn($id);
+        $permissions = Mockery::mock(BelongsToMany::class);
+        $permissions->shouldReceive('where')->andReturnSelf();
+        $permissions->shouldReceive('whereIn')->andReturnSelf();
+        $permissions->shouldReceive('exists')->andReturn(true);
+        $user->shouldReceive('permissions')->andReturn($permissions);
         $guard = Mockery::mock(Guard::class);
         $guard->shouldReceive('user')->andReturn($user);
         $guard->shouldReceive('id')->andReturn($id);
+        $guard->shouldReceive('hasUser')->andReturn(false);
+        Auth::shouldReceive('user')->andReturn(null);
+        Auth::shouldReceive('id')->andReturn($id);
         Auth::shouldReceive('guard')->with('tenant')->andReturn($guard);
     }
 

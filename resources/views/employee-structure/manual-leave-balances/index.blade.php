@@ -19,7 +19,7 @@
         <div class="card-header"><h5>Manual Leave Balance List</h5></div>
         <div class="card-body p-0"><div class="custom-datatable-filter table-responsive">
             <table class="table datatable">
-                <thead class="thead-light"><tr><th class="no-sort"><div class="form-check form-check-md"><input class="form-check-input" type="checkbox" id="select-all"></div></th><th>Employees</th><th>Leave Type</th><th>Balance</th><th>Date &amp; Time</th><th>Locations</th><th>Companies</th><th>Reason</th><th></th></tr></thead>
+                <thead class="thead-light"><tr><th class="no-sort"><div class="form-check form-check-md"><input class="form-check-input datatable-select-all" type="checkbox" id="select-all"></div></th><th>Employees</th><th>Leave Type</th><th>Balance</th><th>Date &amp; Time</th><th>Locations</th><th>Companies</th><th>Reason</th><th></th></tr></thead>
                 <tbody>@include('employee-structure.manual-leave-balances.partials.rows', ['balances' => $balances])</tbody>
             </table>
         </div></div>

@@ -34,10 +34,11 @@
             <div class="card-body p-0"><div class="custom-datatable-filter table-responsive">
                 <table class="table datatable">
                     <thead class="thead-light"><tr>
-                        <th></th><th>Employees</th><th>Leave Type</th><th>Date Range</th><th>Leave Count</th><th>Application Date</th><th>Status</th><th></th>
+                        <th class="no-sort"><div class="form-check form-check-md"><input class="form-check-input datatable-select-all" type="checkbox" id="select-all" aria-label="Select all rows"></div></th><th>Employees</th><th>Leave Type</th><th>Date Range</th><th>Leave Count</th><th>Application Date</th><th>Approval Status</th><th></th>
                     </tr></thead>
                     <tbody>
                         @forelse ($applications as $application)
+                            @php($approvalStatus = $application->overallApprovalStatus())
                             <tr>
                                 <td><input class="form-check-input" type="checkbox" value="{{ $application->id }}"></td>
                                 <td>{{ $application->users->map(fn ($user) => $user->name . ($user->code ? ' ('.$user->code.')' : ''))->join(', ') ?: '—' }}</td>
@@ -45,7 +46,7 @@
                                 <td class="text-center">{{ $application->from_date?->format('Y-m-d') ?? '—' }} – {{ $application->to_date?->format('Y-m-d') ?? '—' }}</td>
                                 <td class="text-center">{{ $application->leave_count ?? '—' }}</td>
                                 <td class="text-center">{{ $application->application_date?->format('Y-m-d H:i') ?? '—' }}</td>
-                                <td class="text-center"><span class="badge bg-{{ (int) $application->status === 1 ? 'success' : 'secondary' }}">{{ (int) $application->status === 1 ? 'Active' : 'Inactive' }}</span></td>
+                                <td class="text-center"><span class="badge bg-{{ match ($approvalStatus) {'pending' => 'primary', 'approved' => 'success', 'rejected' => 'danger', 'draft' => 'secondary', 'cancelled' => 'dark', default => 'light text-dark'} }}">{{ ucfirst($approvalStatus) }}</span></td>
                                 <td class="text-center"><div class="action-icon d-inline-flex">
                                     @if (\App\Support\TenantPermissions::userCan('LeaveApplication', 'read'))
                                         <a href="{{ url('time-management/leave-applications/'.$application->id) }}" class="me-2" title="View"><i class="ti ti-eye"></i></a>

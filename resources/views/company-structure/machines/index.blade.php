@@ -45,7 +45,7 @@
                 <div class="custom-datatable-filter table-responsive">
                     <table class="table datatable">
                         <thead class="thead-light"><tr>
-                            <th class="no-sort"><div class="form-check form-check-md"><input class="form-check-input" type="checkbox" id="select-all"></div></th>
+                            <th class="no-sort"><div class="form-check form-check-md"><input class="form-check-input datatable-select-all" type="checkbox" id="select-all"></div></th>
                             <th>Machine Name</th><th>Serial Number</th><th>IP Address</th><th>Company</th><th>Location</th><th>Area</th><th>Network</th><th>Status</th><th></th>
                         </tr></thead>
                         <tbody>@include('company-structure.machines.partials.rows', ['machines' => $machines])</tbody>

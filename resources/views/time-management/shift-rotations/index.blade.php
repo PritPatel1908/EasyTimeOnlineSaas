@@ -51,7 +51,7 @@
                 <div class="custom-datatable-filter table-responsive">
                     <table class="table datatable">
                         <thead class="thead-light"><tr>
-                            <th></th><th>Rotation Code</th><th>Start Date</th><th>End Date</th><th>Rotation Steps</th><th>Skip Month End</th><th>Skip Year End</th><th>Status</th><th></th>
+                            <th class="no-sort"><div class="form-check form-check-md"><input class="form-check-input datatable-select-all" type="checkbox" id="select-all" aria-label="Select all rows"></div></th><th>Rotation Code</th><th>Start Date</th><th>End Date</th><th>Rotation Steps</th><th>Skip Month End</th><th>Skip Year End</th><th>Status</th><th></th>
                         </tr></thead>
                         <tbody>@include('time-management.shift-rotations.partials.rows', ['shiftRotations' => $shiftRotations])</tbody>
                     </table>

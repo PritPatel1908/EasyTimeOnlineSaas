@@ -32,7 +32,7 @@
                 <table class="table datatable">
                     <thead class="thead-light">
                         <tr>
-                            <th class="no-sort"><div class="form-check form-check-md"><input class="form-check-input" type="checkbox" id="select-all"></div></th>
+                            <th class="no-sort"><div class="form-check form-check-md"><input class="form-check-input datatable-select-all" type="checkbox" id="select-all"></div></th>
                             <th>Location Name</th>
                             <th>Code</th>
                             <th>Email</th>

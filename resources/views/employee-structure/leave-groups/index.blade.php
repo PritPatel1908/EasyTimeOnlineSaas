@@ -39,7 +39,7 @@
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table datatable">
-                        <thead class="thead-light"><tr><th></th><th>Name</th><th>Financial Year</th><th>Monthly Rules</th><th>Yearly Rules</th><th>Status</th><th></th></tr></thead>
+                        <thead class="thead-light"><tr><th class="no-sort"><div class="form-check form-check-md"><input class="form-check-input datatable-select-all" type="checkbox" id="select-all" aria-label="Select all rows"></div></th><th>Name</th><th>Financial Year</th><th>Monthly Rules</th><th>Yearly Rules</th><th>Status</th><th></th></tr></thead>
                         <tbody>@include('employee-structure.leave-groups.partials.rows')</tbody>
                     </table>
                 </div>

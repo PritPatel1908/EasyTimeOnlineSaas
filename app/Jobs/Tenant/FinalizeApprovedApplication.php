@@ -14,6 +14,7 @@ use App\Models\Tenant\ShortLeaveApplication;
 use App\Models\Tenant\ShiftChangeApplication;
 use App\Models\Tenant\WeekOffChangeApplication;
 use App\Models\Tenant\WeekOffSwapApplication;
+use App\Services\Tenant\LeaveAttendanceWriter;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -109,12 +110,16 @@ class FinalizeApprovedApplication implements ShouldQueue
         }
 
         if ($application instanceof ManualAttendanceApplication) {
-            ApproveUserManualAttendance::dispatch($application)->onConnection('database_tenant')->onQueue('processing');
+            ProcessManualAttendanceApplicationPunches::dispatch((int) $application->id)
+                ->onConnection('database_tenant')
+                ->onQueue('processing');
 
             return;
         }
 
         if ($application instanceof LeaveApplication) {
+            app(LeaveAttendanceWriter::class)->createForApprovedApplication($application);
+
             ApproveLeaveApplication::dispatch($application)->onConnection('database_tenant')->onQueue('processing');
 
             return;

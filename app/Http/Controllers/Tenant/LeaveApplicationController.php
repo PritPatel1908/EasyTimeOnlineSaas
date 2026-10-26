@@ -46,7 +46,7 @@ class LeaveApplicationController extends Controller
     {
         return view('time-management.leave-applications.index', [
             'applications' => LeaveApplication::query()
-                ->with(['users', 'leave_type', 'leave_reason'])
+                ->with(['users', 'leave_type', 'leave_reason', 'approval_statuses'])
                 ->latest('application_date')
                 ->latest('id')
                 ->paginate(15)

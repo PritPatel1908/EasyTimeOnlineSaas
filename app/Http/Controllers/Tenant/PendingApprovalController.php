@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
-use App\Jobs\Tenant\ProcessApprovalDecision;
+use App\Helpers\ApprovalProcessor;
 use App\Models\Tenant\ApprovalStatusDetails;
 use App\Models\Tenant\Coff;
 use App\Models\Tenant\LeaveApplication;
@@ -77,8 +77,15 @@ class PendingApprovalController extends Controller
                     ->whereColumn('previous_details.level', '<', 'approval_status_details.level')
                     ->where('previous_details.approval_status', '!=', 'approved');
             })
-            ->whereDoesntHave('main_status.approvable.approval_statuses', function ($query): void {
-                $query->where('approval_status', 'rejected');
+            ->whereNotExists(function ($query): void {
+                $query->selectRaw('1')
+                    ->from('approval_statuses as current_status')
+                    ->join('approval_statuses as rejected_statuses', function ($join): void {
+                        $join->on('rejected_statuses.approvable_id', '=', 'current_status.approvable_id')
+                            ->on('rejected_statuses.approvable_type', '=', 'current_status.approvable_type');
+                    })
+                    ->whereColumn('current_status.id', 'approval_status_details.approval_status_id')
+                    ->where('rejected_statuses.approval_status', 'rejected');
             })
             ->latest('approval_status_details.created_at')
             ->get();
@@ -96,6 +103,8 @@ class PendingApprovalController extends Controller
 
         return view('requests.pending.index', [
             'approvals' => $rows,
+            'canApprove' => TenantPermissions::userCan('PendingRequest', 'approve'),
+            'canReject' => TenantPermissions::userCan('PendingRequest', 'reject'),
         ]);
     }
 
@@ -205,16 +214,76 @@ class PendingApprovalController extends Controller
             ]);
         }
 
-        ProcessApprovalDecision::dispatch(
+        ApprovalProcessor::processDecision(
             (int) $request->route('detail'),
             $userId,
             $validated['decision'],
             $validated['rejection_reason'] ?? null,
-        )->onConnection('database_tenant')->onQueue('processing')->afterCommit();
+        );
 
         return redirect()
             ->route('tenant.requests.pending.index', ['tenant' => $request->route('tenant')])
-            ->with('success', 'Your approval response has been queued for processing.');
+            ->with('success', 'Your approval response has been processed successfully.');
+    }
+
+    public function bulkDecide(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'approval_details' => ['required', 'array', 'min:1', 'max:500'],
+            'approval_details.*' => ['required', 'integer', 'distinct'],
+            'decision' => ['required', Rule::in(['approved', 'rejected'])],
+            'rejection_reason' => [
+                Rule::requiredIf($request->input('decision') === 'rejected'),
+                'nullable',
+                'string',
+                'max:1000',
+            ],
+        ]);
+
+        if ($validated['decision'] === 'rejected' && trim((string) $validated['rejection_reason']) === '') {
+            throw ValidationException::withMessages([
+                'rejection_reason' => 'A rejection reason is required.',
+            ]);
+        }
+
+        TenantPermissions::authorize('PendingRequest', $validated['decision'] === 'approved' ? 'approve' : 'reject');
+
+        $userId = (int) Auth::guard('tenant')->id();
+        $approvalIds = array_map('intval', $validated['approval_details']);
+        $approvals = ApprovalStatusDetails::query()
+            ->with('main_status.approvable')
+            ->whereIn('id', $approvalIds)
+            ->whereHas('approval_flow_detail.users', fn ($query) => $query->whereKey($userId))
+            ->get()
+            ->keyBy('id');
+
+        if ($approvals->count() !== count($approvalIds)) {
+            throw ValidationException::withMessages([
+                'approval_details' => 'One or more selected requests are not available for your approval.',
+            ]);
+        }
+
+        foreach ($approvalIds as $approvalId) {
+            $approval = $approvals->get($approvalId);
+            if ($approval === null || ! $this->isActionable($approval, $userId)) {
+                throw ValidationException::withMessages([
+                    'approval_details' => 'One or more selected requests are no longer actionable.',
+                ]);
+            }
+        }
+
+        foreach ($approvalIds as $approvalId) {
+            ApprovalProcessor::processDecision(
+                $approvalId,
+                $userId,
+                $validated['decision'],
+                $validated['rejection_reason'] ?? null,
+            );
+        }
+
+        return redirect()
+            ->route('tenant.requests.pending.index', ['tenant' => $request->route('tenant')])
+            ->with('success', count($approvalIds).' request decisions have been processed successfully.');
     }
 
     private function relatedDetails(object $record): array

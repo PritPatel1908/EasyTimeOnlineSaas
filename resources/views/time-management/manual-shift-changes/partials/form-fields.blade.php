@@ -186,24 +186,23 @@ document.addEventListener('DOMContentLoaded', function () {
         const hasShifts = ['auto', 'fixed'].includes(typeSelect.value);
         const multipleShifts = typeSelect.value === 'auto';
 
-        if (shiftSelect.multiple !== multipleShifts) {
+        if (shiftSelect.tomselect) {
+            const selectedShiftIds = shiftSelect.tomselect.getValue();
+            shiftSelect.tomselect.setMaxItems(multipleShifts ? null : 1);
+
+            if (!multipleShifts && Array.isArray(selectedShiftIds) && selectedShiftIds.length > 1) {
+                shiftSelect.tomselect.setValue(selectedShiftIds[0], true);
+            }
+        } else if (shiftSelect.multiple !== multipleShifts) {
             const selectedShiftIds = Array.from(shiftSelect.selectedOptions).map(function (option) {
                 return option.value;
             });
-
-            if (shiftSelect.tomselect) {
-                shiftSelect.tomselect.destroy();
-            }
 
             shiftSelect.multiple = multipleShifts;
             const retainedShiftIds = multipleShifts ? selectedShiftIds : selectedShiftIds.slice(0, 1);
             Array.from(shiftSelect.options).forEach(function (option) {
                 option.selected = retainedShiftIds.includes(option.value);
             });
-
-            if (typeof TomSelect !== 'undefined') {
-                new TomSelect(shiftSelect, multipleShifts ? { plugins: ['remove_button'] } : {});
-            }
         }
 
         shiftField.classList.toggle('d-none', !hasShifts);

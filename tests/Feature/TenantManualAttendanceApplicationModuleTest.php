@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Controllers\Tenant\NotificationController;
+use App\Jobs\Tenant\ApproveUserManualAttendance;
 use App\Jobs\Tenant\CreateManualAttendanceApplicationApprovals;
+use App\Jobs\Tenant\FinalizeApprovedApplication;
+use App\Jobs\Tenant\ProcessManualAttendanceApplicationPunches;
 use App\Models\Tenant\ManualAttendanceApplication;
 use App\Services\Tenant\ManualAttendanceApplicationWorkflow;
 use Illuminate\Database\Schema\Blueprint;
@@ -144,6 +147,53 @@ class TenantManualAttendanceApplicationModuleTest extends TestCase
         $this->assertNotContains('shift_id', $application->getFillable());
         $this->assertFalse(method_exists($application, 'shift'));
         $this->assertFalse(method_exists($application, 'shift_rotation'));
+    }
+
+    public function test_final_approval_queues_manual_punch_processing_instead_of_creating_attendance(): void
+    {
+        Schema::create('manual_attendance_applications', function (Blueprint $table): void {
+            $table->id();
+            $table->dateTime('in_time');
+            $table->dateTime('out_time');
+            $table->tinyInteger('status')->default(1);
+            $table->text('reason')->nullable();
+            $table->softDeletes();
+            $table->timestamps();
+        });
+        Schema::create('approval_statuses', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('approvable_id');
+            $table->string('approvable_type');
+            $table->string('approval_status');
+            $table->unsignedBigInteger('approval_flow_id')->nullable();
+            $table->timestamps();
+        });
+
+        try {
+            $applicationId = (int) DB::table('manual_attendance_applications')->insertGetId([
+                'in_time' => '2026-10-20 09:00:00',
+                'out_time' => '2026-10-20 18:00:00',
+                'status' => 1,
+            ]);
+            DB::table('approval_statuses')->insert([
+                'approvable_id' => $applicationId,
+                'approvable_type' => ManualAttendanceApplication::class,
+                'approval_status' => 'approved',
+            ]);
+
+            Bus::fake();
+            (new FinalizeApprovedApplication(ManualAttendanceApplication::class, $applicationId))->handle();
+
+            Bus::assertDispatched(ProcessManualAttendanceApplicationPunches::class, static fn (ProcessManualAttendanceApplicationPunches $job): bool => (
+                $job->manualAttendanceApplicationId === $applicationId
+                && $job->connection === 'database_tenant'
+                && $job->queue === 'processing'
+            ));
+            Bus::assertNotDispatched(ApproveUserManualAttendance::class);
+        } finally {
+            Schema::dropIfExists('approval_statuses');
+            Schema::dropIfExists('manual_attendance_applications');
+        }
     }
 
     public function test_notification_preview_reads_manual_attendance_application_export(): void

@@ -7,17 +7,26 @@ namespace App\Helpers;
 use App\Jobs\Tenant\ProcessPendingLogsBatch;
 use App\Models\Tenant\AttendanceLog;
 use App\Models\Tenant\ManualAttendance;
+use App\Models\Tenant\ManualAttendanceApplication;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class ManualAttendancePunchProcessor
 {
-    public static function process(ManualAttendance $attendance): void
+    private const APPLICATION_START_REFERENCE_TYPE = 'manual_attendance_application_start';
+
+    private const APPLICATION_END_REFERENCE_TYPE = 'manual_attendance_application_end';
+
+    public static function process(ManualAttendance|ManualAttendanceApplication $attendance): void
     {
         DB::transaction(function () use ($attendance): void {
-            $users = $attendance->Users()->get();
+            $users = $attendance->relationLoaded('Users')
+                ? $attendance->Users
+                : $attendance->Users()->get();
             $userIds = $users->pluck('id')->map(static fn (mixed $id): int => (int) $id)->all();
-            $referenceTypes = ['manual_attendance_start', 'manual_attendance_end'];
+            $referenceTypes = $attendance instanceof ManualAttendanceApplication
+                ? [self::APPLICATION_START_REFERENCE_TYPE, self::APPLICATION_END_REFERENCE_TYPE]
+                : ['manual_attendance_start', 'manual_attendance_end'];
 
             $staleLogs = AttendanceLog::query()
                 ->whereIn('referance_type', $referenceTypes)
@@ -35,7 +44,7 @@ class ManualAttendancePunchProcessor
                     $attendance,
                     (int) $user->id,
                     $user->code,
-                    'manual_attendance_start',
+                    $referenceTypes[0],
                     $attendance->in_time,
                     1,
                     false,
@@ -44,7 +53,7 @@ class ManualAttendancePunchProcessor
                     $attendance,
                     (int) $user->id,
                     $user->code,
-                    'manual_attendance_end',
+                    $referenceTypes[1],
                     $attendance->out_time,
                     2,
                     true,
@@ -64,7 +73,7 @@ class ManualAttendancePunchProcessor
     }
 
     private static function updateAttendanceLog(
-        ManualAttendance $attendance,
+        ManualAttendance|ManualAttendanceApplication $attendance,
         int $userId,
         ?string $userCode,
         string $referenceType,

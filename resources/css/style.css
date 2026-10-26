@@ -8708,6 +8708,11 @@ fieldset:disabled .btn {
   width: 1.15rem;
   height: 1.15rem;
 }
+.datatable .form-check-input,
+.gridjs-table .form-check-input {
+  width: 1.15rem;
+  height: 1.15rem;
+}
 .form-check-md.form-switch .form-check-input {
   width: 2.25rem;
 }

@@ -42,7 +42,7 @@
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table datatable" data-searchable="false">
-                        <thead class="thead-light"><tr><th></th><th>Approval Flow Code</th><th>Status</th><th>Approval Levels</th><th>Approvers</th><th></th></tr></thead>
+                        <thead class="thead-light"><tr><th class="no-sort"><div class="form-check form-check-md"><input class="form-check-input datatable-select-all" type="checkbox" id="select-all" aria-label="Select all rows"></div></th><th>Approval Flow Code</th><th>Status</th><th>Approval Levels</th><th>Approvers</th><th></th></tr></thead>
                         <tbody>@include('employee-structure.approval-flows.partials.rows')</tbody>
                     </table>
                 </div>

@@ -1094,11 +1094,12 @@ Template Name: Smarthr - Bootstrap Admin Template
 	});
 
 	document.addEventListener('change', function (e) {
-		var selectAllAll = e.target.closest('#select-all');
+		var selectAllAll = e.target.closest('.datatable-select-all');
 		if (!selectAllAll) return;
-		var checked = selectAllAll.checked;
-		document.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
-			cb.checked = checked;
+		var table = selectAllAll.closest('table');
+		if (!table) return;
+		table.querySelectorAll('tbody tr td:first-child input[type="checkbox"]').forEach(function (cb) {
+			cb.checked = selectAllAll.checked;
 		});
 	});
 

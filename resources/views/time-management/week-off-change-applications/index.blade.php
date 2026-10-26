@@ -34,7 +34,7 @@
             <div class="card-body p-0"><div class="custom-datatable-filter table-responsive">
                 <table class="table datatable">
                     <thead class="thead-light"><tr>
-                        <th></th><th>Employees</th><th>Week-off Details</th><th>From Date</th><th>To Date</th><th>Reason</th><th>Approval Status</th><th></th>
+                        <th class="no-sort"><div class="form-check form-check-md"><input class="form-check-input datatable-select-all" type="checkbox" id="select-all" aria-label="Select all rows"></div></th><th>Employees</th><th>Week-off Details</th><th>From Date</th><th>To Date</th><th>Reason</th><th>Approval Status</th><th></th>
                     </tr></thead>
                     <tbody>
                         @forelse ($applications as $application)

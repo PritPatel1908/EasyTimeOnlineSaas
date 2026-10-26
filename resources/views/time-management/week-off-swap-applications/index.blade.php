@@ -35,7 +35,7 @@
             <div class="card-body p-0"><div class="custom-datatable-filter table-responsive">
                 <table class="table datatable">
                     <thead class="thead-light"><tr>
-                        <th></th><th>Employees</th><th>Week Date</th><th>Swap Date</th><th>Reason</th><th>Approval Status</th><th></th>
+                        <th class="no-sort"><div class="form-check form-check-md"><input class="form-check-input datatable-select-all" type="checkbox" id="select-all" aria-label="Select all rows"></div></th><th>Employees</th><th>Week Date</th><th>Swap Date</th><th>Reason</th><th>Approval Status</th><th></th>
                     </tr></thead>
                     <tbody>@include('time-management.week-off-swap-applications.partials.rows', ['applications' => $applications])</tbody>
                 </table>

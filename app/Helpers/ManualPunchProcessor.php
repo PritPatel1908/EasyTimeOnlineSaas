@@ -34,9 +34,12 @@ class ManualPunchProcessor
     {
         $users ??= $punch->Users()->get();
         $createdLogs = false;
+        $referencesManualPunch = $punch instanceof ManualPunch
+            || ($punch instanceof ManualPunchApplication && $punch->manual_punch_id !== null);
+        $referenceType = $referencesManualPunch ? ManualPunch::class : ManualPunchApplication::class;
         $referenceId = $punch instanceof ManualPunch
             ? $punch->id
-            : ($punch->manual_punch_id ?? $punch->id);
+            : ($referencesManualPunch ? $punch->manual_punch_id : $punch->id);
         $datetime = $punch->punch_date->format('Y-m-d') . ' ' . $punch->punch_time->format('H:i:s');
         $punchType = ManualPunch::normalizePunchType($punch->punch_type);
 
@@ -44,7 +47,7 @@ class ManualPunchProcessor
             $logsChanged = AttendanceLogWriter::updateUnlessLocked(
                 [
                     'user_id' => $user->id,
-                    'referance_type' => 'manual_punch',
+                    'referance_type' => $referenceType,
                     'referance_id' => $referenceId,
                 ],
                 [

@@ -53,7 +53,7 @@
                 <div class="custom-datatable-filter table-responsive">
                     <table class="table datatable">
                         <thead class="thead-light"><tr>
-                            <th class="no-sort"><div class="form-check form-check-md"><input class="form-check-input" type="checkbox" id="select-all"></div></th>
+                            <th class="no-sort"><div class="form-check form-check-md"><input class="form-check-input datatable-select-all" type="checkbox" id="select-all"></div></th>
                             <th>Code</th><th>Name</th><th>Start Date</th><th>End Date</th><th>Location</th><th>Company</th>
                             <th>Status</th><th>Action</th>
                         </tr></thead>

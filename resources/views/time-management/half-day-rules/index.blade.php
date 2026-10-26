@@ -52,7 +52,7 @@
                 <div class="custom-datatable-filter table-responsive">
                     <table class="table datatable">
                         <thead class="thead-light"><tr>
-                            <th></th><th>Rule Code</th><th>Description</th><th>Work Hours (Min)</th>
+                            <th class="no-sort"><div class="form-check form-check-md"><input class="form-check-input datatable-select-all" type="checkbox" id="select-all" aria-label="Select all rows"></div></th><th>Rule Code</th><th>Description</th><th>Work Hours (Min)</th>
                             <th>Single Punch</th><th>Late (Min)</th><th>Early (Min)</th><th>Status</th><th></th>
                         </tr></thead>
                         <tbody>@include('time-management.half-day-rules.partials.rows', ['halfDayRules' => $halfDayRules])</tbody>

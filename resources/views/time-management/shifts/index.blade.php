@@ -74,7 +74,7 @@
                     <table class="table datatable">
                         <thead class="thead-light">
                             <tr>
-                                <th></th>
+                                <th class="no-sort"><div class="form-check form-check-md"><input class="form-check-input datatable-select-all" type="checkbox" id="select-all" aria-label="Select all rows"></div></th>
                                 <th>Shift Name</th>
                                 <th>Code</th>
                                 <th>Companies</th>

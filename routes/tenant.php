@@ -99,6 +99,7 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                 Route::get('/notifications/{notification}', [NotificationController::class, 'show'])->name('tenant.notifications.show');
                 Route::prefix('requests/pending')->name('tenant.requests.pending.')->controller(PendingApprovalController::class)->group(function (): void {
                     Route::get('/', 'index')->middleware('tenant.permission:PendingRequest,read')->name('index');
+                    Route::post('/bulk-decision', 'bulkDecide')->name('bulk-decision');
                     Route::get('/{detail}', 'show')->middleware('tenant.permission:PendingRequest,read')->whereNumber('detail')->name('show');
                     Route::post('/{detail}/decision', 'decide')->whereNumber('detail')->name('decision');
                 });
