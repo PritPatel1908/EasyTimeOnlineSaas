@@ -8,6 +8,7 @@ use App\Helpers\ApprovalProcessor;
 use App\Http\Controllers\Tenant\PendingApprovalController;
 use App\Jobs\Tenant\FinalizeApprovedApplication;
 use App\Models\Tenant\ManualPunchApplication;
+use App\Models\Tenant\ShiftChangeApplication;
 use App\Models\Tenant\User;
 use Illuminate\Contracts\Auth\Guard;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -65,6 +66,76 @@ class PendingApprovalModuleTest extends TestCase
                 && $job->approvableId === 9
             ));
         } finally {
+            $this->dropApprovalTables();
+        }
+    }
+
+    public function test_pending_shift_change_requests_show_their_linked_employees(): void
+    {
+        $this->createApprovalTables();
+
+        try {
+            $this->createApplicationWithFlow();
+            Schema::create('shift_change_applications', function ($table): void {
+                $table->id();
+                $table->string('shift_type')->nullable();
+                $table->unsignedBigInteger('shift_rotation_id')->nullable();
+                $table->date('from_date')->nullable();
+                $table->boolean('is_forever')->default(false);
+                $table->date('to_date')->nullable();
+                $table->unsignedInteger('status')->default(1);
+                $table->text('reason')->nullable();
+                $table->softDeletes();
+                $table->timestamps();
+            });
+            Schema::create('shift_change_application_users', function ($table): void {
+                $table->id();
+                $table->unsignedBigInteger('shift_change_application_id');
+                $table->unsignedBigInteger('user_id');
+                $table->timestamps();
+            });
+            DB::table('users')->insert([
+                'id' => 3,
+                'name' => 'Shift Applicant',
+                'code' => 'EMP-3',
+            ]);
+            DB::table('shift_change_applications')->insert([
+                'id' => 3,
+                'shift_type' => 'rotational',
+                'from_date' => '2026-10-22',
+                'is_forever' => true,
+                'status' => 1,
+            ]);
+            DB::table('shift_change_application_users')->insert([
+                'shift_change_application_id' => 3,
+                'user_id' => 3,
+            ]);
+            DB::table('approval_statuses')->insert([
+                'id' => 102,
+                'approvable_id' => 3,
+                'approvable_type' => ShiftChangeApplication::class,
+                'approval_status' => 'pending',
+                'approval_flow_id' => 1,
+            ]);
+            DB::table('approval_status_details')->insert([
+                'id' => 205,
+                'level' => 1,
+                'approval_status_id' => 102,
+                'approval_flow_detail_id' => 20,
+                'approval_status' => 'pending',
+            ]);
+
+            $this->mockTenantUser(10);
+            $view = app(PendingApprovalController::class)->index();
+            $row = $view->getData()['approvals']->first(
+                static fn (array $row): bool => (int) $row['approval']->id === 205,
+            );
+
+            $this->assertNotNull($row);
+            $this->assertSame('Shift Applicant (EMP-3)', $row['employees']);
+        } finally {
+            Schema::dropIfExists('shift_change_application_users');
+            Schema::dropIfExists('shift_change_applications');
             $this->dropApprovalTables();
         }
     }

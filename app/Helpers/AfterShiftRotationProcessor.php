@@ -7,12 +7,15 @@ namespace App\Helpers;
 use App\Models\Tenant\FinancialYear;
 use App\Models\Tenant\ShiftRotation;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 class AfterShiftRotationProcessor
 {
-    public static function processAfterSave(int $shiftRotationId): void
+    private const INSERT_CHUNK_SIZE = 400;
+
+    public static function processAfterSave(int $shiftRotationId, ?CarbonInterface $throughDate = null): void
     {
         $shiftRotation = ShiftRotation::query()
             ->with(['rotation_values' => static fn ($query) => $query->orderBy('id')])
@@ -22,19 +25,24 @@ class AfterShiftRotationProcessor
             throw new RuntimeException("Shift rotation {$shiftRotation->id} must have a start date before generating musters.");
         }
 
-        $endDate = $shiftRotation->is_forever
-            ? FinancialYear::query()
+        if ($shiftRotation->is_forever) {
+            $endDate = FinancialYear::query()
                 ->where('is_started', true)
                 ->orderByDesc('id')
                 ->value('end_date')
-            : $shiftRotation->end_date;
-
-        if ($endDate === null) {
-            throw new RuntimeException("An active financial year with an end date is required for forever shift rotation {$shiftRotation->id}.");
+                ?? CarbonImmutable::today()->endOfYear()->toDateString();
+        } else {
+            $endDate = $shiftRotation->end_date;
         }
 
         $startDate = CarbonImmutable::parse($shiftRotation->start_date)->startOfDay();
         $endDate = CarbonImmutable::parse($endDate)->startOfDay();
+        if ($throughDate !== null) {
+            $requestedEndDate = CarbonImmutable::parse($throughDate)->startOfDay();
+            if ($requestedEndDate->gt($endDate)) {
+                $endDate = $requestedEndDate;
+            }
+        }
 
         if ($endDate->lt($startDate)) {
             throw new RuntimeException("Shift rotation {$shiftRotation->id} ends before it starts.");
@@ -99,7 +107,7 @@ class AfterShiftRotationProcessor
                         'updated_at' => $timestamp,
                     ];
 
-                    if (count($rows) === 500) {
+                    if (count($rows) === self::INSERT_CHUNK_SIZE) {
                         DB::table('rotation_musters')->insert($rows);
                         $rows = [];
                     }

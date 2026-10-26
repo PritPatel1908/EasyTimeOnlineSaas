@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 class ShiftChangeMusterProcessor
 {
@@ -65,6 +66,29 @@ class ShiftChangeMusterProcessor
                 $toDate = $shiftChange->to_date;
             }
 
+            $rotationShiftsByDate = collect();
+            if ($shiftChange->shift_type === 'rotational' && $toDate !== null && $fromDate <= $toDate) {
+                $rotationShiftsByDate = self::rotationShiftsByDate($shiftChange, $fromDate, $toDate);
+                $missingDates = self::missingRotationDates($fromDate, $toDate, $rotationShiftsByDate);
+
+                if ($missingDates !== []) {
+                    AfterShiftRotationProcessor::processAfterSave(
+                        (int) $shiftChange->shift_rotation_id,
+                        $toDate,
+                    );
+                    $rotationShiftsByDate = self::rotationShiftsByDate($shiftChange, $fromDate, $toDate);
+                    $missingDates = self::missingRotationDates($fromDate, $toDate, $rotationShiftsByDate);
+                }
+
+                if ($missingDates !== []) {
+                    throw new RuntimeException(sprintf(
+                        'Shift rotation %s has no generated muster for %s.',
+                        $shiftChange->shift_rotation_id ?? '(missing)',
+                        implode(', ', $missingDates),
+                    ));
+                }
+            }
+
             $shiftIds = $shiftChange->shifts()
                 ->pluck('shift_id')
                 ->map(static fn (mixed $id): int => (int) $id)
@@ -86,11 +110,7 @@ class ShiftChangeMusterProcessor
                     $attributes = [
                         'is_auto' => $shiftChange->shift_type === 'auto',
                         'shift' => $shiftChange->shift_type === 'rotational'
-                            ? RotationMuster::query()
-                                ->where('rotation_id', $shiftChange->shift_rotation_id)
-                                ->whereDate('date', $fromDate)
-                                ->firstOrFail()
-                                ->shift_id
+                            ? $rotationShiftsByDate->get($fromDate->toDateString())
                             : $shiftIds,
                         'shiftchangeable_type' => $shiftChange::class,
                         'shiftchangeable_id' => $shiftChange->id,
@@ -116,5 +136,44 @@ class ShiftChangeMusterProcessor
                     $user->save();
                 }
             }
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<string, int|null>
+     */
+    private static function rotationShiftsByDate(
+        ShiftChange|ShiftChangeApplication $shiftChange,
+        Carbon $fromDate,
+        Carbon $toDate,
+    ): \Illuminate\Support\Collection {
+        return RotationMuster::query()
+            ->where('rotation_id', $shiftChange->shift_rotation_id)
+            ->whereBetween('date', [$fromDate->toDateString(), $toDate->toDateString()])
+            ->get(['date', 'shift_id'])
+            ->mapWithKeys(static fn (RotationMuster $muster): array => [
+                Carbon::parse($muster->date)->toDateString() => $muster->shift_id,
+            ]);
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<string, int|null>  $rotationShiftsByDate
+     * @return array<int, string>
+     */
+    private static function missingRotationDates(
+        Carbon $fromDate,
+        Carbon $toDate,
+        \Illuminate\Support\Collection $rotationShiftsByDate,
+    ): array {
+        $missingDates = [];
+        $date = $fromDate->copy();
+
+        while ($date <= $toDate) {
+            if (! $rotationShiftsByDate->has($date->toDateString())) {
+                $missingDates[] = $date->toDateString();
+            }
+            $date->addDay();
+        }
+
+        return $missingDates;
     }
 }

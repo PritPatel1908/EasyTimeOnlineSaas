@@ -13,6 +13,7 @@ use App\Models\Tenant\ManualAttendanceApplication;
 use App\Models\Tenant\ManualPunchApplication;
 use App\Models\Tenant\OutDuty;
 use App\Models\Tenant\ShortLeaveApplication;
+use App\Models\Tenant\Scopes\DataPolicyFilter;
 use App\Models\Tenant\ShiftChangeApplication;
 use App\Models\Tenant\WeekOffChangeApplication;
 use App\Models\Tenant\WeekOffSwapApplication;
@@ -45,10 +46,11 @@ class PendingApprovalController extends Controller
     {
         TenantPermissions::authorize('PendingRequest', 'read');
         $userId = (int) Auth::guard('tenant')->id();
+        $pendingEmployeeUsers = $this->pendingEmployeeUsers();
 
         $approvals = ApprovalStatusDetails::query()
             ->with([
-                'main_status.approvable' => function (MorphTo $morphTo): void {
+                'main_status.approvable' => function (MorphTo $morphTo) use ($pendingEmployeeUsers): void {
                     $morphTo->morphWith([
                         LeaveApplication::class => ['users', 'leave_type', 'leave_reason'],
                         Coff::class => ['user'],
@@ -56,7 +58,7 @@ class PendingApprovalController extends Controller
                         ManualPunchApplication::class => ['Users', 'user'],
                         OutDuty::class => ['user'],
                         ShortLeaveApplication::class => ['user'],
-                        ShiftChangeApplication::class => ['Users'],
+                        ShiftChangeApplication::class => ['Users' => $pendingEmployeeUsers],
                         WeekOffChangeApplication::class => ['Users'],
                         WeekOffSwapApplication::class => ['Users'],
                     ]);
@@ -134,7 +136,13 @@ class PendingApprovalController extends Controller
             ManualAttendanceApplication::class, ManualPunchApplication::class, WeekOffSwapApplication::class => ['Users', 'approval_statuses.approval_flow', 'approval_statuses.approval_status_details.user'],
             OutDuty::class => ['user', 'location', 'company', 'approval_statuses.approval_flow', 'approval_statuses.approval_status_details.user'],
             ShortLeaveApplication::class => ['user', 'approval_statuses.approval_flow', 'approval_statuses.approval_status_details.user'],
-            ShiftChangeApplication::class => ['Users', 'shifts', 'shift_rotation', 'approval_statuses.approval_flow', 'approval_statuses.approval_status_details.user'],
+            ShiftChangeApplication::class => [
+                'Users' => $this->pendingEmployeeUsers(),
+                'shifts',
+                'shift_rotation',
+                'approval_statuses.approval_flow',
+                'approval_statuses.approval_status_details.user',
+            ],
             WeekOffChangeApplication::class => ['Users', 'WeekOffChangeDetails', 'approval_statuses.approval_flow', 'approval_statuses.approval_status_details.user'],
             default => [],
         };
@@ -319,6 +327,11 @@ class PendingApprovalController extends Controller
         }
 
         return $details;
+    }
+
+    private function pendingEmployeeUsers(): \Closure
+    {
+        return static fn ($relation) => $relation->withoutGlobalScope(DataPolicyFilter::class);
     }
 
     private function employeeNames(?object $record): string
