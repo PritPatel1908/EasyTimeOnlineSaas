@@ -98,6 +98,7 @@ class Attendance extends Model
         'user_id',
         'location_id',
         'company_id',
+        'area_id',
         'department_id',
         'sub_department_id',
         'category_id',

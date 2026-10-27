@@ -26,6 +26,7 @@
 		'time-management/shifts*',
 		'time-management/shift-rotations*'
 	);
+	$attendanceLogStructureActive = request()->is('time-management/attendance-logs*');
 	$manualStructureActive = request()->is('time-management/manual-punches*', 'time-management/manual-attendances*', 'time-management/manual-shift-changes*', 'time-management/week-off-changes*', 'time-management/week-off-swaps*');
 	$applicationStructureActive = request()->is('time-management/manual-punch-applications*', 'time-management/manual-attendance-applications*', 'time-management/shift-change-applications*', 'time-management/leave-applications*', 'time-management/week-off-change-applications*', 'time-management/week-off-swap-applications*');
 	$timingRuleStructureActive = request()->is('time-management/late-coming-rules*', 'time-management/early-going-rules*', 'time-management/half-day-rules*', 'time-management/overtime-rules*', 'time-management/absent-rules*');
@@ -42,6 +43,7 @@
 		\App\Support\TenantPermissions::userCan('HalfDayRule', 'read') ||
 		\App\Support\TenantPermissions::userCan('OvertimeRule', 'read');
 	$canViewManualPunches = \App\Support\TenantPermissions::userCan('ManualPunch', 'read');
+	$canViewAttendanceLogs = \App\Support\TenantPermissions::userCan('AttendanceLog', 'read');
 	$canViewManualPunchApplications = \App\Support\TenantPermissions::userCan('ManualPunchApplication', 'read');
 	$canViewManualAttendanceApplications = \App\Support\TenantPermissions::userCan('ManualAttendanceApplication', 'read');
 	$canViewShiftChangeApplications = \App\Support\TenantPermissions::userCan('ShiftChangeApplication', 'read');
@@ -402,6 +404,24 @@
 							</ul>
 						</li>
 						@endif
+					</ul>
+				</li>
+				@endif
+				@if ($canViewAttendanceLogs)
+				<li class="menu-title"><span>ATTENDANCE LOG STRUCTURE</span></li>
+				<li>
+					<ul>
+						<li class="submenu">
+							<a href="javascript:void(0);"
+								class="{{ $attendanceLogStructureActive ? 'active subdrop' : '' }}">
+								<i class="ti ti-list-details"></i><span>Attendance Log</span>
+								<span class="menu-arrow"></span>
+							</a>
+							<ul>
+								<li><a href="{{ url('time-management/attendance-logs') }}"
+									class="{{ $attendanceLogStructureActive ? 'active' : '' }}">Attendance Log</a></li>
+							</ul>
+						</li>
 					</ul>
 				</li>
 				@endif

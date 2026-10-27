@@ -19,6 +19,7 @@ use App\Http\Controllers\Tenant\ManualPunchApplicationController;
 use App\Http\Controllers\Tenant\ManualAttendanceController;
 use App\Http\Controllers\Tenant\ManualAttendanceApplicationController;
 use App\Http\Controllers\Tenant\ManualShiftChangeController;
+use App\Http\Controllers\Tenant\AttendanceLogController;
 use App\Http\Controllers\Tenant\ShiftChangeApplicationController;
 use App\Http\Controllers\Tenant\LateComingRuleController;
 use App\Http\Controllers\Tenant\EarlyGoingRuleController;
@@ -290,6 +291,14 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:ShiftChange,write')
                         ->middlewareFor('destroy', 'tenant.permission:ShiftChange,delete')
                         ->names('manual-shift-changes');
+                    Route::get('attendance-logs', [AttendanceLogController::class, 'index'])
+                        ->middleware('tenant.permission:AttendanceLog,read')->name('attendance-logs.index');
+                    Route::post('attendance-logs/reprocess-range', [AttendanceLogController::class, 'reprocessRange'])
+                        ->middleware('tenant.permission:AttendanceLog,write')->name('attendance-logs.reprocess-range');
+                    Route::get('attendance-logs/{attendance_log}', [AttendanceLogController::class, 'show'])
+                        ->middleware('tenant.permission:AttendanceLog,read')->name('attendance-logs.show');
+                    Route::post('attendance-logs/{attendance_log}/reprocess', [AttendanceLogController::class, 'reprocess'])
+                        ->middleware('tenant.permission:AttendanceLog,write')->name('attendance-logs.reprocess');
                     Route::get('leave-applications/export', [LeaveApplicationController::class, 'export'])
                         ->middleware('tenant.permission:LeaveApplication,export')->name('leave-applications.export');
                     Route::get('leave-applications/import/sample', [LeaveApplicationController::class, 'downloadImportSample'])

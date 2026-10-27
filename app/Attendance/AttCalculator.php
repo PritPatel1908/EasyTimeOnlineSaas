@@ -2,7 +2,6 @@
 
 namespace App\Attendance;
 
-use App\Helpers\GeneralHelper;
 use App\Models\Tenant\Attendance;
 use App\Models\Tenant\AttendanceLog;
 use App\Models\Tenant\Coff;
@@ -87,6 +86,17 @@ class AttCalculator
         }
     }
 
+    private function isSettingEnabled(string $key): bool
+    {
+        if (! function_exists('setting')) {
+            $this->debug('Skipping '.$key.' because the setting helper is unavailable');
+
+            return false;
+        }
+
+        return (bool) \setting($key, '0');
+    }
+
     public function getReturnLogs()
     {
         return $this->returningLogArray;
@@ -131,12 +141,17 @@ class AttCalculator
         $from_day = $this->log->datetime->copy()->subDay()->startOfDay();
         $this->debug('~~~Retriving previous logs');
 
-        $this->prv_log = AttendanceLog::where(['user_code' => $this->log->user_code, 'is_calculated' => true, 'is_ignored' => false, 'has_error' => false, 'is_locked' => false])
+        $query = AttendanceLog::where(['user_code' => $this->log->user_code, 'is_calculated' => true, 'is_ignored' => false, 'has_error' => false, 'is_locked' => false])
             ->whereBetween('datetime', [$from_day, $this->log->datetime])
-            ->where('attendance_logs.id', '!=', $this->log->id)
-            ->whereHas('machine', function (Builder $query) {
+            ->where('attendance_logs.id', '!=', $this->log->id);
+
+        if ($this->area !== null) {
+            $query->whereHas('machine', function (Builder $query) {
                 $query->where('area_id', $this->area->id);
-            })
+            });
+        }
+
+        $this->prv_log = $query
             ->orderBy('datetime', 'desc')
             ->orderBy('id', 'desc')
             ->limit(1)
@@ -173,7 +188,7 @@ class AttCalculator
 
     public function checkInOrOut(): void
     {
-        $this->debug('~~~Checking in or out. Machine Punch Type is '.$this->machine->access_direction);
+        $this->debug('~~~Checking in or out. Machine Punch Type is '.($this->machine?->access_direction ?? 'manual punch'));
         if ($this->log->is_manual) {
             if ($this->log->is_out) {
                 $this->debug('Fixed Punch type is "Out Device" due to manual punch');
@@ -182,10 +197,10 @@ class AttCalculator
                 $this->debug('Fixed Punch type is "In Device" due to manual punch');
                 $this->log->is_out = false;
             }
-        } elseif ($this->machine->access_direction == 'in' || $this->machine->access_direction == '1') {
+        } elseif ($this->machine?->access_direction == 'in' || $this->machine?->access_direction == '1') {
             $this->debug('Fixed Punch type is "In Device"');
             $this->log->is_out = false;
-        } elseif ($this->machine->access_direction == 'out' || $this->machine->access_direction == '2') {
+        } elseif ($this->machine?->access_direction == 'out' || $this->machine?->access_direction == '2') {
             $this->debug('Fixed Punch type is "Out Device"');
             $this->log->is_out = true;
         } else {
@@ -312,7 +327,7 @@ class AttCalculator
         }
         if ($prvatt) {
             $this->debug('Previous attendance found #'.$prvatt->id.'|'.$prvatt->date.'|'.$prvatt->shift_code.'|'.$prvatt->in_time.'|'.$prvatt->out_time);
-            if ($prvatt->is_night_shift) {
+            if ($prvatt->is_night_shift && $prvatt->shift !== null) {
                 $this->debug('Previous attendance is night shift');
                 // TODO: cuttoff time here from general configuration
                 if ($this->log->datetime > $prvatt->datetime) {
@@ -362,16 +377,14 @@ class AttCalculator
                         $this->debug('Updating Out Because outtime is null or less than or equal current log time');
                         $this->curatt->out_time = $this->log->datetime;
                         $this->curatt->out_log_id = $this->log->id;
-                        $this->curatt->shift_id = $this->shift->id;
-                        $this->curatt->shift_code = $this->shift->code;
+                        $this->applyCurrentShiftToAttendance();
                         $this->curatt->save();
                     }
                 } else {
                     $this->debug('Updating Out Because outtime is null');
                     $this->curatt->out_time = $this->log->datetime;
                     $this->curatt->out_log_id = $this->log->id;
-                    $this->curatt->shift_id = $this->shift->id;
-                    $this->curatt->shift_code = $this->shift->code;
+                    $this->applyCurrentShiftToAttendance();
                     $this->curatt->save();
                 }
             } elseif ($this->curatt->out_time == null || $this->curatt->out_time->lte($this->log->datetime)) {
@@ -409,28 +422,19 @@ class AttCalculator
                             $this->debug('Updating Out Because outtime is null or less than current log time');
                             $this->curatt->out_time = $this->log->datetime;
                             $this->curatt->out_log_id = $this->log->id;
-                            $this->curatt->shift_id = $this->shift->id;
-                            $this->curatt->shift_code = $this->shift->code;
+                            $this->applyCurrentShiftToAttendance();
                             $this->curatt->save();
                         } else {
                             $this->curatt->in_time = $this->log->datetime;
                             $this->curatt->in_log_id = $this->log->id;
-                            $this->curatt->shift_id = $this->shift->id;
-                            $this->curatt->shift_code = $this->shift->code;
-                            $this->curatt->is_night_shift = $this->shift->is_night_shift;
-                            $this->curatt->shift_in_time = Carbon::createFromDate($this->attendance_date)->setTimeFromTimeString($this->shift->in_time->toTimeString());
-                            $this->curatt->shift_out_time = Carbon::createFromDate($this->attendance_date)->setTimeFromTimeString($this->shift->out_time->toTimeString());
+                            $this->applyCurrentShiftToAttendance();
                             $this->curatt->save();
                         }
                     }
                 } else {
                     $this->curatt->in_time = $this->log->datetime;
                     $this->curatt->in_log_id = $this->log->id;
-                    $this->curatt->shift_id = $this->shift->id;
-                    $this->curatt->shift_code = $this->shift->code;
-                    $this->curatt->is_night_shift = $this->shift->is_night_shift;
-                    $this->curatt->shift_in_time = Carbon::createFromDate($this->attendance_date)->setTimeFromTimeString($this->shift->in_time->toTimeString());
-                    $this->curatt->shift_out_time = Carbon::createFromDate($this->attendance_date)->setTimeFromTimeString($this->shift->out_time->toTimeString());
+                    $this->applyCurrentShiftToAttendance();
                     $this->curatt->save();
                 }
             } else {
@@ -464,13 +468,7 @@ class AttCalculator
                 if ($this->curatt->out_time == null || $this->curatt->out_time->gt($this->log->datetime)) {
                     $this->curatt->in_time = $this->log->datetime;
                     $this->curatt->in_log_id = $this->log->id;
-                    $this->curatt->shift_id = $this->shift->id;
-                    $this->curatt->shift_code = $this->shift->code;
-                    $this->curatt->is_night_shift = $this->shift->is_night_shift;
-                    $this->curatt->shift_in_time = Carbon::createFromDate($this->attendance_date)
-                        ->setTimeFromTimeString($this->shift->in_time->toTimeString());
-                    $this->curatt->shift_out_time = Carbon::createFromDate($this->attendance_date)
-                        ->setTimeFromTimeString($this->shift->out_time->toTimeString());
+                    $this->applyCurrentShiftToAttendance();
                     $this->curatt->save();
                 } else {
                     $this->debug('Updating Out Because outtime less then or equal current log time');
@@ -478,13 +476,7 @@ class AttCalculator
                     $this->curatt->in_log_id = $this->log->id;
                     $this->curatt->out_time = null;
                     $this->curatt->out_log_id = null;
-                    $this->curatt->shift_id = $this->shift->id;
-                    $this->curatt->shift_code = $this->shift->code;
-                    $this->curatt->is_night_shift = $this->shift->is_night_shift;
-                    $this->curatt->shift_in_time = Carbon::createFromDate($this->attendance_date)
-                        ->setTimeFromTimeString($this->shift->in_time->toTimeString());
-                    $this->curatt->shift_out_time = Carbon::createFromDate($this->attendance_date)
-                        ->setTimeFromTimeString($this->shift->out_time->toTimeString());
+                    $this->applyCurrentShiftToAttendance();
                     $this->curatt->save();
                 }
             } elseif ($this->curatt->out_time == null || $this->curatt->out_time->lte($this->log->datetime)) {
@@ -504,7 +496,7 @@ class AttCalculator
         $this->shift = $this->curatt->shift;
 
         $shift_muster = ShiftMuster::where('user_id', $this->log->user->id)->where('is_locked', false)->where('date', $this->log->datetime->format('Y-m-d'))->first();
-        if ($shift_muster) {
+        if ($shift_muster && $this->shift !== null) {
             $shift_muster->calculated_shift = $this->shift->id;
             $shift_muster->is_calculated = true;
             $shift_muster->save();
@@ -560,6 +552,7 @@ class AttCalculator
                         $status_muster->save();
                     }
                 }
+
             } elseif ($leave_application->is_second_half) {
                 if ($leave_application->from_date == $this->log->datetime->format('Y-m-d')) {
                     if ($this->log->user->category->single_punch_allowed_present && $this->curatt->in_time) {
@@ -919,6 +912,22 @@ class AttCalculator
         $this->handleCutoffTime();
     }
 
+    private function applyCurrentShiftToAttendance(): void
+    {
+        $shiftInTime = $this->shift?->in_time;
+        $shiftOutTime = $this->shift?->out_time;
+
+        $this->curatt->shift_id = $this->shift?->id;
+        $this->curatt->shift_code = $this->shift?->code;
+        $this->curatt->is_night_shift = $this->shift?->is_night_shift ?? false;
+        $this->curatt->shift_in_time = $shiftInTime
+            ? Carbon::createFromDate($this->attendance_date)->setTimeFromTimeString($shiftInTime->toTimeString())
+            : null;
+        $this->curatt->shift_out_time = $shiftOutTime
+            ? Carbon::createFromDate($this->attendance_date)->setTimeFromTimeString($shiftOutTime->toTimeString())
+            : null;
+    }
+
     public function handleCutoffTime()
     {
         if ($this->log->is_out) {
@@ -1011,13 +1020,13 @@ class AttCalculator
                 'date' => $this->attendance_date,
                 'is_locked' => false,
             ], [
-                'location_id' => $this->machine->location_id,
-                'company_id' => $this->machine->company_id,
+                'location_id' => $this->machine?->location_id,
+                'company_id' => $this->machine?->company_id,
                 'department_id' => $this->log->user->department_id,
                 'sub_department_id' => $this->log->user->sub_department_id,
                 'category_id' => $this->log->user->category_id,
                 'sub_category_id' => $this->log->user->sub_category_id,
-                'area_id' => $this->area->id,
+                'area_id' => $this->area?->id,
             ]);
         }
 
@@ -1114,8 +1123,11 @@ class AttCalculator
 
         if ($this->shift == null) {
             // TODO: assign default shift from general configuration
-            $this->debug('No shift found for user assigning default shift');
+            $this->debug('No shift matched; falling back to the first configured shift');
             $this->shift = Shift::first();
+            if ($this->shift === null) {
+                $this->debug('No shifts are configured; attendance will be processed without shift data');
+            }
             // $processTags = $this->curatt->process_tags();
             // $processTags->where('name', 'Default Shift Assign')->delete();
             // $processTags->create(['name' => 'Default Shift Assign', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
@@ -1136,7 +1148,7 @@ class AttCalculator
             ->first();
 
         if ($leave_application == null || $coff == null) {
-            if (setting('half_day_rules', '0') == true) { // GeneralHelper::checkSettings("half_day_rules") === true) {
+            if ($this->isSettingEnabled('half_day_rules')) {
                 $this->debug('~~~Checking HalfDay Rule');
                 if ($this->log->user->half_day_rule && $this->curatt->shift && $this->curatt) {
                     $halfdayRule = $this->log->user?->half_day_rule;
@@ -1567,7 +1579,7 @@ class AttCalculator
             ->first();
 
         if ($leave_application == null || $coff == null) {
-            if (setting('absent_rules', '0') == true) { // GeneralHelper::checkSettings("absent_rules") === true) {
+            if ($this->isSettingEnabled('absent_rules')) {
                 $this->debug('~~~Checking Absent Rule');
                 if ($this->log->user->absent_rule && $this->curatt->shift && $this->curatt) {
                     $absentRule = $this->log->user?->absent_rule;
@@ -1998,7 +2010,7 @@ class AttCalculator
                     $processTags = $this->curatt->process_tags();
                     $processTags->where('name', 'Early Going')->delete();
                 } else {
-                    if (setting('early_going_rules', '0') == true) { // GeneralHelper::checkSettings("early_going_rules") === true) {
+                    if ($this->isSettingEnabled('early_going_rules')) {
                         $this->debug('~~~Checking EarlyGoing Rule');
                         if ($this->log->user->early_going_rule && $this->curatt->shift_out_time && $this->curatt->out_time) {
                             $ignoreEarlyGoingMinutes = $this->log->user?->early_going_rule?->ignore_early_going_minutes;
@@ -2143,7 +2155,7 @@ class AttCalculator
                     $processTags = $this->curatt->process_tags();
                     $processTags->where('name', 'Early Going')->delete();
                 } else {
-                    if (setting('early_going_rules', '0') == true) { // GeneralHelper::checkSettings("early_going_rules") === true) {
+                    if ($this->isSettingEnabled('early_going_rules')) {
                         $this->debug('~~~Checking EarlyGoing Rule');
                         if ($this->log->user->early_going_rule && $this->curatt->shift_out_time && $this->curatt->out_time) {
                             $ignoreEarlyGoingMinutes = $this->log->user?->early_going_rule?->ignore_early_going_minutes;
@@ -2308,7 +2320,7 @@ class AttCalculator
                     $processTags = $this->curatt->process_tags();
                     $processTags->where('name', 'Early Going')->delete();
                 } else {
-                    if (setting('early_going_rules', '0') == true) { // GeneralHelper::checkSettings("early_going_rules") === true) {
+                    if ($this->isSettingEnabled('early_going_rules')) {
                         $this->debug('~~~Checking EarlyGoing Rule');
                         if ($this->log->user->early_going_rule && $this->curatt->shift_out_time && $this->curatt->out_time) {
                             $ignoreEarlyGoingMinutes = $this->log->user?->early_going_rule?->ignore_early_going_minutes;
@@ -2451,7 +2463,7 @@ class AttCalculator
                 $processTags = $this->curatt->process_tags();
                 $processTags->where('name', 'Early Going')->delete();
             } else {
-                if (setting('early_going_rules', '0') == true) { // GeneralHelper::checkSettings("early_going_rules") === true) {
+                if ($this->isSettingEnabled('early_going_rules')) {
                     $this->debug('~~~Checking EarlyGoing Rule');
                     if ($this->log->user->early_going_rule && $this->curatt->shift_out_time && $this->curatt->out_time) {
                         $ignoreEarlyGoingMinutes = $this->log->user?->early_going_rule?->ignore_early_going_minutes;
@@ -2619,7 +2631,7 @@ class AttCalculator
 
         if ($leave_application != null) {
             if ($leave_application->is_first_half && $leave_application->from_date == $this->log->datetime->format('Y-m-d')) {
-                if (setting('half_day_rules', '0') == true) { // GeneralHelper::checkSettings("half_day_rules") === true) {
+                if ($this->isSettingEnabled('half_day_rules')) {
                     $this->debug('~~~Checking LateComing Rule');
                     if ($this->log->user->late_coming_rule && $this->curatt->shift_in_time && $this->curatt->in_time) {
                         $ignoreLateComingMinutes = $this->log->user?->late_coming_rule?->ignore_late_coming_minutes;
@@ -2752,7 +2764,7 @@ class AttCalculator
             }
         } elseif ($short_leave != null) {
             if ($short_leave->short_leave_type == '1') {
-                if (setting('half_day_rules', '0') == true) { // GeneralHelper::checkSettings("half_day_rules") === true) {
+                if ($this->isSettingEnabled('half_day_rules')) {
                     $this->debug('~~~Checking LateComing Rule');
                     if ($this->log->user->late_coming_rule && $this->curatt->shift_in_time && $this->curatt->in_time) {
                         $ignoreLateComingMinutes = $this->log->user?->late_coming_rule?->ignore_late_coming_minutes;
@@ -2956,7 +2968,7 @@ class AttCalculator
             }
         } elseif ($coff != null) {
             if ($coff->is_first_half && $coff->from_date == $this->log->datetime->format('Y-m-d')) {
-                if (setting('half_day_rules', '0') == true) { // GeneralHelper::checkSettings("half_day_rules") === true) {
+                if ($this->isSettingEnabled('half_day_rules')) {
                     $this->debug('~~~Checking LateComing Rule');
                     if ($this->log->user->late_coming_rule && $this->curatt->shift_in_time && $this->curatt->in_time) {
                         $ignoreLateComingMinutes = $this->log->user?->late_coming_rule?->ignore_late_coming_minutes;
@@ -3088,7 +3100,7 @@ class AttCalculator
                 }
             }
         } else {
-            if (setting('half_day_rules', '0') == true) { // GeneralHelper::checkSettings("half_day_rules") === true) {
+            if ($this->isSettingEnabled('half_day_rules')) {
                 $this->debug('~~~Checking LateComing Rule');
                 if ($this->log->user->late_coming_rule && $this->curatt->shift_in_time && $this->curatt->in_time) {
                     $ignoreLateComingMinutes = $this->log->user?->late_coming_rule?->ignore_late_coming_minutes;
@@ -3240,8 +3252,14 @@ class AttCalculator
     // TODO:check overtime rule and calculate according shift after testing
     public function checkOverTimeRule(): void
     {
-        if (setting('over_time_rules', '0') == true) { // GeneralHelper::checkSettings("over_time_rules") === true) {
+        if ($this->isSettingEnabled('over_time_rules')) {
             $this->debug('~~~Checking OverTime Rule');
+            if (! $this->curatt->shift_in_time || ! $this->curatt->shift_out_time) {
+                $this->debug('Skipping overtime calculation because attendance has no shift times');
+
+                return;
+            }
+
             if ($this->log->user->overtime_rule) {
                 if ($this->curatt->out_time) {
                     $overtimeRule = $this->log->user?->overtime_rule;
@@ -3257,8 +3275,6 @@ class AttCalculator
                         $out_diff = 0;
                     }
                     $this->debug('After shift overtime minutes : '.$out_diff);
-
-
 
                     if ($out_diff >= 0) {
                         $totalDiff = $overtimeRule->qualifyingOvertimeMinutes($out_diff);
@@ -3445,15 +3461,13 @@ class AttCalculator
             $this->debug('~~~Creating or updating in out muster');
             if ($this->log->is_manual) {
                 if ($this->log->is_out) {
-                    $this->machine->access_direction = 'out';
                     $this->handelFixedOut();
                 } else {
-                    $this->machine->access_direction = 'in';
                     $this->handelFixedIn();
                 }
-            } elseif ($this->machine->access_direction == 'in' || $this->machine->access_direction == '1') {
+            } elseif ($this->machine?->access_direction == 'in' || $this->machine?->access_direction == '1') {
                 $this->handelFixedIn();
-            } elseif ($this->machine->access_direction == 'out' || $this->machine->access_direction == '2') {
+            } elseif ($this->machine?->access_direction == 'out' || $this->machine?->access_direction == '2') {
                 $this->handelFixedOut();
             } else {
                 if ($this->log->is_out) {
@@ -3473,7 +3487,7 @@ class AttCalculator
         $updating = $this->queryFixedInEntry($this->f_years);
 
         if ($updating) {
-            if ($updating->in_time == null && $updating->area_id == $this->area->id) {
+            if ($updating->in_time == null && $updating->area_id == $this->area?->id) {
                 $this->debug('Updating InOutMuster #'.$updating->id);
                 $updating->in_time = $this->log->datetime;
                 $updating->in_log_id = $this->log->id;
@@ -3483,10 +3497,10 @@ class AttCalculator
                 $updating->work_time = $this->log->datetime->diffInMinutes($updating->out_time);
                 $updating->save();
                 $muster = $updating;
-            } elseif ($updating->in_time != null && $updating->in_time->eq($this->log->datetime) && $updating->area_id == $this->area->id) {
+            } elseif ($updating->in_time != null && $updating->in_time->eq($this->log->datetime) && $updating->area_id == $this->area?->id) {
                 $this->debug('InOutMuster #'.$updating->id.' is already updated');
                 $muster = $updating;
-            } elseif ($updating->in_time != null && $updating->in_time->lt($this->log->datetime) && $updating->area_id == $this->area->id) {
+            } elseif ($updating->in_time != null && $updating->in_time->lt($this->log->datetime) && $updating->area_id == $this->area?->id) {
                 if ($updating->out_time != null && $updating->out_time->gt($this->log->datetime)) {
 
                     $out_time = $updating->out_time;
@@ -3501,15 +3515,15 @@ class AttCalculator
                         [
                             'user_id' => $this->log->user->id,
                             'date' => $this->attendance_date, // $this->log->datetime->toDateString(),
-                            'area_id' => $this->area->id,
+                            'area_id' => $this->area?->id,
                             'in_time' => $this->log->datetime,
                             'in_log_id' => $this->log->id,
                             'is_locked' => false,
                         ],
                         [
 
-                            'location_id' => $this->machine->location_id,
-                            'company_id' => $this->machine->company_id,
+                            'location_id' => $this->machine?->location_id,
+                            'company_id' => $this->machine?->company_id,
                             'department_id' => $this->log->user->department_id,
                             'sub_department_id' => $this->log->user->sub_department_id,
                             'category_id' => $this->log->user->category_id,
@@ -3529,14 +3543,14 @@ class AttCalculator
                     $this->debug('Creating new InOutMuster because of in time is less than previous in time');
                     $muster = InOutMuster::year($this->f_years)->updateOrCreate([
                         'user_id' => $this->log->user->id,
-                        'area_id' => $this->area->id,
+                        'area_id' => $this->area?->id,
                         'date' => $this->attendance_date, // $this->log->datetime->toDateString(),
                         'in_time' => $this->log->datetime,
                         'in_log_id' => $this->log->id,
                         'is_locked' => false,
                     ], [
-                        'location_id' => $this->machine->location_id,
-                        'company_id' => $this->machine->company_id,
+                        'location_id' => $this->machine?->location_id,
+                        'company_id' => $this->machine?->company_id,
                         'department_id' => $this->log->user->department_id,
                         'sub_department_id' => $this->log->user->sub_department_id,
                         'category_id' => $this->log->user->category_id,
@@ -3557,15 +3571,15 @@ class AttCalculator
                 $this->debug('InOutMuster #'.$updating->id.'|IN:'.$updating->in_time.'|OUT:'.$updating->out_time.'|CHECK:'.$updating->check_time);
                 $muster = InOutMuster::year($this->f_years)->updateOrCreate([
                     'user_id' => $this->log->user->id,
-                    'area_id' => $this->area->id,
+                    'area_id' => $this->area?->id,
                     'date' => $this->attendance_date, // $this->log->datetime->toDateString(),
                     'in_time' => $this->log->datetime,
                     'in_log_id' => $this->log->id,
                     'is_locked' => false,
                 ], [
 
-                    'location_id' => $this->machine->location_id,
-                    'company_id' => $this->machine->company_id,
+                    'location_id' => $this->machine?->location_id,
+                    'company_id' => $this->machine?->company_id,
                     'department_id' => $this->log->user->department_id,
                     'sub_department_id' => $this->log->user->sub_department_id,
                     'category_id' => $this->log->user->category_id,
@@ -3584,14 +3598,14 @@ class AttCalculator
         } else {
             $muster = InOutMuster::year($this->f_years)->updateOrCreate([
                 'user_id' => $this->log->user->id,
-                'area_id' => $this->area->id,
+                'area_id' => $this->area?->id,
                 'date' => $this->attendance_date, // $this->log->datetime->toDateString(),
                 'in_time' => $this->log->datetime,
                 'in_log_id' => $this->log->id,
                 'is_locked' => false,
             ], [
-                'location_id' => $this->machine->location_id,
-                'company_id' => $this->machine->company_id,
+                'location_id' => $this->machine?->location_id,
+                'company_id' => $this->machine?->company_id,
                 'department_id' => $this->log->user->department_id,
                 'sub_department_id' => $this->log->user->sub_department_id,
                 'category_id' => $this->log->user->category_id,
@@ -3638,7 +3652,7 @@ class AttCalculator
     {
         $updating = $this->queryFixedOutEntry($this->f_years);
         if ($updating) {
-            if ($updating->out_time == null && $updating->area_id == $this->area->id) {
+            if ($updating->out_time == null && $updating->area_id == $this->area?->id) {
                 $this->debug('Updating InOutMuster #'.$updating->id);
                 $updating->out_time = $this->log->datetime;
                 $updating->out_log_id = $this->log->id;
@@ -3648,10 +3662,10 @@ class AttCalculator
                 $updating->work_time = $updating->in_time->diffInMinutes($this->log->datetime);
                 $updating->save();
                 $muster = $updating;
-            } elseif ($updating->out_time != null && $updating->out_time->eq($this->log->datetime) && $updating->area_id == $this->area->id) {
+            } elseif ($updating->out_time != null && $updating->out_time->eq($this->log->datetime) && $updating->area_id == $this->area?->id) {
                 $this->debug('InOutMuster #'.$updating->id.' is already updated');
                 $muster = $updating;
-            } elseif ($updating->out_time != null && $updating->out_time->gt($this->log->datetime) && $updating->area_id == $this->area->id) {
+            } elseif ($updating->out_time != null && $updating->out_time->gt($this->log->datetime) && $updating->area_id == $this->area?->id) {
                 if ($updating->in_time != null && $updating->in_time->lt($this->log->datetime)) {
                     $in_time = $updating->in_time;
                     $in_log_id = $updating->in_log_id;
@@ -3663,7 +3677,7 @@ class AttCalculator
                     $muster = InOutMuster::year($this->f_years)->updateOrCreate(
                         [
                             'user_id' => $this->log->user->id,
-                            'area_id' => $this->area->id,
+                            'area_id' => $this->area?->id,
                             'date' => $this->attendance_date, // $this->log->datetime->toDateString(),
                             'out_time' => $this->log->datetime,
                             'out_log_id' => $this->log->id,
@@ -3671,8 +3685,8 @@ class AttCalculator
                         ],
                         [
 
-                            'location_id' => $this->machine->location_id,
-                            'company_id' => $this->machine->company_id,
+                            'location_id' => $this->machine?->location_id,
+                            'company_id' => $this->machine?->company_id,
                             'department_id' => $this->log->user->department_id,
                             'sub_department_id' => $this->log->user->sub_department_id,
                             'category_id' => $this->log->user->category_id,
@@ -3692,14 +3706,14 @@ class AttCalculator
                     $this->debug('Creating new InOutMuster because of out time is greater than previous out time');
                     $muster = InOutMuster::year($this->f_years)->updateOrCreate([
                         'user_id' => $this->log->user->id,
-                        'area_id' => $this->area->id,
+                        'area_id' => $this->area?->id,
                         'out_time' => $this->log->datetime,
                         'out_log_id' => $this->log->id,
                         'is_locked' => false,
                     ], [
 
-                        'location_id' => $this->machine->location_id,
-                        'company_id' => $this->machine->company_id,
+                        'location_id' => $this->machine?->location_id,
+                        'company_id' => $this->machine?->company_id,
                         'department_id' => $this->log->user->department_id,
                         'sub_department_id' => $this->log->user->sub_department_id,
                         'category_id' => $this->log->user->category_id,
@@ -3720,14 +3734,14 @@ class AttCalculator
                 $this->debug('Creating new InOutMuster because of out time is less than previous out time');
                 $muster = InOutMuster::year($this->f_years)->updateOrCreate([
                     'user_id' => $this->log->user->id,
-                    'area_id' => $this->area->id,
+                    'area_id' => $this->area?->id,
                     'out_time' => $this->log->datetime,
                     'out_log_id' => $this->log->id,
                     'is_locked' => false,
                 ], [
 
-                    'location_id' => $this->machine->location_id,
-                    'company_id' => $this->machine->company_id,
+                    'location_id' => $this->machine?->location_id,
+                    'company_id' => $this->machine?->company_id,
                     'department_id' => $this->log->user->department_id,
                     'sub_department_id' => $this->log->user->sub_department_id,
                     'category_id' => $this->log->user->category_id,
@@ -3747,14 +3761,14 @@ class AttCalculator
         } else {
             $muster = InOutMuster::year($this->f_years)->updateOrCreate([
                 'user_id' => $this->log->user->id,
-                'area_id' => $this->area->id,
+                'area_id' => $this->area?->id,
                 'date' => $this->attendance_date, // $this->log->datetime->toDateString(),
                 'out_time' => $this->log->datetime,
                 'out_log_id' => $this->log->id,
                 'is_locked' => false,
             ], [
-                'location_id' => $this->machine->location_id,
-                'company_id' => $this->machine->company_id,
+                'location_id' => $this->machine?->location_id,
+                'company_id' => $this->machine?->company_id,
                 'department_id' => $this->log->user->department_id,
                 'category_id' => $this->log->user->category_id,
                 'sub_category_id' => $this->log->user->sub_category_id,

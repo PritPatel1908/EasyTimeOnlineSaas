@@ -71,7 +71,7 @@ class ProcessPendingLogs implements ShouldBeUnique, ShouldQueue
         }
 
         if (! $log->user_code) {
-            $attCalculator->debug('#'.$log->id.' does not have valid user');
+            $attCalculator->debug('#'.$log->id.' does not found user code');
             $log->is_staged = true;
             $log->save();
             if ($this->returnLog) {
@@ -82,7 +82,7 @@ class ProcessPendingLogs implements ShouldBeUnique, ShouldQueue
         }
 
         if (! $log->user) {
-            $attCalculator->debug('#'.$log->id.' does not have valid user');
+            $attCalculator->debug('#'.$log->id.' does not found user');
             $log->is_staged = true;
             $log->save();
             if ($this->returnLog) {
@@ -104,7 +104,7 @@ class ProcessPendingLogs implements ShouldBeUnique, ShouldQueue
         }
 
         $attCalculator->setFyears();
-        $area_found = $attCalculator->checkArea();
+        $area_found = $log->is_manual || $attCalculator->checkArea();
         if (! $area_found) {
             $log->process_tags()->create([
                 'name' => 'Machine Or Area Not Found',
