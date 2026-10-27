@@ -9,8 +9,8 @@ use App\Jobs\Tenant\ApproveOd;
 use App\Jobs\Tenant\ApproveShortLeaveApplication;
 use App\Jobs\Tenant\ApproveUserManualAttendance;
 use App\Jobs\Tenant\ApproveUserManualPunch;
+use App\Jobs\Tenant\ApplyWeekOffChangeApplication;
 use App\Jobs\Tenant\CreateShiftMuster;
-use App\Jobs\Tenant\CreateWeekOffMuster;
 use App\Jobs\Tenant\CreateWeekOffSwap;
 use App\Models\Tenant\User;
 use Filament\Infolists\Infolist;
@@ -70,7 +70,10 @@ class ApprovalApprove
             // ];
             // ActivityLogger::log(auth()->user(), $record, $old_record, $new_record, 'approved');
 
-            CreateWeekOffMuster::dispatch($record)->onQueue('processing');
+            ApplyWeekOffChangeApplication::dispatch((int) $record->id)
+                ->onConnection('database_tenant')
+                ->onQueue('processing')
+                ->afterCommit();
         } elseif (get_class($record) === "App\Models\Tenant\WeekOffSwapApplication") {
             // $old_record = [];
             // $agent = new Agent();

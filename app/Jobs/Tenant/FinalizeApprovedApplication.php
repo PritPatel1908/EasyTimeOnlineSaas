@@ -92,7 +92,9 @@ class FinalizeApprovedApplication implements ShouldQueue
         }
 
         if ($application instanceof WeekOffChangeApplication) {
-            CreateWeekOffMuster::dispatch($application)->onConnection('database_tenant')->onQueue('processing');
+            ApplyWeekOffChangeApplication::dispatch((int) $application->id)
+                ->onConnection('database_tenant')
+                ->onQueue('processing');
 
             return;
         }
