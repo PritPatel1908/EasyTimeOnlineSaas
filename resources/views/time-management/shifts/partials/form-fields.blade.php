@@ -113,7 +113,7 @@
                 </div>
             </div>
             <div class="col-md-4 mb-3">
-                <label class="form-label d-block">Set Cutoff Time</label>
+                <label class="form-label d-block">Set Cutoff Duration</label>
                 <input type="hidden" name="set_cutoff" value="0">
                 <div class="form-check form-check-lg form-switch">
                     <input class="form-check-input" type="checkbox" role="switch" id="set_cutoff" name="set_cutoff" value="1"
@@ -122,10 +122,12 @@
                 </div>
             </div>
             <div class="col-md-4 mb-3 cutoff-time-field" @class(['d-none' => !(bool) old('set_cutoff', $shift?->set_cutoff ?? false)])>
-                <label class="form-label" for="cutoff_time">Cutoff Time</label>
-                <input id="cutoff_time" name="cutoff_time" type="time" step="1"
+                <label class="form-label" for="cutoff_time">Cutoff Duration</label>
+                <input id="cutoff_time" name="cutoff_time" type="text" inputmode="numeric"
+                    placeholder="HH:MM or HH:MM:SS" maxlength="9" autocomplete="off"
                     class="form-control @error('cutoff_time') is-invalid @enderror"
                     value="{{ old('cutoff_time', $fieldTime($shift?->cutoff_time)) }}">
+                <small class="form-text text-muted">Duration from shift start; 24:00 means 24 hours.</small>
                 <x-validation-error field="cutoff_time" />
             </div>
 

@@ -31,6 +31,8 @@ class AttCalculator
 
     protected $prv_log = null;
 
+    protected ?string $punchAttendanceDate = null;
+
     public $f_years = null;
 
     public $shift = null;
@@ -138,8 +140,8 @@ class AttCalculator
 
     public function retrivePreviousLogs(): void
     {
-        $from_day = $this->log->datetime->copy()->subDay()->startOfDay();
         $this->debug('~~~Retriving previous logs');
+        $from_day = $this->log->datetime->copy()->subDays(35)->startOfDay();
 
         $query = AttendanceLog::where(['user_code' => $this->log->user_code, 'is_calculated' => true, 'is_ignored' => false, 'has_error' => false, 'is_locked' => false])
             ->whereBetween('datetime', [$from_day, $this->log->datetime])
@@ -160,7 +162,7 @@ class AttCalculator
         if ($this->prv_log != null) {
             $this->debug('Retrived previous logs #'.$this->prv_log->id.'|'.$this->prv_log->user_code.'|'.$this->prv_log->datetime);
         } else {
-            $this->debug('Previous log not found between '.$from_day.' and '.$this->log->datetime);
+            $this->debug('Previous log not found in the supported 35-day window ending '.$this->log->datetime);
         }
     }
 
@@ -189,14 +191,13 @@ class AttCalculator
     public function checkInOrOut(): void
     {
         $this->debug('~~~Checking in or out. Machine Punch Type is '.($this->machine?->access_direction ?? 'manual punch'));
+        $this->punchAttendanceDate = null;
+
         if ($this->log->is_manual) {
-            if ($this->log->is_out) {
-                $this->debug('Fixed Punch type is "Out Device" due to manual punch');
-                $this->log->is_out = true;
-            } else {
-                $this->debug('Fixed Punch type is "In Device" due to manual punch');
-                $this->log->is_out = false;
-            }
+            $this->debug($this->log->is_out
+                ? 'Fixed Punch type is "Out Device" due to manual punch'
+                : 'Fixed Punch type is "In Device" due to manual punch');
+            $this->log->is_out = (bool) $this->log->is_out;
         } elseif ($this->machine?->access_direction == 'in' || $this->machine?->access_direction == '1') {
             $this->debug('Fixed Punch type is "In Device"');
             $this->log->is_out = false;
@@ -204,115 +205,193 @@ class AttCalculator
             $this->debug('Fixed Punch type is "Out Device"');
             $this->log->is_out = true;
         } else {
-            if ($this->prv_log == null) {
+            if ($this->prv_log === null) {
                 $this->debug('Marking as In punch as no previous log found');
                 $this->log->is_out = false;
-            } else {
-                $prv_log_shift = Shift::find(ShiftMuster::where('user_id', $this->log->user->id)->where('is_locked', false)->where('date', $this->prv_log->datetime->format('Y-m-d'))->first()->calculated_shift);
-                if ($prv_log_shift !== null && $prv_log_shift->is_night_shift) {
-                    if ($prv_log_shift->set_cutoff && $prv_log_shift->cutoff_time > '00:00' && $this->log->datetime->format('H:i:s') > $prv_log_shift->out_time->format('H:i:s')) {
-                        $diffInMinutes = $this->prv_log->datetime->diffInMinutes($this->log->datetime);
-                        $punchDirectionConsiderSame = GeneralConfiguration::where('key', 'punch_direction_consider_same')->first();
+                return;
+            }
 
-                        if ($punchDirectionConsiderSame->value != 0 && $diffInMinutes < $punchDirectionConsiderSame->value) {
-                            // If less than 2 minutes, use same value as previous log
-                            $this->debug('Time difference less than '.$punchDirectionConsiderSame->value.' minutes. Using same in/out value as previous log');
-                            $this->log->is_out = $this->prv_log->is_out;
-                        } else {
-                            $this->debug('Time shift is night shift or this shift have cutoff. Toggling in/out value');
-                            $this->log->is_out = ! $this->prv_log->is_out;
-                        }
-                    } elseif (GeneralConfiguration::where('key', 'max_gap_btwn_prv_in_and_curtt_out')->first()->value > '00:00') {
-                        $diffInMinutes = $this->prv_log->datetime->diffInMinutes($this->log->datetime);
-                        $punchDirectionConsiderSame = GeneralConfiguration::where('key', 'punch_direction_consider_same')->first();
+            $sameDirectionSeconds = $this->getConfiguredMinutesInSeconds('punch_direction_consider_same');
+            $diffInSeconds = $this->prv_log->datetime->diffInSeconds($this->log->datetime);
+            $cutoffShift = $this->findCutoffShiftForPunches();
 
-                        if ($punchDirectionConsiderSame->value != 0 && $diffInMinutes < $punchDirectionConsiderSame->value) {
-                            // If less than 2 minutes, use same value as previous log
-                            $this->debug('Time difference less than '.$punchDirectionConsiderSame->value.' minutes. Using same in/out value as previous log');
-                            $this->log->is_out = $this->prv_log->is_out;
-                        } else {
-                            $this->debug('Time shift is night shift or this shift have cutoff. Toggling in/out value');
-                            $this->log->is_out = ! $this->prv_log->is_out;
-                        }
+            if ($cutoffShift !== null) {
+                $this->punchAttendanceDate = $cutoffShift['date'];
+                $this->setDirectionFromPreviousPunch($sameDirectionSeconds);
+                $this->debug('Both punches fall within shift cutoff window for '.$cutoffShift['date']);
+                return;
+            }
+
+            $previousShiftId = ShiftMuster::where('user_id', $this->log->user->id)
+                ->where('is_locked', false)
+                ->where('date', $this->prv_log->datetime->format('Y-m-d'))
+                ->value('calculated_shift');
+            if ($previousShiftId === null) {
+                $previousShiftId = ShiftMuster::where('user_id', $this->log->user->id)
+                    ->where('is_locked', false)
+                    ->where('date', $this->prv_log->datetime->copy()->subDay()->format('Y-m-d'))
+                    ->value('calculated_shift');
+            }
+            $this->debug('Previous shift id for '.$this->prv_log->datetime->format('Y-m-d').' is '.($previousShiftId ?? 'null'));
+            $previousShift = $previousShiftId ? Shift::find($previousShiftId) : null;
+
+            if ($previousShift?->set_cutoff && $this->getDurationSeconds($previousShift->getRawOriginal('cutoff_time'), 'shift cutoff') > 0) {
+                $this->debug('Current punch is outside the previous shift cutoff window; marking as In');
+                $this->log->is_out = false;
+
+                return;
+            }
+
+            if ($previousShift === null && ! $this->prv_log->datetime->isSameDay($this->log->datetime)) {
+                $this->debug('Previous shift not found across dates; using the default In direction');
+                $this->log->is_out = false;
+
+                return;
+            }
+
+            $maxGapSeconds = $this->getConfiguredDurationSeconds('max_gap_btwn_prv_in_and_curtt_out');
+            $minGapSeconds = $this->getConfiguredDurationSeconds('min_gap_btwn_prv_out_and_curtt_in');
+
+            if (! $this->prv_log->is_out) {
+                if ($sameDirectionSeconds > 0 && $diffInSeconds < $sameDirectionSeconds) {
+                    $this->debug('Punch is within same-direction duration; keeping previous In direction');
+                    $this->log->is_out = false;
+                } elseif ($maxGapSeconds > 0) {
+                    if ($diffInSeconds <= $maxGapSeconds) {
+                        $this->debug('Previous In and current punch are within maximum gap; marking as Out');
+                        $this->log->is_out = true;
+                        $this->setPunchAttendanceDateFromPreviousLog($previousShift);
                     } else {
-                        $diffInMinutes = $this->prv_log->datetime->diffInMinutes($this->log->datetime);
-                        $punchDirectionConsiderSame = GeneralConfiguration::where('key', 'punch_direction_consider_same')->first();
-
-                        if ($punchDirectionConsiderSame->value != 0 && $diffInMinutes < $punchDirectionConsiderSame->value) {
-                            // If less than 2 minutes, use same value as previous log
-                            $this->debug('Time difference less than '.$punchDirectionConsiderSame->value.' minutes. Using same in/out value as previous log');
-                            $this->log->is_out = $this->prv_log->is_out;
-                        } else {
-                            $this->debug('Time shift is night shift or this shift have cutoff. Toggling in/out value');
-                            $this->log->is_out = ! $this->prv_log->is_out;
-                        }
-                    }
-                } else {
-                    if ($this->prv_log->datetime->format('Y-m-d') != $this->log->datetime->format('Y-m-d')) {
-                        $this->debug('Previous log date is different from current log date. Marking as In punch');
+                        $this->debug('Maximum gap exceeded; marking current punch as In');
                         $this->log->is_out = false;
-                    } else {
-                        $diffInMinutes = $this->prv_log->datetime->diffInMinutes($this->log->datetime);
-                        $punchDirectionConsiderSame = GeneralConfiguration::where('key', 'punch_direction_consider_same')->first();
-
-                        if ($punchDirectionConsiderSame->value != 0 && $diffInMinutes < $punchDirectionConsiderSame->value) {
-                            // If less than 2 minutes, use same value as previous log
-                            $this->debug('Time difference less than '.$punchDirectionConsiderSame->value.' minutes. Using same in/out value as previous log');
-                            $this->log->is_out = $this->prv_log->is_out;
-                        } else {
-                            $this->debug('Time shift is night shift or this shift have cutoff. Toggling in/out value');
-                            $this->log->is_out = ! $this->prv_log->is_out;
-                        }
                     }
+                } elseif ($this->prv_log->datetime->isSameDay($this->log->datetime) || $previousShift?->is_night_shift) {
+                    $this->debug('No maximum gap configured; preserving regular same-day/night-shift toggle');
+                    $this->log->is_out = true;
+                    $this->setPunchAttendanceDateFromPreviousLog($previousShift);
+                } else {
+                    $this->debug('Previous log is on another day and no maximum gap is configured; marking as In');
+                    $this->log->is_out = false;
                 }
-                // if ($this->shift->is_night_shift || ($this->shift->set_cutoff && $this->shift->cutoff_time > '00:00' && $this->log->datetime->format('H:i:s') > $this->shift->out_time->format('H:i:s'))) {
-                //     if ($this->prv_log->datetime->format('H:i:s') >= $this->shift->in_time->format('H:i:s') && $this->prv_log->datetime->format('H:i:s') <= $this->shift->out_time->format('H:i:s')) {
-                //         $diffInMinutes = $this->prv_log->datetime->diffInMinutes($this->log->datetime);
-                //         $punchDirectionConsiderSame = GeneralConfiguration::where('key', 'punch_direction_consider_same')->first();
-
-                //         if ($diffInMinutes < $punchDirectionConsiderSame->value) {
-                //             dd($punchDirectionConsiderSame->value, $diffInMinutes);
-                //             // If less than 2 minutes, use same value as previous log
-                //             $this->debug('Time difference less than ' . $punchDirectionConsiderSame->value . ' minutes. Using same in/out value as previous log');
-                //             $this->log->is_out = $this->prv_log->is_out;
-                //         } else {
-                //             $this->debug('Time shift is night shift or this shift have cutoff. Toggling in/out value');
-                //             $this->log->is_out = !$this->prv_log->is_out;
-                //         }
-                //     } else {
-                //         $this->debug('Previous log date is same but shift different. Marking as In punch');
-                //         $this->log->is_out = false;
-                //     }
-                // } else {
-                //     // Check if previous log date is different from current log date
-                //     if ($this->prv_log->datetime->format('Y-m-d') != $this->log->datetime->format('Y-m-d')) {
-                //         $this->debug('Previous log date is different from current log date. Marking as In punch');
-                //         $this->log->is_out = false;
-                //     } else {
-                //         // Same date, check time difference
-                //         dd($this->prv_log->datetime->format('H:i:s'), $this->shift->in_time->format('H:i:s'), $this->prv_log->datetime->format('H:i:s') <= $this->shift->out_time->format('H:i:s'));
-                //         if ($this->prv_log->datetime->format('H:i:s') >= $this->shift->in_time->format('H:i:s') && $this->prv_log->datetime->format('H:i:s') <= $this->shift->out_time->format('H:i:s')) {
-                //             $diffInMinutes = $this->prv_log->datetime->diffInMinutes($this->log->datetime);
-                //             $this->debug('Diff value : ' . $diffInMinutes);
-                //             $punchDirectionConsiderSame = GeneralConfiguration::where('key', 'punch_direction_consider_same')->first();
-
-                //             if ($punchDirectionConsiderSame && $diffInMinutes < $punchDirectionConsiderSame->value) {
-                //                 dd($punchDirectionConsiderSame->value, $diffInMinutes);
-                //                 // If less than configured minutes, use same value as previous log
-                //                 $this->debug('Time difference less than ' . $punchDirectionConsiderSame->value . ' minutes. Using same in/out value as previous log');
-                //                 $this->log->is_out = $this->prv_log->is_out;
-                //             } else {
-                //                 $this->debug('Toggling in/out value');
-                //                 $this->log->is_out = !$this->prv_log->is_out;
-                //             }
-                //         } else {
-                //             $this->debug('Previous log date is same but shift different. Marking as In punch');
-                //             $this->log->is_out = false;
-                //         }
-                //     }
-                // }
+            } else {
+                $minimumInGapSeconds = max($minGapSeconds, $sameDirectionSeconds);
+                if ($diffInSeconds < $minimumInGapSeconds) {
+                    $this->debug('Minimum gap before a new In punch has not elapsed; keeping previous Out direction');
+                    $this->log->is_out = true;
+                } else {
+                    $this->debug('Minimum gap elapsed; marking current punch as In');
+                    $this->log->is_out = false;
+                }
             }
         }
+    }
+
+    private function getConfiguredDurationSeconds(string $key): int
+    {
+        return $this->getDurationSeconds(GeneralConfiguration::where('key', $key)->value('value'), $key);
+    }
+
+    private function getConfiguredMinutesInSeconds(string $key): int
+    {
+        $minutes = GeneralConfiguration::where('key', $key)->value('value');
+        if ($minutes === null || trim((string) $minutes) === '') {
+            return 0;
+        }
+
+        if (! is_numeric($minutes) || (float) $minutes < 0) {
+            throw new \InvalidArgumentException('Invalid minute value for '.$key.': '.$minutes);
+        }
+
+        return (int) $minutes * 60;
+    }
+
+    private function getDurationSeconds(?string $duration, string $settingName): int
+    {
+        if ($duration === null || trim($duration) === '') {
+            return 0;
+        }
+
+        if (! preg_match('/^(\d{1,3}):([0-5]\d)(?::([0-5]\d))?$/', trim($duration), $matches) || (int) $matches[1] > 838) {
+            throw new \InvalidArgumentException('Invalid duration for '.$settingName.': '.$duration);
+        }
+
+        return ((int) $matches[1] * 3600) + ((int) $matches[2] * 60) + (int) ($matches[3] ?? 0);
+    }
+
+    /**
+     * @return array{date: string}|null
+     */
+    private function findCutoffShiftForPunches(): ?array
+    {
+        // MySQL TIME durations support values up to 838:59:59 (less than 35 days).
+        $cutoffMusters = ShiftMuster::where('user_id', $this->log->user->id)
+            ->where('is_locked', false)
+            ->whereBetween('date', [
+                $this->log->datetime->copy()->subDays(35)->startOfDay(),
+                $this->log->datetime->copy()->endOfDay(),
+            ])
+            ->whereNotNull('calculated_shift')
+            ->orderByDesc('date')
+            ->get(['date', 'calculated_shift']);
+        $shifts = Shift::whereIn('id', $cutoffMusters->pluck('calculated_shift')->unique())
+            ->get()
+            ->keyBy('id');
+
+        foreach ($cutoffMusters as $muster) {
+            $shift = $shifts->get($muster->calculated_shift);
+
+            if (! $shift?->set_cutoff || ! $shift->in_time) {
+                continue;
+            }
+
+            $cutoffSeconds = $this->getDurationSeconds($shift->getRawOriginal('cutoff_time'), 'shift cutoff');
+            if ($cutoffSeconds <= 0) {
+                continue;
+            }
+
+            $shiftStart = Carbon::parse($muster->date->format('Y-m-d'))
+                ->setTimeFromTimeString($shift->in_time->format('H:i:s'));
+            $cutoffEnd = $shiftStart->copy()->addSeconds($cutoffSeconds);
+
+            if (
+                $this->prv_log->datetime >= $shiftStart
+                && $this->prv_log->datetime <= $cutoffEnd
+                && $this->log->datetime >= $shiftStart
+                && $this->log->datetime <= $cutoffEnd
+            ) {
+                return ['date' => $muster->date->format('Y-m-d')];
+            }
+        }
+
+        return null;
+    }
+
+    private function setDirectionFromPreviousPunch(int $sameDirectionSeconds): void
+    {
+        $diffInSeconds = $this->prv_log->datetime->diffInSeconds($this->log->datetime);
+
+        if ($sameDirectionSeconds > 0 && $diffInSeconds < $sameDirectionSeconds) {
+            $this->debug('Punch is within same-direction duration; keeping previous punch direction');
+            $this->log->is_out = $this->prv_log->is_out;
+        } else {
+            $this->debug('Toggling in/out direction within the same shift window');
+            $this->log->is_out = ! $this->prv_log->is_out;
+        }
+    }
+
+    private function setPunchAttendanceDateFromPreviousLog(?Shift $shift): void
+    {
+        $attendanceDate = $this->prv_log->datetime->copy();
+
+        if (
+            $shift?->is_night_shift
+            && $shift->in_time
+            && $this->prv_log->datetime->format('H:i:s') < $shift->in_time->format('H:i:s')
+        ) {
+            $attendanceDate->subDay();
+        }
+
+        $this->punchAttendanceDate = $attendanceDate->format('Y-m-d');
     }
 
     public function retriveAttendance($curatt_params = null): void
@@ -320,11 +399,42 @@ class AttCalculator
         $recheck = ($curatt_params == null) ? false : true;
         $this->curatt = $curatt_params;
         $this->debug('~~~Retriving previous attendance');
-        if (is_array($this->f_years)) {
-            $prvatt = $this->queryPrvAttendance($this->f_years['prv']);
-        } else {
-            $prvatt = $this->queryPrvAttendance($this->f_years);
+
+        $punchWindowAttendance = null;
+        if (
+            ! $this->log->is_out
+            && $this->curatt === null
+            && $this->punchAttendanceDate !== null
+            && $this->punchAttendanceDate !== $this->log->datetime->format('Y-m-d')
+        ) {
+            $punchWindowYear = Carbon::parse($this->punchAttendanceDate)->year;
+            $punchWindowAttendance = Attendance::year($punchWindowYear)
+                ->where('user_id', $this->log->user->id)
+                ->where('date', $this->punchAttendanceDate)
+                ->where('is_locked', false)
+                ->first();
+
+            if ($punchWindowAttendance !== null) {
+                $this->debug('Using cutoff-window attendance #'.$punchWindowAttendance->id.' for '.$this->punchAttendanceDate);
+                $this->curatt = $punchWindowAttendance;
+                $this->attendance_date = $this->punchAttendanceDate;
+                $this->f_years = $punchWindowYear;
+                $this->shift = $punchWindowAttendance->shift;
+                $this->previousDayLog = true;
+            } else {
+                $this->debug('Cutoff-window attendance not found for In punch date '.$this->punchAttendanceDate);
+            }
         }
+
+        $prvatt = null;
+        if ($punchWindowAttendance === null) {
+            if (is_array($this->f_years)) {
+                $prvatt = $this->queryPrvAttendance($this->f_years['prv']);
+            } else {
+                $prvatt = $this->queryPrvAttendance($this->f_years);
+            }
+        }
+
         if ($prvatt) {
             $this->debug('Previous attendance found #'.$prvatt->id.'|'.$prvatt->date.'|'.$prvatt->shift_code.'|'.$prvatt->in_time.'|'.$prvatt->out_time);
             if ($prvatt->is_night_shift && $prvatt->shift !== null) {
@@ -931,17 +1041,47 @@ class AttCalculator
     public function handleCutoffTime()
     {
         if ($this->log->is_out) {
+            if ($this->punchAttendanceDate !== null) {
+                $attendanceYear = Carbon::parse($this->punchAttendanceDate)->year;
+                $previousAttendance = Attendance::year($attendanceYear)
+                    ->where('user_id', $this->log->user->id)
+                    ->where('date', $this->punchAttendanceDate)
+                    ->where('is_locked', false)
+                    ->first();
+
+                if ($previousAttendance !== null) {
+                    if (
+                        $this->curatt !== null
+                        && $this->curatt->id !== $previousAttendance->id
+                        && $this->curatt->date->format('Y-m-d') === $this->log->datetime->format('Y-m-d')
+                    ) {
+                        $this->curatt->delete();
+                    }
+
+                    $this->curatt = $previousAttendance;
+                    $this->curatt->out_time = $this->log->datetime;
+                    $this->curatt->out_log_id = $this->log->id;
+                    $this->curatt->save();
+                    $this->debug('Current Out punch attached to attendance date '.$this->punchAttendanceDate);
+                } else {
+                    $this->debug('Attendance for punch window date '.$this->punchAttendanceDate.' was not found');
+                }
+
+                return;
+            }
+
             // Get previous day's attendance
             $prev_att = $this->queryPrvAttendance($this->f_years);
 
             if ($prev_att && $prev_att->shift != null && $prev_att->shift != null) {
-                if ($prev_att->shift->set_cutoff && $prev_att->shift->cutoff_time->format('H:i') > '00:00') {
+                $shiftCutoffSeconds = $this->getDurationSeconds($prev_att->shift->getRawOriginal('cutoff_time'), 'shift cutoff');
+                if ($prev_att->shift->set_cutoff && $shiftCutoffSeconds > 0) {
                     $shift_start = Carbon::parse($prev_att->date)
                         ->setTimeFromTimeString($prev_att->shift->in_time->format('H:i:s'));
 
                     $cutoff_time = Carbon::parse($prev_att->date)
                         ->setTimeFromTimeString($prev_att->shift->in_time->format('H:i:s'))
-                        ->addMinutes($prev_att->shift->cutoff_time->hour * 60 + $prev_att->shift->cutoff_time->minute);
+                        ->addSeconds($shiftCutoffSeconds);
 
                     // Check if current punch is between shift start and cutoff time
                     if (
@@ -963,15 +1103,11 @@ class AttCalculator
                     $shift_start = Carbon::parse($prev_att->date)
                         ->setTimeFromTimeString($prev_att->shift->in_time->format('H:i:s'));
 
-                    $max_gap = GeneralConfiguration::where('key', 'max_gap_btwn_prv_in_and_curtt_out')->first()->value;
-                    if ($max_gap > '00:00') {
-                        [$hours, $minutes] = explode(':', $max_gap); // Extract hours and minutes
-
-                        $totalMinutes = ($hours * 60) + $minutes; // Convert to total minutes
-
+                    $maxGapSeconds = $this->getConfiguredDurationSeconds('max_gap_btwn_prv_in_and_curtt_out');
+                    if ($maxGapSeconds > 0) {
                         $shift_cutoff_time = Carbon::parse($prev_att->date)
                             ->setTimeFromTimeString($prev_att->shift->in_time->format('H:i:s'))
-                            ->addMinutes($totalMinutes);
+                            ->addSeconds($maxGapSeconds);
 
                         // Check if current punch is between shift start and cutoff time
                         if (

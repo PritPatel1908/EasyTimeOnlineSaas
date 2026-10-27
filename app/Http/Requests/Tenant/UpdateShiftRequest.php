@@ -47,7 +47,7 @@ class UpdateShiftRequest extends FormRequest
             'auto_to' => ['nullable', 'date_format:H:i,H:i:s'],
             'is_night_shift' => ['required', 'boolean'],
             'set_cutoff' => ['required', 'boolean'],
-            'cutoff_time' => ['nullable', 'required_if:set_cutoff,1', 'date_format:H:i,H:i:s'],
+            'cutoff_time' => ['nullable', 'required_if:set_cutoff,1', 'regex:/^(?:[0-9]{1,2}|[0-7][0-9]{2}|8(?:[0-2][0-9]|3[0-8])):[0-5][0-9](?::[0-5][0-9])?$/'],
             'status' => ['required', 'integer', 'in:1,0'],
         ];
     }

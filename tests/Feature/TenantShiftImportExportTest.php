@@ -78,6 +78,27 @@ class TenantShiftImportExportTest extends TestCase
         }
     }
 
+    public function test_shift_import_accepts_a_24_hour_cutoff_duration(): void
+    {
+        $filePath = tempnam(sys_get_temp_dir(), 'shift-import-');
+        $this->assertNotFalse($filePath);
+
+        try {
+            file_put_contents($filePath, "name,code,set_cutoff,cutoff_time\nDay,DAY,Yes,24:00\n");
+
+            $job = new ProcessShiftImport(1, 'unused');
+            $parseCsv = new ReflectionMethod(ProcessShiftImport::class, 'parseCsv');
+            $rows = $parseCsv->invoke($job, $filePath);
+            $row = $rows[2];
+
+            $this->assertSame('24:00', $row['cutoff_time']);
+            $validateImportRow = new ReflectionMethod(ProcessShiftImport::class, 'validateImportRow');
+            $this->assertSame([], $validateImportRow->invoke($job, $row));
+        } finally {
+            unlink($filePath);
+        }
+    }
+
     public function test_export_dispatches_tenant_queue_job(): void
     {
         Bus::fake();

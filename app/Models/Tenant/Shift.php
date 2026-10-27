@@ -32,7 +32,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property Carbon|null $auto_to
  * @property bool $is_night_shift
  * @property bool $set_cutoff
- * @property Carbon|null $cutoff_time
+ * @property string|null $cutoff_time
  * @property string|null $deleted_at
  * @property int|null $created_by
  * @property int|null $updated_by
@@ -90,7 +90,6 @@ class Shift extends Model
         'auto_to' => 'datetime',
         'is_night_shift' => 'bool',
         'set_cutoff' => 'bool',
-        'cutoff_time' => 'datetime',
         'status' => 'int',
         'created_by' => 'int',
         'updated_by' => 'int',

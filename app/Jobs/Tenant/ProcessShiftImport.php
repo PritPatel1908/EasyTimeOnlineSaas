@@ -208,7 +208,7 @@ class ProcessShiftImport implements ShouldQueue
             'brack_end_time' => ['nullable', 'date_format:H:i,H:i:s'],
             'auto_from' => ['nullable', 'date_format:H:i,H:i:s'],
             'auto_to' => ['nullable', 'date_format:H:i,H:i:s'],
-            'cutoff_time' => ['nullable', 'date_format:H:i,H:i:s'],
+            'cutoff_time' => ['nullable', 'regex:/^(?:[0-9]{1,2}|[0-7][0-9]{2}|8(?:[0-2][0-9]|3[0-8])):[0-5][0-9](?::[0-5][0-9])?$/'],
         ];
 
         foreach (['is_night_shift', 'set_cutoff', 'status'] as $field) {

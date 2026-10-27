@@ -56,7 +56,7 @@
             <div class="card-body"><div class="row">
                 <div class="col-md-4 mb-3"><small class="text-muted d-block">Night Shift</small><span>{{ $shift->is_night_shift ? 'Yes' : 'No' }}</span></div>
                 <div class="col-md-4 mb-3"><small class="text-muted d-block">Set Cutoff</small><span>{{ $shift->set_cutoff ? 'Yes' : 'No' }}</span></div>
-                <div class="col-md-4 mb-3"><small class="text-muted d-block">Cutoff Time</small><span>{{ $shift->cutoff_time?->format('H:i:s') ?? '—' }}</span></div>
+                <div class="col-md-4 mb-3"><small class="text-muted d-block">Cutoff Duration</small><span>{{ $shift->cutoff_time ?? '—' }}</span></div>
                 <div class="col-md-4 mb-3">
                     <small class="text-muted d-block">Status</small>
                     <span class="badge {{ (int) $shift->status === 1 ? 'badge-success' : 'badge-danger' }} d-inline-flex align-items-center badge-xs">
