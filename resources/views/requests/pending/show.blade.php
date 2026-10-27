@@ -59,6 +59,32 @@
             </div>
         </div>
 
+        @if ($record instanceof \App\Models\Tenant\WeekOffChangeApplication)
+            <div class="card mb-4">
+                <div class="card-header"><h5 class="mb-0">Weekly Off Details</h5></div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table mb-0">
+                            <thead class="thead-light">
+                                <tr><th>Day</th><th>Week-off Type</th><th>Applicable Weeks</th></tr>
+                            </thead>
+                            <tbody>
+                                @forelse ($weekOffDetails as $detail)
+                                    <tr>
+                                        <td>{{ $detail['day'] }}</td>
+                                        <td>{{ $detail['type'] }}</td>
+                                        <td>{{ $detail['weeks'] }}</td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="3" class="py-4 text-muted text-center">No weekly off details found.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         <div class="card mb-4">
             <div class="card-header"><h5 class="mb-0">Approval Progress</h5></div>
             <div class="card-body">

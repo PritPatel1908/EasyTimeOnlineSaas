@@ -10,6 +10,7 @@ use App\Jobs\Tenant\FinalizeApprovedApplication;
 use App\Models\Tenant\ManualPunchApplication;
 use App\Models\Tenant\ShiftChangeApplication;
 use App\Models\Tenant\User;
+use App\Models\Tenant\WeekOffChangeApplication;
 use Illuminate\Contracts\Auth\Guard;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Http\Request;
@@ -188,6 +189,91 @@ class PendingApprovalModuleTest extends TestCase
                 'approval_status' => 'cancelled',
             ]);
         } finally {
+            $this->dropApprovalTables();
+        }
+    }
+
+    public function test_week_off_approval_shows_readable_weekly_details(): void
+    {
+        $this->createApprovalTables();
+
+        try {
+            $this->createApplicationWithFlow();
+            Schema::create('week_off_change_applications', function ($table): void {
+                $table->id();
+                $table->string('reason')->nullable();
+                $table->date('from_date')->nullable();
+                $table->boolean('is_forever')->default(false);
+                $table->date('to_date')->nullable();
+                $table->softDeletes();
+                $table->timestamps();
+            });
+            Schema::create('week_off_change_application_details', function ($table): void {
+                $table->id();
+                $table->unsignedBigInteger('week_off_change_application_id');
+                $table->integer('week_days')->nullable();
+                $table->tinyInteger('wo_type')->nullable();
+                $table->boolean('first_week')->default(false);
+                $table->boolean('second_week')->default(false);
+                $table->boolean('third_week')->default(false);
+                $table->boolean('fourth_week')->default(false);
+                $table->boolean('fifth_week')->default(false);
+                $table->timestamps();
+            });
+            Schema::create('week_off_change_application_users', function ($table): void {
+                $table->id();
+                $table->unsignedBigInteger('week_off_change_application_id');
+                $table->unsignedBigInteger('user_id');
+                $table->timestamps();
+            });
+            DB::table('users')->insert(['id' => 3, 'name' => 'Week-off Applicant', 'code' => 'EMP-3']);
+            DB::table('week_off_change_applications')->insert([
+                'id' => 3,
+                'reason' => 'Coverage change',
+                'from_date' => '2026-11-01',
+                'is_forever' => true,
+            ]);
+            DB::table('week_off_change_application_details')->insert([
+                'week_off_change_application_id' => 3,
+                'week_days' => 6,
+                'wo_type' => 1,
+                'first_week' => true,
+                'third_week' => true,
+            ]);
+            DB::table('week_off_change_application_users')->insert([
+                'week_off_change_application_id' => 3,
+                'user_id' => 3,
+            ]);
+            DB::table('approval_statuses')->insert([
+                'id' => 102,
+                'approvable_id' => 3,
+                'approvable_type' => WeekOffChangeApplication::class,
+                'approval_status' => 'pending',
+                'approval_flow_id' => 1,
+            ]);
+            DB::table('approval_status_details')->insert([
+                'id' => 205,
+                'level' => 1,
+                'approval_status_id' => 102,
+                'approval_flow_detail_id' => 20,
+                'approval_status' => 'pending',
+            ]);
+
+            $this->mockTenantUser(10);
+            $route = Mockery::mock(\Illuminate\Routing\Route::class);
+            $route->shouldReceive('parameter')->with('detail', null)->andReturn(205);
+            $request = Request::create('/requests/pending/205');
+            $request->setRouteResolver(static fn () => $route);
+            $view = app(PendingApprovalController::class)->show($request);
+
+            $this->assertSame([
+                ['day' => 'Saturday', 'type' => 'Full Day', 'weeks' => '1st Week, 3rd Week'],
+            ], $view->getData()['weekOffDetails']);
+            $this->assertArrayNotHasKey('Week-off Details', $view->getData()['relatedDetails']);
+        } finally {
+            Schema::dropIfExists('week_off_change_application_users');
+            Schema::dropIfExists('week_off_change_application_details');
+            Schema::dropIfExists('week_off_change_applications');
             $this->dropApprovalTables();
         }
     }

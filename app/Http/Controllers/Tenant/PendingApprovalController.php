@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Tenant;
 
-use App\Http\Controllers\Controller;
+use App\Enums\WOTypeEnumn;
 use App\Helpers\ApprovalProcessor;
+use App\Http\Controllers\Controller;
 use App\Models\Tenant\ApprovalStatusDetails;
 use App\Models\Tenant\Coff;
 use App\Models\Tenant\LeaveApplication;
@@ -178,6 +179,9 @@ class PendingApprovalController extends Controller
             });
 
         $relatedDetails = $this->relatedDetails($record);
+        $weekOffDetails = $record instanceof WeekOffChangeApplication
+            ? $this->weekOffDetails($record)
+            : [];
         $isActionable = $this->isActionable($approval, $userId);
 
         return view('requests.pending.show', [
@@ -187,6 +191,7 @@ class PendingApprovalController extends Controller
             'employees' => $employees,
             'requestFields' => $requestFields,
             'relatedDetails' => $relatedDetails,
+            'weekOffDetails' => $weekOffDetails,
             'isActionable' => $isActionable,
         ]);
     }
@@ -315,18 +320,51 @@ class PendingApprovalController extends Controller
             $details['Shifts'] = $record->getRelation('shifts')->pluck('name')->filter()->implode(', ') ?: '—';
         }
 
-        if ($record->relationLoaded('WeekOffChangeDetails')) {
-            $details['Week-off Details'] = $record->getRelation('WeekOffChangeDetails')
-                ->map(fn ($detail): string => collect($detail->getAttributes())
-                    ->reject(fn ($value, string $key): bool => $key === 'id' || str_ends_with($key, '_id') || in_array($key, ['created_at', 'updated_at'], true))
-                    ->map(fn ($value): string => is_bool($value) ? ($value ? 'Yes' : 'No') : (string) ($value ?? '—'))
-                    ->implode(' · '))
-                ->filter()
-                ->values()
-                ->all();
-        }
-
         return $details;
+    }
+
+    /**
+     * @return array<int, array{day: string, type: string, weeks: string}>
+     */
+    private function weekOffDetails(WeekOffChangeApplication $record): array
+    {
+        $weekDays = [
+            0 => 'Sunday',
+            1 => 'Monday',
+            2 => 'Tuesday',
+            3 => 'Wednesday',
+            4 => 'Thursday',
+            5 => 'Friday',
+            6 => 'Saturday',
+        ];
+        $weekLabels = [
+            'first_week' => '1st Week',
+            'second_week' => '2nd Week',
+            'third_week' => '3rd Week',
+            'fourth_week' => '4th Week',
+            'fifth_week' => '5th Week',
+        ];
+
+        return $record->getRelation('WeekOffChangeDetails')
+            ->map(static function ($detail) use ($weekDays, $weekLabels): array {
+                $type = $detail->wo_type;
+                $typeValue = $type instanceof WOTypeEnumn ? $type->value : (int) $type;
+
+                return [
+                    'day' => $weekDays[$detail->week_days] ?? '—',
+                    'type' => match ($typeValue) {
+                        WOTypeEnumn::FullDay->value => 'Full Day',
+                        WOTypeEnumn::FirstHalf->value => 'First Half',
+                        WOTypeEnumn::SecondHalf->value => 'Second Half',
+                        default => '—',
+                    },
+                    'weeks' => collect($weekLabels)
+                        ->filter(static fn (string $label, string $field): bool => (bool) $detail->$field)
+                        ->values()
+                        ->implode(', ') ?: '—',
+                ];
+            })
+            ->all();
     }
 
     private function pendingEmployeeUsers(): \Closure
