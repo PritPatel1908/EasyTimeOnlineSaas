@@ -5,6 +5,7 @@ namespace App\Jobs\Tenant;
 use App\Models\Tenant\Attendance;
 use App\Models\Tenant\Coff;
 use App\Models\Tenant\LeaveApplication;
+use App\Models\Tenant\OvertimeSlab;
 use App\Models\Tenant\RotationMuster;
 use App\Models\Tenant\Shift;
 use App\Models\Tenant\ShiftMuster;
@@ -1895,168 +1896,184 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
 
     public function checkOverTimeRule(): void
     {
-
         $this->debug('~~~Checking OverTime Rule');
+        $this->curatt->row_overtime_minutes = 0;
         $this->curatt->total_overtime_minutes = 0;
-        $this->curatt->save();
-        if ($this->user->overtime_rule) {
-            if ($this->curatt->out_time) {
-                $overtimeRule = $this->user?->overtime_rule;
+        $this->otFlag = false;
+        $overtimeRule = $this->user->overtime_rule;
 
-                $shiftInTime = $this->curatt->shift_in_time ? Carbon::parse($this->curatt->shift_in_time) : null;
-                $shiftOutTime = $this->curatt->shift_out_time ? Carbon::parse($this->curatt->shift_out_time) : null;
-                $punchInTime = $this->curatt->in_time ? Carbon::parse($this->curatt->in_time) : null;
-                $punchOutTime = $this->curatt->out_time ? Carbon::parse($this->curatt->out_time) : null;
+        if ($overtimeRule) {
+            $this->otFlag = false;
+            if (! $this->curatt->shift_in_time || ! $this->curatt->shift_out_time || ! $this->curatt->in_time || ! $this->curatt->out_time) {
+                $this->debug('Overtime cannot be calculated without shift times and both punches');
+                $this->handleRegularHours();
 
-                if ($punchOutTime > $shiftOutTime) {
-                    $out_diff = $shiftOutTime ? $shiftOutTime->diffInMinutes($punchOutTime) : 0;
-                } else {
-                    $out_diff = 0;
-                }
-                $this->debug('After shift overtime minutes : '.$out_diff);
-
-                if ($out_diff >= 0) {
-                    $totalDiff = $overtimeRule->qualifyingOvertimeMinutes($out_diff);
-                    $overtimerule_slabs = $overtimeRule->overtime_slabs()->get();
-                    $this->debug('Final Total Overtime : '.$totalDiff.', Total Over time early : '.$this->overtime_early.', Total Over time late : '.$this->overtime_late);
-                    foreach ($overtimerule_slabs as $overtimerule_slab) {
-                        if (sprintf('%02d:%02d', floor($totalDiff / 60), $totalDiff % 60) > '00:00' && sprintf('%02d:%02d', floor($totalDiff / 60), $totalDiff % 60) >= $overtimerule_slab->value_from->format('H:i') && sprintf('%02d:%02d', floor($totalDiff / 60), $totalDiff % 60) <= $overtimerule_slab->value_to->format('H:i')) {
-                            $this->handleOvertime($overtimerule_slab, (int) $totalDiff);
-                            $this->otFlag = true;
-                            break;
-                        } else {
-                            $this->otFlag = false;
-                        }
-                    }
-                } else {
-                    $this->otFlag = false;
-                }
-
-                if ($this->otFlag == false) {
-                    $this->handleRegularHours((int) $totalDiff);
-                }
-            } else {
-                $this->debug('User not have out punch');
+                return;
             }
-        } else {
-            if ($this->curatt->out_time && $this->manualAttendance->user->category) {
-                $shiftInTime = $this->curatt->shift_in_time ? Carbon::parse($this->curatt->shift_in_time) : null;
-                $shiftOutTime = $this->curatt->shift_out_time ? Carbon::parse($this->curatt->shift_out_time) : null;
-                $punchInTime = $this->curatt->in_time ? Carbon::parse($this->curatt->in_time) : null;
-                $punchOutTime = $this->curatt->out_time ? Carbon::parse($this->curatt->out_time) : null;
 
-                $skipOvertimeMinutes = 0;
-                if ($this->manualAttendance->user->category->skip_overtime) {
-                    // Convert hh:mm:ss to minutes
-                    $skipOvertimeTime = $this->manualAttendance->user->category->skip_overtime;
-                    if ($skipOvertimeTime) {
-                        [$hours, $minutes, $seconds] = explode(':', $skipOvertimeTime);
-                        $skipOvertimeMinutes = ($hours * 60) + $minutes;
-                        $this->debug('Skip overtime minutes from category: '.$skipOvertimeMinutes);
-                    }
+            $shiftInTime = Carbon::parse($this->curatt->shift_in_time);
+            $shiftOutTime = Carbon::parse($this->curatt->shift_out_time);
+            $punchInTime = Carbon::parse($this->curatt->in_time);
+            $punchOutTime = Carbon::parse($this->curatt->out_time);
+
+            $earlyMinutes = max(0, (int) floor(($shiftInTime->getTimestamp() - $punchInTime->getTimestamp()) / 60));
+            $lateMinutes = max(0, (int) floor(($punchInTime->getTimestamp() - $shiftInTime->getTimestamp()) / 60));
+            $lateGoingMinutes = max(0, (int) floor(($punchOutTime->getTimestamp() - $shiftOutTime->getTimestamp()) / 60));
+            $earlyGoingMinutes = max(0, (int) floor(($shiftOutTime->getTimestamp() - $punchOutTime->getTimestamp()) / 60));
+            $this->curatt->row_overtime_minutes = max(
+                0,
+                $earlyMinutes + $lateGoingMinutes - $lateMinutes - $earlyGoingMinutes,
+            );
+
+            $comingMinutes = $overtimeRule->adjustedComingMinutes($earlyMinutes, $lateMinutes);
+            $this->overtime_early = $comingMinutes['early'];
+            $this->overtime_late = $comingMinutes['late'];
+            $totalMinutes = $overtimeRule->calculateOvertimeMinutes(
+                $earlyMinutes,
+                $lateMinutes,
+                $lateGoingMinutes,
+                $earlyGoingMinutes,
+            );
+
+            $this->debug('After shift overtime minutes before deduction: '.$lateGoingMinutes);
+            $this->debug('Final Total Overtime after rule deductions: '.$totalMinutes);
+
+            $slab = $overtimeRule->overtime_slabs()
+                ->orderBy('value_from')
+                ->get()
+                ->first(fn (OvertimeSlab $overtimeSlab): bool => $totalMinutes > 0 && $overtimeSlab->containsMinutes($totalMinutes));
+
+            if ($slab) {
+                $this->handleOvertime($slab, $totalMinutes);
+                $this->otFlag = true;
+
+                return;
+            }
+
+            $this->handleRegularHours($totalMinutes);
+
+            return;
+        }
+
+        $this->curatt->save();
+        if ($this->curatt->out_time && $this->manualAttendance->user->category) {
+            $shiftInTime = $this->curatt->shift_in_time ? Carbon::parse($this->curatt->shift_in_time) : null;
+            $shiftOutTime = $this->curatt->shift_out_time ? Carbon::parse($this->curatt->shift_out_time) : null;
+            $punchInTime = $this->curatt->in_time ? Carbon::parse($this->curatt->in_time) : null;
+            $punchOutTime = $this->curatt->out_time ? Carbon::parse($this->curatt->out_time) : null;
+
+            $skipOvertimeMinutes = 0;
+            if ($this->manualAttendance->user->category->skip_overtime) {
+                // Convert hh:mm:ss to minutes
+                $skipOvertimeTime = $this->manualAttendance->user->category->skip_overtime;
+                if ($skipOvertimeTime) {
+                    [$hours, $minutes, $seconds] = explode(':', $skipOvertimeTime);
+                    $skipOvertimeMinutes = ($hours * 60) + $minutes;
+                    $this->debug('Skip overtime minutes from category: '.$skipOvertimeMinutes);
                 }
+            }
 
-                if ($punchOutTime > $shiftOutTime) {
-                    $out_diff = $shiftOutTime ? $shiftOutTime->diffInMinutes($punchOutTime) : 0;
-                } else {
-                    $out_diff = 0;
-                }
-                $this->debug('After shift overtime minutes (before skip): '.$out_diff);
-
-                if ($punchInTime < $shiftInTime) {
-                    $early_diff = $punchInTime ? $punchInTime->diffInMinutes($shiftInTime) : 0;
-                    $diffInHoursMinutes = sprintf('%02d:%02d', floor($early_diff / 60), $early_diff % 60);
-                    $this->debug('Early diff in minutes: '.$early_diff.', Early diff in HH:SS format : '.$diffInHoursMinutes);
-                    if ($punchInTime < $shiftInTime) {
-                        $this->overtime_early = $early_diff;
-                        $out_diff = $out_diff + $this->overtime_early;
-                    }
-                    if ($punchOutTime < $shiftOutTime) {
-                        $out_diff = $out_diff - $punchOutTime->diffInMinutes($shiftOutTime);
-                    }
-                    $this->debug('Early diff value after out punch add : '.$out_diff);
-                }
-
-                if ($punchInTime > $shiftInTime) {
-                    $late_diff = $shiftInTime ? $shiftInTime->diffInMinutes($punchInTime) : 0;
-                    $diffOutHoursMinutes = sprintf('%02d:%02d', floor($late_diff / 60), $late_diff % 60);
-                    $this->debug('Late diff in minutes: '.$late_diff.', Late diff in HH:SS format : '.$diffOutHoursMinutes);
-                    if ($punchInTime > $shiftInTime) {
-                        $this->overtime_late = $late_diff;
-                        $out_diff = $out_diff - $this->overtime_late;
-                    }
-                    if ($punchOutTime < $shiftOutTime) {
-                        $out_diff = $out_diff - $punchOutTime->diffInMinutes($shiftOutTime);
-                    }
-                    $this->debug('Late diff value after out punch minus : '.$out_diff);
-                }
-
-                // Apply skip overtime - subtract the configured skip time from calculated overtime
-                if ($skipOvertimeMinutes > 0 && $out_diff > 0) {
-                    $overtimeBeforeSkip = $out_diff;
-                    $out_diff = max(0, $out_diff - $skipOvertimeMinutes);
-                    $this->debug('Overtime after applying skip period: '.$out_diff.' (reduced by '.$skipOvertimeMinutes.' minutes)');
-                }
-
-                if ($out_diff >= 0) {
-                    $totalDiff = $out_diff;
-                    $this->debug('Final Total Overtime : '.$totalDiff.', Total Over time early : '.$this->overtime_early.', Total Over time late : '.$this->overtime_late);
-                    if (sprintf('%02d:%02d', floor($totalDiff / 60), $totalDiff % 60) > '00:00') {
-                        $formattedOvertime = sprintf('%02d:%02d', floor($totalDiff / 60), $totalDiff % 60);
-                        $this->debug('User get overtime '.$formattedOvertime.' Hour');
-
-                        // Store the overtime amount in a field if needed
-                        // $this->curatt->overtime_minutes = $totalDiff;
-
-                        $this->curatt->status_master_id = StatusMaster::where('code', 'PPO')->first()->id;
-                        $this->curatt->is_over_time = true;
-                        $this->curatt->total_overtime_minutes = (int) $totalDiff;
-                        $this->curatt->save();
-
-                        StatusMuster::where('user_id', $this->manualAttendance->user->id)
-                            ->where('is_locked', false)
-                            ->where('date', $this->manualAttendance->datetime->format('Y-m-d'))
-                            ->update([
-                                'status_master_id' => StatusMaster::where('code', 'PPO')->first()->id,
-                                'day_count' => 1,
-                            ]);
-
-                        $processTags = $this->curatt->process_tags();
-                        $processTags->where('name', 'Overtime')->delete();
-                        $processTags->create(['name' => 'Overtime', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
-                        $this->otFlag = true;
-                    } else {
-                        $this->otFlag = false;
-                    }
-                } else {
-                    $this->otFlag = false;
-                }
-
-                if ($this->otFlag == false) {
-                    $this->handleRegularHours();
-                }
+            if ($punchOutTime > $shiftOutTime) {
+                $out_diff = $shiftOutTime ? $shiftOutTime->diffInMinutes($punchOutTime) : 0;
             } else {
-                if ($this->curatt->is_over_time = true) {
-                    $this->curatt->is_over_time = false;
-                    $this->curatt->status_master_id = $this->curatt->status_master_id;
+                $out_diff = 0;
+            }
+            $this->debug('After shift overtime minutes (before skip): '.$out_diff);
+
+            if ($punchInTime < $shiftInTime) {
+                $early_diff = $punchInTime ? $punchInTime->diffInMinutes($shiftInTime) : 0;
+                $diffInHoursMinutes = sprintf('%02d:%02d', floor($early_diff / 60), $early_diff % 60);
+                $this->debug('Early diff in minutes: '.$early_diff.', Early diff in HH:SS format : '.$diffInHoursMinutes);
+                if ($punchInTime < $shiftInTime) {
+                    $this->overtime_early = $early_diff;
+                    $out_diff = $out_diff + $this->overtime_early;
+                }
+                if ($punchOutTime < $shiftOutTime) {
+                    $out_diff = $out_diff - $punchOutTime->diffInMinutes($shiftOutTime);
+                }
+                $this->debug('Early diff value after out punch add : '.$out_diff);
+            }
+
+            if ($punchInTime > $shiftInTime) {
+                $late_diff = $shiftInTime ? $shiftInTime->diffInMinutes($punchInTime) : 0;
+                $diffOutHoursMinutes = sprintf('%02d:%02d', floor($late_diff / 60), $late_diff % 60);
+                $this->debug('Late diff in minutes: '.$late_diff.', Late diff in HH:SS format : '.$diffOutHoursMinutes);
+                if ($punchInTime > $shiftInTime) {
+                    $this->overtime_late = $late_diff;
+                    $out_diff = $out_diff - $this->overtime_late;
+                }
+                if ($punchOutTime < $shiftOutTime) {
+                    $out_diff = $out_diff - $punchOutTime->diffInMinutes($shiftOutTime);
+                }
+                $this->debug('Late diff value after out punch minus : '.$out_diff);
+            }
+
+            $this->curatt->row_overtime_minutes = max(0, (int) $out_diff);
+
+            // Apply skip overtime - subtract the configured skip time from calculated overtime
+            if ($skipOvertimeMinutes > 0 && $out_diff > 0) {
+                $overtimeBeforeSkip = $out_diff;
+                $out_diff = max(0, $out_diff - $skipOvertimeMinutes);
+                $this->debug('Overtime after applying skip period: '.$out_diff.' (reduced by '.$skipOvertimeMinutes.' minutes)');
+            }
+
+            if ($out_diff >= 0) {
+                $totalDiff = $out_diff;
+                $this->debug('Final Total Overtime : '.$totalDiff.', Total Over time early : '.$this->overtime_early.', Total Over time late : '.$this->overtime_late);
+                if (sprintf('%02d:%02d', floor($totalDiff / 60), $totalDiff % 60) > '00:00') {
+                    $formattedOvertime = sprintf('%02d:%02d', floor($totalDiff / 60), $totalDiff % 60);
+                    $this->debug('User get overtime '.$formattedOvertime.' Hour');
+
+                    // Store the overtime amount in a field if needed
+                    // $this->curatt->overtime_minutes = $totalDiff;
+
+                    $this->curatt->status_master_id = StatusMaster::where('code', 'PPO')->first()->id;
+                    $this->curatt->is_over_time = true;
+                    $this->curatt->total_overtime_minutes = (int) $totalDiff;
                     $this->curatt->save();
 
-                    $statusMuster = StatusMuster::where('user_id', $this->user->id)
+                    StatusMuster::where('user_id', $this->manualAttendance->user->id)
                         ->where('is_locked', false)
-                        ->where('date', $this->manualAttendance->in_time->format('Y-m-d'))->first();
-                    if ($statusMuster) {
-                        $statusMuster->status_master_id = $statusMuster->status_master_id;
-                        $statusMuster->day_count = $statusMuster->day_count;
-                        $statusMuster->save();
-                    }
+                        ->where('date', $this->manualAttendance->datetime->format('Y-m-d'))
+                        ->update([
+                            'status_master_id' => StatusMaster::where('code', 'PPO')->first()->id,
+                            'day_count' => 1,
+                        ]);
 
                     $processTags = $this->curatt->process_tags();
                     $processTags->where('name', 'Overtime')->delete();
+                    $processTags->create(['name' => 'Overtime', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
+                    $this->otFlag = true;
+                } else {
+                    $this->otFlag = false;
                 }
-                $this->debug('User not have out punch | Not calculate overtime');
+            } else {
+                $this->otFlag = false;
             }
-        }
 
+            if ($this->otFlag == false) {
+                $this->handleRegularHours();
+            }
+        } else {
+            if ($this->curatt->is_over_time = true) {
+                $this->curatt->is_over_time = false;
+                $this->curatt->status_master_id = $this->curatt->status_master_id;
+                $this->curatt->save();
+
+                $statusMuster = StatusMuster::where('user_id', $this->user->id)
+                    ->where('is_locked', false)
+                    ->where('date', $this->manualAttendance->in_time->format('Y-m-d'))->first();
+                if ($statusMuster) {
+                    $statusMuster->status_master_id = $statusMuster->status_master_id;
+                    $statusMuster->day_count = $statusMuster->day_count;
+                    $statusMuster->save();
+                }
+
+                $processTags = $this->curatt->process_tags();
+                $processTags->where('name', 'Overtime')->delete();
+            }
+            $this->debug('User not have out punch | Not calculate overtime');
+        }
     }
 
     // function addTime($time1, $time2)
@@ -2101,9 +2118,9 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
     //     return sprintf('%02d:%02d', $hours, $minutes);
     // }
 
-    private function handleOvertime($overtimerule_slab, int $totalMinutes)
+    private function handleOvertime(OvertimeSlab $overtimerule_slab, int $totalMinutes)
     {
-        $this->debug('User get overtime '.$overtimerule_slab->head_value->format('H:i').' Hour');
+        $this->debug('User get overtime '.$overtimerule_slab->formattedHeadValue().' Hour');
         $this->curatt->status_master_id = StatusMaster::where('code', 'PPO')->first()->id;
         $this->curatt->is_over_time = true;
         $this->curatt->total_overtime_minutes = $totalMinutes;

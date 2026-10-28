@@ -35,6 +35,7 @@ use Illuminate\Database\Schema\Blueprint;
  * @property bool $is_early
  * @property int $early_minutes
  * @property bool $is_over_time
+ * @property int $row_overtime_minutes
  * @property int $total_overtime_minutes
  * @property int $approved_overtime_minutes
  * @property bool $is_manual
@@ -113,6 +114,7 @@ class Attendance extends Model
         $table->boolean('is_half_day')->default(false);
         $table->boolean('is_absent')->default(false);
         $table->boolean('is_over_time')->default(false);
+        $table->unsignedInteger('row_overtime_minutes')->default(0);
         $table->unsignedInteger('total_overtime_minutes')->default(0);
         $table->unsignedInteger('approved_overtime_minutes')->default(0);
         $table->boolean('is_manual')->default(false);
@@ -151,6 +153,7 @@ class Attendance extends Model
         'is_early',
         'early_minutes',
         'is_over_time',
+        'row_overtime_minutes',
         'total_overtime_minutes',
         'approved_overtime_minutes',
         'is_absent',
@@ -185,6 +188,7 @@ class Attendance extends Model
         'is_early' => 'boolean',
         'early_minutes' => 'int',
         'is_over_time' => 'boolean',
+        'row_overtime_minutes' => 'int',
         'total_overtime_minutes' => 'int',
         'approved_overtime_minutes' => 'int',
         'is_absent' => 'boolean',

@@ -87,11 +87,11 @@
                     <input id="ignore_late_going" name="ignore_late_going" type="checkbox" role="switch"
                         class="form-check-input @error('ignore_late_going') is-invalid @enderror" value="1"
                         @checked(old('ignore_late_going', $overtimeRule?->ignore_late_going ?? false))>
-                    <label class="form-check-label fw-semibold" for="ignore_late_going">Ignore Late Going?</label>
+                    <label class="form-check-label fw-semibold" for="ignore_late_going">Apply Ignore Late Going Deduction?</label>
                     <x-validation-error field="ignore_late_going" />
                 </div>
             </div>
-            <div class="col-lg-6 col-md-6 mb-3" id="ignore_overtime_field">
+            <div class="col-lg-6 col-md-6 mb-3">
                 <label class="form-label" for="ignore_overtime">Ignore Overtime (minutes)</label>
                 <input id="ignore_overtime" name="ignore_overtime" type="hidden"
                     value="{{ old('ignore_overtime', $overtimeRule?->ignore_overtime ?? '0.00') }}">
@@ -101,7 +101,7 @@
                     value="{{ $durationInputValue(old('ignore_overtime', $overtimeRule?->ignore_overtime ?? '0.00')) }}">
                 <x-validation-error field="ignore_overtime" />
             </div>
-            <div class="col-lg-6 col-md-6 mb-3" id="ignore_late_going_overtime_field">
+            <div class="col-lg-6 col-md-6 mb-3">
                 <label class="form-label" for="ignore_late_going_overtime">Ignore Late Going Overtime (minutes)</label>
                 <input id="ignore_late_going_overtime" name="ignore_late_going_overtime" type="hidden"
                     value="{{ old('ignore_late_going_overtime', $overtimeRule?->ignore_late_going_overtime ?? '0.00') }}">
@@ -215,9 +215,6 @@
             }
         });
 
-        var ignoreLateGoing = document.getElementById('ignore_late_going');
-        var ignoreOvertimeField = document.getElementById('ignore_overtime_field');
-        var ignoreLateGoingOvertimeField = document.getElementById('ignore_late_going_overtime_field');
         [
             ['ignore_overtime_display', 'ignore_overtime'],
             ['ignore_late_going_overtime_display', 'ignore_late_going_overtime'],
@@ -232,14 +229,6 @@
                 }
             });
         });
-
-        function syncOvertimeThresholdField() {
-            ignoreOvertimeField.classList.toggle('d-none', ignoreLateGoing.checked);
-            ignoreLateGoingOvertimeField.classList.toggle('d-none', !ignoreLateGoing.checked);
-        }
-
-        ignoreLateGoing.addEventListener('change', syncOvertimeThresholdField);
-        syncOvertimeThresholdField();
 
         var rows = document.getElementById('overtime_slab_rows');
         var template = document.getElementById('overtime_slab_template');

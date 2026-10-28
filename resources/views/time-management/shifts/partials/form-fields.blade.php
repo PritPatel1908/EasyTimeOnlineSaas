@@ -127,7 +127,7 @@
                     placeholder="HH:MM or HH:MM:SS" maxlength="9" autocomplete="off"
                     class="form-control @error('cutoff_time') is-invalid @enderror"
                     value="{{ old('cutoff_time', $fieldTime($shift?->cutoff_time)) }}">
-                <small class="form-text text-muted">Duration from shift start; 24:00 means 24 hours.</small>
+                <small class="form-text text-muted">Duration added after the scheduled shift end; 24:00 means 24 hours after shift end.</small>
                 <x-validation-error field="cutoff_time" />
             </div>
 

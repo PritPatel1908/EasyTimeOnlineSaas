@@ -39,19 +39,69 @@ class TenantOvertimeRuleImportExportTest extends TestCase
         ], OvertimeRule::IMPORT_EXPORT_COLUMNS);
     }
 
-    public function test_overtime_is_ignored_through_the_greater_numeric_threshold(): void
+    public function test_configured_overtime_deductions_are_subtracted(): void
     {
         $rule = new OvertimeRule([
             'ignore_overtime' => 10.5,
-            'ignore_late_going_overtime' => 15.25,
+            'ignore_late_going_overtime' => 15,
         ]);
 
         $this->assertSame(0.0, $rule->qualifyingOvertimeMinutes(10.5));
-        $this->assertSame(20.0, $rule->qualifyingOvertimeMinutes(20.0));
+        $this->assertSame(9.0, $rule->qualifyingOvertimeMinutes(20.0));
 
         $rule->ignore_late_going = true;
-        $this->assertSame(0.0, $rule->qualifyingOvertimeMinutes(15.25));
-        $this->assertSame(20.0, $rule->qualifyingOvertimeMinutes(20.0));
+        $this->assertSame(0.0, $rule->qualifyingOvertimeMinutes(20.0));
+    }
+
+    public function test_coming_time_thresholds_are_applied_before_overtime_is_calculated(): void
+    {
+        $rule = new OvertimeRule([
+            'ignore_early_come_minutes' => '00:10',
+            'ignore_late_come_minutes' => '00:05',
+            'ignore_overtime' => 0,
+            'ignore_late_going_overtime' => 0,
+        ]);
+
+        $this->assertSame(10, $rule->ignoreEarlyComingMinutesValue());
+        $this->assertSame(5, $rule->ignoreLateComingMinutesValue());
+
+        $this->assertSame([
+            'early' => 15,
+            'late' => 10,
+        ], $rule->adjustedComingMinutes(25, 15));
+    }
+
+    public function test_overtime_rule_deductions_are_applied_before_slab_matching(): void
+    {
+        $rule = new OvertimeRule([
+            'ignore_early_come_minutes' => '00:30',
+            'ignore_late_come_minutes' => '00:30',
+            'ignore_late_going' => true,
+            'ignore_late_going_overtime' => 15,
+            'ignore_overtime' => 10,
+        ]);
+
+        $this->assertSame(15, $rule->calculateOvertimeMinutes(
+            earlyComingMinutes: 60,
+            lateComingMinutes: 40,
+            lateGoingMinutes: 25,
+            earlyGoingMinutes: 5,
+        ));
+    }
+
+    public function test_late_coming_within_the_allowance_does_not_reduce_overtime(): void
+    {
+        $rule = new OvertimeRule([
+            'ignore_late_come_minutes' => '00:30',
+            'ignore_overtime' => 0,
+        ]);
+
+        $this->assertSame(50, $rule->calculateOvertimeMinutes(
+            earlyComingMinutes: 0,
+            lateComingMinutes: 30,
+            lateGoingMinutes: 50,
+            earlyGoingMinutes: 0,
+        ));
     }
 
     public function test_import_sample_matches_the_model_columns(): void

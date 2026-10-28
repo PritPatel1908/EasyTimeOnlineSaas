@@ -235,6 +235,7 @@ class ProcessPendingLogsTest extends TestCase
         $attendance->out_time = '2026-01-01 17:45:00';
         $attendance->is_late = true;
         $attendance->is_early = true;
+        $attendance->row_overtime_minutes = 75;
         $attendance->total_overtime_minutes = 75;
 
         Schema::disableForeignKeyConstraints();
@@ -244,6 +245,7 @@ class ProcessPendingLogsTest extends TestCase
         $savedAttendance = $attendance->fresh();
         $this->assertSame(17, $savedAttendance->late_minutes);
         $this->assertSame(15, $savedAttendance->early_minutes);
+        $this->assertSame(75, $savedAttendance->row_overtime_minutes);
         $this->assertSame(75, $savedAttendance->total_overtime_minutes);
         $this->assertSame(0, $savedAttendance->approved_overtime_minutes);
 
@@ -320,6 +322,7 @@ class ProcessPendingLogsTest extends TestCase
         $savedAttendance = $attendance->fresh();
         $this->assertSame($overtimeStatus->id, $savedAttendance->status_master_id);
         $this->assertTrue($savedAttendance->is_over_time);
+        $this->assertSame(0, $savedAttendance->row_overtime_minutes);
         $this->assertSame(75, $savedAttendance->total_overtime_minutes);
         $this->assertSame(0, $savedAttendance->approved_overtime_minutes);
     }
@@ -339,6 +342,19 @@ class ProcessPendingLogsTest extends TestCase
         }
     }
 
+    public function test_row_overtime_migration_upgrades_existing_year_tables(): void
+    {
+        Schema::dropIfExists('attendances2025');
+        Schema::create('attendances2025', function ($table): void {
+            $table->id();
+        });
+        $migration = require database_path('migrations/tenant/2026_10_28_000002_add_row_overtime_minutes_to_attendances.php');
+
+        $migration->up();
+
+        $this->assertTrue(Schema::hasColumn('attendances2025', 'row_overtime_minutes'));
+    }
+
     public function test_cutoff_duration_keeps_day_shift_punches_in_previous_shift_window(): void
     {
         $shift = Shift::create([
@@ -356,10 +372,11 @@ class ProcessPendingLogsTest extends TestCase
         ]);
 
         $calculator = $this->calculatorWithPreviousPunch(
-            '2026-01-02 02:00:00',
+            '2026-01-01 08:00:00',
             false,
             '2026-01-02 08:00:00',
         );
+        $this->createPreviousAttendanceForPunch($calculator, $shift, '2026-01-01');
         $calculator->checkInOrOut();
 
         $this->assertTrue($this->getCalculatorLog($calculator)->is_out, implode(PHP_EOL, $calculator->getReturnLogs()));
@@ -388,10 +405,111 @@ class ProcessPendingLogsTest extends TestCase
             '2026-01-02 07:00:00',
             8,
         );
+        $this->createPreviousAttendanceForPunch($calculator, $shift, '2026-01-01', 8);
         $calculator->checkInOrOut();
 
         $this->assertTrue($this->getCalculatorLog($calculator)->is_out);
         $this->assertSame('2026-01-01', (new \ReflectionProperty(AttCalculator::class, 'punchAttendanceDate'))->getValue($calculator));
+    }
+
+    public function test_fixed_direction_punch_uses_previous_attendance_cutoff_before_new_shift(): void
+    {
+        $nightShift = Shift::create([
+            'in_time' => '20:00:00',
+            'out_time' => '08:00:00',
+            'set_cutoff' => true,
+            'cutoff_time' => '24:00:00',
+            'is_night_shift' => true,
+        ]);
+        $dayShift = Shift::create([
+            'in_time' => '09:00:00',
+            'out_time' => '21:00:00',
+            'set_cutoff' => true,
+            'cutoff_time' => '24:00:00',
+            'is_night_shift' => false,
+        ]);
+        DB::table('shift_musters')->insert([
+            'user_id' => 8,
+            'date' => '2026-01-01',
+            'is_locked' => false,
+            'shift' => json_encode([$nightShift->id]),
+            'calculated_shift' => null,
+        ]);
+        DB::table('shift_musters')->insert([
+            'user_id' => 8,
+            'date' => '2026-01-02',
+            'is_locked' => false,
+            'shift' => json_encode([$dayShift->id]),
+            'calculated_shift' => null,
+        ]);
+        DB::table('users')->insert(['id' => 8]);
+
+        $calculator = $this->calculatorWithPreviousPunch(
+            '2026-01-02 02:00:00',
+            false,
+            '2026-01-02 18:35:00',
+            8,
+        );
+        $log = $this->getCalculatorLog($calculator);
+        $log->setAttribute('is_manual', true);
+        $this->createPreviousAttendanceForPunch($calculator, $nightShift, '2026-01-01', 8);
+
+        $calculator->setFyears();
+        $calculator->checkInOrOut();
+        Schema::disableForeignKeyConstraints();
+        try {
+            $attendance = $calculator->queryCrrAttendance($calculator->f_years);
+        } finally {
+            Schema::enableForeignKeyConstraints();
+        }
+
+        $this->assertFalse($log->is_out);
+        $this->assertSame('2026-01-01', (new \ReflectionProperty(AttCalculator::class, 'punchAttendanceDate'))->getValue($calculator));
+        $this->assertSame('2026-01-01', $calculator->attendance_date);
+        $this->assertSame(2026, $calculator->f_years);
+        $this->assertSame('2026-01-01', $attendance->date->format('Y-m-d'));
+        $this->assertDatabaseMissing('attendances2026', [
+            'user_id' => 8,
+            'date' => '2026-01-02',
+        ]);
+
+        $automaticCalculator = $this->calculatorWithPreviousPunch(
+            '2026-01-02 02:00:00',
+            false,
+            '2026-01-02 18:36:00',
+            8,
+        );
+        $this->createPreviousAttendanceForPunch($automaticCalculator, $nightShift, '2026-01-01', 8);
+        $automaticLog = $this->getCalculatorLog($automaticCalculator);
+        $automaticCalculator->setFyears();
+        $automaticCalculator->checkInOrOut();
+
+        $this->assertTrue($automaticLog->is_out);
+        $this->assertSame('2026-01-01', $automaticCalculator->attendance_date);
+    }
+
+    public function test_cutoff_is_not_applied_when_the_previous_attendance_cutoff_has_expired(): void
+    {
+        $shift = Shift::create([
+            'in_time' => '08:00:00',
+            'out_time' => '20:00:00',
+            'set_cutoff' => true,
+            'cutoff_time' => '24:00:00',
+            'is_night_shift' => false,
+        ]);
+        $calculator = $this->calculatorWithPreviousPunch(
+            '2026-01-01 08:00:00',
+            false,
+            '2026-01-04 08:00:00',
+        );
+        $this->getCalculatorLog($calculator)->setAttribute('is_manual', true);
+        $this->createPreviousAttendanceForPunch($calculator, $shift, '2026-01-01');
+
+        $calculator->setFyears();
+        $calculator->checkInOrOut();
+
+        $this->assertSame('2026-01-04', $calculator->attendance_date);
+        $this->assertNull((new \ReflectionProperty(AttCalculator::class, 'punchAttendanceDate'))->getValue($calculator));
     }
 
     public function test_maximum_gap_classifies_a_later_punch_as_out_within_configured_duration(): void
@@ -697,6 +815,36 @@ class ProcessPendingLogsTest extends TestCase
         $this->assertNull($attendance->shift_in_time);
         $this->assertNull($attendance->shift_out_time);
         $this->assertFalse($attendance->is_night_shift);
+    }
+
+    public function test_night_shift_end_time_moves_to_next_day_without_changing_attendance_date(): void
+    {
+        $calculator = new AttCalculator(new AttendanceLog);
+        $attendance = new Attendance;
+        $shift = new Shift;
+        $shift->in_time = Carbon::parse('21:00:00');
+        $shift->out_time = Carbon::parse('09:00:00');
+        $shift->is_night_shift = true;
+
+        $currentAttendance = new \ReflectionProperty(AttCalculator::class, 'curatt');
+        $currentAttendance->setValue($calculator, $attendance);
+        $assignedShift = new \ReflectionProperty(AttCalculator::class, 'shift');
+        $assignedShift->setValue($calculator, $shift);
+        $attendanceDate = new \ReflectionProperty(AttCalculator::class, 'attendance_date');
+        $attendanceDate->setValue($calculator, '2026-10-25');
+
+        $applyShift = new \ReflectionMethod(AttCalculator::class, 'applyCurrentShiftToAttendance');
+        $applyShift->invoke($calculator);
+
+        $this->assertSame('2026-10-25', $attendanceDate->getValue($calculator));
+        $this->assertSame('2026-10-25 21:00:00', $attendance->shift_in_time->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-10-26 09:00:00', $attendance->shift_out_time->format('Y-m-d H:i:s'));
+
+        $attendance->shift_out_time = Carbon::parse('2026-10-25 09:00:00');
+        $normalizeShiftEnd = new \ReflectionMethod(AttCalculator::class, 'normalizeNightShiftEndTime');
+        $normalizeShiftEnd->invoke($calculator);
+
+        $this->assertSame('2026-10-26 09:00:00', $attendance->shift_out_time->format('Y-m-d H:i:s'));
     }
 
     public function test_half_day_check_skips_when_attendance_context_is_incomplete(): void
@@ -1237,6 +1385,7 @@ class ProcessPendingLogsTest extends TestCase
         $log->setRelation('user', $user);
 
         $previousLog = new AttendanceLog;
+        $previousLog->setAttribute('id', 1000 + $userId);
         $previousLog->setAttribute('datetime', Carbon::parse($previousDatetime));
         $previousLog->setAttribute('is_out', $previousIsOut);
 
@@ -1244,6 +1393,48 @@ class ProcessPendingLogsTest extends TestCase
         (new \ReflectionProperty(AttCalculator::class, 'prv_log'))->setValue($calculator, $previousLog);
 
         return $calculator;
+    }
+
+    private function createPreviousAttendanceForPunch(AttCalculator $calculator, Shift $shift, string $attendanceDate, int $userId = 7): void
+    {
+        $year = Carbon::parse($attendanceDate)->year;
+        $table = 'attendances'.$year;
+
+        if (! Schema::hasTable($table)) {
+            Schema::create($table, function ($table): void {
+                $table->id();
+                $table->unsignedBigInteger('user_id');
+                $table->date('date');
+                $table->unsignedBigInteger('shift_id')->nullable();
+                $table->dateTime('shift_in_time')->nullable();
+                $table->dateTime('shift_out_time')->nullable();
+                $table->boolean('is_night_shift')->default(false);
+                $table->unsignedBigInteger('in_log_id')->nullable();
+                $table->unsignedBigInteger('out_log_id')->nullable();
+                $table->boolean('is_locked')->default(false);
+            });
+        }
+
+        $shiftStart = Carbon::parse($attendanceDate)
+            ->setTimeFromTimeString($shift->in_time->format('H:i:s'));
+        $shiftEnd = Carbon::parse($attendanceDate)
+            ->setTimeFromTimeString($shift->out_time->format('H:i:s'));
+
+        if ($shift->is_night_shift && $shiftEnd->lessThanOrEqualTo($shiftStart)) {
+            $shiftEnd->addDay();
+        }
+
+        $previousLog = (new \ReflectionProperty(AttCalculator::class, 'prv_log'))->getValue($calculator);
+        DB::table($table)->insert([
+            'user_id' => $userId,
+            'date' => $attendanceDate,
+            'shift_id' => $shift->id,
+            'shift_in_time' => $shiftStart,
+            'shift_out_time' => $shiftEnd,
+            'is_night_shift' => $shift->is_night_shift,
+            'in_log_id' => $previousLog->id,
+            'is_locked' => false,
+        ]);
     }
 
     private function calculatorWithAbsentRule(

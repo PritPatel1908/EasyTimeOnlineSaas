@@ -33,6 +33,10 @@ class AttCalculator
 
     protected $prv_log = null;
 
+    private ?Attendance $previousPunchAttendance = null;
+
+    private bool $previousPunchAttendanceResolved = false;
+
     protected ?string $punchAttendanceDate = null;
 
     public $f_years = null;
@@ -202,18 +206,22 @@ class AttCalculator
                 : 'Fixed Punch type is "In Device" due to manual punch');
             $this->log->is_out = (bool) $this->log->is_out;
             $this->applyConfiguredGapRules();
+            $this->setPunchAttendanceDateFromCutoff();
         } elseif ($this->machine?->access_direction == 'in' || $this->machine?->access_direction == '1') {
             $this->debug('Fixed Punch type is "In Device"');
             $this->log->is_out = false;
             $this->applyConfiguredGapRules();
+            $this->setPunchAttendanceDateFromCutoff();
         } elseif ($this->machine?->access_direction == 'out' || $this->machine?->access_direction == '2') {
             $this->debug('Fixed Punch type is "Out Device"');
             $this->log->is_out = true;
             $this->applyConfiguredGapRules();
+            $this->setPunchAttendanceDateFromCutoff();
         } else {
             if ($this->prv_log === null) {
                 $this->debug('Marking as In punch as no previous log found');
                 $this->log->is_out = false;
+                $this->setPunchAttendanceDateFromCutoff();
 
                 return;
             }
@@ -225,6 +233,8 @@ class AttCalculator
 
             if ($cutoffShift !== null) {
                 $this->punchAttendanceDate = $cutoffShift['date'];
+                $this->attendance_date = $cutoffShift['date'];
+                $this->f_years = Carbon::parse($cutoffShift['date'])->year;
                 $this->setDirectionFromPreviousPunch($sameDirectionSeconds);
                 $this->debug('Both punches fall within shift cutoff window for '.$cutoffShift['date']);
                 $this->applyConfiguredGapRules();
@@ -323,6 +333,11 @@ class AttCalculator
 
     private function getShiftAssignedToPreviousPunch(): ?Shift
     {
+        $previousAttendance = $this->getPreviousAttendanceForPunch();
+        if ($previousAttendance?->shift !== null) {
+            return $previousAttendance->shift;
+        }
+
         $previousShiftId = ShiftMuster::where('user_id', $this->log->user->id)
             ->where('is_locked', false)
             ->where('date', $this->prv_log->datetime->format('Y-m-d'))
@@ -338,6 +353,43 @@ class AttCalculator
         $this->debug('Previous shift id for '.$this->prv_log->datetime->format('Y-m-d').' is '.($previousShiftId ?? 'null'));
 
         return $previousShiftId ? Shift::find($previousShiftId) : null;
+    }
+
+    private function getPreviousAttendanceForPunch(): ?Attendance
+    {
+        if ($this->previousPunchAttendanceResolved) {
+            return $this->previousPunchAttendance;
+        }
+
+        $this->previousPunchAttendanceResolved = true;
+
+        if ($this->prv_log?->id === null || $this->log->user === null) {
+            return null;
+        }
+
+        $previousDate = $this->prv_log->datetime;
+        $years = array_unique([$previousDate->year, $previousDate->copy()->subDay()->year]);
+
+        foreach ($years as $year) {
+            if (! Schema::hasTable('attendances'.$year)) {
+                continue;
+            }
+
+            $this->previousPunchAttendance = Attendance::year($year)
+                ->where('user_id', $this->log->user->id)
+                ->where('is_locked', false)
+                ->where(function (Builder $query): void {
+                    $query->where('in_log_id', $this->prv_log->id)
+                        ->orWhere('out_log_id', $this->prv_log->id);
+                })
+                ->first();
+
+            if ($this->previousPunchAttendance !== null) {
+                break;
+            }
+        }
+
+        return $this->previousPunchAttendance;
     }
 
     private function markPreviousPunchMissedOut(): void
@@ -407,47 +459,95 @@ class AttCalculator
      */
     private function findCutoffShiftForPunches(): ?array
     {
-        // MySQL TIME durations support values up to 838:59:59 (less than 35 days).
-        $cutoffMusters = ShiftMuster::where('user_id', $this->log->user->id)
-            ->where('is_locked', false)
-            ->whereBetween('date', [
-                $this->log->datetime->copy()->subDays(35)->startOfDay(),
-                $this->log->datetime->copy()->endOfDay(),
-            ])
-            ->whereNotNull('calculated_shift')
-            ->orderByDesc('date')
-            ->get(['date', 'calculated_shift']);
-        $shifts = Shift::whereIn('id', $cutoffMusters->pluck('calculated_shift')->unique())
-            ->get()
-            ->keyBy('id');
+        $attendance = $this->getPreviousAttendanceForPunch();
+        $shift = $attendance?->shift;
 
-        foreach ($cutoffMusters as $muster) {
-            $shift = $shifts->get($muster->calculated_shift);
+        if (
+            $attendance === null
+            || ! $shift?->set_cutoff
+            || $attendance->shift_in_time === null
+            || $attendance->shift_out_time === null
+        ) {
+            return null;
+        }
 
-            if (! $shift?->set_cutoff || ! $shift->in_time) {
-                continue;
-            }
+        $cutoffSeconds = $this->getDurationSeconds($shift->getRawOriginal('cutoff_time'), 'shift cutoff');
+        if ($cutoffSeconds <= 0) {
+            return null;
+        }
 
-            $cutoffSeconds = $this->getDurationSeconds($shift->getRawOriginal('cutoff_time'), 'shift cutoff');
-            if ($cutoffSeconds <= 0) {
-                continue;
-            }
+        $shiftStart = $attendance->shift_in_time->copy();
+        $shiftEnd = $attendance->shift_out_time->copy();
 
-            $shiftStart = Carbon::parse($muster->date->format('Y-m-d'))
-                ->setTimeFromTimeString($shift->in_time->format('H:i:s'));
-            $cutoffEnd = $shiftStart->copy()->addSeconds($cutoffSeconds);
+        if ($attendance->is_night_shift && $shiftEnd->lessThanOrEqualTo($shiftStart)) {
+            $shiftEnd->addDay();
+        }
 
-            if (
-                $this->prv_log->datetime >= $shiftStart
-                && $this->prv_log->datetime <= $cutoffEnd
-                && $this->log->datetime >= $shiftStart
-                && $this->log->datetime <= $cutoffEnd
-            ) {
-                return ['date' => $muster->date->format('Y-m-d')];
-            }
+        $cutoffEnd = $shiftEnd->addSeconds($cutoffSeconds);
+        if ($this->log->datetime->gte($shiftStart) && $this->log->datetime->lte($cutoffEnd)) {
+            return ['date' => $attendance->date->format('Y-m-d')];
         }
 
         return null;
+    }
+
+    /**
+     * @return array{start: Carbon, end: Carbon}|null
+     */
+    private function getShiftCutoffWindow(Shift $shift, Carbon $date, int $cutoffSeconds): ?array
+    {
+        if (! $shift->in_time || ! $shift->out_time) {
+            return null;
+        }
+
+        $shiftStart = Carbon::parse($date->format('Y-m-d'))
+            ->setTimeFromTimeString($shift->in_time->format('H:i:s'));
+        $shiftEnd = Carbon::parse($date->format('Y-m-d'))
+            ->setTimeFromTimeString($shift->out_time->format('H:i:s'));
+
+        if ($shift->is_night_shift && $shiftEnd->lessThanOrEqualTo($shiftStart)) {
+            $shiftEnd->addDay();
+        }
+
+        return [
+            'start' => $shiftStart,
+            'end' => $shiftEnd->addSeconds($cutoffSeconds),
+        ];
+    }
+
+    private function setPunchAttendanceDateFromCutoff(): void
+    {
+        if ($this->log->user === null || $this->log->datetime === null || $this->prv_log === null) {
+            return;
+        }
+
+        $cutoffShift = $this->findCutoffShiftForPunches();
+
+        if ($cutoffShift === null) {
+            return;
+        }
+
+        $this->punchAttendanceDate = $cutoffShift['date'];
+        $this->attendance_date = $cutoffShift['date'];
+        $this->f_years = Carbon::parse($cutoffShift['date'])->year;
+        $this->debug('Punch falls within the previous attendance shift cutoff window for '.$cutoffShift['date'].'; continuing that attendance');
+    }
+
+    private function keepAttendanceDateAfterShiftAssignment(): void
+    {
+        if (
+            ! $this->attendance_changed
+            || $this->curatt === null
+            || $this->attendance_date === null
+            || $this->curatt->date->format('Y-m-d') !== $this->attendance_date
+        ) {
+            return;
+        }
+
+        $this->debug('Attendance already matches the assigned cutoff date; keeping the existing record');
+        $this->attendance_changed = false;
+        $this->applyCurrentShiftToAttendance();
+        $this->curatt->save();
     }
 
     private function setDirectionFromPreviousPunch(int $sameDirectionSeconds): void
@@ -486,8 +586,7 @@ class AttCalculator
 
         $punchWindowAttendance = null;
         if (
-            ! $this->log->is_out
-            && $this->curatt === null
+            $this->curatt === null
             && $this->punchAttendanceDate !== null
             && $this->punchAttendanceDate !== $this->log->datetime->format('Y-m-d')
         ) {
@@ -559,6 +658,7 @@ class AttCalculator
             if ($this->curatt->out_time == null && $this->curatt->in_time == null) {
                 $this->debug('In and Out is null so no need to update shift');
                 $this->retriveAssignedShift();
+                $this->keepAttendanceDateAfterShiftAssignment();
                 if ($this->attendance_changed) {
                     $this->debug('Attendance date changed to '.$this->attendance_date.' while out punch');
                     if ($prvatt && ($prvatt->out_time == null || $prvatt->out_time->lte($this->log->datetime))) {
@@ -657,6 +757,7 @@ class AttCalculator
             if ($this->curatt->in_time == null || $this->curatt->in_time->gte($this->log->datetime)) {
                 $this->debug('Updating In Because intime is null or greater than or equal to current log time');
                 $this->retriveAssignedShift();
+                $this->keepAttendanceDateAfterShiftAssignment();
                 if ($this->attendance_changed) {
                     $this->debug('Attendance date changed to '.$this->attendance_date.' while in punch');
                     if ($this->new_att_created) {
@@ -1025,6 +1126,31 @@ class AttCalculator
         $this->curatt->shift_out_time = $shiftOutTime
             ? Carbon::createFromDate($this->attendance_date)->setTimeFromTimeString($shiftOutTime->toTimeString())
             : null;
+
+        $this->normalizeNightShiftEndTime();
+    }
+
+    private function normalizeNightShiftEndTime(): bool
+    {
+        if (
+            ! $this->curatt->is_night_shift
+            || $this->curatt->shift_in_time === null
+            || $this->curatt->shift_out_time === null
+        ) {
+            return false;
+        }
+
+        $shiftInTime = Carbon::parse($this->curatt->shift_in_time);
+        $shiftOutTime = Carbon::parse($this->curatt->shift_out_time);
+
+        if ($shiftOutTime->greaterThan($shiftInTime)) {
+            return false;
+        }
+
+        $this->curatt->shift_out_time = $shiftOutTime->addDay();
+        $this->debug('Moved night shift end time to the following calendar day');
+
+        return true;
     }
 
     public function handleCutoffTime()
@@ -1064,18 +1190,14 @@ class AttCalculator
 
             if ($prev_att && $prev_att->shift != null && $prev_att->shift != null) {
                 $shiftCutoffSeconds = $this->getDurationSeconds($prev_att->shift->getRawOriginal('cutoff_time'), 'shift cutoff');
-                if ($prev_att->shift->set_cutoff && $shiftCutoffSeconds > 0) {
-                    $shift_start = Carbon::parse($prev_att->date)
-                        ->setTimeFromTimeString($prev_att->shift->in_time->format('H:i:s'));
+                $cutoffWindow = $prev_att->shift->set_cutoff && $shiftCutoffSeconds > 0
+                    ? $this->getShiftCutoffWindow($prev_att->shift, $prev_att->date, $shiftCutoffSeconds)
+                    : null;
+                if ($cutoffWindow !== null) {
 
-                    $cutoff_time = Carbon::parse($prev_att->date)
-                        ->setTimeFromTimeString($prev_att->shift->in_time->format('H:i:s'))
-                        ->addSeconds($shiftCutoffSeconds);
-
-                    // Check if current punch is between shift start and cutoff time
                     if (
                         $this->log->is_out &&
-                        $this->log->datetime->between($shift_start, $cutoff_time)
+                        $this->log->datetime->between($cutoffWindow['start'], $cutoffWindow['end'])
                     ) {
 
                         // Delete any attendance created for current day
@@ -1285,6 +1407,9 @@ class AttCalculator
             return;
         }
 
+        if ($this->normalizeNightShiftEndTime()) {
+            $this->curatt->save();
+        }
         $this->halfdayRuleLateFlag = false;
         $this->halfdayRuleEarlyFlag = false;
         $this->halfdayRuleWorkHourFlag = false;
@@ -1319,9 +1444,6 @@ class AttCalculator
                     $this->debug('Skipping half-day check because shift start or end time is missing');
 
                     return;
-                }
-                if ($this->curatt->is_night_shift && $shiftOutTime->lessThanOrEqualTo($shiftInTime)) {
-                    $shiftOutTime->addDay();
                 }
 
                 $differenceInMinutes = $punchInTime && $punchInTime->greaterThan($shiftInTime)
@@ -1771,6 +1893,10 @@ class AttCalculator
 
     public function checkAbsentRule(): void
     {
+        if ($this->curatt !== null && $this->normalizeNightShiftEndTime()) {
+            $this->curatt->save();
+        }
+
         $leave_application = LeaveApplication::whereHas('users', fn ($query) => $query->whereKey($this->log->user->id))
             ->where('from_date', '<=', $this->log->datetime->format('Y-m-d'))
             ->where('to_date', '>=', $this->log->datetime->format('Y-m-d'))
@@ -2163,6 +2289,9 @@ class AttCalculator
             return;
         }
 
+        if ($this->normalizeNightShiftEndTime()) {
+            $this->curatt->save();
+        }
         $date = $this->log->datetime->format('Y-m-d');
         $leaveApplication = LeaveApplication::whereHas('users', fn ($query) => $query->whereKey($this->log->user->id))
             ->where('from_date', '<=', $date)
@@ -2374,6 +2503,7 @@ class AttCalculator
     public function checkOverTimeRule(): void
     {
         $this->debug('~~~Checking OverTime Rule');
+        $this->curatt->row_overtime_minutes = 0;
         $this->curatt->total_overtime_minutes = 0;
         if (! $this->curatt->shift_in_time || ! $this->curatt->shift_out_time) {
             $this->debug('Skipping overtime calculation because attendance has no shift times');
@@ -2382,6 +2512,9 @@ class AttCalculator
             return;
         }
 
+        if ($this->normalizeNightShiftEndTime()) {
+            $this->curatt->save();
+        }
         $this->otFlag = false;
         $this->overtime_early = 0;
         $this->overtime_late = 0;
@@ -2403,9 +2536,27 @@ class AttCalculator
         $punchOutTime = Carbon::parse($this->curatt->out_time);
 
         if ($overtimeRule) {
+            $earlyMinutes = max(0, (int) floor(($shiftInTime->getTimestamp() - $punchInTime->getTimestamp()) / 60));
+            $lateMinutes = max(0, (int) floor(($punchInTime->getTimestamp() - $shiftInTime->getTimestamp()) / 60));
             $lateGoingMinutes = max(0, (int) floor(($punchOutTime->getTimestamp() - $shiftOutTime->getTimestamp()) / 60));
-            $totalMinutes = (int) $overtimeRule->qualifyingOvertimeMinutes($lateGoingMinutes);
+            $earlyGoingMinutes = max(0, (int) floor(($shiftOutTime->getTimestamp() - $punchOutTime->getTimestamp()) / 60));
+            $this->curatt->row_overtime_minutes = max(
+                0,
+                $earlyMinutes + $lateGoingMinutes - $lateMinutes - $earlyGoingMinutes,
+            );
+
+            $totalMinutes = $overtimeRule->calculateOvertimeMinutes(
+                $earlyMinutes,
+                $lateMinutes,
+                $lateGoingMinutes,
+                $earlyGoingMinutes,
+            );
+            $comingMinutes = $overtimeRule->adjustedComingMinutes($earlyMinutes, $lateMinutes);
+
+            $this->overtime_early = $comingMinutes['early'];
+            $this->overtime_late = $comingMinutes['late'];
             $this->debug('After shift overtime minutes: '.$lateGoingMinutes);
+            $this->debug('Overtime after coming/going deductions: '.$totalMinutes);
             $this->debug('Final Total Overtime: '.$totalMinutes);
 
             $slab = $overtimeRule->overtime_slabs()
@@ -2440,6 +2591,7 @@ class AttCalculator
         $this->overtime_early = $earlyMinutes;
         $this->overtime_late = $lateMinutes;
         $totalMinutes = max(0, $earlyMinutes + $lateGoingMinutes - $lateMinutes - $earlyGoingMinutes);
+        $this->curatt->row_overtime_minutes = $totalMinutes;
         $this->debug('Calculated overtime minutes before category skip: '.$totalMinutes);
 
         if ($category->skip_overtime) {

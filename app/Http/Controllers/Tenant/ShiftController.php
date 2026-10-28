@@ -148,7 +148,7 @@ class ShiftController extends Controller
                 'auto_to' => 'Optional; automatic attendance end time in HH:MM or HH:MM:SS format.',
                 'is_night_shift' => 'Optional; Yes, No, 1, or 0; blank defaults to No.',
                 'set_cutoff' => 'Optional; Yes, No, 1, or 0; blank defaults to No.',
-                'cutoff_time' => 'Required when set_cutoff is Yes; enter a duration from shift start in HH:MM or HH:MM:SS format (24:00 means 24 hours; maximum 838:59:59).',
+                'cutoff_time' => 'Required when set_cutoff is Yes; enter a duration to add after the scheduled shift end in HH:MM or HH:MM:SS format (24:00 means 24 hours after shift end; maximum 838:59:59).',
                 'status' => 'Optional; Active, Inactive, 1, or 0; blank defaults to Active.',
             ]);
             fclose($handle);

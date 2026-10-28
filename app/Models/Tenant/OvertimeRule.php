@@ -100,12 +100,71 @@ class OvertimeRule extends Model
         return $this->hasMany(OvertimeSlab::class);
     }
 
+    public function ignoreEarlyComingMinutesValue(): int
+    {
+        return $this->toMinutes($this->ignore_early_come_minutes);
+    }
+
+    public function ignoreLateComingMinutesValue(): int
+    {
+        return $this->toMinutes($this->ignore_late_come_minutes);
+    }
+
+    public function adjustedComingMinutes(int $earlyMinutes, int $lateMinutes): array
+    {
+        return [
+            'early' => max(0, $earlyMinutes - $this->ignoreEarlyComingMinutesValue()),
+            'late' => max(0, $lateMinutes - $this->ignoreLateComingMinutesValue()),
+        ];
+    }
+
     public function qualifyingOvertimeMinutes(float $lateGoingMinutes): float
     {
-        $minimumMinutes = $this->ignore_late_going
-            ? (float) $this->ignore_late_going_overtime
-            : (float) $this->ignore_overtime;
+        return (float) $this->calculateOvertimeMinutes(
+            earlyComingMinutes: 0,
+            lateComingMinutes: 0,
+            lateGoingMinutes: (int) round($lateGoingMinutes),
+            earlyGoingMinutes: 0,
+        );
+    }
 
-        return $lateGoingMinutes > $minimumMinutes ? $lateGoingMinutes : 0.0;
+    public function calculateOvertimeMinutes(
+        int $earlyComingMinutes,
+        int $lateComingMinutes,
+        int $lateGoingMinutes,
+        int $earlyGoingMinutes,
+    ): int {
+        $comingMinutes = $this->adjustedComingMinutes($earlyComingMinutes, $lateComingMinutes);
+        $lateGoingMinutes = $this->ignore_late_going
+            ? max(0, $lateGoingMinutes - (int) round((float) $this->ignore_late_going_overtime))
+            : $lateGoingMinutes;
+
+        $overtimeMinutes = max(
+            0,
+            $comingMinutes['early'] + $lateGoingMinutes - $comingMinutes['late'] - $earlyGoingMinutes,
+        );
+
+        return max(0, $overtimeMinutes - (int) round((float) $this->ignore_overtime));
+    }
+
+    private static function toMinutes(mixed $value): int
+    {
+        if ($value === null || $value === '') {
+            return 0;
+        }
+
+        if (is_numeric($value)) {
+            return max(0, (int) round((float) $value));
+        }
+
+        $time = trim((string) $value);
+        if (preg_match('/^(\d{1,2}):(\d{2})(?::\d{2})?$/', $time, $matches) !== 1) {
+            return 0;
+        }
+
+        $hours = (int) $matches[1];
+        $minutes = (int) $matches[2];
+
+        return max(0, ($hours * 60) + $minutes);
     }
 }
