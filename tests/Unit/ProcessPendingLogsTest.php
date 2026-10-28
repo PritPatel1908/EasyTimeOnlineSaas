@@ -154,7 +154,7 @@ class ProcessPendingLogsTest extends TestCase
         }
     }
 
-    public function test_automatic_shift_without_a_complete_window_does_not_break_attendance_processing(): void
+    public function test_automatic_shift_without_a_complete_window_stays_unassigned(): void
     {
         $shift = Shift::create([
             'auto_from' => null,
@@ -183,7 +183,12 @@ class ProcessPendingLogsTest extends TestCase
             $calculator = new AttCalculator($log, true);
             $calculator->retriveAssignedShift();
 
-            $this->assertSame($shift->id, $calculator->shift?->id);
+            if ($shiftType === 'auto') {
+                $this->assertNull($calculator->shift);
+                $this->assertStringContainsString('No automatic shift matched; leaving shift unassigned', implode(PHP_EOL, $calculator->getReturnLogs()));
+            } else {
+                $this->assertSame($shift->id, $calculator->shift?->id);
+            }
             $this->assertStringContainsString('automatic shift window is incomplete', implode(PHP_EOL, $calculator->getReturnLogs()));
         }
     }

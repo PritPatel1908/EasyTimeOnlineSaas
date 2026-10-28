@@ -628,8 +628,8 @@ class AttCalculator
         $this->shift = $this->curatt->shift;
 
         $shift_muster = ShiftMuster::where('user_id', $this->log->user->id)->where('is_locked', false)->where('date', $this->log->datetime->format('Y-m-d'))->first();
-        if ($shift_muster && $this->shift !== null) {
-            $shift_muster->calculated_shift = $this->shift->id;
+        if ($shift_muster && ($this->shift !== null || $this->log->user->shift_type == 'auto')) {
+            $shift_muster->calculated_shift = $this->shift?->id;
             $shift_muster->is_calculated = true;
             $shift_muster->save();
         }
@@ -1178,6 +1178,12 @@ class AttCalculator
         }
 
         if ($this->shift == null) {
+            if ($this->log->user->shift_type == 'auto') {
+                $this->debug('No automatic shift matched; leaving shift unassigned');
+
+                return;
+            }
+
             // TODO: assign default shift from general configuration
             $this->debug('No shift matched; falling back to the first configured shift');
             $this->shift = Shift::first();
