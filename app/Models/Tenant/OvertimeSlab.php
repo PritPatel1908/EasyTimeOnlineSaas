@@ -8,6 +8,8 @@ namespace App\Models\Tenant;
 
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
+use DateTimeInterface;
+use InvalidArgumentException;
 
 /**
  * Class OvertimeSlab
@@ -42,5 +44,39 @@ class OvertimeSlab extends Model
     public function overtime_rule()
     {
         return $this->belongsTo(OvertimeRule::class);
+    }
+
+    public function containsMinutes(int $minutes): bool
+    {
+        $from = $this->timeValueInMinutes($this->value_from);
+        $to = $this->timeValueInMinutes($this->value_to);
+
+        return $from !== null && $to !== null && $minutes >= $from && $minutes <= $to;
+    }
+
+    public function formattedHeadValue(): string
+    {
+        $minutes = $this->timeValueInMinutes($this->head_value);
+
+        return $minutes === null
+            ? '00:00'
+            : sprintf('%02d:%02d', intdiv($minutes, 60), $minutes % 60);
+    }
+
+    private function timeValueInMinutes(mixed $value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if ($value instanceof DateTimeInterface) {
+            return ((int) $value->format('H') * 60) + (int) $value->format('i');
+        }
+
+        if (preg_match('/\A(\d{1,3}):([0-5]\d)(?::[0-5]\d)?\z/', (string) $value, $matches) !== 1) {
+            throw new InvalidArgumentException('Overtime slab values must be valid HH:MM[:SS] times.');
+        }
+
+        return ((int) $matches[1] * 60) + (int) $matches[2];
     }
 }
