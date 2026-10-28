@@ -2458,7 +2458,9 @@ class AttCalculator
                 if ($updating->check_time->lt($this->log->datetime)) {
                     $updating->check_time = $this->log->datetime;
                 }
-                $updating->work_time = $this->log->datetime->diffInMinutes($updating->out_time);
+                $updating->work_time = $updating->out_time === null
+                    ? null
+                    : $this->log->datetime->diffInMinutes($updating->out_time);
                 $updating->save();
                 $muster = $updating;
             } elseif ($updating->in_time != null && $updating->in_time->eq($this->log->datetime) && $updating->area_id == $this->area?->id) {
@@ -2592,6 +2594,7 @@ class AttCalculator
         // dd($this->log->datetime);
         $inquery = InOutMuster::year($year)
             ->where('user_id', $this->log->user->id)
+            ->where('area_id', $this->area?->id)
             ->where('is_locked', false)
             ->where('check_time', '>=', $this->log->datetime)
             // ->where(function (Builder $query) {
@@ -2623,7 +2626,9 @@ class AttCalculator
                 if ($updating->check_time->lt($this->log->datetime)) {
                     $updating->check_time = $this->log->datetime;
                 }
-                $updating->work_time = $updating->in_time->diffInMinutes($this->log->datetime);
+                $updating->work_time = $updating->in_time === null
+                    ? null
+                    : $updating->in_time->diffInMinutes($this->log->datetime);
                 $updating->save();
                 $muster = $updating;
             } elseif ($updating->out_time != null && $updating->out_time->eq($this->log->datetime) && $updating->area_id == $this->area?->id) {
@@ -2756,15 +2761,13 @@ class AttCalculator
 
         $outmuster = InOutMuster::year($year)
             ->where('user_id', $this->log->user->id)
+            ->where('area_id', $this->area?->id)
             ->where('is_locked', false)
             ->where(function (Builder $query) {
                 $query->where('check_time', '<=', $this->log->datetime)
                     ->orWhere('out_time', '>=', $this->log->datetime);
             })
             ->where('check_time', '>=', $this->log->datetime->copy()->subDay()->startOfDay())
-            ->where(function (Builder $query) {
-                $query->whereNULL('out_time')->orWhere('out_time', '<=', $this->log->datetime);
-            })
             ->orderBy('check_time', 'desc')
             ->limit(1)
             ->first();

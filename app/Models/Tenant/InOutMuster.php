@@ -57,6 +57,8 @@ class InOutMuster extends Model
         'company_id',
         'department_id',
         'sub_department_id',
+        'category_id',
+        'sub_category_id',
         'area_id',
         'date',
         'check_time',
