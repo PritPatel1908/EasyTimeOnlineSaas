@@ -1799,681 +1799,110 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
 
     public function checkLateComingRule(): void
     {
-        $leave_application = LeaveApplication::whereHas('users', fn ($query) => $query->whereKey($this->user->id))
-            ->where('from_date', '<=', Carbon::parse($this->manualAttendance->in_time)->format('Y-m-d'))
-            ->where('to_date', '>=', Carbon::parse($this->manualAttendance->in_time)->format('Y-m-d'))
+        if (! (bool) setting('half_day_rules', '0')) {
+            $this->debug('First enable late coming rule in setting');
+
+            return;
+        }
+
+        if ($this->curatt === null || $this->user === null) {
+            $this->debug('Skipping late coming check because attendance or user is missing');
+
+            return;
+        }
+
+        if ($this->curatt->shift_in_time === null || $this->curatt->in_time === null) {
+            $this->debug('Skipping late coming check because shift start or punch-in time is missing');
+            $this->updateManualLateComingStatus(false);
+
+            return;
+        }
+
+        $lateComingRule = $this->user->late_coming_rule;
+        if ($lateComingRule === null || (int) $lateComingRule->status !== 1) {
+            $this->debug('Skipping late coming check because the user has no active late-coming rule');
+            $this->updateManualLateComingStatus(false);
+
+            return;
+        }
+
+        $date = Carbon::parse($this->manualAttendance->in_time)->format('Y-m-d');
+        $leaveApplication = LeaveApplication::whereHas('users', fn ($query) => $query->whereKey($this->user->id))
+            ->where('from_date', '<=', $date)
+            ->where('to_date', '>=', $date)
             ->first();
-
-        $short_leave = ShortLeaveApplication::where('user_id', $this->user->id)
-            ->where('date', Carbon::parse($this->manualAttendance->in_time)->format('Y-m-d'))->first();
-
+        $shortLeave = ShortLeaveApplication::where('user_id', $this->user->id)
+            ->where('date', $date)
+            ->first();
         $coff = Coff::where('user_id', $this->user->id)
-            ->where('from_date', '<=', Carbon::parse($this->manualAttendance->in_time)->format('Y-m-d'))
-            ->where('to_date', '>=', Carbon::parse($this->manualAttendance->in_time)->format('Y-m-d'))
+            ->where('from_date', '<=', $date)
+            ->where('to_date', '>=', $date)
             ->first();
 
-        if ($leave_application != null) {
-            if ($leave_application->is_first_half && $leave_application->from_date == $today = Carbon::today()->format('Y-m-d')) {
-                if (setting('half_day_rules', '0') == true) { // GeneralHelper::checkSettings("half_day_rules") === true) {
-                    $this->debug('~~~Checking LateComing Rule');
-                    if ($this->user->late_coming_rule && $this->curatt->shift_in_time && $this->curatt->in_time) {
-                        $ignoreLateComingMinutes = $this->user?->late_coming_rule?->ignore_late_coming_minutes;
-                        $shiftInTime = Carbon::parse($this->curatt->shift_in_time);
-                        $punchInTime = Carbon::parse($this->curatt->in_time);
-
-                        if ($punchInTime && $shiftInTime && $punchInTime->gte($shiftInTime)) {
-                            $differenceInMinutes = $shiftInTime->diffInMinutes($punchInTime);
-
-                            if ($differenceInMinutes > $ignoreLateComingMinutes && $ignoreLateComingMinutes >= 0) {
-                                $this->debug('User punch in time is greater than shift in time and exceeds ignore late coming minutes, so user is late');
-                                $this->curatt->status_master_id = StatusMaster::where('code', 'P'.$leave_application->leave_type->code)->first()->id;
-                                $this->curatt->is_late = true;
-                                $this->curatt->save();
-
-                                $processTags = $this->curatt->process_tags();
-                                $processTags->where('name', 'Late Coming')->delete();
-                                $processTags->create(['name' => 'Late Coming', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
-                            } else {
-                                if ($this->curatt->is_late = true) {
-                                    $this->curatt->is_late = false;
-                                    $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                    $this->curatt->save();
-
-                                    $statusMuster = StatusMuster::where('user_id', $this->user->id)
-                                        ->where('is_locked', false)
-                                        ->where('date', $this->manualAttendance->in_time->format('Y-m-d'))->first();
-
-                                    if ($statusMuster) {
-                                        $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                        $statusMuster->day_count = $statusMuster->day_count;
-                                        $statusMuster->save();
-                                    }
-
-                                    $processTags = $this->curatt->process_tags();
-                                    $processTags->where('name', 'Late Coming')->delete();
-                                }
-                                $this->debug('User Not Greater Than Late Coming Minutes');
-                            }
-                        } else {
-                            if ($this->curatt->is_late = true) {
-                                $this->curatt->is_late = false;
-                                $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                $this->curatt->save();
-
-                                $statusMuster = StatusMuster::where('user_id', $this->user->id)
-                                    ->where('is_locked', false)
-                                    ->where('date', $this->manualAttendance->in_time->format('Y-m-d'))->first();
-                                if ($statusMuster) {
-                                    $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                    $statusMuster->day_count = $statusMuster->day_count;
-                                    $statusMuster->save();
-                                }
-
-                                $processTags = $this->curatt->process_tags();
-                                $processTags->where('name', 'Late Coming')->delete();
-                            }
-                            $this->debug('Punch In Time Not Have | Shift In Time Not Have | Punch In Time Not Greater Than Shift In Time');
-                        }
-                    } else {
-                        if ($this->curatt->shift_in_time && $this->curatt->in_time) {
-                            $shiftInTime = Carbon::parse($this->curatt->shift_in_time);
-                            $punchInTime = Carbon::parse($this->curatt->in_time);
-
-                            if ($punchInTime && $shiftInTime && $punchInTime->gte($shiftInTime)) {
-                                $differenceInMinutes = $shiftInTime->diffInMinutes($punchInTime);
-
-                                if ($differenceInMinutes > 0) {
-                                    $this->debug('User punch in time is greater than shift in time, so user is late');
-                                    $this->curatt->status_master_id = StatusMaster::where('code', 'P'.$leave_application->leave_type->code)->first()->id;
-                                    $this->curatt->is_late = true;
-                                    $this->curatt->save();
-
-                                    $processTags = $this->curatt->process_tags();
-                                    $processTags->where('name', 'Late Coming')->delete();
-                                    $processTags->create(['name' => 'Late Coming', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
-                                } else {
-                                    if ($this->curatt->is_late = true) {
-                                        $this->curatt->is_late = false;
-                                        $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                        $this->curatt->save();
-
-                                        $statusMuster = StatusMuster::where('user_id', $this->user->id)
-                                            ->where('is_locked', false)
-                                            ->where('date', $this->manualAttendance->in_time->format('Y-m-d'))->first();
-                                        if ($statusMuster) {
-                                            $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                            $statusMuster->day_count = $statusMuster->day_count;
-                                            $statusMuster->save();
-                                        }
-
-                                        $processTags = $this->curatt->process_tags();
-                                        $processTags->where('name', 'Late Coming')->delete();
-                                    }
-                                    $this->debug('User Not Greater Than Late Coming Minutes');
-                                }
-                            } else {
-                                if ($this->curatt->is_late = true) {
-                                    $this->curatt->is_late = false;
-                                    $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                    $this->curatt->save();
-
-                                    $statusMuster = StatusMuster::where('user_id', $this->user->id)
-                                        ->where('is_locked', false)
-                                        ->where('date', $this->manualAttendance->in_time->format('Y-m-d'))->first();
-                                    if ($statusMuster) {
-                                        $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                        $statusMuster->day_count = $statusMuster->day_count;
-                                        $statusMuster->save();
-                                    }
-
-                                    $processTags = $this->curatt->process_tags();
-                                    $processTags->where('name', 'Late Coming')->delete();
-                                }
-                                $this->debug('Punch In Time Not Have | Shift In Time Not Have | Punch In Time Not Greater Than Shift In Time');
-                            }
-                        } else {
-                            if ($this->curatt->is_late = true) {
-                                $this->curatt->is_late = false;
-                                $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                $this->curatt->save();
-
-                                $statusMuster = StatusMuster::where('user_id', $this->user->id)
-                                    ->where('is_locked', false)
-                                    ->where('date', $this->manualAttendance->in_time->format('Y-m-d'))->first();
-                                if ($statusMuster) {
-                                    $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                    $statusMuster->day_count = $statusMuster->day_count;
-                                    $statusMuster->save();
-                                }
-
-                                $processTags = $this->curatt->process_tags();
-                                $processTags->where('name', 'Late Coming')->delete();
-                            }
-                            $this->debug('Late Coming Rule is not set for user');
-                        }
-                    }
-                } else {
-                    $this->debug('First enable late coming rule in setting');
-                }
-            }
-        } elseif ($short_leave != null) {
-            if ($short_leave->short_leave_type == '1') {
-                if (setting('half_day_rules', '0') == true) { // GeneralHelper::checkSettings("half_day_rules") === true) {
-                    $this->debug('~~~Checking LateComing Rule');
-                    if ($this->user->late_coming_rule && $this->curatt->shift_in_time && $this->curatt->in_time) {
-                        $ignoreLateComingMinutes = $this->user?->late_coming_rule?->ignore_late_coming_minutes;
-                        $shiftInTime = Carbon::parse($this->curatt->shift_in_time);
-                        $punchInTime = Carbon::parse($this->curatt->in_time);
-
-                        if ($punchInTime && $shiftInTime && $punchInTime->gte($shiftInTime)) {
-                            $differenceInMinutes = $shiftInTime->diffInMinutes($punchInTime);
-
-                            if ($differenceInMinutes > $short_leave->minutes) {
-                                if ($differenceInMinutes > $ignoreLateComingMinutes && $ignoreLateComingMinutes >= 0) {
-                                    $this->debug('User punch in time is greater than shift in time and exceeds ignore late coming minutes, so user is late');
-                                    $this->curatt->status_master_id = StatusMaster::where('code', 'PP')->first()->id;
-                                    $this->curatt->is_late = true;
-                                    $this->curatt->save();
-
-                                    StatusMuster::where('user_id', $this->user->id)
-                                        ->where('is_locked', false)
-                                        ->where('date', $this->manualAttendance->in_time->format('Y-m-d'))
-                                        ->update([
-                                            'status_master_id' => StatusMaster::where('code', 'PP')->first()->id,
-                                            'day_count' => 1,
-                                        ]);
-
-                                    $processTags = $this->curatt->process_tags();
-                                    $processTags->where('name', 'Late Coming')->delete();
-                                    $processTags->create(['name' => 'Late Coming', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
-                                } else {
-                                    if ($this->curatt->is_late = true) {
-                                        $this->curatt->is_late = false;
-                                        $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                        $this->curatt->save();
-
-                                        $statusMuster = StatusMuster::where('user_id', $this->user->id)
-                                            ->where('is_locked', false)
-                                            ->where('date', $this->manualAttendance->in_time->format('Y-m-d'))->first();
-                                        if ($statusMuster) {
-                                            $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                            $statusMuster->day_count = $statusMuster->day_count;
-                                            $statusMuster->save();
-                                        }
-
-                                        $processTags = $this->curatt->process_tags();
-                                        $processTags->where('name', 'Late Coming')->delete();
-                                    }
-                                    $this->debug('User Not Greater Than Late Coming Minutes');
-                                }
-                            } else {
-                                if ($this->curatt->is_late = true) {
-                                    $this->curatt->is_late = false;
-                                    $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                    $this->curatt->save();
-
-                                    $statusMuster = StatusMuster::where('user_id', $this->user->id)
-                                        ->where('is_locked', false)
-                                        ->where('date', $this->manualAttendance->in_time->format('Y-m-d'))->first();
-                                    if ($statusMuster) {
-                                        $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                        $statusMuster->day_count = $statusMuster->day_count;
-                                        $statusMuster->save();
-                                    }
-
-                                    $processTags = $this->curatt->process_tags();
-                                    $processTags->where('name', 'Late Coming')->delete();
-                                }
-                            }
-                        } else {
-                            if ($this->curatt->is_late = true) {
-                                $this->curatt->is_late = false;
-                                $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                $this->curatt->save();
-
-                                $statusMuster = StatusMuster::where('user_id', $this->user->id)
-                                    ->where('is_locked', false)
-                                    ->where('date', $this->manualAttendance->in_time->format('Y-m-d'))->first();
-                                if ($statusMuster) {
-                                    $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                    $statusMuster->day_count = $statusMuster->day_count;
-                                    $statusMuster->save();
-                                }
-
-                                $processTags = $this->curatt->process_tags();
-                                $processTags->where('name', 'Late Coming')->delete();
-                            }
-                            $this->debug('Punch In Time Not Have | Shift In Time Not Have | Punch In Time Not Greater Than Shift In Time');
-                        }
-                    } else {
-                        if ($this->curatt->shift_in_time && $this->curatt->in_time) {
-                            $shiftInTime = Carbon::parse($this->curatt->shift_in_time);
-                            $punchInTime = Carbon::parse($this->curatt->in_time);
-
-                            if ($punchInTime && $shiftInTime && $punchInTime->gte($shiftInTime)) {
-                                $differenceInMinutes = $shiftInTime->diffInMinutes($punchInTime);
-
-                                if ($differenceInMinutes > $short_leave->minutes) {
-                                    if ($differenceInMinutes > 0) {
-                                        $this->debug('User punch in time is greater than shift in time, so user is late');
-                                        $this->curatt->status_master_id = StatusMaster::where('code', 'PP')->first()->id;
-                                        $this->curatt->is_late = true;
-                                        $this->curatt->save();
-
-                                        StatusMuster::where('user_id', $this->user->id)
-                                            ->where('is_locked', false)
-                                            ->where('date', $this->manualAttendance->in_time->format('Y-m-d'))
-                                            ->update([
-                                                'status_master_id' => StatusMaster::where('code', 'PP')->first()->id,
-                                                'day_count' => 1,
-                                            ]);
-
-                                        $processTags = $this->curatt->process_tags();
-                                        $processTags->where('name', 'Late Coming')->delete();
-                                        $processTags->create(['name' => 'Late Coming', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
-                                    } else {
-                                        if ($this->curatt->is_late = true) {
-                                            $this->curatt->is_late = false;
-                                            $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                            $this->curatt->save();
-
-                                            $statusMuster = StatusMuster::where('user_id', $this->user->id)
-                                                ->where('is_locked', false)
-                                                ->where('date', $this->manualAttendance->in_time->format('Y-m-d'))->first();
-                                            if ($statusMuster) {
-                                                $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                                $statusMuster->day_count = $statusMuster->day_count;
-                                                $statusMuster->save();
-                                            }
-
-                                            $processTags = $this->curatt->process_tags();
-                                            $processTags->where('name', 'Late Coming')->delete();
-                                        }
-                                        $this->debug('User Not Greater Than Late Coming Minutes');
-                                    }
-                                } else {
-                                    if ($differenceInMinutes > 0) {
-                                        $this->debug('User punch in time is greater than shift in time, so user is late');
-                                        $this->curatt->status_master_id = StatusMaster::where('code', 'PP')->first()->id;
-                                        $this->curatt->is_late = true;
-                                        $this->curatt->save();
-
-                                        StatusMuster::where('user_id', $this->user->id)
-                                            ->where('is_locked', false)
-                                            ->where('date', $this->manualAttendance->in_time->format('Y-m-d'))
-                                            ->update([
-                                                'status_master_id' => StatusMaster::where('code', 'PP')->first()->id,
-                                                'day_count' => 1,
-                                            ]);
-
-                                        $processTags = $this->curatt->process_tags();
-                                        $processTags->where('name', 'Late Coming')->delete();
-                                        $processTags->create(['name' => 'Late Coming', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
-                                    } else {
-                                        if ($this->curatt->is_late = true) {
-                                            $this->curatt->is_late = false;
-                                            $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                            $this->curatt->save();
-
-                                            $statusMuster = StatusMuster::where('user_id', $this->user->id)
-                                                ->where('is_locked', false)
-                                                ->where('date', $this->manualAttendance->in_time->format('Y-m-d'))->first();
-                                            if ($statusMuster) {
-                                                $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                                $statusMuster->day_count = $statusMuster->day_count;
-                                                $statusMuster->save();
-                                            }
-
-                                            $processTags = $this->curatt->process_tags();
-                                            $processTags->where('name', 'Late Coming')->delete();
-                                        }
-                                    }
-                                }
-                            } else {
-                                if ($this->curatt->is_late = true) {
-                                    $this->curatt->is_late = false;
-                                    $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                    $this->curatt->save();
-
-                                    $statusMuster = StatusMuster::where('user_id', $this->user->id)
-                                        ->where('is_locked', false)
-                                        ->where('date', $this->manualAttendance->in_time->format('Y-m-d'))->first();
-                                    if ($statusMuster) {
-                                        $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                        $statusMuster->day_count = $statusMuster->day_count;
-                                        $statusMuster->save();
-                                    }
-
-                                    $processTags = $this->curatt->process_tags();
-                                    $processTags->where('name', 'Late Coming')->delete();
-                                }
-                                $this->debug('Punch In Time Not Have | Shift In Time Not Have | Punch In Time Not Greater Than Shift In Time');
-                            }
-                        } else {
-                            if ($this->curatt->is_late = true) {
-                                $this->curatt->is_late = false;
-                                $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                $this->curatt->save();
-
-                                $statusMuster = StatusMuster::where('user_id', $this->user->id)
-                                    ->where('is_locked', false)
-                                    ->where('date', $this->manualAttendance->in_time->format('Y-m-d'))->first();
-                                if ($statusMuster) {
-                                    $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                    $statusMuster->day_count = $statusMuster->day_count;
-                                    $statusMuster->save();
-                                }
-
-                                $processTags = $this->curatt->process_tags();
-                                $processTags->where('name', 'Late Coming')->delete();
-                            }
-                            $this->debug('Late Coming Rule is not set for user');
-                        }
-                    }
-                } else {
-                    $this->debug('First enable late coming rule in setting');
-                }
-            }
-        } elseif ($coff != null) {
-            if ($coff->is_first_half && $coff->from_date == $this->manualAttendance->in_time->format('Y-m-d')) {
-                if (setting('half_day_rules', '0') == true) { // GeneralHelper::checkSettings("half_day_rules") === true) {
-                    $this->debug('~~~Checking LateComing Rule');
-                    if ($this->user->late_coming_rule && $this->curatt->shift_in_time && $this->curatt->in_time) {
-                        $ignoreLateComingMinutes = $this->user?->late_coming_rule?->ignore_late_coming_minutes;
-                        $shiftInTime = Carbon::parse($this->curatt->shift_in_time);
-                        $punchInTime = Carbon::parse($this->curatt->in_time);
-
-                        if ($punchInTime && $shiftInTime && $punchInTime->gte($shiftInTime)) {
-                            $differenceInMinutes = $shiftInTime->diffInMinutes($punchInTime);
-
-                            if ($differenceInMinutes > $ignoreLateComingMinutes && $ignoreLateComingMinutes >= 0) {
-                                $this->debug('User punch in time is greater than shift in time and exceeds ignore late coming minutes, so user is late');
-                                $this->curatt->status_master_id = StatusMaster::where('code', 'PCO')->first()->id;
-                                $this->curatt->is_late = true;
-                                $this->curatt->save();
-
-                                $processTags = $this->curatt->process_tags();
-                                $processTags->where('name', 'Late Coming')->delete();
-                                $processTags->create(['name' => 'Late Coming', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
-                            } else {
-                                if ($this->curatt->is_late = true) {
-                                    $this->curatt->is_late = false;
-                                    $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                    $this->curatt->save();
-
-                                    $statusMuster = StatusMuster::where('user_id', $this->user->id)
-                                        ->where('is_locked', false)
-                                        ->where('date', $this->manualAttendance->in_time->format('Y-m-d'))->first();
-                                    if ($statusMuster) {
-                                        $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                        $statusMuster->day_count = $statusMuster->day_count;
-                                        $statusMuster->save();
-                                    }
-
-                                    $processTags = $this->curatt->process_tags();
-                                    $processTags->where('name', 'Late Coming')->delete();
-                                }
-                                $this->debug('User Not Greater Than Late Coming Minutes');
-                            }
-                        } else {
-                            if ($this->curatt->is_late = true) {
-                                $this->curatt->is_late = false;
-                                $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                $this->curatt->save();
-
-                                $statusMuster = StatusMuster::where('user_id', $this->user->id)
-                                    ->where('is_locked', false)
-                                    ->where('date', $this->manualAttendance->in_time->format('Y-m-d'))->first();
-                                if ($statusMuster) {
-                                    $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                    $statusMuster->day_count = $statusMuster->day_count;
-                                    $statusMuster->save();
-                                }
-
-                                $processTags = $this->curatt->process_tags();
-                                $processTags->where('name', 'Late Coming')->delete();
-                            }
-                            $this->debug('Punch In Time Not Have | Shift In Time Not Have | Punch In Time Not Greater Than Shift In Time');
-                        }
-                    } else {
-                        if ($this->curatt->shift_in_time && $this->curatt->in_time) {
-                            $shiftInTime = Carbon::parse($this->curatt->shift_in_time);
-                            $punchInTime = Carbon::parse($this->curatt->in_time);
-
-                            if ($punchInTime && $shiftInTime && $punchInTime->gte($shiftInTime)) {
-                                $differenceInMinutes = $shiftInTime->diffInMinutes($punchInTime);
-
-                                if ($differenceInMinutes > 0) {
-                                    $this->debug('User punch in time is greater than shift in time, so user is late');
-                                    $this->curatt->status_master_id = StatusMaster::where('code', 'PCO')->first()->id;
-                                    $this->curatt->is_late = true;
-                                    $this->curatt->save();
-
-                                    $processTags = $this->curatt->process_tags();
-                                    $processTags->where('name', 'Late Coming')->delete();
-                                    $processTags->create(['name' => 'Late Coming', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
-                                } else {
-                                    if ($this->curatt->is_late = true) {
-                                        $this->curatt->is_late = false;
-                                        $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                        $this->curatt->save();
-
-                                        $statusMuster = StatusMuster::where('user_id', $this->user->id)
-                                            ->where('is_locked', false)
-                                            ->where('date', $this->manualAttendance->in_time->format('Y-m-d'))->first();
-                                        if ($statusMuster) {
-                                            $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                            $statusMuster->day_count = $statusMuster->day_count;
-                                            $statusMuster->save();
-                                        }
-
-                                        $processTags = $this->curatt->process_tags();
-                                        $processTags->where('name', 'Late Coming')->delete();
-                                    }
-                                    $this->debug('User Not Greater Than Late Coming Minutes');
-                                }
-                            } else {
-                                if ($this->curatt->is_late = true) {
-                                    $this->curatt->is_late = false;
-                                    $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                    $this->curatt->save();
-
-                                    $statusMuster = StatusMuster::where('user_id', $this->user->id)
-                                        ->where('is_locked', false)
-                                        ->where('date', $this->manualAttendance->in_time->format('Y-m-d'))->first();
-                                    if ($statusMuster) {
-                                        $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                        $statusMuster->day_count = $statusMuster->day_count;
-                                        $statusMuster->save();
-                                    }
-
-                                    $processTags = $this->curatt->process_tags();
-                                    $processTags->where('name', 'Late Coming')->delete();
-                                }
-                                $this->debug('Punch In Time Not Have | Shift In Time Not Have | Punch In Time Not Greater Than Shift In Time');
-                            }
-                        } else {
-                            if ($this->curatt->is_late = true) {
-                                $this->curatt->is_late = false;
-                                $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                $this->curatt->save();
-
-                                $statusMuster = StatusMuster::where('user_id', $this->user->id)
-                                    ->where('is_locked', false)
-                                    ->where('date', $this->manualAttendance->in_time->format('Y-m-d'))->first();
-                                if ($statusMuster) {
-                                    $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                    $statusMuster->day_count = $statusMuster->day_count;
-                                    $statusMuster->save();
-                                }
-
-                                $processTags = $this->curatt->process_tags();
-                                $processTags->where('name', 'Late Coming')->delete();
-                            }
-                            $this->debug('Late Coming Rule is not set for user');
-                        }
-                    }
-                } else {
-                    $this->debug('First enable late coming rule in setting');
-                }
-            }
-        } else {
-            if (setting('half_day_rules', '0') == true) { // GeneralHelper::checkSettings("half_day_rules") === true) {
-                $this->debug('~~~Checking LateComing Rule');
-                if ($this->user->late_coming_rule && $this->curatt->shift_in_time && $this->curatt->in_time) {
-                    $ignoreLateComingMinutes = $this->user?->late_coming_rule?->ignore_late_coming_minutes;
-                    $shiftInTime = Carbon::parse($this->curatt->shift_in_time);
-                    $punchInTime = Carbon::parse($this->curatt->in_time);
-
-                    if ($punchInTime && $shiftInTime && $punchInTime->gte($shiftInTime)) {
-                        $differenceInMinutes = $shiftInTime->diffInMinutes($punchInTime);
-
-                        if ($differenceInMinutes > $ignoreLateComingMinutes && $ignoreLateComingMinutes >= 0) {
-                            $this->debug('User punch in time is greater than shift in time and exceeds ignore late coming minutes, so user is late');
-                            $this->curatt->status_master_id = StatusMaster::where('code', 'PP')->first()->id;
-                            $this->curatt->is_late = true;
-                            $this->curatt->save();
-
-                            StatusMuster::where('user_id', $this->user->id)
-                                ->where('is_locked', false)
-                                ->where('date', $this->manualAttendance->in_time->format('Y-m-d'))
-                                ->update([
-                                    'status_master_id' => StatusMaster::where('code', 'PP')->first()->id,
-                                    'day_count' => 1,
-                                ]);
-
-                            $processTags = $this->curatt->process_tags();
-                            $processTags->where('name', 'Late Coming')->delete();
-                            $processTags->create(['name' => 'Late Coming', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
-                        } else {
-                            if ($this->curatt->is_late = true) {
-                                $this->curatt->is_late = false;
-                                $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                $this->curatt->save();
-
-                                $statusMuster = StatusMuster::where('user_id', $this->user->id)
-                                    ->where('is_locked', false)
-                                    ->where('date', $this->manualAttendance->in_time->format('Y-m-d'))->first();
-                                if ($statusMuster) {
-                                    $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                    $statusMuster->day_count = $statusMuster->day_count;
-                                    $statusMuster->save();
-                                }
-
-                                $processTags = $this->curatt->process_tags();
-                                $processTags->where('name', 'Late Coming')->delete();
-                            }
-                            $this->debug('User Not Greater Than Late Coming Minutes');
-                        }
-                    } else {
-                        if ($this->curatt->is_late = true) {
-                            $this->curatt->is_late = false;
-                            $this->curatt->status_master_id = $this->curatt->status_master_id;
-                            $this->curatt->save();
-
-                            $statusMuster = StatusMuster::where('user_id', $this->user->id)
-                                ->where('is_locked', false)
-                                ->where('date', $this->manualAttendance->in_time->format('Y-m-d'))->first();
-                            if ($statusMuster) {
-                                $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                $statusMuster->day_count = $statusMuster->day_count;
-                                $statusMuster->save();
-                            }
-
-                            $processTags = $this->curatt->process_tags();
-                            $processTags->where('name', 'Late Coming')->delete();
-                        }
-                        $this->debug('Punch In Time Not Have | Shift In Time Not Have | Punch In Time Not Greater Than Shift In Time');
-                    }
-                } else {
-                    if ($this->curatt->shift_in_time && $this->curatt->in_time) {
-                        $shiftInTime = Carbon::parse($this->curatt->shift_in_time);
-                        $punchInTime = Carbon::parse($this->curatt->in_time);
-
-                        if ($punchInTime && $shiftInTime && $punchInTime->gte($shiftInTime)) {
-                            $differenceInMinutes = $shiftInTime->diffInMinutes($punchInTime);
-
-                            if ($differenceInMinutes > 0) {
-                                $this->debug('User punch in time is greater than shift in time, so user is late');
-                                $this->curatt->status_master_id = StatusMaster::where('code', 'PP')->first()->id;
-                                $this->curatt->is_late = true;
-                                $this->curatt->save();
-
-                                StatusMuster::where('user_id', $this->user->id)
-                                    ->where('is_locked', false)
-                                    ->where('date', $this->manualAttendance->in_time->format('Y-m-d'))
-                                    ->update([
-                                        'status_master_id' => StatusMaster::where('code', 'PP')->first()->id,
-                                        'day_count' => 1,
-                                    ]);
-
-                                $processTags = $this->curatt->process_tags();
-                                $processTags->where('name', 'Late Coming')->delete();
-                                $processTags->create(['name' => 'Late Coming', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
-                            } else {
-                                if ($this->curatt->is_late = true) {
-                                    $this->curatt->is_late = false;
-                                    $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                    $this->curatt->save();
-
-                                    $statusMuster = StatusMuster::where('user_id', $this->user->id)
-                                        ->where('is_locked', false)
-                                        ->where('date', $this->manualAttendance->in_time->format('Y-m-d'))->first();
-                                    if ($statusMuster) {
-                                        $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                        $statusMuster->day_count = $statusMuster->day_count;
-                                        $statusMuster->save();
-                                    }
-
-                                    $processTags = $this->curatt->process_tags();
-                                    $processTags->where('name', 'Late Coming')->delete();
-                                }
-                                $this->debug('User Not Greater Than Late Coming Minutes');
-                            }
-                        } else {
-                            if ($this->curatt->is_late = true) {
-                                $this->curatt->is_late = false;
-                                $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                $this->curatt->save();
-
-                                $statusMuster = StatusMuster::where('user_id', $this->user->id)
-                                    ->where('is_locked', false)
-                                    ->where('date', $this->manualAttendance->in_time->format('Y-m-d'))->first();
-                                if ($statusMuster) {
-                                    $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                    $statusMuster->day_count = $statusMuster->day_count;
-                                    $statusMuster->save();
-                                }
-
-                                $processTags = $this->curatt->process_tags();
-                                $processTags->where('name', 'Late Coming')->delete();
-                            }
-                            $this->debug('Punch In Time Not Have | Shift In Time Not Have | Punch In Time Not Greater Than Shift In Time');
-                        }
-                    } else {
-                        if ($this->curatt->is_late = true) {
-                            $this->curatt->is_late = false;
-                            $this->curatt->status_master_id = $this->curatt->status_master_id;
-                            $this->curatt->save();
-
-                            $statusMuster = StatusMuster::where('user_id', $this->user->id)
-                                ->where('is_locked', false)
-                                ->where('date', $this->manualAttendance->in_time->format('Y-m-d'))->first();
-                            if ($statusMuster) {
-                                $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                $statusMuster->day_count = $statusMuster->day_count;
-                                $statusMuster->save();
-                            }
-
-                            $processTags = $this->curatt->process_tags();
-                            $processTags->where('name', 'Late Coming')->delete();
-                        }
-                        $this->debug('Late Coming Rule is not set for user');
-                    }
-                }
+        if ($shortLeave !== null && $shortLeave->short_leave_type != '1' && $leaveApplication === null && $coff === null) {
+            $this->debug('Short leave type does not affect late coming');
+            $this->updateManualLateComingStatus(false);
+
+            return;
+        }
+
+        $statusCode = 'PP';
+        $approvedGraceMinutes = 0;
+
+        if ($leaveApplication !== null) {
+            $statusCode = 'P'.$leaveApplication->leave_type->code;
+        } elseif ($shortLeave !== null && $shortLeave->short_leave_type == '1') {
+            $approvedGraceMinutes = max(0, (int) $shortLeave->minutes);
+        } elseif ($coff !== null) {
+            $statusCode = 'PCO';
+        }
+
+        $ruleGraceMinutes = max(0, (int) $lateComingRule->ignore_late_coming_minutes);
+        $graceMinutes = max($ruleGraceMinutes, $approvedGraceMinutes);
+        $shiftInTime = Carbon::parse($this->curatt->shift_in_time);
+        $punchInTime = Carbon::parse($this->curatt->in_time);
+        $lateMinutes = $punchInTime->greaterThan($shiftInTime)
+            ? $shiftInTime->diffInMinutes($punchInTime)
+            : 0;
+        $isLate = $lateMinutes > $graceMinutes;
+
+        $this->debug($isLate
+            ? 'Punch-in exceeds the applicable late-coming grace period by '.$lateMinutes.' minutes'
+            : 'Punch-in is within the applicable late-coming grace period');
+
+        $this->updateManualLateComingStatus($isLate, $statusCode);
+    }
+
+    private function updateManualLateComingStatus(bool $isLate, string $statusCode = 'PP'): void
+    {
+        $this->curatt->is_late = $isLate;
+
+        if ($isLate) {
+            $statusMaster = StatusMaster::where('code', $statusCode)->first();
+            if ($statusMaster === null) {
+                $this->debug('Cannot set late-coming status because status '.$statusCode.' was not found');
             } else {
-                $this->debug('First enable late coming rule in setting');
+                $this->curatt->status_master_id = $statusMaster->id;
+
+                if ($statusCode === 'PP') {
+                    StatusMuster::where('user_id', $this->user->id)
+                        ->where('is_locked', false)
+                        ->where('date', Carbon::parse($this->manualAttendance->in_time)->format('Y-m-d'))
+                        ->update([
+                            'status_master_id' => $statusMaster->id,
+                            'day_count' => 1,
+                        ]);
+                }
             }
+        }
+
+        $this->curatt->save();
+
+        $processTags = $this->curatt->process_tags();
+        $processTags->where('name', 'Late Coming')->delete();
+
+        if ($isLate) {
+            $processTags->create(['name' => 'Late Coming', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
         }
     }
 

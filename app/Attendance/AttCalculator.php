@@ -2654,7 +2654,6 @@ class AttCalculator
         }
     }
 
-    // TODO:check latecoming rule and calculate according shift after testing
     public function checkLateComingRule(): void
     {
         if (! $this->isSettingEnabled('half_day_rules')) {
@@ -2676,6 +2675,14 @@ class AttCalculator
             return;
         }
 
+        $lateComingRule = $this->log->user->late_coming_rule;
+        if ($lateComingRule === null || (int) $lateComingRule->status !== 1) {
+            $this->debug('Skipping late coming check because the user has no active late-coming rule');
+            $this->updateLateComingStatus(false);
+
+            return;
+        }
+
         $date = $this->log->datetime->format('Y-m-d');
         $leaveApplication = LeaveApplication::whereHas('users', fn ($query) => $query->whereKey($this->log->user->id))
             ->where('from_date', '<=', $date)
@@ -2691,6 +2698,7 @@ class AttCalculator
 
         if ($shortLeave !== null && $shortLeave->short_leave_type != '1' && $leaveApplication === null && $coff === null) {
             $this->debug('Short leave type does not affect late coming');
+            $this->updateLateComingStatus(false);
 
             return;
         }
@@ -2706,10 +2714,7 @@ class AttCalculator
             $statusCode = 'PCO';
         }
 
-        $lateComingRule = $this->log->user->late_coming_rule;
-        $ruleGraceMinutes = $lateComingRule !== null && (int) $lateComingRule->status === 1
-            ? max(0, (int) $lateComingRule->ignore_late_coming_minutes)
-            : 0;
+        $ruleGraceMinutes = max(0, (int) $lateComingRule->ignore_late_coming_minutes);
         $graceMinutes = max($ruleGraceMinutes, $approvedGraceMinutes);
         $shiftInTime = Carbon::parse($this->curatt->shift_in_time);
         $punchInTime = Carbon::parse($this->curatt->in_time);
