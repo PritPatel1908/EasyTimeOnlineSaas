@@ -106,14 +106,10 @@ class AttendanceLogController extends Controller
                 ->with('error', 'Locked attendance logs cannot be reprocessed.');
         }
 
-        if ($attendanceLog->is_ignored) {
-            return redirect(url('time-management/attendance-logs/'.$attendanceLog->id))
-                ->with('error', 'Ignored attendance logs cannot be reprocessed.');
-        }
-
         $attendanceLog->update([
             'is_calculated' => false,
             'is_staged' => false,
+            'is_ignored' => false,
             'has_error' => false,
         ]);
 

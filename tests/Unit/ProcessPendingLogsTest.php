@@ -11,6 +11,8 @@ use App\Models\Tenant\Attendance;
 use App\Models\Tenant\AttendanceLog;
 use App\Models\Tenant\GeneralConfiguration;
 use App\Models\Tenant\HalfDayRule;
+use App\Models\Tenant\LateComingRule;
+use App\Models\Tenant\Machine;
 use App\Models\Tenant\Shift;
 use App\Models\Tenant\StatusMaster;
 use App\Models\Tenant\StatusMuster;
@@ -54,6 +56,25 @@ class ProcessPendingLogsTest extends TestCase
             $table->unsignedBigInteger('updated_by')->nullable();
             $table->unsignedBigInteger('deleted_by')->nullable();
             $table->timestamps();
+        });
+        Schema::create('attendance_logs', function ($table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id')->nullable();
+            $table->string('user_code')->nullable();
+            $table->unsignedBigInteger('dms_device_id')->nullable();
+            $table->dateTime('datetime')->nullable();
+            $table->boolean('is_out')->default(false);
+            $table->boolean('is_ignored')->default(false);
+            $table->boolean('is_calculated')->default(false);
+            $table->boolean('is_staged')->default(false);
+            $table->boolean('is_manual')->default(false);
+            $table->boolean('debug_me')->default(false);
+            $table->boolean('has_error')->default(false);
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
+            $table->unsignedBigInteger('deleted_by')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
         });
         Schema::create('shift_musters', function ($table): void {
             $table->id();
@@ -100,6 +121,12 @@ class ProcessPendingLogsTest extends TestCase
             $table->date('to_date');
             $table->softDeletes();
         });
+        Schema::create('short_leave_applications', function ($table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('date');
+            $table->softDeletes();
+        });
         Schema::create('process_tags', function ($table): void {
             $table->id();
             $table->string('taggable_type');
@@ -114,9 +141,11 @@ class ProcessPendingLogsTest extends TestCase
     protected function tearDown(): void
     {
         Schema::dropIfExists('process_tags');
+        Schema::dropIfExists('short_leave_applications');
         Schema::dropIfExists('coffs');
         Schema::dropIfExists('leave_application_users');
         Schema::dropIfExists('leave_applications');
+        Schema::dropIfExists('attendance_logs');
         Schema::dropIfExists('attendances2025');
         Schema::dropIfExists('attendances2026');
         Schema::dropIfExists('status_musters');
@@ -221,6 +250,46 @@ class ProcessPendingLogsTest extends TestCase
         $savedAttendance->is_early = false;
         $savedAttendance->save();
         $this->assertSame(0, $savedAttendance->fresh()->early_minutes);
+    }
+
+    public function test_late_coming_calculates_when_half_day_setting_is_disabled(): void
+    {
+        DB::table('users')->insert(['id' => 7]);
+        $statusMaster = StatusMaster::create([
+            'code' => 'PP',
+            'alias' => 'Present',
+            'description' => 'Present',
+        ]);
+        $rule = new LateComingRule;
+        $rule->setAttribute('status', 1);
+        $rule->setAttribute('ignore_late_coming_minutes', 0);
+
+        $user = new User;
+        $user->setAttribute('id', 7);
+        $user->setRelation('late_coming_rule', $rule);
+
+        $log = new AttendanceLog;
+        $log->setAttribute('datetime', Carbon::parse('2026-01-01 09:30:00'));
+        $log->setRelation('user', $user);
+
+        $attendance = Attendance::year(2026);
+        $attendance->user_id = 7;
+        $attendance->date = '2026-01-01';
+        $attendance->shift_in_time = '2026-01-01 09:00:00';
+        $attendance->in_time = '2026-01-01 09:30:00';
+        Schema::disableForeignKeyConstraints();
+        $attendance->save();
+        Schema::enableForeignKeyConstraints();
+
+        $calculator = new AttCalculator($log);
+        (new \ReflectionProperty(AttCalculator::class, 'curatt'))->setValue($calculator, $attendance);
+
+        $calculator->checkLateComingRule();
+
+        $savedAttendance = $attendance->fresh();
+        $this->assertTrue($savedAttendance->is_late);
+        $this->assertSame(30, $savedAttendance->late_minutes);
+        $this->assertSame($statusMaster->id, $savedAttendance->status_master_id);
     }
 
     public function test_marking_overtime_persists_total_minutes_without_approving_them(): void
@@ -355,7 +424,7 @@ class ProcessPendingLogsTest extends TestCase
         $this->assertSame('2026-01-01', (new \ReflectionProperty(AttCalculator::class, 'punchAttendanceDate'))->getValue($calculator));
     }
 
-    public function test_minimum_gap_keeps_a_quick_punch_as_out_and_accepts_in_after_gap(): void
+    public function test_minimum_gap_ignores_a_quick_in_punch_and_accepts_in_after_gap(): void
     {
         GeneralConfiguration::create([
             'key' => 'min_gap_btwn_prv_out_and_curtt_in',
@@ -380,7 +449,12 @@ class ProcessPendingLogsTest extends TestCase
             '2026-01-01 23:59:00',
         );
         $tooSoon->checkInOrOut();
-        $this->assertTrue($this->getCalculatorLog($tooSoon)->is_out);
+        $this->assertFalse($this->getCalculatorLog($tooSoon)->is_out);
+        $this->assertTrue($this->getCalculatorLog($tooSoon)->is_ignored);
+        $this->assertDatabaseHas('process_tags', [
+            'taggable_type' => AttendanceLog::class,
+            'name' => 'Punch Within Minimum Gap',
+        ]);
 
         $gapElapsed = $this->calculatorWithPreviousPunch(
             '2026-01-01 20:00:00',
@@ -389,6 +463,69 @@ class ProcessPendingLogsTest extends TestCase
         );
         $gapElapsed->checkInOrOut();
         $this->assertFalse($this->getCalculatorLog($gapElapsed)->is_out);
+    }
+
+    public function test_minimum_gap_applies_to_fixed_in_devices(): void
+    {
+        GeneralConfiguration::create([
+            'key' => 'min_gap_btwn_prv_out_and_curtt_in',
+            'value' => '00:30',
+        ]);
+        $shift = Shift::create([
+            'set_cutoff' => false,
+            'is_night_shift' => false,
+        ]);
+        DB::table('shift_musters')->insert([
+            'user_id' => 7,
+            'date' => '2026-01-01',
+            'is_locked' => false,
+            'calculated_shift' => $shift->id,
+        ]);
+        $calculator = $this->calculatorWithPreviousPunch(
+            '2026-01-01 16:00:00',
+            true,
+            '2026-01-01 16:10:00',
+        );
+        $machine = new Machine;
+        $machine->setAttribute('access_direction', 'in');
+        (new \ReflectionProperty(AttCalculator::class, 'machine'))->setValue($calculator, $machine);
+
+        $calculator->checkInOrOut();
+
+        $this->assertTrue($this->getCalculatorLog($calculator)->is_ignored);
+        $this->assertFalse($this->getCalculatorLog($calculator)->is_out);
+    }
+
+    public function test_minimum_gap_is_skipped_when_assigned_shift_has_cutoff_enabled(): void
+    {
+        GeneralConfiguration::create([
+            'key' => 'min_gap_btwn_prv_out_and_curtt_in',
+            'value' => '00:30',
+        ]);
+        $shift = Shift::create([
+            'set_cutoff' => true,
+            'cutoff_time' => '24:00:00',
+            'is_night_shift' => false,
+        ]);
+        DB::table('shift_musters')->insert([
+            'user_id' => 7,
+            'date' => '2026-01-01',
+            'is_locked' => false,
+            'calculated_shift' => $shift->id,
+        ]);
+
+        $calculator = $this->calculatorWithPreviousPunch(
+            '2026-01-01 16:00:00',
+            true,
+            '2026-01-01 16:10:00',
+        );
+        $machine = new Machine;
+        $machine->setAttribute('access_direction', 'in');
+        (new \ReflectionProperty(AttCalculator::class, 'machine'))->setValue($calculator, $machine);
+
+        $calculator->checkInOrOut();
+
+        $this->assertNotTrue($this->getCalculatorLog($calculator)->is_ignored);
     }
 
     public function test_maximum_gap_expiration_starts_a_new_in_punch(): void
@@ -418,6 +555,79 @@ class ProcessPendingLogsTest extends TestCase
         $calculator->checkInOrOut();
 
         $this->assertFalse($this->getCalculatorLog($calculator)->is_out);
+        $this->assertDatabaseHas('process_tags', [
+            'taggable_type' => AttendanceLog::class,
+            'name' => 'Missed Out Punch',
+        ]);
+    }
+
+    public function test_maximum_gap_applies_to_fixed_out_devices(): void
+    {
+        GeneralConfiguration::create([
+            'key' => 'max_gap_btwn_prv_in_and_curtt_out',
+            'value' => '16:00',
+        ]);
+        $shift = Shift::create([
+            'set_cutoff' => false,
+            'is_night_shift' => false,
+        ]);
+        DB::table('shift_musters')->insert([
+            'user_id' => 7,
+            'date' => '2026-01-01',
+            'is_locked' => false,
+            'calculated_shift' => $shift->id,
+        ]);
+        $calculator = $this->calculatorWithPreviousPunch(
+            '2026-01-01 22:00:00',
+            false,
+            '2026-01-02 17:00:00',
+        );
+        $machine = new Machine;
+        $machine->setAttribute('access_direction', 'out');
+        (new \ReflectionProperty(AttCalculator::class, 'machine'))->setValue($calculator, $machine);
+
+        $calculator->checkInOrOut();
+
+        $this->assertFalse($this->getCalculatorLog($calculator)->is_out);
+        $this->assertDatabaseHas('process_tags', [
+            'taggable_type' => AttendanceLog::class,
+            'name' => 'Missed Out Punch',
+        ]);
+    }
+
+    public function test_maximum_gap_is_skipped_when_assigned_shift_has_cutoff_enabled(): void
+    {
+        GeneralConfiguration::create([
+            'key' => 'max_gap_btwn_prv_in_and_curtt_out',
+            'value' => '16:00',
+        ]);
+        $shift = Shift::create([
+            'set_cutoff' => true,
+            'cutoff_time' => '24:00:00',
+            'is_night_shift' => false,
+        ]);
+        DB::table('shift_musters')->insert([
+            'user_id' => 7,
+            'date' => '2026-01-01',
+            'is_locked' => false,
+            'calculated_shift' => $shift->id,
+        ]);
+        $calculator = $this->calculatorWithPreviousPunch(
+            '2026-01-01 22:00:00',
+            false,
+            '2026-01-02 17:00:00',
+        );
+        $machine = new Machine;
+        $machine->setAttribute('access_direction', 'out');
+        (new \ReflectionProperty(AttCalculator::class, 'machine'))->setValue($calculator, $machine);
+
+        $calculator->checkInOrOut();
+
+        $this->assertNotTrue($this->getCalculatorLog($calculator)->is_ignored);
+        $this->assertDatabaseMissing('process_tags', [
+            'taggable_type' => AttendanceLog::class,
+            'name' => 'Missed Out Punch',
+        ]);
     }
 
     public function test_same_direction_setting_remains_a_minute_threshold(): void
@@ -444,6 +654,30 @@ class ProcessPendingLogsTest extends TestCase
         $this->assertTrue($this->getCalculatorLog($regularPunch)->is_out);
     }
 
+    public function test_manual_punches_with_null_device_ids_are_not_duplicate_device_punches(): void
+    {
+        GeneralConfiguration::create([
+            'key' => 'punch_direction_consider_same',
+            'value' => '30',
+        ]);
+        $calculator = $this->calculatorWithPreviousPunch(
+            '2026-01-01 21:00:00',
+            false,
+            '2026-01-01 21:25:00',
+        );
+        $log = $this->getCalculatorLog($calculator);
+        $log->is_manual = true;
+
+        $previousLog = (new \ReflectionProperty(AttCalculator::class, 'prv_log'))
+            ->getValue($calculator);
+        $previousLog->is_manual = true;
+        $previousLog->dms_device_id = null;
+        $log->dms_device_id = null;
+
+        $this->assertFalse($calculator->checkIsDuplicatePunch());
+        $this->assertNotTrue($log->is_ignored);
+    }
+
     public function test_attendance_shift_fields_remain_empty_when_no_shift_is_configured(): void
     {
         $calculator = new AttCalculator(new AttendanceLog);
@@ -463,14 +697,6 @@ class ProcessPendingLogsTest extends TestCase
         $this->assertNull($attendance->shift_in_time);
         $this->assertNull($attendance->shift_out_time);
         $this->assertFalse($attendance->is_night_shift);
-    }
-
-    public function test_missing_setting_helper_disables_optional_attendance_rules_without_failing(): void
-    {
-        $calculator = new AttCalculator(new AttendanceLog);
-        $isSettingEnabled = new \ReflectionMethod(AttCalculator::class, 'isSettingEnabled');
-
-        $this->assertFalse($isSettingEnabled->invoke($calculator, 'half_day_rules'));
     }
 
     public function test_half_day_check_skips_when_attendance_context_is_incomplete(): void
@@ -573,13 +799,7 @@ class ProcessPendingLogsTest extends TestCase
             Schema::enableForeignKeyConstraints();
             $attendance->setRelation('shift', $shift);
 
-            $calculator = new class($log) extends AttCalculator
-            {
-                protected function isSettingEnabled(string $key): bool
-                {
-                    return $key === 'half_day_rules';
-                }
-            };
+            $calculator = new AttCalculator($log);
             (new \ReflectionProperty(AttCalculator::class, 'curatt'))->setValue($calculator, $attendance);
 
             $calculator->checkHalfDayRule();
@@ -877,13 +1097,7 @@ class ProcessPendingLogsTest extends TestCase
         Schema::enableForeignKeyConstraints();
         $attendance->setRelation('shift', $shift);
 
-        $calculator = new class($log) extends AttCalculator
-        {
-            protected function isSettingEnabled(string $key): bool
-            {
-                return $key === 'half_day_rules';
-            }
-        };
+        $calculator = new AttCalculator($log);
         (new \ReflectionProperty(AttCalculator::class, 'curatt'))->setValue($calculator, $attendance);
 
         $calculator->checkHalfDayRule();
@@ -952,13 +1166,7 @@ class ProcessPendingLogsTest extends TestCase
         Schema::enableForeignKeyConstraints();
         $attendance->setRelation('shift', $shift);
 
-        $calculator = new class($log) extends AttCalculator
-        {
-            protected function isSettingEnabled(string $key): bool
-            {
-                return $key === 'half_day_rules';
-            }
-        };
+        $calculator = new AttCalculator($log);
         (new \ReflectionProperty(AttCalculator::class, 'curatt'))->setValue($calculator, $attendance);
 
         $calculator->checkHalfDayRule();
@@ -1084,13 +1292,7 @@ class ProcessPendingLogsTest extends TestCase
         $shift = new Shift;
         $attendance->setRelation('shift', $shift);
 
-        $calculator = new class($log) extends AttCalculator
-        {
-            protected function isSettingEnabled(string $key): bool
-            {
-                return $key === 'absent_rules';
-            }
-        };
+        $calculator = new AttCalculator($log);
         (new \ReflectionProperty(AttCalculator::class, 'curatt'))->setValue($calculator, $attendance);
 
         return [$calculator, $attendance];

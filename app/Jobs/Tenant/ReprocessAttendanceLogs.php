@@ -96,6 +96,7 @@ class ReprocessAttendanceLogs implements ShouldBeUnique, ShouldQueue
                     AttendanceLog::query()->whereIn('id', $logIds)->update([
                         'is_calculated' => false,
                         'is_staged' => true,
+                        'is_ignored' => false,
                         'has_error' => false,
                     ]);
                 });
@@ -167,7 +168,6 @@ class ReprocessAttendanceLogs implements ShouldBeUnique, ShouldQueue
         return AttendanceLog::query()
             ->whereBetween('datetime', [$this->startDateTime, $this->endDateTime])
             ->where('is_locked', false)
-            ->where('is_ignored', false)
             ->when($this->employeeIds !== [], fn ($query) => $query->whereIn('user_id', $this->employeeIds));
     }
 }

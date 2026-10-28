@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Controllers\Tenant\AttendanceLogController;
+use App\Jobs\Tenant\ProcessPendingLogs;
 use App\Jobs\Tenant\ReprocessAttendanceLogs;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Bus;
@@ -53,6 +54,9 @@ class ReprocessAttendanceLogsTest extends TestCase
             $table->boolean('is_manual')->default(false);
             $table->boolean('is_out')->default(false);
             $table->boolean('debug_me')->default(false);
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
+            $table->unsignedBigInteger('deleted_by')->nullable();
             $table->softDeletes();
             $table->timestamps();
         });
@@ -86,13 +90,14 @@ class ReprocessAttendanceLogsTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_job_removes_matching_unlocked_musters_and_attendance_before_reprocessing_logs(): void
+    public function test_job_resets_ignored_logs_and_removes_matching_unlocked_musters_before_reprocessing(): void
     {
         $matchingLogId = DB::table('attendance_logs')->insertGetId([
             'user_code' => null,
             'datetime' => '2026-03-10 09:00:00',
             'is_calculated' => true,
             'is_staged' => false,
+            'is_ignored' => true,
             'is_locked' => false,
             'debug_me' => false,
         ]);
@@ -123,6 +128,7 @@ class ReprocessAttendanceLogsTest extends TestCase
         $this->assertSame(1, DB::table('in_out_musters2026')->count());
         $this->assertFalse((bool) DB::table('attendance_logs')->where('id', $matchingLogId)->value('is_calculated'));
         $this->assertTrue((bool) DB::table('attendance_logs')->where('id', $matchingLogId)->value('is_staged'));
+        $this->assertFalse((bool) DB::table('attendance_logs')->where('id', $matchingLogId)->value('is_ignored'));
         $this->assertTrue((bool) DB::table('attendance_logs')->where('id', $outsideRangeLogId)->value('is_calculated'));
     }
 
@@ -153,5 +159,35 @@ class ReprocessAttendanceLogsTest extends TestCase
                 && $job->connection === 'database_tenant'
                 && $job->queue === 'processing';
         });
+    }
+
+    public function test_individual_reprocess_resets_and_dispatches_an_ignored_log(): void
+    {
+        Bus::fake();
+        $logId = DB::table('attendance_logs')->insertGetId([
+            'datetime' => '2026-03-10 09:00:00',
+            'is_calculated' => true,
+            'is_staged' => false,
+            'is_ignored' => true,
+            'is_locked' => false,
+            'debug_me' => false,
+        ]);
+        $request = Request::create('/time-management/attendance-logs/'.$logId.'/reprocess', 'POST');
+        $request->setRouteResolver(fn () => new class($logId)
+        {
+            public function __construct(private int $logId) {}
+
+            public function parameter(string $name, mixed $default = null): mixed
+            {
+                return $name === 'attendance_log' ? $this->logId : $default;
+            }
+        });
+
+        $response = app(AttendanceLogController::class)->reprocess($request);
+
+        $this->assertStringEndsWith('/time-management/attendance-logs/'.$logId, $response->getTargetUrl());
+        $this->assertFalse((bool) DB::table('attendance_logs')->where('id', $logId)->value('is_calculated'));
+        $this->assertFalse((bool) DB::table('attendance_logs')->where('id', $logId)->value('is_ignored'));
+        Bus::assertDispatched(ProcessPendingLogs::class, fn (ProcessPendingLogs $job): bool => $job->uniqueId() === (string) $logId);
     }
 }

@@ -7,6 +7,188 @@ function getValidationError(field) {
 		.find((error) => error.dataset.validationErrorFor === field.name);
 }
 
+function getSidebarMenuPages() {
+	const menu = document.querySelector('#sidebar-menu');
+
+	if (!menu) {
+		return [];
+	}
+
+	const seenUrls = new Set();
+
+	return Array.from(menu.querySelectorAll('a[href]')).flatMap((link) => {
+		const label = link.textContent.replace(/\s+/g, ' ').trim();
+		const href = link.getAttribute('href');
+
+		if (!label || !href || href === '#' || href.startsWith('javascript:')) {
+			return [];
+		}
+
+		const url = new URL(href, window.location.href);
+
+		if (url.origin !== window.location.origin || seenUrls.has(url.href)) {
+			return [];
+		}
+
+		seenUrls.add(url.href);
+
+		const sections = [];
+		let parentMenuItem = link.closest('li')?.parentElement?.closest('li.submenu');
+
+		while (parentMenuItem) {
+			const sectionLabel = parentMenuItem.querySelector(':scope > a')
+				?.textContent.replace(/\s+/g, ' ').trim();
+
+			if (sectionLabel) {
+				sections.push(sectionLabel);
+			}
+
+			parentMenuItem = parentMenuItem.parentElement?.closest('li.submenu');
+		}
+
+		return [{
+			label,
+			section: sections.reverse().join(' > '),
+			url: url.href,
+		}];
+	});
+}
+
+function closeMenuSearch(search) {
+	search.results.hidden = true;
+	search.input.setAttribute('aria-expanded', 'false');
+	search.input.removeAttribute('aria-activedescendant');
+	search.activeIndex = -1;
+}
+
+function renderMenuSearch(search) {
+	const query = search.input.value.trim().toLocaleLowerCase();
+	search.results.replaceChildren();
+	search.activeIndex = -1;
+
+	if (!query) {
+		closeMenuSearch(search);
+		return;
+	}
+
+	const pages = getSidebarMenuPages();
+	const matches = pages.filter((page) => {
+		const searchableText = `${page.label} ${page.section}`.toLocaleLowerCase();
+		return query.split(/\s+/).every((term) => searchableText.includes(term));
+	});
+
+	if (matches.length === 0) {
+		const emptyState = document.createElement('div');
+		emptyState.className = 'hrms-menu-search-empty';
+		emptyState.textContent = 'No matching sidebar pages';
+		search.results.append(emptyState);
+		search.results.hidden = false;
+		search.input.setAttribute('aria-expanded', 'true');
+		return;
+	}
+
+	matches.forEach((page, index) => {
+		const result = document.createElement('a');
+		result.className = 'hrms-menu-search-result';
+		result.href = page.url;
+		result.id = `${search.id}-result-${index}`;
+		result.setAttribute('role', 'option');
+		result.setAttribute('aria-selected', 'false');
+
+		const label = document.createElement('span');
+		label.className = 'hrms-menu-search-result-label';
+		label.textContent = page.label;
+		result.append(label);
+
+		if (page.section) {
+			const section = document.createElement('small');
+			section.className = 'hrms-menu-search-result-section';
+			section.textContent = page.section;
+			result.append(section);
+		}
+
+		search.results.append(result);
+	});
+
+	search.results.hidden = false;
+	search.input.setAttribute('aria-expanded', 'true');
+}
+
+const menuSearches = Array.from(document.querySelectorAll('[data-search-shortcut]')).map((input, index) => {
+	const search = {
+		id: `hrms-menu-search-${index}`,
+		input,
+		results: input.closest('.hrms-menu-search').querySelector('[data-search-results]'),
+		activeIndex: -1,
+	};
+
+	input.addEventListener('input', () => renderMenuSearch(search));
+	input.addEventListener('keydown', (event) => {
+		const options = Array.from(search.results.querySelectorAll('[role="option"]'));
+
+		if (search.results.hidden || options.length === 0) {
+			if (event.key === 'Escape') {
+				closeMenuSearch(search);
+			}
+			return;
+		}
+
+		if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+			event.preventDefault();
+			const direction = event.key === 'ArrowDown' ? 1 : -1;
+			search.activeIndex = search.activeIndex === -1 && direction === -1
+				? options.length - 1
+				: (search.activeIndex + direction + options.length) % options.length;
+
+			options.forEach((option, optionIndex) => {
+				const isActive = optionIndex === search.activeIndex;
+				option.setAttribute('aria-selected', String(isActive));
+				option.classList.toggle('is-active', isActive);
+			});
+
+			const activeOption = options[search.activeIndex];
+			input.setAttribute('aria-activedescendant', activeOption.id);
+			activeOption.scrollIntoView({ block: 'nearest' });
+		} else if (event.key === 'Enter' && search.activeIndex >= 0) {
+			event.preventDefault();
+			window.location.assign(options[search.activeIndex].href);
+		} else if (event.key === 'Escape') {
+			closeMenuSearch(search);
+		}
+	});
+});
+
+document.addEventListener('keydown', (event) => {
+	if (!(event.ctrlKey || event.metaKey) || event.altKey) {
+		return;
+	}
+
+	const key = event.key.toLowerCase();
+	const isSearchShortcut = (key === '/' || event.code === 'Slash') || key === 's';
+
+	if (!isSearchShortcut) {
+		return;
+	}
+
+	const searchInput = Array.from(document.querySelectorAll('[data-search-shortcut]'))
+		.find((input) => input.getClientRects().length > 0);
+
+	if (!searchInput) {
+		return;
+	}
+
+	event.preventDefault();
+	searchInput.focus();
+});
+
+document.addEventListener('click', (event) => {
+	menuSearches.forEach((search) => {
+		if (!search.input.closest('.hrms-menu-search').contains(event.target)) {
+			closeMenuSearch(search);
+		}
+	});
+});
+
 document.addEventListener('invalid', (event) => {
 	const field = event.target;
 	const error = getValidationError(field);

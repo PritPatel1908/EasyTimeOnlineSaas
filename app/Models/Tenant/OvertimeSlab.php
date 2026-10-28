@@ -7,8 +7,8 @@
 namespace App\Models\Tenant;
 
 use Carbon\Carbon;
-use Illuminate\Database\Eloquent\Model;
 use DateTimeInterface;
+use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 
 /**
@@ -73,7 +73,7 @@ class OvertimeSlab extends Model
             return ((int) $value->format('H') * 60) + (int) $value->format('i');
         }
 
-        if (preg_match('/\A(\d{1,3}):([0-5]\d)(?::[0-5]\d)?\z/', (string) $value, $matches) !== 1) {
+        if (preg_match('/\A(\d{1,3}):([0-5]\d)(?::([0-5]\d)(?:\.\d{1,7})?)?\z/', trim((string) $value), $matches) !== 1) {
             throw new InvalidArgumentException('Overtime slab values must be valid HH:MM[:SS] times.');
         }
 

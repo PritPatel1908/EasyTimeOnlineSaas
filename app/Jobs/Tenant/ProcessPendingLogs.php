@@ -10,7 +10,6 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Log;
 
 class ProcessPendingLogs implements ShouldBeUnique, ShouldQueue
 {
@@ -121,6 +120,23 @@ class ProcessPendingLogs implements ShouldBeUnique, ShouldQueue
         $attCalculator->retrivePreviousLogs();
         $attCalculator->checkIsDuplicatePunch();
         $attCalculator->checkInOrOut();
+        if ($log->is_ignored) {
+            $attCalculator->debug('Punch ignored by configured gap rules');
+            $log->update([
+                'is_calculated' => true,
+                'is_staged' => false,
+            ]);
+            $log->process_tags()->create([
+                'name' => 'Processed',
+            ]);
+            if ($this->returnLog) {
+                $this->returningLogArray = $attCalculator->getReturnLogs();
+            }
+
+            return;
+        }
+
+        $log->save();
         $attCalculator->retriveAttendance();
         // if ($log->user->late_coming_rule_id != null) {
         $attCalculator->checkLateComingRule();

@@ -115,14 +115,18 @@
 				<p class="fs-10">System Admin</p>
 			</div>
 		</div>
-		<div class="input-group input-group-flat d-inline-flex mb-4">
-			<span class="input-icon-addon">
-				<i class="ti ti-search"></i>
-			</span>
-			<input type="text" class="form-control" placeholder="Search in HRMS">
-			<span class="input-group-text">
-				<kbd>CTRL + / </kbd>
-			</span>
+		<div class="hrms-menu-search d-inline-flex mb-4">
+			<div class="input-group input-group-flat">
+				<span class="input-icon-addon">
+					<i class="ti ti-search"></i>
+				</span>
+				<input type="text" class="form-control" placeholder="Search in HRMS" data-search-shortcut
+					aria-label="Search sidebar pages" aria-autocomplete="list" aria-expanded="false">
+				<span class="input-group-text">
+					<kbd>CTRL + / | CTRL + S</kbd>
+				</span>
+			</div>
+			<div class="hrms-menu-search-results" data-search-results role="listbox" hidden></div>
 		</div>
 		<div class="d-flex align-items-center justify-content-between menu-item mb-3">
 			<div class="me-3">

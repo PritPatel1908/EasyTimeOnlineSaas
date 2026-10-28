@@ -871,6 +871,101 @@
     height: auto;
     width: auto;
 }
+
+.header #header-search #toggle_btn {
+    color: variables.$gray-900 !important;
+    opacity: 1 !important;
+}
+
+.header #header-search #toggle_btn i {
+    display: inline-block;
+    color: variables.$gray-900 !important;
+    font-size: 18px;
+    line-height: 1;
+    opacity: 1 !important;
+}
+
+.mini-sidebar #header-search #toggle_btn i {
+    @include mixins.transform(rotate(180deg));
+}
+
+.mini-sidebar.expand-menu #header-search #toggle_btn i {
+    @include mixins.transform(rotate(0deg));
+}
+
+.hrms-menu-search {
+    position: relative;
+    min-width: 0;
+}
+
+.hrms-menu-search .input-group {
+    width: 100%;
+}
+
+.header #header-search .hrms-menu-search {
+    width: 259px;
+    flex: 0 0 259px;
+
+    @include mixins.respond-below(xl) {
+        display: none;
+    }
+}
+
+.sidebar-header .hrms-menu-search {
+    width: 100%;
+}
+
+.hrms-menu-search-results {
+    position: absolute;
+    z-index: 1100;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    max-height: 320px;
+    overflow-y: auto;
+    border: 1px solid variables.$gray-200;
+    border-radius: 6px;
+    background: variables.$white;
+    box-shadow: variables.$box-shadow-sm;
+}
+
+.hrms-menu-search-results[hidden] {
+    display: none;
+}
+
+.hrms-menu-search-result {
+    display: block;
+    padding: 8px 12px;
+    color: variables.$gray-900;
+    text-decoration: none;
+}
+
+.hrms-menu-search-result + .hrms-menu-search-result,
+.hrms-menu-search-empty {
+    border-top: 1px solid variables.$gray-200;
+}
+
+.hrms-menu-search-result:hover,
+.hrms-menu-search-result.is-active {
+    background: variables.$light;
+    color: variables.$gray-900;
+}
+
+.hrms-menu-search-result-label,
+.hrms-menu-search-result-section {
+    display: block;
+}
+
+.hrms-menu-search-result-section,
+.hrms-menu-search-empty {
+    color: variables.$gray-600;
+    font-size: variables.$font-size-12;
+}
+
+.hrms-menu-search-empty {
+    padding: 10px 12px;
+}
+
 .sidebar-twocol{
     .twocol-mini {
         border-right: 1px solid variables.$gray-200;
@@ -1609,4 +1704,3 @@
 #two-col-sidebar, #stacked-sidebar {
     display: none;
 }
-

@@ -15526,6 +15526,106 @@ table.table-bordered thead tr th p {
   width: auto;
 }
 
+.header #header-search #toggle_btn {
+  color: #111827 !important;
+  opacity: 1 !important;
+}
+
+.header #header-search #toggle_btn i {
+  display: inline-block;
+  color: #111827 !important;
+  font-size: 18px;
+  line-height: 1;
+  opacity: 1 !important;
+}
+
+.mini-sidebar #header-search #toggle_btn i {
+  transform: rotate(180deg);
+  -webkit-transform: rotate(180deg);
+  -ms-transform: rotate(180deg);
+}
+
+.mini-sidebar.expand-menu #header-search #toggle_btn i {
+  transform: rotate(0deg);
+  -webkit-transform: rotate(0deg);
+  -ms-transform: rotate(0deg);
+}
+
+.hrms-menu-search {
+  position: relative;
+  min-width: 0;
+}
+
+.hrms-menu-search .input-group {
+  width: 100%;
+}
+
+.header #header-search .hrms-menu-search {
+  width: 259px;
+  flex: 0 0 259px;
+}
+
+.sidebar-header .hrms-menu-search {
+  width: 100%;
+}
+
+.hrms-menu-search-results {
+  position: absolute;
+  z-index: 1100;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1px solid #E9EDF4;
+  border-radius: 6px;
+  background: #FFF;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+}
+
+.hrms-menu-search-results[hidden] {
+  display: none;
+}
+
+.hrms-menu-search-result {
+  display: block;
+  padding: 8px 12px;
+  color: #111827;
+  text-decoration: none;
+}
+
+.hrms-menu-search-result + .hrms-menu-search-result,
+.hrms-menu-search-empty {
+  border-top: 1px solid #E9EDF4;
+}
+
+.hrms-menu-search-result:hover,
+.hrms-menu-search-result.is-active {
+  background: #F8F9FA;
+  color: #111827;
+}
+
+.hrms-menu-search-result-label,
+.hrms-menu-search-result-section {
+  display: block;
+}
+
+.hrms-menu-search-result-section,
+.hrms-menu-search-empty {
+  color: #6B7280;
+  font-size: 12px;
+}
+
+.hrms-menu-search-empty {
+  padding: 10px 12px;
+}
+
+@media (max-width: 1199.98px) {
+  .header #header-search .hrms-menu-search {
+    display: none;
+  }
+}
+
 .sidebar-twocol .twocol-mini {
   border-right: 1px solid #ededed;
   padding-top: 16px;

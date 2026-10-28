@@ -27,11 +27,15 @@
                         <i class="ti ti-arrow-bar-to-left"></i>
                     </a>
                     <!-- Search -->
-                    <div class="input-group input-group-flat d-inline-flex me-2">
-                        <input type="text" class="form-control" placeholder="Search in HRMS">
-                        <span class="input-group-text">
-                            <kbd>CTRL + / </kbd>
-                        </span>
+                    <div class="hrms-menu-search d-inline-flex me-2">
+                        <div class="input-group input-group-flat">
+                            <input type="text" class="form-control" placeholder="Search in HRMS" data-search-shortcut
+                                aria-label="Search sidebar pages" aria-autocomplete="list" aria-expanded="false">
+                            <span class="input-group-text">
+                                <kbd>CTRL + / | CTRL + S</kbd>
+                            </span>
+                        </div>
+                        <div class="hrms-menu-search-results" data-search-results role="listbox" hidden></div>
                     </div>
                     <!-- /Search -->
                     <div class="dropdown crm-dropdown">
