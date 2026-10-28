@@ -88,7 +88,7 @@ class AttCalculator
         }
     }
 
-    private function isSettingEnabled(string $key): bool
+    protected function isSettingEnabled(string $key): bool
     {
         if (! function_exists('setting')) {
             $this->debug('Skipping '.$key.' because the setting helper is unavailable');
@@ -904,7 +904,7 @@ class AttCalculator
         $statusMaster = StatusMaster::where('code', $statusCode)->first();
         $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
             ->where('is_locked', false)
-            ->where('date', $this->log->datetime->format('Y-m-d'))
+            ->whereDate('date', $this->log->datetime->toDateString())
             ->first();
 
         if ($statusMuster === null) {
@@ -1177,9 +1177,18 @@ class AttCalculator
         }
     }
 
-    // TODO:check halfday rule and calculate according shift after testing
     public function checkHalfDayRule(): void
     {
+        if ($this->curatt === null || $this->log->user === null || $this->log->datetime === null) {
+            $this->debug('Skipping half-day check because attendance, user, or log date is missing');
+
+            return;
+        }
+
+        $this->halfdayRuleLateFlag = false;
+        $this->halfdayRuleEarlyFlag = false;
+        $this->halfdayRuleWorkHourFlag = false;
+
         $leave_application = LeaveApplication::whereHas('users', fn ($query) => $query->whereKey($this->log->user->id))
             ->where('from_date', '<=', $this->log->datetime->format('Y-m-d'))
             ->where('to_date', '>=', $this->log->datetime->format('Y-m-d'))
@@ -1190,33 +1199,54 @@ class AttCalculator
             ->where('to_date', '>=', $this->log->datetime->format('Y-m-d'))
             ->first();
 
-        if ($leave_application == null || $coff == null) {
+        if ($leave_application === null && $coff === null) {
             if ($this->isSettingEnabled('half_day_rules')) {
                 $this->debug('~~~Checking HalfDay Rule');
-                if ($this->log->user->half_day_rule && $this->curatt->shift && $this->curatt) {
-                    $halfdayRule = $this->log->user?->half_day_rule;
+                $halfdayRule = $this->log->user->half_day_rule;
+                if ($halfdayRule !== null && (int) $halfdayRule->status !== 1) {
+                    $this->debug('Skipping half-day check because the assigned rule is inactive');
 
+                    return;
+                }
+
+                if ($this->log->user->half_day_rule && $this->curatt->shift && $this->curatt) {
                     $punchInTime = $this->curatt->in_time ? Carbon::parse($this->curatt->in_time) : null;
                     $punchOutTime = $this->curatt->out_time ? Carbon::parse($this->curatt->out_time) : null;
 
-                    $differenceInMinutes = $punchInTime ? $this->curatt->shift_in_time->diffInMinutes($punchInTime) : 0;
-                    $differenceOutMinutes = $punchOutTime ? $punchOutTime->diffInMinutes($this->curatt->shift_out_time) : 0;
+                    $shiftInTime = $this->curatt->shift_in_time ? Carbon::parse($this->curatt->shift_in_time) : null;
+                    $shiftOutTime = $this->curatt->shift_out_time ? Carbon::parse($this->curatt->shift_out_time) : null;
+                    if ($shiftInTime === null || $shiftOutTime === null) {
+                        $this->debug('Skipping half-day check because shift start or end time is missing');
 
-                    $work_difference = $punchInTime->diffInMinutes($punchOutTime);
+                        return;
+                    }
+                    if ($this->curatt->is_night_shift && $shiftOutTime->lessThanOrEqualTo($shiftInTime)) {
+                        $shiftOutTime->addDay();
+                    }
+
+                    $differenceInMinutes = $punchInTime && $punchInTime->greaterThan($shiftInTime)
+                        ? $shiftInTime->diffInMinutes($punchInTime)
+                        : 0;
+                    $differenceOutMinutes = $punchOutTime && $punchOutTime->lessThan($shiftOutTime)
+                        ? $punchOutTime->diffInMinutes($shiftOutTime)
+                        : 0;
+                    $work_difference = $punchInTime && $punchOutTime && $punchOutTime->greaterThan($punchInTime)
+                        ? $punchInTime->diffInMinutes($punchOutTime)
+                        : null;
                     // 1. Check is allow single punch
-                    if ($this->log->user->category->single_punch_allowed_present && $punchInTime && $punchInTime != null && $punchOutTime == null) {
+                    if ($halfdayRule->single_punch_allowed && $punchInTime && $punchOutTime === null) {
                         $this->debug('Single Punch Allowed');
 
                         $this->curatt->is_half_day = false;
                         $this->curatt->save();
 
                         $processTags = $this->curatt->process_tags();
-                        $this->curatt->status_master_id = StatusMaster::where('code', 'PP')->first()->id;
+                        $this->curatt->status_master_id = StatusMaster::where('code', 'PP')->firstOrFail()->id;
                         $this->curatt->save();
 
                         StatusMuster::where('user_id', $this->log->user->id)
                             ->where('is_locked', false)
-                            ->where('date', $this->log->datetime->format('Y-m-d'))
+                            ->whereDate('date', $this->log->datetime->toDateString())
                             ->update([
                                 'status_master_id' => StatusMaster::where('code', 'PP')->first()->id,
                                 'day_count' => 1.0,
@@ -1226,62 +1256,21 @@ class AttCalculator
                     } else {
                         // 2. Check punch in time and out time
                         if (($punchInTime && $punchInTime != null) && ($punchOutTime && $punchOutTime != null)) {
-                            $this->curatt->is_half_day = false;
-                            $this->curatt->save();
-
                             $processTags = $this->curatt->process_tags();
-                            $this->curatt->status_master_id = $this->curatt->status_master_id;
-                            $this->curatt->save();
-
-                            $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                ->where('is_locked', false)
-                                ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                            $statusMuster->status_master_id = $statusMuster->status_master_id;
-                            $statusMuster->day_count = $statusMuster->day_count;
-                            $statusMuster->save();
 
                             $processTags->where('name', 'Half Day | Is First Half')->orWhere('name', 'Half Day | Is Second Half')->orWhere('name', 'Half Day')->delete();
 
                             // 3. Check work hours with user work time
-                            if ($work_difference < $halfdayRule->work_hr_less_than_minutes && $halfdayRule->work_hr_less_than_minutes > 0) {
+                            if ($work_difference !== null && $work_difference < $halfdayRule->work_hr_less_than_minutes && $halfdayRule->work_hr_less_than_minutes > 0) {
                                 $this->debug('Check User Work Time To Work Hours Less Than Time');
 
                                 $this->halfdayRuleWorkHourFlag = true;
-                                $this->curatt->is_half_day = true;
-                                $this->curatt->save();
-
-                                // 3.1 Check user is first halft | second half
-                                if ($punchInTime->format('H:i:s') > $this->curatt->shift_in_time->format('H:i:s') && $punchOutTime->format('H:i:s') < $this->curatt->shift->first_half_end_time->format('H:i:s')) {
-                                    $processTags = $this->curatt->process_tags();
-                                    $this->curatt->status_master_id = StatusMaster::where('code', 'PA')->first()->id;
-                                    $this->curatt->save();
-
-                                    StatusMuster::where('user_id', $this->log->user->id)
-                                        ->where('is_locked', false)
-                                        ->where('date', $this->log->datetime->format('Y-m-d'))
-                                        ->update([
-                                            'status_master_id' => StatusMaster::where('code', 'PA')->first()->id,
-                                            'day_count' => 0.5,
-                                        ]);
-
-                                    $processTags->where('name', 'Half Day | Is First Half')->orWhere('name', 'Half Day | Is Second Half')->orWhere('name', 'Half Day')->delete();
-                                    $processTags->create(['name' => 'Half Day | Is First Half', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
-                                } else {
-                                    $processTags = $this->curatt->process_tags();
-                                    $this->curatt->status_master_id = StatusMaster::where('code', 'AP')->first()->id;
-                                    $this->curatt->save();
-
-                                    StatusMuster::where('user_id', $this->log->user->id)
-                                        ->where('is_locked', false)
-                                        ->where('date', $this->log->datetime->format('Y-m-d'))
-                                        ->update([
-                                            'status_master_id' => StatusMaster::where('code', 'AP')->first()->id,
-                                            'day_count' => 0.5,
-                                        ]);
-
-                                    $processTags->where('name', 'Half Day | Is First Half')->orWhere('name', 'Half Day | Is Second Half')->orWhere('name', 'Half Day')->delete();
-                                    $processTags->create(['name' => 'Half Day | Is Second Half', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
-                                }
+                                [$statusCode, $tagName] = $this->halfDayWorkPeriod(
+                                    $punchInTime,
+                                    $punchOutTime,
+                                    $shiftInTime,
+                                );
+                                $this->applyHalfDayResult($statusCode, $tagName);
                             } else {
                                 $this->halfdayRuleWorkHourFlag = false;
                                 $this->debug('User Work Time Not Less Than To Work Hours Less Than Time');
@@ -1291,45 +1280,47 @@ class AttCalculator
                             if ($differenceInMinutes > $halfdayRule->late_coming_minutes && $halfdayRule->late_coming_minutes > 0) {
                                 $today = $this->log->datetime;
 
-                                $lateDateToCheck = $today->copy()->subDays($halfdayRule->consecutive_late_coming - 1);
+                                if ($halfdayRule->ignore_month_end_late && $this->isMonthEnd($today->format('Y-m-d'))) {
+                                    $this->halfdayRuleLateFlag = false;
+                                    $this->debug('Ignoring half-day late-coming rule on a configured month boundary');
+                                } else {
+                                    $lateDateToCheck = $today->copy()->subDays(max(0, (int) $halfdayRule->consecutive_late_coming - 1));
 
-                                $att_of_late_with_days = Attendance::where('user_id', $this->log->user->id)
-                                    ->where('is_late', true)
-                                    ->where('is_locked', false)
-                                    ->whereBetween('date', [$lateDateToCheck, $today])
-                                    ->count();
+                                    $att_of_late_with_days = $this->countAttendanceFlagBetweenDates(
+                                        $this->log->user->id,
+                                        'is_late',
+                                        $lateDateToCheck,
+                                        $today->copy()->subDay(),
+                                    ) + 1;
+                                    $att_of_late = $this->countAttendanceFlagBetweenDates(
+                                        $this->log->user->id,
+                                        'is_late',
+                                        $today->copy()->startOfMonth(),
+                                        $today->copy()->subDay(),
+                                    ) + 1;
 
-                                $att_of_late = Attendance::where('user_id', $this->log->user->id)
-                                    ->where('is_late', true)
-                                    ->where('is_locked', false)
-                                    ->whereMonth('date', now()->month)
-                                    ->count();
-
-                                if ($att_of_late_with_days >= $halfdayRule->consecutive_late_coming && $halfdayRule->consecutive_late_coming > 0) {
-                                    if ($halfdayRule->ignore_month_end_late && $this->isMonthEnd($this->log->datetime->format('Y-m-d'))) {
-                                        $this->debug('User has exceeded the consecutive late coming limit but is not marked as HalfDay due to ignore month end late');
-                                    } else {
+                                    if ($att_of_late_with_days >= $halfdayRule->consecutive_late_coming && $halfdayRule->consecutive_late_coming > 0) {
                                         $this->debug('User has exceeded the consecutive late coming');
                                         $this->halfdayRuleLateFlag = true;
+                                    } elseif ($att_of_late > $halfdayRule->no_of_late && $halfdayRule->no_of_late > 0) {
+                                        $this->debug('User has exceeded the no late limit');
+                                        $this->halfdayRuleLateFlag = true;
+                                    } else {
+                                        $this->halfdayRuleLateFlag = false;
+                                        $this->debug('User has not exceeded his limit');
                                     }
-                                } elseif ($att_of_late > $halfdayRule->no_of_late && $halfdayRule->no_of_late > 0) {
-                                    $this->debug('User has exceeded the no late limit');
-                                    $this->halfdayRuleLateFlag = true;
-                                } else {
-                                    $this->halfdayRuleLateFlag = false;
-                                    $this->debug('User has not exceeded his limit');
                                 }
 
                                 if ($this->halfdayRuleLateFlag) {
                                     $this->curatt->is_half_day = true;
                                     $this->curatt->save();
 
-                                    $this->curatt->status_master_id = StatusMaster::where('code', 'PA')->first()->id;
+                                    $this->curatt->status_master_id = StatusMaster::where('code', 'PA')->firstOrFail()->id;
                                     $this->curatt->save();
 
                                     StatusMuster::where('user_id', $this->log->user->id)
                                         ->where('is_locked', false)
-                                        ->where('date', $this->log->datetime->format('Y-m-d'))
+                                        ->whereDate('date', $this->log->datetime->toDateString())
                                         ->update([
                                             'status_master_id' => StatusMaster::where('code', 'PA')->first()->id,
                                             'day_count' => 0.5,
@@ -1346,45 +1337,47 @@ class AttCalculator
                             if ($differenceOutMinutes > $halfdayRule->early_going_minutes && $halfdayRule->early_going_minutes > 0) {
                                 $today = $this->log->datetime;
 
-                                $earlyDateToCheck = $today->copy()->subDays($halfdayRule->consecutive_early_going - 1);
+                                if ($halfdayRule->ignore_month_end_early && $this->isMonthEnd($today->format('Y-m-d'))) {
+                                    $this->halfdayRuleEarlyFlag = false;
+                                    $this->debug('Ignoring half-day early-going rule on a configured month boundary');
+                                } else {
+                                    $earlyDateToCheck = $today->copy()->subDays(max(0, (int) $halfdayRule->consecutive_early_going - 1));
 
-                                $att_of_early_with_days = Attendance::where('user_id', $this->log->user->id)
-                                    ->where('is_early', true)
-                                    ->where('is_locked', false)
-                                    ->whereBetween('date', [$earlyDateToCheck, $today])
-                                    ->count();
+                                    $att_of_early_with_days = $this->countAttendanceFlagBetweenDates(
+                                        $this->log->user->id,
+                                        'is_early',
+                                        $earlyDateToCheck,
+                                        $today->copy()->subDay(),
+                                    ) + 1;
+                                    $att_of_early = $this->countAttendanceFlagBetweenDates(
+                                        $this->log->user->id,
+                                        'is_early',
+                                        $today->copy()->startOfMonth(),
+                                        $today->copy()->subDay(),
+                                    ) + 1;
 
-                                $att_of_early = Attendance::where('user_id', $this->log->user->id)
-                                    ->where('is_early', true)
-                                    ->where('is_locked', false)
-                                    ->whereMonth('date', now()->month)
-                                    ->count();
-
-                                if ($att_of_early_with_days >= $halfdayRule->consecutive_early_going && $halfdayRule->consecutive_early_going > 0) {
-                                    if ($halfdayRule->ignore_month_end_early && $this->isMonthEnd($this->log->datetime->format('Y-m-d'))) {
-                                        $this->debug('User has exceeded the consecutive early going but is not marked as HalfDay due to ignore month end late');
-                                    } else {
+                                    if ($att_of_early_with_days >= $halfdayRule->consecutive_early_going && $halfdayRule->consecutive_early_going > 0) {
                                         $this->debug('User has exceeded the consecutive early going limit');
                                         $this->halfdayRuleEarlyFlag = true;
+                                    } elseif ($att_of_early > $halfdayRule->no_of_early && $halfdayRule->no_of_early > 0) {
+                                        $this->debug('User has exceeded the no early limit');
+                                        $this->halfdayRuleEarlyFlag = true;
+                                    } else {
+                                        $this->debug('User has not exceeded his limit');
+                                        $this->halfdayRuleEarlyFlag = false;
                                     }
-                                } elseif ($att_of_early > $halfdayRule->no_of_early && $halfdayRule->no_of_early > 0) {
-                                    $this->debug('User has exceeded the no early limit');
-                                    $this->halfdayRuleEarlyFlag = true;
-                                } else {
-                                    $this->debug('User has not exceeded his limit');
-                                    $this->halfdayRuleEarlyFlag = false;
                                 }
 
                                 if ($this->halfdayRuleEarlyFlag) {
                                     $this->curatt->is_half_day = true;
                                     $this->curatt->save();
 
-                                    $this->curatt->status_master_id = StatusMaster::where('code', 'PA')->first()->id;
+                                    $this->curatt->status_master_id = StatusMaster::where('code', 'PA')->firstOrFail()->id;
                                     $this->curatt->save();
 
                                     StatusMuster::where('user_id', $this->log->user->id)
                                         ->where('is_locked', false)
-                                        ->where('date', $this->log->datetime->format('Y-m-d'))
+                                        ->whereDate('date', $this->log->datetime->toDateString())
                                         ->update([
                                             'status_master_id' => StatusMaster::where('code', 'PA')->first()->id,
                                             'day_count' => 0.5,
@@ -1398,34 +1391,20 @@ class AttCalculator
                                 $this->debug('Half Day Rule is not calculate | User not cross the limit of early going');
                             }
 
-                            if ($this->halfdayRuleWorkHourFlag == false && $halfdayRule->ignore_month_end_late == false && $this->halfdayRuleLateFlag == false && $halfdayRule->ignore_month_end_early == false && $this->halfdayRuleEarlyFlag == false) {
-                                if ($this->curatt->is_half_day = true) {
-                                    $this->curatt->is_half_day = false;
-                                    $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                    $this->curatt->save();
-
-                                    $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                        ->where('is_locked', false)
-                                        ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                                    $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                    $statusMuster->day_count = $statusMuster->day_count;
-                                    $statusMuster->save();
-
-                                    $processTags = $this->curatt->process_tags();
-                                    $processTags->where('name', 'Half Day | Is First Half')->orWhere('name', 'Half Day | Is Second Half')->orWhere('name', 'Half Day')->delete();
-                                }
+                            if (! $this->halfdayRuleWorkHourFlag && ! $this->halfdayRuleLateFlag && ! $this->halfdayRuleEarlyFlag) {
+                                $this->clearHalfDayStatus();
                             }
                         } else {
                             $this->debug('Not have user punch in time | out time');
                             $this->curatt->is_half_day = true;
                             $this->curatt->save();
 
-                            $this->curatt->status_master_id = StatusMaster::where('code', 'PA')->first()->id;
+                            $this->curatt->status_master_id = StatusMaster::where('code', 'PA')->firstOrFail()->id;
                             $this->curatt->save();
 
                             StatusMuster::where('user_id', $this->log->user->id)
                                 ->where('is_locked', false)
-                                ->where('date', $this->log->datetime->format('Y-m-d'))
+                                ->whereDate('date', $this->log->datetime->toDateString())
                                 ->update([
                                     'status_master_id' => StatusMaster::where('code', 'PA')->first()->id,
                                     'day_count' => 0.5,
@@ -1441,16 +1420,33 @@ class AttCalculator
                         $punchInTime = $this->curatt->in_time ? Carbon::parse($this->curatt->in_time) : null;
                         $punchOutTime = $this->curatt->out_time ? Carbon::parse($this->curatt->out_time) : null;
 
-                        $differenceInMinutes = $punchInTime ? $this->curatt->shift_in_time->diffInMinutes($punchInTime) : 0;
-                        $differenceOutMinutes = $punchOutTime ? $punchOutTime->diffInMinutes($this->curatt->shift_out_time) : 0;
+                        $shiftInTime = $this->curatt->shift_in_time ? Carbon::parse($this->curatt->shift_in_time) : null;
+                        $shiftOutTime = $this->curatt->shift_out_time ? Carbon::parse($this->curatt->shift_out_time) : null;
+                        if ($shiftInTime === null || $shiftOutTime === null) {
+                            $this->debug('Skipping half-day check because shift start or end time is missing');
 
-                        $work_difference = $punchInTime->diffInMinutes($punchOutTime);
+                            return;
+                        }
+                        if ($this->curatt->is_night_shift && $shiftOutTime->lessThanOrEqualTo($shiftInTime)) {
+                            $shiftOutTime->addDay();
+                        }
 
-                        $shift_hrs = $this->curatt->shift_in_time->diffInMinutes($this->curatt->shift_out_time);
+                        $differenceInMinutes = $punchInTime && $punchInTime->greaterThan($shiftInTime)
+                            ? $shiftInTime->diffInMinutes($punchInTime)
+                            : 0;
+                        $differenceOutMinutes = $punchOutTime && $punchOutTime->lessThan($shiftOutTime)
+                            ? $punchOutTime->diffInMinutes($shiftOutTime)
+                            : 0;
+
+                        $work_difference = $punchInTime && $punchOutTime && $punchOutTime->greaterThan($punchInTime)
+                            ? $punchInTime->diffInMinutes($punchOutTime)
+                            : null;
+
+                        $shift_hrs = $shiftInTime->diffInMinutes($shiftOutTime);
                         $shift_half_hrs = $shift_hrs ? $shift_hrs / 2 : 0;
 
                         // 1. Check is allow single punch
-                        if ($this->log->user->category->single_punch_allowed_present && $punchInTime && $punchInTime != null && $punchOutTime == null) {
+                        if ($this->log->user->category?->single_punch_allowed_present && $punchInTime && $punchOutTime === null) {
                             $this->debug('Single Punch Allowed');
 
                             $this->curatt->is_half_day = false;
@@ -1462,7 +1458,7 @@ class AttCalculator
 
                             StatusMuster::where('user_id', $this->log->user->id)
                                 ->where('is_locked', false)
-                                ->where('date', $this->log->datetime->format('Y-m-d'))
+                                ->whereDate('date', $this->log->datetime->toDateString())
                                 ->update([
                                     'status_master_id' => StatusMaster::where('code', 'PP')->first()->id,
                                     'day_count' => 1.0,
@@ -1472,95 +1468,40 @@ class AttCalculator
                         } else {
                             // 2. Check punch in time and out time
                             if (($punchInTime && $punchInTime != null) && ($punchOutTime && $punchOutTime != null)) {
-                                $this->curatt->is_half_day = false;
-                                $this->curatt->save();
-
                                 $processTags = $this->curatt->process_tags();
-                                $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                $this->curatt->save();
-
-                                $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                    ->where('is_locked', false)
-                                    ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                                $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                $statusMuster->day_count = $statusMuster->day_count;
-                                $statusMuster->save();
 
                                 $processTags->where('name', 'Half Day | Is First Half')->orWhere('name', 'Half Day | Is Second Half')->orWhere('name', 'Half Day')->delete();
 
                                 // 3. Check work hours with user work time
-                                if ($work_difference < $shift_half_hrs && $shift_half_hrs > 0) {
+                                if ($work_difference !== null && $work_difference < $shift_half_hrs && $shift_half_hrs > 0) {
                                     $this->debug('Check User Work Time To Work Hours Less Than Time');
 
                                     $this->halfdayRuleWorkHourFlag = true;
-                                    $this->curatt->is_half_day = true;
-                                    $this->curatt->save();
-
-                                    // 3.1 Check user is first halft | second half
-                                    if ($punchInTime->format('H:i:s') > $this->curatt->shift_in_time->format('H:i:s') && $punchOutTime->format('H:i:s') < $this->curatt->shift->first_half_end_time->format('H:i:s')) {
-                                        $processTags = $this->curatt->process_tags();
-                                        $this->curatt->status_master_id = StatusMaster::where('code', 'PA')->first()->id;
-                                        $this->curatt->save();
-
-                                        StatusMuster::where('user_id', $this->log->user->id)
-                                            ->where('is_locked', false)
-                                            ->where('date', $this->log->datetime->format('Y-m-d'))
-                                            ->update([
-                                                'status_master_id' => StatusMaster::where('code', 'PA')->first()->id,
-                                                'day_count' => 0.5,
-                                            ]);
-
-                                        $processTags->where('name', 'Half Day | Is First Half')->orWhere('name', 'Half Day | Is Second Half')->orWhere('name', 'Half Day')->delete();
-                                        $processTags->create(['name' => 'Half Day | Is First Half', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
-                                    } else {
-                                        $processTags = $this->curatt->process_tags();
-                                        $this->curatt->status_master_id = StatusMaster::where('code', 'AP')->first()->id;
-                                        $this->curatt->save();
-
-                                        StatusMuster::where('user_id', $this->log->user->id)
-                                            ->where('is_locked', false)
-                                            ->where('date', $this->log->datetime->format('Y-m-d'))
-                                            ->update([
-                                                'status_master_id' => StatusMaster::where('code', 'AP')->first()->id,
-                                                'day_count' => 0.5,
-                                            ]);
-
-                                        $processTags->where('name', 'Half Day | Is First Half')->orWhere('name', 'Half Day | Is Second Half')->orWhere('name', 'Half Day')->delete();
-                                        $processTags->create(['name' => 'Half Day | Is Second Half', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
-                                    }
+                                    [$statusCode, $tagName] = $this->halfDayWorkPeriod(
+                                        $punchInTime,
+                                        $punchOutTime,
+                                        $shiftInTime,
+                                    );
+                                    $this->applyHalfDayResult($statusCode, $tagName);
                                 } else {
                                     $this->halfdayRuleWorkHourFlag = false;
                                     $this->debug('User Work Time Not Less Than To Work Hours Less Than Time');
                                 }
 
-                                if ($this->halfdayRuleWorkHourFlag == false && $this->halfdayRuleLateFlag == false && $this->halfdayRuleEarlyFlag == false) {
-                                    if ($this->curatt->is_half_day = true) {
-                                        $this->curatt->is_half_day = false;
-                                        $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                        $this->curatt->save();
-
-                                        $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                            ->where('is_locked', false)
-                                            ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                                        $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                        $statusMuster->day_count = $statusMuster->day_count;
-                                        $statusMuster->save();
-
-                                        $processTags = $this->curatt->process_tags();
-                                        $processTags->where('name', 'Half Day | Is First Half')->orWhere('name', 'Half Day | Is Second Half')->orWhere('name', 'Half Day')->delete();
-                                    }
+                                if (! $this->halfdayRuleWorkHourFlag && ! $this->halfdayRuleLateFlag && ! $this->halfdayRuleEarlyFlag) {
+                                    $this->clearHalfDayStatus();
                                 }
                             } else {
                                 $this->debug('Not have user punch in time | out time');
                                 $this->curatt->is_half_day = true;
                                 $this->curatt->save();
 
-                                $this->curatt->status_master_id = StatusMaster::where('code', 'PA')->first()->id;
+                                $this->curatt->status_master_id = StatusMaster::where('code', 'PA')->firstOrFail()->id;
                                 $this->curatt->save();
 
                                 StatusMuster::where('user_id', $this->log->user->id)
                                     ->where('is_locked', false)
-                                    ->where('date', $this->log->datetime->format('Y-m-d'))
+                                    ->whereDate('date', $this->log->datetime->toDateString())
                                     ->update([
                                         'status_master_id' => StatusMaster::where('code', 'PA')->first()->id,
                                         'day_count' => 0.5,
@@ -1573,21 +1514,7 @@ class AttCalculator
                         }
                     } else {
                         $this->debug('Half Day Rule is not calculate | User Shift not assign');
-                        if ($this->curatt && $this->curatt->is_half_day = true) {
-                            $this->curatt->is_half_day = false;
-                            $this->curatt->status_master_id = $this->curatt->status_master_id;
-                            $this->curatt->save();
-
-                            $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                ->where('is_locked', false)
-                                ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                            $statusMuster->status_master_id = $statusMuster->status_master_id;
-                            $statusMuster->day_count = $statusMuster->day_count;
-                            $statusMuster->save();
-
-                            $processTags = $this->curatt->process_tags();
-                            $processTags->where('name', 'Half Day | Is First Half')->orWhere('name', 'Half Day | Is Second Half')->orWhere('name', 'Half Day')->delete();
-                        }
+                        $this->clearHalfDayStatus();
                     }
                 }
             } else {
@@ -1596,16 +1523,118 @@ class AttCalculator
         }
     }
 
-    public function isMonthEnd($date)
+    /**
+     * @return array{0: string, 1: string}
+     */
+    private function halfDayWorkPeriod(Carbon $punchInTime, Carbon $punchOutTime, Carbon $shiftInTime): array
     {
-        $lastDayOfPreviousMonth = now()->subMonth()->endOfMonth()->format('Y-m-d');
-        $firstDayOfCurrentMonth = now()->startOfMonth()->format('Y-m-d');
+        $shiftBoundary = static function ($time) use ($shiftInTime): ?Carbon {
+            if ($time === null) {
+                return null;
+            }
 
-        if ($date == $lastDayOfPreviousMonth || $date == $firstDayOfCurrentMonth) {
-            return true;
+            $boundary = Carbon::parse($time)
+                ->setDate($shiftInTime->year, $shiftInTime->month, $shiftInTime->day);
+
+            if ($boundary->lessThanOrEqualTo($shiftInTime)) {
+                $boundary->addDay();
+            }
+
+            return $boundary;
+        };
+
+        $firstHalfEnd = $shiftBoundary($this->curatt->shift->first_half_end_time);
+        $secondHalfStart = $shiftBoundary($this->curatt->shift->second_half_start_time);
+
+        if ($firstHalfEnd !== null && $punchOutTime->lessThanOrEqualTo($firstHalfEnd)) {
+            return ['PA', 'Half Day | Is First Half'];
         }
 
-        return false;
+        if ($secondHalfStart !== null && $punchInTime->greaterThanOrEqualTo($secondHalfStart)) {
+            return ['AP', 'Half Day | Is Second Half'];
+        }
+
+        return ['PA', 'Half Day'];
+    }
+
+    private function countAttendanceFlagBetweenDates(int $userId, string $flag, Carbon $from, Carbon $to): int
+    {
+        if ($from->toDateString() > $to->toDateString()) {
+            return 0;
+        }
+
+        $count = 0;
+        $fromDate = $from->copy()->startOfDay();
+        $toDate = $to->copy()->startOfDay();
+
+        for ($year = $fromDate->year; $year <= $toDate->year; $year++) {
+            $yearStart = $fromDate->copy()->max(Carbon::create($year, 1, 1)->startOfDay());
+            $yearEnd = $toDate->copy()->min(Carbon::create($year, 12, 31)->startOfDay());
+
+            $count += Attendance::year($year)
+                ->where('user_id', $userId)
+                ->where($flag, true)
+                ->where('is_locked', false)
+                ->whereBetween('date', [$yearStart->toDateString(), $yearEnd->toDateString()])
+                ->count();
+        }
+
+        return $count;
+    }
+
+    private function applyHalfDayResult(string $statusCode, string $tagName): void
+    {
+        $statusMaster = StatusMaster::where('code', $statusCode)->firstOrFail();
+        $this->curatt->is_half_day = true;
+        $this->curatt->status_master_id = $statusMaster->id;
+        $this->curatt->save();
+
+        StatusMuster::where('user_id', $this->log->user->id)
+            ->where('is_locked', false)
+            ->whereDate('date', $this->log->datetime->toDateString())
+            ->update([
+                'status_master_id' => $statusMaster->id,
+                'day_count' => 0.5,
+            ]);
+
+        $this->curatt->process_tags()
+            ->whereIn('name', ['Half Day | Is First Half', 'Half Day | Is Second Half', 'Half Day'])
+            ->delete();
+
+        $this->curatt->process_tags()->create([
+            'name' => $tagName,
+            'color' => 'danger',
+            'icon' => 'heroicon-o-document-duplicate',
+        ]);
+    }
+
+    private function clearHalfDayStatus(): void
+    {
+        if ($this->curatt->is_half_day) {
+            $presentStatus = StatusMaster::where('code', 'PP')->firstOrFail();
+            $this->curatt->is_half_day = false;
+            $this->curatt->status_master_id = $presentStatus->id;
+            $this->curatt->save();
+
+            StatusMuster::where('user_id', $this->log->user->id)
+                ->where('is_locked', false)
+                ->whereDate('date', $this->log->datetime->toDateString())
+                ->update([
+                    'status_master_id' => $presentStatus->id,
+                    'day_count' => 1.0,
+                ]);
+        }
+
+        $this->curatt->process_tags()
+            ->whereIn('name', ['Half Day | Is First Half', 'Half Day | Is Second Half', 'Half Day'])
+            ->delete();
+    }
+
+    public function isMonthEnd($date)
+    {
+        $date = Carbon::parse($date);
+
+        return $date->isLastOfMonth() || $date->isStartOfMonth();
     }
 
     // TODO:check absent rule and calculate according shift after testing

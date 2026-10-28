@@ -9,6 +9,7 @@ use App\Jobs\Tenant\ProcessPendingLogs;
 use App\Models\Tenant\Attendance;
 use App\Models\Tenant\AttendanceLog;
 use App\Models\Tenant\GeneralConfiguration;
+use App\Models\Tenant\HalfDayRule;
 use App\Models\Tenant\Shift;
 use App\Models\Tenant\StatusMaster;
 use App\Models\Tenant\StatusMuster;
@@ -25,6 +26,10 @@ class ProcessPendingLogsTest extends TestCase
     {
         parent::setUp();
 
+        Schema::create('users', function ($table): void {
+            $table->id();
+            $table->softDeletes();
+        });
         Schema::create('general_configurations', function ($table): void {
             $table->id();
             $table->string('key')->unique();
@@ -36,6 +41,8 @@ class ProcessPendingLogsTest extends TestCase
             $table->id();
             $table->time('in_time')->nullable();
             $table->time('out_time')->nullable();
+            $table->time('first_half_end_time')->nullable();
+            $table->time('second_half_start_time')->nullable();
             $table->boolean('is_night_shift')->default(false);
             $table->boolean('set_cutoff')->default(false);
             $table->time('cutoff_time')->nullable();
@@ -70,15 +77,48 @@ class ProcessPendingLogsTest extends TestCase
             $table->boolean('is_locked');
             $table->timestamps();
         });
+        Schema::create('leave_applications', function ($table): void {
+            $table->id();
+            $table->date('from_date');
+            $table->date('to_date');
+            $table->softDeletes();
+        });
+        Schema::create('leave_application_users', function ($table): void {
+            $table->id();
+            $table->unsignedBigInteger('leave_application_id');
+            $table->unsignedBigInteger('user_id');
+        });
+        Schema::create('coffs', function ($table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('from_date');
+            $table->date('to_date');
+            $table->softDeletes();
+        });
+        Schema::create('process_tags', function ($table): void {
+            $table->id();
+            $table->string('taggable_type');
+            $table->unsignedBigInteger('taggable_id');
+            $table->string('name');
+            $table->string('color')->nullable();
+            $table->string('icon')->nullable();
+            $table->timestamps();
+        });
     }
 
     protected function tearDown(): void
     {
+        Schema::dropIfExists('process_tags');
+        Schema::dropIfExists('coffs');
+        Schema::dropIfExists('leave_application_users');
+        Schema::dropIfExists('leave_applications');
+        Schema::dropIfExists('attendances2026');
         Schema::dropIfExists('status_musters');
         Schema::dropIfExists('status_masters');
         Schema::dropIfExists('shift_musters');
         Schema::dropIfExists('shifts');
         Schema::dropIfExists('general_configurations');
+        Schema::dropIfExists('users');
 
         parent::tearDown();
     }
@@ -312,6 +352,258 @@ class ProcessPendingLogsTest extends TestCase
         $this->assertFalse($isSettingEnabled->invoke($calculator, 'half_day_rules'));
     }
 
+    public function test_half_day_check_skips_when_attendance_context_is_incomplete(): void
+    {
+        $calculator = new AttCalculator(new AttendanceLog, true);
+
+        $calculator->checkHalfDayRule();
+
+        $this->assertStringContainsString('Skipping half-day check', implode(PHP_EOL, $calculator->getReturnLogs()));
+    }
+
+    public function test_month_end_check_uses_the_supplied_date(): void
+    {
+        $calculator = new AttCalculator(new AttendanceLog);
+
+        $this->assertTrue($calculator->isMonthEnd('2026-03-31'));
+        $this->assertTrue($calculator->isMonthEnd('2026-04-01'));
+        $this->assertFalse($calculator->isMonthEnd('2026-04-15'));
+    }
+
+    public function test_half_day_work_period_classifies_first_second_and_unassigned_halves(): void
+    {
+        $this->assertSame(
+            ['PA', 'Half Day | Is First Half'],
+            $this->halfDayWorkPeriod('2026-04-15 08:00:00', '2026-04-15 12:00:00', '2026-04-15 08:00:00', '12:00:00', '13:00:00'),
+        );
+        $this->assertSame(
+            ['AP', 'Half Day | Is Second Half'],
+            $this->halfDayWorkPeriod('2026-04-15 13:00:00', '2026-04-15 17:00:00', '2026-04-15 08:00:00', '12:00:00', '13:00:00'),
+        );
+        $this->assertSame(
+            ['PA', 'Half Day'],
+            $this->halfDayWorkPeriod('2026-04-15 12:15:00', '2026-04-15 12:45:00', '2026-04-15 08:00:00', '12:00:00', '13:00:00'),
+        );
+    }
+
+    public function test_half_day_work_period_handles_overnight_shift_boundaries(): void
+    {
+        $this->assertSame(
+            ['PA', 'Half Day | Is First Half'],
+            $this->halfDayWorkPeriod('2026-04-16 00:00:00', '2026-04-16 02:00:00', '2026-04-15 20:00:00', '02:00:00', '03:00:00'),
+        );
+        $this->assertSame(
+            ['AP', 'Half Day | Is Second Half'],
+            $this->halfDayWorkPeriod('2026-04-16 03:00:00', '2026-04-16 06:00:00', '2026-04-15 20:00:00', '02:00:00', '03:00:00'),
+        );
+    }
+
+    public function test_assigned_half_day_rule_controls_single_punch_behavior(): void
+    {
+        DB::table('users')->insert(['id' => 7]);
+        StatusMaster::create([
+            'code' => 'PP',
+            'alias' => 'Present',
+            'description' => 'Present',
+        ]);
+        StatusMaster::create([
+            'code' => 'PA',
+            'alias' => 'Present + Absent',
+            'description' => 'Half-day present',
+        ]);
+        $shift = new Shift;
+        $shift->setAttribute('first_half_end_time', '12:00:00');
+        $shift->setAttribute('second_half_start_time', '13:00:00');
+
+        $scenarios = [
+            ['rule_status' => 1, 'single_punch_allowed' => true, 'expected_half_day' => false],
+            ['rule_status' => 1, 'single_punch_allowed' => false, 'expected_half_day' => true],
+            ['rule_status' => 0, 'single_punch_allowed' => false, 'expected_half_day' => false],
+        ];
+
+        foreach ($scenarios as $scenario) {
+            $rule = new HalfDayRule;
+            $rule->setAttribute('status', $scenario['rule_status']);
+            $rule->setAttribute('single_punch_allowed', $scenario['single_punch_allowed']);
+            $rule->setAttribute('work_hr_less_than_minutes', 0);
+            $rule->setAttribute('late_coming_minutes', 0);
+            $rule->setAttribute('early_going_minutes', 0);
+
+            $user = new User;
+            $user->setAttribute('id', 7);
+            $user->setRelation('half_day_rule', $rule);
+
+            $log = new AttendanceLog;
+            $log->setAttribute('datetime', Carbon::parse('2026-04-15 08:00:00'));
+            $log->setRelation('user', $user);
+
+            $attendance = Attendance::year(2026);
+            $attendance->user_id = 7;
+            $attendance->date = '2026-04-15';
+            $attendance->shift_id = null;
+            $attendance->shift_in_time = '2026-04-15 08:00:00';
+            $attendance->shift_out_time = '2026-04-15 17:00:00';
+            $attendance->in_time = '2026-04-15 08:00:00';
+            $attendance->out_time = null;
+            $attendance->is_night_shift = false;
+            $attendance->is_half_day = false;
+            Schema::disableForeignKeyConstraints();
+            $attendance->save();
+            Schema::enableForeignKeyConstraints();
+            $attendance->setRelation('shift', $shift);
+
+            $calculator = new class($log) extends AttCalculator
+            {
+                protected function isSettingEnabled(string $key): bool
+                {
+                    return $key === 'half_day_rules';
+                }
+            };
+            (new \ReflectionProperty(AttCalculator::class, 'curatt'))->setValue($calculator, $attendance);
+
+            $calculator->checkHalfDayRule();
+
+            $this->assertSame($scenario['expected_half_day'], $attendance->fresh()->is_half_day);
+        }
+    }
+
+    public function test_short_workday_sets_half_day_attendance_muster_and_first_half_tag(): void
+    {
+        DB::table('users')->insert(['id' => 7]);
+        $statusMaster = StatusMaster::create([
+            'code' => 'PA',
+            'alias' => 'Present + Absent',
+            'description' => 'Half-day present',
+        ]);
+        $statusMuster = StatusMuster::create([
+            'date' => '2026-04-15',
+            'user_id' => 7,
+            'day_count' => 1,
+            'year' => 2026,
+            'is_locked' => false,
+        ]);
+
+        $rule = new HalfDayRule;
+        $rule->setAttribute('status', 1);
+        $rule->setAttribute('single_punch_allowed', false);
+        $rule->setAttribute('work_hr_less_than_minutes', 300);
+        $rule->setAttribute('late_coming_minutes', 0);
+        $rule->setAttribute('early_going_minutes', 0);
+        $user = new User;
+        $user->setAttribute('id', 7);
+        $user->setRelation('half_day_rule', $rule);
+
+        $log = new AttendanceLog;
+        $log->setAttribute('datetime', Carbon::parse('2026-04-15 08:00:00'));
+        $log->setRelation('user', $user);
+
+        $shift = new Shift;
+        $shift->setAttribute('first_half_end_time', '12:00:00');
+        $shift->setAttribute('second_half_start_time', '13:00:00');
+        $attendance = Attendance::year(2026);
+        $attendance->user_id = 7;
+        $attendance->date = '2026-04-15';
+        $attendance->shift_in_time = '2026-04-15 08:00:00';
+        $attendance->shift_out_time = '2026-04-15 17:00:00';
+        $attendance->in_time = '2026-04-15 08:00:00';
+        $attendance->out_time = '2026-04-15 12:00:00';
+        $attendance->is_night_shift = false;
+        $attendance->is_half_day = false;
+        Schema::disableForeignKeyConstraints();
+        $attendance->save();
+        Schema::enableForeignKeyConstraints();
+        $attendance->setRelation('shift', $shift);
+
+        $calculator = new class($log) extends AttCalculator
+        {
+            protected function isSettingEnabled(string $key): bool
+            {
+                return $key === 'half_day_rules';
+            }
+        };
+        (new \ReflectionProperty(AttCalculator::class, 'curatt'))->setValue($calculator, $attendance);
+
+        $calculator->checkHalfDayRule();
+
+        $this->assertTrue($attendance->fresh()->is_half_day);
+        $this->assertSame($statusMaster->id, $attendance->fresh()->status_master_id);
+        $this->assertSame(0.5, $statusMuster->fresh()->day_count);
+        $this->assertSame($statusMaster->id, $statusMuster->fresh()->status_master_id);
+        $this->assertDatabaseHas('process_tags', [
+            'taggable_type' => Attendance::class,
+            'taggable_id' => $attendance->id,
+            'name' => 'Half Day | Is First Half',
+        ]);
+    }
+
+    public function test_late_occurrence_threshold_includes_current_unflagged_attendance(): void
+    {
+        DB::table('users')->insert(['id' => 7]);
+        $statusMaster = StatusMaster::create([
+            'code' => 'PA',
+            'alias' => 'Present + Absent',
+            'description' => 'Half-day present',
+        ]);
+        Attendance::year(2026);
+        Schema::disableForeignKeyConstraints();
+        DB::table('attendances2026')->insert([
+            'user_id' => 7,
+            'date' => '2026-04-14',
+            'is_late' => true,
+            'is_locked' => false,
+        ]);
+        Schema::enableForeignKeyConstraints();
+
+        $rule = new HalfDayRule;
+        $rule->setAttribute('status', 1);
+        $rule->setAttribute('single_punch_allowed', false);
+        $rule->setAttribute('work_hr_less_than_minutes', 0);
+        $rule->setAttribute('late_coming_minutes', 5);
+        $rule->setAttribute('no_of_late', 1);
+        $rule->setAttribute('consecutive_late_coming', 0);
+        $rule->setAttribute('early_going_minutes', 0);
+        $user = new User;
+        $user->setAttribute('id', 7);
+        $user->setRelation('half_day_rule', $rule);
+
+        $log = new AttendanceLog;
+        $log->setAttribute('datetime', Carbon::parse('2026-04-15 08:30:00'));
+        $log->setRelation('user', $user);
+
+        $shift = new Shift;
+        $shift->setAttribute('first_half_end_time', '12:00:00');
+        $shift->setAttribute('second_half_start_time', '13:00:00');
+        $attendance = Attendance::year(2026);
+        $attendance->user_id = 7;
+        $attendance->date = '2026-04-15';
+        $attendance->shift_in_time = '2026-04-15 08:00:00';
+        $attendance->shift_out_time = '2026-04-15 17:00:00';
+        $attendance->in_time = '2026-04-15 08:30:00';
+        $attendance->out_time = '2026-04-15 17:00:00';
+        $attendance->is_late = false;
+        $attendance->is_early = false;
+        $attendance->is_night_shift = false;
+        $attendance->is_half_day = false;
+        Schema::disableForeignKeyConstraints();
+        $attendance->save();
+        Schema::enableForeignKeyConstraints();
+        $attendance->setRelation('shift', $shift);
+
+        $calculator = new class($log) extends AttCalculator
+        {
+            protected function isSettingEnabled(string $key): bool
+            {
+                return $key === 'half_day_rules';
+            }
+        };
+        (new \ReflectionProperty(AttCalculator::class, 'curatt'))->setValue($calculator, $attendance);
+
+        $calculator->checkHalfDayRule();
+
+        $this->assertTrue($attendance->fresh()->is_half_day);
+        $this->assertSame($statusMaster->id, $attendance->fresh()->status_master_id);
+    }
+
     public function test_status_muster_half_day_increment_is_idempotent(): void
     {
         $statusMaster = StatusMaster::create([
@@ -386,5 +678,31 @@ class ProcessPendingLogsTest extends TestCase
     private function getCalculatorLog(AttCalculator $calculator): AttendanceLog
     {
         return (new \ReflectionProperty(AttCalculator::class, 'log'))->getValue($calculator);
+    }
+
+    private function halfDayWorkPeriod(
+        string $punchIn,
+        string $punchOut,
+        string $shiftIn,
+        string $firstHalfEnd,
+        string $secondHalfStart,
+    ): array {
+        $calculator = new AttCalculator(new AttendanceLog);
+        $shift = new Shift;
+        $shift->setAttribute('first_half_end_time', $firstHalfEnd);
+        $shift->setAttribute('second_half_start_time', $secondHalfStart);
+
+        $attendanceContext = new \stdClass;
+        $attendanceContext->shift = $shift;
+        (new \ReflectionProperty(AttCalculator::class, 'curatt'))->setValue($calculator, $attendanceContext);
+
+        $method = new \ReflectionMethod(AttCalculator::class, 'halfDayWorkPeriod');
+
+        return $method->invoke(
+            $calculator,
+            Carbon::parse($punchIn),
+            Carbon::parse($punchOut),
+            Carbon::parse($shiftIn),
+        );
     }
 }
