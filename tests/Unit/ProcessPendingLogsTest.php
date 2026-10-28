@@ -10,6 +10,8 @@ use App\Models\Tenant\Attendance;
 use App\Models\Tenant\AttendanceLog;
 use App\Models\Tenant\GeneralConfiguration;
 use App\Models\Tenant\Shift;
+use App\Models\Tenant\StatusMaster;
+use App\Models\Tenant\StatusMuster;
 use App\Models\Tenant\User;
 use Illuminate\Contracts\Database\ModelIdentifier;
 use Illuminate\Support\Carbon;
@@ -51,10 +53,29 @@ class ProcessPendingLogsTest extends TestCase
             $table->unsignedBigInteger('calculated_shift')->nullable();
             $table->timestamps();
         });
+        Schema::create('status_masters', function ($table): void {
+            $table->id();
+            $table->string('code')->unique();
+            $table->string('alias')->nullable();
+            $table->string('description')->nullable();
+            $table->timestamps();
+        });
+        Schema::create('status_musters', function ($table): void {
+            $table->id();
+            $table->date('date');
+            $table->unsignedBigInteger('user_id')->nullable();
+            $table->unsignedBigInteger('status_master_id')->nullable();
+            $table->float('day_count');
+            $table->unsignedInteger('year');
+            $table->boolean('is_locked');
+            $table->timestamps();
+        });
     }
 
     protected function tearDown(): void
     {
+        Schema::dropIfExists('status_musters');
+        Schema::dropIfExists('status_masters');
         Schema::dropIfExists('shift_musters');
         Schema::dropIfExists('shifts');
         Schema::dropIfExists('general_configurations');
@@ -289,6 +310,57 @@ class ProcessPendingLogsTest extends TestCase
         $isSettingEnabled = new \ReflectionMethod(AttCalculator::class, 'isSettingEnabled');
 
         $this->assertFalse($isSettingEnabled->invoke($calculator, 'half_day_rules'));
+    }
+
+    public function test_status_muster_half_day_increment_is_idempotent(): void
+    {
+        $statusMaster = StatusMaster::create([
+            'code' => 'PCO',
+            'alias' => 'Present + C-off',
+            'description' => 'Present with compensatory off',
+        ]);
+        $statusMuster = StatusMuster::create([
+            'date' => '2026-01-02',
+            'user_id' => 7,
+            'day_count' => 0,
+            'year' => 2026,
+            'is_locked' => false,
+        ]);
+
+        $user = new User;
+        $user->setAttribute('id', 7);
+        $log = new AttendanceLog;
+        $log->setAttribute('datetime', Carbon::parse('2026-01-02 08:00:00'));
+        $log->setRelation('user', $user);
+        $calculator = new AttCalculator($log);
+        $updateStatusMuster = new \ReflectionMethod(AttCalculator::class, 'updateStatusMuster');
+
+        $updateStatusMuster->invoke($calculator, 'PCO', 0.5, true);
+        $updateStatusMuster->invoke($calculator, 'PCO', 0.5, true);
+
+        $this->assertSame(0.5, $statusMuster->fresh()->day_count);
+        $this->assertSame($statusMaster->id, $statusMuster->fresh()->status_master_id);
+    }
+
+    public function test_status_muster_update_skips_when_unlocked_muster_is_missing(): void
+    {
+        StatusMaster::create([
+            'code' => 'PCO',
+            'alias' => 'Present + C-off',
+            'description' => 'Present with compensatory off',
+        ]);
+
+        $user = new User;
+        $user->setAttribute('id', 7);
+        $log = new AttendanceLog;
+        $log->setAttribute('datetime', Carbon::parse('2026-01-02 08:00:00'));
+        $log->setRelation('user', $user);
+        $calculator = new AttCalculator($log);
+        $updateStatusMuster = new \ReflectionMethod(AttCalculator::class, 'updateStatusMuster');
+
+        $updateStatusMuster->invoke($calculator, 'PCO', 0.5, true);
+
+        $this->assertDatabaseCount('status_musters', 0);
     }
 
     private function calculatorWithPreviousPunch(string $previousDatetime, bool $previousIsOut, string $currentDatetime, int $userId = 7): AttCalculator
