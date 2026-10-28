@@ -175,9 +175,9 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
 
     private function assignedOrganizationId(string $field): ?int
     {
-        $selectedIds = $this->manualAttendance->{$field . '_ids'};
+        $selectedIds = $this->manualAttendance->{$field.'_ids'};
         if (is_array($selectedIds) && $selectedIds !== []) {
-            $userIds = $this->user->{$field . '_id'};
+            $userIds = $this->user->{$field.'_id'};
             $matchingIds = array_values(array_intersect(
                 array_map('intval', $selectedIds),
                 array_map('intval', (array) $userIds),
@@ -186,7 +186,7 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
             return $matchingIds[0] ?? null;
         }
 
-        $legacyId = $this->manualAttendance->{$field . '_id'};
+        $legacyId = $this->manualAttendance->{$field.'_id'};
 
         return $legacyId === null ? null : (int) $legacyId;
     }
@@ -1128,6 +1128,10 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
 
     public function checkEarlyGoingRule(): void
     {
+        if ($this->curatt === null) {
+            return;
+        }
+
         $leave_application = LeaveApplication::whereHas('users', fn ($query) => $query->whereKey($this->user->id))
             ->where('from_date', '<=', Carbon::parse($this->manualAttendance->in_time)->format('Y-m-d'))
             ->where('to_date', '>=', Carbon::parse($this->manualAttendance->in_time)->format('Y-m-d'))
@@ -1290,12 +1294,14 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
                                 }
                                 $this->debug('Early Going Rule is calculate | Punch Out time not have this user');
                             }
+
                         }
                     } else {
                         $this->debug('First enable early going rule in setting');
                     }
                 }
             }
+
         } elseif ($short_leave != null) {
             if ($short_leave->short_leave_type == '2') {
                 $punchInTime = Carbon::parse($this->curatt->in_time);
@@ -1910,6 +1916,8 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
     {
         if (setting('over_time_rules', '0') == true) { // GeneralHelper::checkSettings("over_time_rules") === true) {
             $this->debug('~~~Checking OverTime Rule');
+            $this->curatt->total_overtime_minutes = 0;
+            $this->curatt->save();
             if ($this->user->overtime_rule) {
                 if ($this->curatt->out_time) {
                     $overtimeRule = $this->user?->overtime_rule;
@@ -1926,15 +1934,13 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
                     }
                     $this->debug('After shift overtime minutes : '.$out_diff);
 
-
-
                     if ($out_diff >= 0) {
                         $totalDiff = $overtimeRule->qualifyingOvertimeMinutes($out_diff);
                         $overtimerule_slabs = $overtimeRule->overtime_slabs()->get();
                         $this->debug('Final Total Overtime : '.$totalDiff.', Total Over time early : '.$this->overtime_early.', Total Over time late : '.$this->overtime_late);
                         foreach ($overtimerule_slabs as $overtimerule_slab) {
                             if (sprintf('%02d:%02d', floor($totalDiff / 60), $totalDiff % 60) > '00:00' && sprintf('%02d:%02d', floor($totalDiff / 60), $totalDiff % 60) >= $overtimerule_slab->value_from->format('H:i') && sprintf('%02d:%02d', floor($totalDiff / 60), $totalDiff % 60) <= $overtimerule_slab->value_to->format('H:i')) {
-                                $this->handleOvertime($overtimerule_slab);
+                                $this->handleOvertime($overtimerule_slab, (int) $totalDiff);
                                 $this->otFlag = true;
                                 break;
                             } else {
@@ -1946,7 +1952,7 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
                     }
 
                     if ($this->otFlag == false) {
-                        $this->handleRegularHours();
+                        $this->handleRegularHours((int) $totalDiff);
                     }
                 } else {
                     $this->debug('User not have out punch');
@@ -2023,6 +2029,7 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
 
                             $this->curatt->status_master_id = StatusMaster::where('code', 'PPO')->first()->id;
                             $this->curatt->is_over_time = true;
+                            $this->curatt->total_overtime_minutes = (int) $totalDiff;
                             $this->curatt->save();
 
                             StatusMuster::where('user_id', $this->manualAttendance->user->id)
@@ -2115,11 +2122,12 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
     //     return sprintf('%02d:%02d', $hours, $minutes);
     // }
 
-    private function handleOvertime($overtimerule_slab)
+    private function handleOvertime($overtimerule_slab, int $totalMinutes)
     {
         $this->debug('User get overtime '.$overtimerule_slab->head_value->format('H:i').' Hour');
         $this->curatt->status_master_id = StatusMaster::where('code', 'PPO')->first()->id;
         $this->curatt->is_over_time = true;
+        $this->curatt->total_overtime_minutes = $totalMinutes;
         $this->curatt->save();
 
         StatusMuster::where('user_id', $this->user->id)
@@ -2135,10 +2143,11 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
         $processTags->create(['name' => 'Overtime', 'success' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
     }
 
-    private function handleRegularHours()
+    private function handleRegularHours(int $totalMinutes = 0)
     {
         $this->debug('User  not get overtime | not have any overtime slab for user overtime hour');
         $this->curatt->is_over_time = false;
+        $this->curatt->total_overtime_minutes = $totalMinutes;
         $this->curatt->status_master_id = $this->curatt->status_master_id;
         $this->curatt->save();
 

@@ -3,6 +3,7 @@
 namespace App\Models\Tenant;
 
 use App\Traits\HasDynamicTable;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Schema\Blueprint;
@@ -29,6 +30,13 @@ use Illuminate\Database\Schema\Blueprint;
  * @property bool $is_locked
  * @property bool $is_holiday
  * @property bool $is_weekoff
+ * @property bool $is_late
+ * @property int $late_minutes
+ * @property bool $is_early
+ * @property int $early_minutes
+ * @property bool $is_over_time
+ * @property int $total_overtime_minutes
+ * @property int $approved_overtime_minutes
  * @property bool $is_manual
  * @property bool $has_error
  * @property string|null $remarks
@@ -44,6 +52,22 @@ class Attendance extends Model
     use HasDynamicTable;
 
     protected $table = '';
+
+    public function save(array $options = [])
+    {
+        $this->late_minutes = $this->is_late
+            && $this->shift_in_time !== null
+            && $this->in_time !== null
+            ? max(0, (int) floor((Carbon::parse($this->in_time)->getTimestamp() - Carbon::parse($this->shift_in_time)->getTimestamp()) / 60))
+            : 0;
+        $this->early_minutes = $this->is_early
+            && $this->shift_out_time !== null
+            && $this->out_time !== null
+            ? max(0, (int) floor((Carbon::parse($this->shift_out_time)->getTimestamp() - Carbon::parse($this->out_time)->getTimestamp()) / 60))
+            : 0;
+
+        return parent::save($options);
+    }
 
     // public function __construct(array $attributes = [], ?string $year = null)
     public function __construct(?string $year = null)
@@ -83,10 +107,14 @@ class Attendance extends Model
         $table->boolean('is_holiday')->default(false);
         $table->boolean('is_weekoff')->default(false);
         $table->boolean('is_late')->default(false);
+        $table->unsignedInteger('late_minutes')->default(0);
         $table->boolean('is_early')->default(false);
+        $table->unsignedInteger('early_minutes')->default(0);
         $table->boolean('is_half_day')->default(false);
         $table->boolean('is_absent')->default(false);
         $table->boolean('is_over_time')->default(false);
+        $table->unsignedInteger('total_overtime_minutes')->default(0);
+        $table->unsignedInteger('approved_overtime_minutes')->default(0);
         $table->boolean('is_manual')->default(false);
         $table->boolean('has_error')->default(false);
         $table->foreignId('status_master_id')->nullable()->constrained('status_masters');
@@ -119,8 +147,12 @@ class Attendance extends Model
         'has_error',
         'remarks',
         'is_late',
+        'late_minutes',
         'is_early',
+        'early_minutes',
         'is_over_time',
+        'total_overtime_minutes',
+        'approved_overtime_minutes',
         'is_absent',
         'is_half_day',
         'is_manual',
@@ -149,8 +181,12 @@ class Attendance extends Model
         'is_weekoff' => 'boolean',
         'has_error' => 'boolean',
         'is_late' => 'boolean',
+        'late_minutes' => 'int',
         'is_early' => 'boolean',
+        'early_minutes' => 'int',
         'is_over_time' => 'boolean',
+        'total_overtime_minutes' => 'int',
+        'approved_overtime_minutes' => 'int',
         'is_absent' => 'boolean',
         'is_half_day' => 'boolean',
         'is_manual' => 'boolean',

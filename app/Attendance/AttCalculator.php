@@ -8,11 +8,12 @@ use App\Models\Tenant\Coff;
 use App\Models\Tenant\GeneralConfiguration;
 use App\Models\Tenant\InOutMuster;
 use App\Models\Tenant\LeaveApplication;
+use App\Models\Tenant\OvertimeSlab;
 use App\Models\Tenant\Shift;
 use App\Models\Tenant\ShiftMuster;
 use App\Models\Tenant\ShortLeaveApplication;
-use App\Models\Tenant\StatusMaster;
 // use App\Models\VisitorInOutMuster;
+use App\Models\Tenant\StatusMaster;
 use App\Models\Tenant\StatusMuster;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -2135,13 +2136,6 @@ class AttCalculator
             return;
         }
 
-        if (! $this->isSettingEnabled('early_going_rules')) {
-            $this->debug('First enable early going rule in setting');
-            $this->updateEarlyGoingAttendance($statusCode, false, $updateStatusMuster);
-
-            return;
-        }
-
         $earlyGoingRule = $this->log->user->early_going_rule;
         $ruleGraceMinutes = $earlyGoingRule !== null && (int) $earlyGoingRule->status === 1
             ? max(0, (int) $earlyGoingRule->ignore_early_going_minutes)
@@ -2316,8 +2310,10 @@ class AttCalculator
         }
 
         $this->debug('~~~Checking OverTime Rule');
+        $this->curatt->total_overtime_minutes = 0;
         if (! $this->curatt->shift_in_time || ! $this->curatt->shift_out_time) {
             $this->debug('Skipping overtime calculation because attendance has no shift times');
+            $this->curatt->save();
 
             return;
         }
@@ -2354,13 +2350,13 @@ class AttCalculator
                 ->first(fn ($overtimeSlab): bool => $totalMinutes > 0 && $overtimeSlab->containsMinutes($totalMinutes));
 
             if ($slab) {
-                $this->handleOvertime($slab);
+                $this->handleOvertime($slab, $totalMinutes);
                 $this->otFlag = true;
 
                 return;
             }
 
-            $this->handleRegularHours();
+            $this->handleRegularHours($totalMinutes);
 
             return;
         }
@@ -2390,7 +2386,7 @@ class AttCalculator
 
         if ($totalMinutes > 0) {
             $this->debug('User get overtime '.sprintf('%02d:%02d', intdiv($totalMinutes, 60), $totalMinutes % 60).' Hour');
-            $this->markOvertime();
+            $this->markOvertime($totalMinutes);
             $this->otFlag = true;
 
             return;
@@ -2399,17 +2395,18 @@ class AttCalculator
         $this->handleRegularHours();
     }
 
-    private function handleOvertime(\App\Models\Tenant\OvertimeSlab $overtimeSlab): void
+    private function handleOvertime(OvertimeSlab $overtimeSlab, int $totalMinutes): void
     {
         $this->debug('User get overtime '.$overtimeSlab->formattedHeadValue().' Hour');
-        $this->markOvertime();
+        $this->markOvertime($totalMinutes);
     }
 
-    private function markOvertime(): void
+    private function markOvertime(int $totalMinutes): void
     {
         $overtimeStatus = StatusMaster::where('code', 'PPO')->firstOrFail();
         $this->curatt->status_master_id = $overtimeStatus->id;
         $this->curatt->is_over_time = true;
+        $this->curatt->total_overtime_minutes = $totalMinutes;
         $this->curatt->save();
 
         StatusMuster::where('user_id', $this->log->user->id)
@@ -2425,10 +2422,11 @@ class AttCalculator
         $processTags->create(['name' => 'Overtime', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
     }
 
-    private function handleRegularHours(): void
+    private function handleRegularHours(int $totalMinutes = 0): void
     {
         $this->debug('User does not qualify for overtime');
         $this->curatt->is_over_time = false;
+        $this->curatt->total_overtime_minutes = $totalMinutes;
         $this->curatt->save();
 
         $processTags = $this->curatt->process_tags();
