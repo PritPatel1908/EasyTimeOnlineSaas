@@ -208,6 +208,7 @@ class AttCalculator
             if ($this->prv_log === null) {
                 $this->debug('Marking as In punch as no previous log found');
                 $this->log->is_out = false;
+
                 return;
             }
 
@@ -219,6 +220,7 @@ class AttCalculator
                 $this->punchAttendanceDate = $cutoffShift['date'];
                 $this->setDirectionFromPreviousPunch($sameDirectionSeconds);
                 $this->debug('Both punches fall within shift cutoff window for '.$cutoffShift['date']);
+
                 return;
             }
 
@@ -2022,635 +2024,123 @@ class AttCalculator
         }
     }
 
-    // TODO:check earlygoing rule and calculate according shift after testing
     public function checkEarlyGoingRule(): void
     {
-        $leave_application = LeaveApplication::whereHas('users', fn ($query) => $query->whereKey($this->log->user->id))
-            ->where('from_date', '<=', $this->log->datetime->format('Y-m-d'))
-            ->where('to_date', '>=', $this->log->datetime->format('Y-m-d'))
+        if ($this->curatt === null || $this->log->user === null) {
+            $this->debug('Skipping early-going check because attendance or user is missing');
+
+            return;
+        }
+
+        $date = $this->log->datetime->format('Y-m-d');
+        $leaveApplication = LeaveApplication::whereHas('users', fn ($query) => $query->whereKey($this->log->user->id))
+            ->where('from_date', '<=', $date)
+            ->where('to_date', '>=', $date)
             ->first();
-
-        $short_leave = ShortLeaveApplication::where('user_id', $this->log->user->id)
-            ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-
+        $shortLeave = ShortLeaveApplication::where('user_id', $this->log->user->id)
+            ->where('date', $date)
+            ->first();
         $coff = Coff::where('user_id', $this->log->user->id)
-            ->where('from_date', '<=', $this->log->datetime->format('Y-m-d'))
-            ->where('to_date', '>=', $this->log->datetime->format('Y-m-d'))
+            ->where('from_date', '<=', $date)
+            ->where('to_date', '>=', $date)
             ->first();
 
-        if ($leave_application != null) {
-            if ($leave_application->is_first_half && $leave_application->to_date == $this->log->datetime->format('Y-m-d')) {
-                $punchInTime = Carbon::parse($this->curatt->in_time);
-                if ($this->log->user->category->single_punch_allowed_present && $punchInTime && $punchInTime != null && $this->curatt->out_time == null) {
-                    $this->debug('Single Punch Allowed');
+        $statusCode = 'PP';
+        $approvedEarlyGoingMinutes = 0;
 
-                    $this->curatt->status_master_id = StatusMaster::where('code', $leave_application->leave_type->code.'P')->first()->id;
-                    $this->curatt->is_early = false;
-                    $this->curatt->save();
-
-                    $processTags = $this->curatt->process_tags();
-                    $processTags->where('name', 'Early Going')->delete();
-                } else {
-                    if ($this->isSettingEnabled('early_going_rules')) {
-                        $this->debug('~~~Checking EarlyGoing Rule');
-                        if ($this->log->user->early_going_rule && $this->curatt->shift_out_time && $this->curatt->out_time) {
-                            $ignoreEarlyGoingMinutes = $this->log->user?->early_going_rule?->ignore_early_going_minutes;
-                            $shiftOutTime = Carbon::parse($this->curatt->shift_out_time);
-                            $punchOutTime = Carbon::parse($this->curatt->out_time);
-
-                            if ($punchOutTime && $shiftOutTime && $punchOutTime->lte($shiftOutTime)) {
-                                $differenceOutMinutes = $punchOutTime->diffInMinutes($shiftOutTime);
-
-                                if ($ignoreEarlyGoingMinutes >= 0 && $differenceOutMinutes > $ignoreEarlyGoingMinutes) {
-                                    $this->debug('User punch out time is less than shift out time and exceeds ignore early going minutes, so user is early out');
-                                    $this->curatt->status_master_id = StatusMaster::where('code', $leave_application->leave_type->code.'P')->first()->id;
-                                    $this->curatt->is_early = true;
-                                    $this->curatt->save();
-
-                                    $processTags = $this->curatt->process_tags();
-                                    $processTags->where('name', 'Early Going')->delete();
-                                    $processTags->create(['name' => 'Early Going', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
-                                } else {
-                                    if ($this->curatt->is_early = true) {
-                                        $this->curatt->is_early = false;
-                                        $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                        $this->curatt->save();
-
-                                        $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                            ->where('is_locked', false)
-                                            ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                                        $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                        $statusMuster->day_count = $statusMuster->day_count;
-                                        $statusMuster->save();
-
-                                        $processTags = $this->curatt->process_tags();
-                                        $processTags->where('name', 'Early Going')->delete();
-                                    }
-                                    $this->debug('User Not Less Than Early Going Minutes');
-                                }
-                            } else {
-                                if ($this->curatt->is_early = true) {
-                                    $this->curatt->is_early = false;
-                                    $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                    $this->curatt->save();
-
-                                    $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                        ->where('is_locked', false)
-                                        ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                                    $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                    $statusMuster->day_count = $statusMuster->day_count;
-                                    $statusMuster->save();
-
-                                    $processTags = $this->curatt->process_tags();
-                                    $processTags->where('name', 'Early Going')->delete();
-                                }
-                                $this->debug('Punch Out Time Not Have | Shift Out Time Not Have | Punch Out Time Not Greater Than Shift Out Time');
-                            }
-                        } else {
-                            if ($this->curatt->shift_out_time && $this->curatt->out_time) {
-                                $shiftOutTime = Carbon::parse($this->curatt->shift_out_time);
-                                $punchOutTime = Carbon::parse($this->curatt->out_time);
-
-                                if ($punchOutTime && $shiftOutTime && $punchOutTime->lte($shiftOutTime)) {
-                                    $differenceOutMinutes = $punchOutTime->diffInMinutes($shiftOutTime);
-
-                                    if ($differenceOutMinutes > 0) {
-                                        $this->debug('User punch out time is less than shift out time, so user is early out');
-                                        $this->curatt->status_master_id = StatusMaster::where('code', $leave_application->leave_type->code.'P')->first()->id;
-                                        $this->curatt->is_early = true;
-                                        $this->curatt->save();
-
-                                        $processTags = $this->curatt->process_tags();
-                                        $processTags->where('name', 'Early Going')->delete();
-                                        $processTags->create(['name' => 'Early Going', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
-                                    } else {
-                                        if ($this->curatt->is_early = true) {
-                                            $this->curatt->is_early = false;
-                                            $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                            $this->curatt->save();
-
-                                            $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                                ->where('is_locked', false)
-                                                ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                                            $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                            $statusMuster->day_count = $statusMuster->day_count;
-                                            $statusMuster->save();
-
-                                            $processTags = $this->curatt->process_tags();
-                                            $processTags->where('name', 'Early Going')->delete();
-                                        }
-                                        $this->debug('User Not Less Than Early Going Minutes');
-                                    }
-                                } else {
-                                    if ($this->curatt->is_early = true) {
-                                        $this->curatt->is_early = false;
-                                        $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                        $this->curatt->save();
-
-                                        $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                            ->where('is_locked', false)
-                                            ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                                        $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                        $statusMuster->day_count = $statusMuster->day_count;
-                                        $statusMuster->save();
-
-                                        $processTags = $this->curatt->process_tags();
-                                        $processTags->where('name', 'Early Going')->delete();
-                                    }
-                                    $this->debug('Punch Out Time Not Have | Shift Out Time Not Have | Punch Out Time Not Greater Than Shift Out Time');
-                                }
-                            } else {
-                                if ($this->curatt && $this->curatt->is_early = true) {
-                                    $this->curatt->is_early = false;
-                                    $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                    $this->curatt->save();
-
-                                    $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                        ->where('is_locked', false)
-                                        ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                                    $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                    $statusMuster->day_count = $statusMuster->day_count;
-                                    $statusMuster->save();
-
-                                    $processTags = $this->curatt->process_tags();
-                                    $processTags->where('name', 'Early Going')->delete();
-                                }
-                                $this->debug('Early Going Rule is calculate | Punch Out time not have this user');
-                            }
-                        }
-                    } else {
-                        $this->debug('First enable early going rule in setting');
-                    }
-                }
+        if ($leaveApplication !== null) {
+            if (! $leaveApplication->is_first_half || $leaveApplication->to_date != $date) {
+                return;
             }
-        } elseif ($short_leave != null) {
-            if ($short_leave->short_leave_type == '2') {
-                $punchInTime = Carbon::parse($this->curatt->in_time);
-                if ($this->log->user->category->single_punch_allowed_present && $punchInTime && $punchInTime != null && $this->curatt->out_time == null) {
-                    $this->debug('Single Punch Allowed');
 
-                    $this->curatt->status_master_id = StatusMaster::where('code', 'PP')->first()->id;
-                    $this->curatt->is_early = false;
-                    $this->curatt->save();
-
-                    $processTags = $this->curatt->process_tags();
-                    $processTags->where('name', 'Early Going')->delete();
-                } else {
-                    if ($this->isSettingEnabled('early_going_rules')) {
-                        $this->debug('~~~Checking EarlyGoing Rule');
-                        if ($this->log->user->early_going_rule && $this->curatt->shift_out_time && $this->curatt->out_time) {
-                            $ignoreEarlyGoingMinutes = $this->log->user?->early_going_rule?->ignore_early_going_minutes;
-                            $shiftOutTime = Carbon::parse($this->curatt->shift_out_time);
-                            $punchOutTime = Carbon::parse($this->curatt->out_time);
-
-                            if ($punchOutTime && $shiftOutTime && $punchOutTime->lte($shiftOutTime)) {
-                                $differenceOutMinutes = $punchOutTime->diffInMinutes($shiftOutTime);
-
-                                if ($differenceOutMinutes > $short_leave->minutes) {
-                                    if ($ignoreEarlyGoingMinutes >= 0 && $differenceOutMinutes > $ignoreEarlyGoingMinutes) {
-                                        $this->debug('User punch out time is less than shift out time and exceeds ignore early going minutes, so user is early out');
-                                        $this->curatt->status_master_id = StatusMaster::where('code', 'PP')->first()->id;
-                                        $this->curatt->is_early = true;
-                                        $this->curatt->save();
-
-                                        $processTags = $this->curatt->process_tags();
-                                        $processTags->where('name', 'Early Going')->delete();
-                                        $processTags->create(['name' => 'Early Going', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
-                                    } else {
-                                        if ($this->curatt->is_early = true) {
-                                            $this->curatt->is_early = false;
-                                            $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                            $this->curatt->save();
-
-                                            $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                                ->where('is_locked', false)
-                                                ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                                            $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                            $statusMuster->day_count = $statusMuster->day_count;
-                                            $statusMuster->save();
-
-                                            $processTags = $this->curatt->process_tags();
-                                            $processTags->where('name', 'Early Going')->delete();
-                                        }
-                                        $this->debug('User Not Less Than Early Going Minutes');
-                                    }
-                                } else {
-                                    if ($ignoreEarlyGoingMinutes >= 0 && $differenceOutMinutes > $ignoreEarlyGoingMinutes) {
-                                        $this->debug('User punch out time is less than shift out time and exceeds ignore early going minutes, so user is early out');
-                                        $this->curatt->status_master_id = StatusMaster::where('code', 'PP')->first()->id;
-                                        $this->curatt->is_early = true;
-                                        $this->curatt->save();
-
-                                        $processTags = $this->curatt->process_tags();
-                                        $processTags->where('name', 'Early Going')->delete();
-                                        $processTags->create(['name' => 'Early Going', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
-                                    } else {
-                                        if ($this->curatt->is_early = true) {
-                                            $this->curatt->is_early = false;
-                                            $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                            $this->curatt->save();
-
-                                            $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                                ->where('is_locked', false)
-                                                ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                                            $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                            $statusMuster->day_count = $statusMuster->day_count;
-                                            $statusMuster->save();
-
-                                            $processTags = $this->curatt->process_tags();
-                                            $processTags->where('name', 'Early Going')->delete();
-                                        }
-                                    }
-                                }
-                            } else {
-                                if ($this->curatt->is_early = true) {
-                                    $this->curatt->is_early = false;
-                                    $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                    $this->curatt->save();
-
-                                    $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                        ->where('is_locked', false)
-                                        ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                                    $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                    $statusMuster->day_count = $statusMuster->day_count;
-                                    $statusMuster->save();
-
-                                    $processTags = $this->curatt->process_tags();
-                                    $processTags->where('name', 'Early Going')->delete();
-                                }
-                                $this->debug('Punch Out Time Not Have | Shift Out Time Not Have | Punch Out Time Not Greater Than Shift Out Time');
-                            }
-                        } else {
-                            $shiftOutTime = Carbon::parse($this->curatt->shift_out_time);
-                            $punchOutTime = Carbon::parse($this->curatt->out_time);
-
-                            if ($punchOutTime && $shiftOutTime && $punchOutTime->lte($shiftOutTime)) {
-                                $differenceOutMinutes = $punchOutTime->diffInMinutes($shiftOutTime);
-
-                                if ($differenceOutMinutes > $short_leave->minutes) {
-                                    $this->debug('User punch out time is less than shift out time, so user is early out');
-                                    $this->curatt->status_master_id = StatusMaster::where('code', 'PP')->first()->id;
-                                    $this->curatt->is_early = true;
-                                    $this->curatt->save();
-
-                                    $processTags = $this->curatt->process_tags();
-                                    $processTags->where('name', 'Early Going')->delete();
-                                    $processTags->create(['name' => 'Early Going', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
-                                } else {
-                                    if ($differenceOutMinutes > 0) {
-                                        $this->debug('User punch out time is less than shift out time, so user is early out');
-                                        $this->curatt->status_master_id = StatusMaster::where('code', 'PP')->first()->id;
-                                        $this->curatt->is_early = true;
-                                        $this->curatt->save();
-
-                                        $processTags = $this->curatt->process_tags();
-                                        $processTags->where('name', 'Early Going')->delete();
-                                        $processTags->create(['name' => 'Early Going', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
-                                    } else {
-                                        if ($this->curatt->is_early = true) {
-                                            $this->curatt->is_early = false;
-                                            $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                            $this->curatt->save();
-
-                                            $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                                ->where('is_locked', false)
-                                                ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                                            $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                            $statusMuster->day_count = $statusMuster->day_count;
-                                            $statusMuster->save();
-
-                                            $processTags = $this->curatt->process_tags();
-                                            $processTags->where('name', 'Early Going')->delete();
-                                        }
-                                    }
-                                }
-                            } else {
-                                if ($this->curatt->is_early = true) {
-                                    $this->curatt->is_early = false;
-                                    $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                    $this->curatt->save();
-
-                                    $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                        ->where('is_locked', false)
-                                        ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                                    $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                    $statusMuster->day_count = $statusMuster->day_count;
-                                    $statusMuster->save();
-
-                                    $processTags = $this->curatt->process_tags();
-                                    $processTags->where('name', 'Early Going')->delete();
-                                }
-                                $this->debug('Punch Out Time Not Have | Shift Out Time Not Have | Punch Out Time Not Greater Than Shift Out Time');
-                            }
-                        }
-                    } else {
-                        $this->debug('First enable early going rule in setting');
-                    }
-                }
+            $statusCode = $leaveApplication->leave_type->code.'P';
+        } elseif ($shortLeave !== null) {
+            if ($shortLeave->short_leave_type != '2') {
+                return;
             }
-        } elseif ($coff != null) {
-            if ($coff->is_first_half && $coff->to_date == $this->log->datetime->format('Y-m-d')) {
-                $punchInTime = Carbon::parse($this->curatt->in_time);
-                if ($this->log->user->category->single_punch_allowed_present && $punchInTime && $punchInTime != null && $this->curatt->out_time == null) {
-                    $this->debug('Single Punch Allowed');
 
-                    $this->curatt->status_master_id = StatusMaster::where('code', 'COP')->first()->id;
-                    $this->curatt->is_early = false;
-                    $this->curatt->save();
-
-                    $processTags = $this->curatt->process_tags();
-                    $processTags->where('name', 'Early Going')->delete();
-                } else {
-                    if ($this->isSettingEnabled('early_going_rules')) {
-                        $this->debug('~~~Checking EarlyGoing Rule');
-                        if ($this->log->user->early_going_rule && $this->curatt->shift_out_time && $this->curatt->out_time) {
-                            $ignoreEarlyGoingMinutes = $this->log->user?->early_going_rule?->ignore_early_going_minutes;
-                            $shiftOutTime = Carbon::parse($this->curatt->shift_out_time);
-                            $punchOutTime = Carbon::parse($this->curatt->out_time);
-
-                            if ($punchOutTime && $shiftOutTime && $punchOutTime->lte($shiftOutTime)) {
-                                $differenceOutMinutes = $punchOutTime->diffInMinutes($shiftOutTime);
-
-                                if ($ignoreEarlyGoingMinutes >= 0 && $differenceOutMinutes > $ignoreEarlyGoingMinutes) {
-                                    $this->debug('User punch out time is less than shift out time and exceeds ignore early going minutes, so user is early out');
-                                    $this->curatt->status_master_id = StatusMaster::where('code', 'COP')->first()->id;
-                                    $this->curatt->is_early = true;
-                                    $this->curatt->save();
-
-                                    $processTags = $this->curatt->process_tags();
-                                    $processTags->where('name', 'Early Going')->delete();
-                                    $processTags->create(['name' => 'Early Going', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
-                                } else {
-                                    if ($this->curatt->is_early = true) {
-                                        $this->curatt->is_early = false;
-                                        $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                        $this->curatt->save();
-
-                                        $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                            ->where('is_locked', false)
-                                            ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                                        $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                        $statusMuster->day_count = $statusMuster->day_count;
-                                        $statusMuster->save();
-
-                                        $processTags = $this->curatt->process_tags();
-                                        $processTags->where('name', 'Early Going')->delete();
-                                    }
-                                    $this->debug('User Not Less Than Early Going Minutes');
-                                }
-                            } else {
-                                if ($this->curatt->is_early = true) {
-                                    $this->curatt->is_early = false;
-                                    $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                    $this->curatt->save();
-
-                                    $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                        ->where('is_locked', false)
-                                        ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                                    $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                    $statusMuster->day_count = $statusMuster->day_count;
-                                    $statusMuster->save();
-
-                                    $processTags = $this->curatt->process_tags();
-                                    $processTags->where('name', 'Early Going')->delete();
-                                }
-                                $this->debug('Punch Out Time Not Have | Shift Out Time Not Have | Punch Out Time Not Greater Than Shift Out Time');
-                            }
-                        } else {
-                            if ($this->curatt->shift_out_time && $this->curatt->out_time) {
-                                $shiftOutTime = Carbon::parse($this->curatt->shift_out_time);
-                                $punchOutTime = Carbon::parse($this->curatt->out_time);
-
-                                if ($punchOutTime && $shiftOutTime && $punchOutTime->lte($shiftOutTime)) {
-                                    $differenceOutMinutes = $punchOutTime->diffInMinutes($shiftOutTime);
-
-                                    if ($differenceOutMinutes > 0) {
-                                        $this->debug('User punch out time is less than shift out time, so user is early out');
-                                        $this->curatt->status_master_id = StatusMaster::where('code', 'COP')->first()->id;
-                                        $this->curatt->is_early = true;
-                                        $this->curatt->save();
-
-                                        $processTags = $this->curatt->process_tags();
-                                        $processTags->where('name', 'Early Going')->delete();
-                                        $processTags->create(['name' => 'Early Going', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
-                                    } else {
-                                        if ($this->curatt->is_early = true) {
-                                            $this->curatt->is_early = false;
-                                            $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                            $this->curatt->save();
-
-                                            $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                                ->where('is_locked', false)
-                                                ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                                            $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                            $statusMuster->day_count = $statusMuster->day_count;
-                                            $statusMuster->save();
-
-                                            $processTags = $this->curatt->process_tags();
-                                            $processTags->where('name', 'Early Going')->delete();
-                                        }
-                                        $this->debug('User Not Less Than Early Going Minutes');
-                                    }
-                                } else {
-                                    if ($this->curatt->is_early = true) {
-                                        $this->curatt->is_early = false;
-                                        $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                        $this->curatt->save();
-
-                                        $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                            ->where('is_locked', false)
-                                            ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                                        $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                        $statusMuster->day_count = $statusMuster->day_count;
-                                        $statusMuster->save();
-
-                                        $processTags = $this->curatt->process_tags();
-                                        $processTags->where('name', 'Early Going')->delete();
-                                    }
-                                    $this->debug('Punch Out Time Not Have | Shift Out Time Not Have | Punch Out Time Not Greater Than Shift Out Time');
-                                }
-                            } else {
-                                if ($this->curatt && $this->curatt->is_early = true) {
-                                    $this->curatt->is_early = false;
-                                    $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                    $this->curatt->save();
-
-                                    $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                        ->where('is_locked', false)
-                                        ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                                    $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                    $statusMuster->day_count = $statusMuster->day_count;
-                                    $statusMuster->save();
-
-                                    $processTags = $this->curatt->process_tags();
-                                    $processTags->where('name', 'Early Going')->delete();
-                                }
-                                $this->debug('Early Going Rule is calculate | Punch Out time not have this user');
-                            }
-                        }
-                    } else {
-                        $this->debug('First enable early going rule in setting');
-                    }
-                }
+            $approvedEarlyGoingMinutes = max(0, (int) $shortLeave->minutes);
+        } elseif ($coff !== null) {
+            if (! $coff->is_first_half || $coff->to_date != $date) {
+                return;
             }
-        } else {
-            $punchInTime = Carbon::parse($this->curatt->in_time);
-            if ($this->log->user->category->single_punch_allowed_present && $punchInTime && $punchInTime != null && $this->curatt->out_time == null) {
-                $this->debug('Single Punch Allowed');
-                $this->curatt->status_master_id = StatusMaster::where('code', 'PP')->first()->id;
-                $this->curatt->is_early = false;
-                $this->curatt->save();
 
-                $processTags = $this->curatt->process_tags();
-                $processTags->where('name', 'Early Going')->delete();
-            } else {
-                if ($this->isSettingEnabled('early_going_rules')) {
-                    $this->debug('~~~Checking EarlyGoing Rule');
-                    if ($this->log->user->early_going_rule && $this->curatt->shift_out_time && $this->curatt->out_time) {
-                        $ignoreEarlyGoingMinutes = $this->log->user?->early_going_rule?->ignore_early_going_minutes;
-                        $shiftOutTime = Carbon::parse($this->curatt->shift_out_time);
-                        $punchOutTime = Carbon::parse($this->curatt->out_time);
+            $statusCode = 'COP';
+        }
 
-                        if ($punchOutTime && $shiftOutTime && $punchOutTime->lte($shiftOutTime)) {
-                            $differenceOutMinutes = $punchOutTime->diffInMinutes($shiftOutTime);
+        $updateStatusMuster = $leaveApplication === null && $shortLeave === null && $coff === null;
+        $punchInTime = $this->curatt->in_time;
+        if (
+            $punchInTime !== null
+            && $this->curatt->out_time === null
+            && $this->log->user->category?->single_punch_allowed_present
+        ) {
+            $this->debug('Single Punch Allowed');
+            $this->updateEarlyGoingAttendance($statusCode, false, false, true);
 
-                            if ($ignoreEarlyGoingMinutes >= 0 && $differenceOutMinutes > $ignoreEarlyGoingMinutes) {
-                                $this->debug('User punch out time is less than shift out time and exceeds ignore early going minutes, so user is early out');
-                                $this->curatt->status_master_id = StatusMaster::where('code', 'PP')->first()->id;
-                                $this->curatt->is_early = true;
-                                $this->curatt->save();
+            return;
+        }
 
-                                StatusMuster::where('user_id', $this->log->user->id)
-                                    ->where('is_locked', false)
-                                    ->where('date', $this->log->datetime->format('Y-m-d'))
-                                    ->update([
-                                        'status_master_id' => StatusMaster::where('code', 'PP')->first()->id,
-                                        'day_count' => 1,
-                                    ]);
+        if (! $this->isSettingEnabled('early_going_rules')) {
+            $this->debug('First enable early going rule in setting');
+            $this->updateEarlyGoingAttendance($statusCode, false, $updateStatusMuster);
 
-                                $processTags = $this->curatt->process_tags();
-                                $processTags->where('name', 'Early Going')->delete();
-                                $processTags->create(['name' => 'Early Going', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
-                            } else {
-                                if ($this->curatt->is_early = true) {
-                                    $this->curatt->is_early = false;
-                                    $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                    $this->curatt->save();
+            return;
+        }
 
-                                    $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                        ->where('is_locked', false)
-                                        ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                                    $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                    $statusMuster->day_count = $statusMuster->day_count;
-                                    $statusMuster->save();
+        $earlyGoingRule = $this->log->user->early_going_rule;
+        $ruleGraceMinutes = $earlyGoingRule !== null && (int) $earlyGoingRule->status === 1
+            ? max(0, (int) $earlyGoingRule->ignore_early_going_minutes)
+            : 0;
+        $graceMinutes = max($ruleGraceMinutes, $approvedEarlyGoingMinutes);
 
-                                    $processTags = $this->curatt->process_tags();
-                                    $processTags->where('name', 'Early Going')->delete();
-                                }
-                                $this->debug('User Not Less Than Early Going Minutes');
-                            }
-                        } else {
-                            if ($this->curatt->is_early = true) {
-                                $this->curatt->is_early = false;
-                                $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                $this->curatt->save();
+        if ($this->curatt->shift_out_time === null || $this->curatt->out_time === null) {
+            $this->debug('Skipping early-going check because shift end or punch-out time is missing');
+            $this->updateEarlyGoingAttendance($statusCode, false, $updateStatusMuster);
 
-                                $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                    ->where('is_locked', false)
-                                    ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                                $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                $statusMuster->day_count = $statusMuster->day_count;
-                                $statusMuster->save();
+            return;
+        }
 
-                                $processTags = $this->curatt->process_tags();
-                                $processTags->where('name', 'Early Going')->delete();
-                            }
-                            $this->debug('Punch Out Time Not Have | Shift Out Time Not Have | Punch Out Time Not Greater Than Shift Out Time');
-                        }
-                    } else {
-                        if ($this->curatt->shift_out_time && $this->curatt->out_time) {
-                            $shiftOutTime = Carbon::parse($this->curatt->shift_out_time);
-                            $punchOutTime = Carbon::parse($this->curatt->out_time);
+        $shiftOutTime = Carbon::parse($this->curatt->shift_out_time);
+        $punchOutTime = Carbon::parse($this->curatt->out_time);
+        $earlyMinutes = $punchOutTime->lessThan($shiftOutTime)
+            ? $punchOutTime->diffInMinutes($shiftOutTime)
+            : 0;
+        $isEarly = $earlyMinutes > $graceMinutes;
 
-                            if ($punchOutTime && $shiftOutTime && $punchOutTime->lte($shiftOutTime)) {
-                                $differenceOutMinutes = $punchOutTime->diffInMinutes($shiftOutTime);
+        $this->debug($isEarly
+            ? 'Punch-out exceeds the applicable early-going grace period by '.$earlyMinutes.' minutes'
+            : 'Punch-out is within the applicable early-going grace period');
 
-                                if ($differenceOutMinutes > 0) {
-                                    $this->debug('User punch out time is less than shift out time, so user is early out');
-                                    $this->curatt->status_master_id = StatusMaster::where('code', 'PP')->first()->id;
-                                    $this->curatt->is_early = true;
-                                    $this->curatt->save();
+        $this->updateEarlyGoingAttendance($statusCode, $isEarly, $updateStatusMuster);
+    }
 
-                                    StatusMuster::where('user_id', $this->log->user->id)
-                                        ->where('is_locked', false)
-                                        ->where('date', $this->log->datetime->format('Y-m-d'))
-                                        ->update([
-                                            'status_master_id' => StatusMaster::where('code', 'PP')->first()->id,
-                                            'day_count' => 1,
-                                        ]);
+    private function updateEarlyGoingAttendance(string $statusCode, bool $isEarly, bool $updateStatusMuster, bool $forceStatusUpdate = false): void
+    {
+        $wasEarly = (bool) $this->curatt->is_early;
 
-                                    $processTags = $this->curatt->process_tags();
-                                    $processTags->where('name', 'Early Going')->delete();
-                                    $processTags->create(['name' => 'Early Going', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
-                                } else {
-                                    if ($this->curatt->is_early = true) {
-                                        $this->curatt->is_early = false;
-                                        $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                        $this->curatt->save();
+        if ($isEarly || $wasEarly || $forceStatusUpdate) {
+            $statusMaster = StatusMaster::where('code', $statusCode)->firstOrFail();
+            $this->curatt->is_early = $isEarly;
+            $this->curatt->status_master_id = $statusMaster->id;
+            $this->curatt->save();
 
-                                        $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                            ->where('is_locked', false)
-                                            ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                                        $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                        $statusMuster->day_count = $statusMuster->day_count;
-                                        $statusMuster->save();
-
-                                        $processTags = $this->curatt->process_tags();
-                                        $processTags->where('name', 'Early Going')->delete();
-                                    }
-                                    $this->debug('User Not Less Than Early Going Minutes');
-                                }
-                            } else {
-                                if ($this->curatt->is_early = true) {
-                                    $this->curatt->is_early = false;
-                                    $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                    $this->curatt->save();
-
-                                    $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                        ->where('is_locked', false)
-                                        ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                                    $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                    $statusMuster->day_count = $statusMuster->day_count;
-                                    $statusMuster->save();
-
-                                    $processTags = $this->curatt->process_tags();
-                                    $processTags->where('name', 'Early Going')->delete();
-                                }
-                                $this->debug('Punch Out Time Not Have | Shift Out Time Not Have | Punch Out Time Not Greater Than Shift Out Time');
-                            }
-                        } else {
-                            if ($this->curatt->is_early = true) {
-                                $this->curatt->is_early = false;
-                                $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                $this->curatt->save();
-
-                                $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                    ->where('is_locked', false)
-                                    ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                                $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                $statusMuster->day_count = $statusMuster->day_count;
-                                $statusMuster->save();
-
-                                $processTags = $this->curatt->process_tags();
-                                $processTags->where('name', 'Early Going')->delete();
-                            }
-                            $this->debug('Early Going Rule is not set for user | Punch Out time not have this user');
-                        }
-                    }
-                } else {
-                    $this->debug('First enable early going rule in setting');
-                }
+            if ($updateStatusMuster) {
+                StatusMuster::where('user_id', $this->log->user->id)
+                    ->where('is_locked', false)
+                    ->where('date', $this->log->datetime->format('Y-m-d'))
+                    ->update([
+                        'status_master_id' => $statusMaster->id,
+                        'day_count' => 1,
+                    ]);
             }
+        }
+
+        $processTags = $this->curatt->process_tags();
+        $processTags->where('name', 'Early Going')->delete();
+
+        if ($isEarly) {
+            $processTags->create(['name' => 'Early Going', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
         }
     }
 
