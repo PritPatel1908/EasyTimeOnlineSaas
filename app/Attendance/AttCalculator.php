@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class AttCalculator
 {
@@ -1582,6 +1583,40 @@ class AttCalculator
         return $count;
     }
 
+    private function countFlagOnPreviousWorkingDays(int $userId, string $flag, Carbon $date, int $workingDays): int
+    {
+        $remainingDays = max(0, $workingDays - 1);
+        $count = 0;
+        $year = $date->year;
+        $endDate = $date->copy()->subDay()->toDateString();
+
+        while ($remainingDays > 0 && $year >= 1900) {
+            if (Schema::hasTable('attendances'.$year)) {
+                $attendanceDays = Attendance::year($year)
+                    ->where('user_id', $userId)
+                    ->where('is_locked', false)
+                    ->where('is_weekoff', false)
+                    ->where('is_holiday', false)
+                    ->whereDate('date', '<=', $endDate)
+                    ->orderByDesc('date')
+                    ->limit($remainingDays)
+                    ->get(['date', $flag]);
+
+                foreach ($attendanceDays as $attendanceDay) {
+                    if ($attendanceDay->{$flag}) {
+                        $count++;
+                    }
+                }
+
+                $remainingDays -= $attendanceDays->count();
+            }
+
+            $year--;
+        }
+
+        return $count;
+    }
+
     private function applyHalfDayResult(string $statusCode, string $tagName): void
     {
         $statusMaster = StatusMaster::where('code', $statusCode)->firstOrFail();
@@ -1637,7 +1672,6 @@ class AttCalculator
         return $date->isLastOfMonth() || $date->isStartOfMonth();
     }
 
-    // TODO:check absent rule and calculate according shift after testing
     public function checkAbsentRule(): void
     {
         $leave_application = LeaveApplication::whereHas('users', fn ($query) => $query->whereKey($this->log->user->id))
@@ -1650,21 +1684,38 @@ class AttCalculator
             ->where('to_date', '>=', $this->log->datetime->format('Y-m-d'))
             ->first();
 
-        if ($leave_application == null || $coff == null) {
+        if ($leave_application === null && $coff === null) {
             if ($this->isSettingEnabled('absent_rules')) {
                 $this->debug('~~~Checking Absent Rule');
-                if ($this->log->user->absent_rule && $this->curatt->shift && $this->curatt) {
-                    $absentRule = $this->log->user?->absent_rule;
+                $absentRule = $this->log->user->absent_rule;
+                if ($absentRule !== null && (int) $absentRule->status !== 1) {
+                    $this->debug('Skipping absent check because the assigned rule is inactive');
+
+                    return;
+                }
+
+                if ($absentRule !== null && $this->curatt && $this->curatt->shift) {
+                    $this->absentRuleLateFlag = false;
+                    $this->absentRuleEarlyFlag = false;
+                    $this->absentRuleWorkHourFlag = false;
 
                     $punchInTime = $this->curatt->in_time ? Carbon::parse($this->curatt->in_time) : null;
                     $punchOutTime = $this->curatt->out_time ? Carbon::parse($this->curatt->out_time) : null;
+                    $shiftInTime = $this->curatt->shift_in_time ? Carbon::parse($this->curatt->shift_in_time) : null;
+                    $shiftOutTime = $this->curatt->shift_out_time ? Carbon::parse($this->curatt->shift_out_time) : null;
 
-                    $differenceInMinutes = $punchInTime ? $this->curatt->shift_in_time->diffInMinutes($punchInTime) : 0;
-                    $differenceOutMinutes = $punchOutTime ? $punchOutTime->diffInMinutes($this->curatt->shift_out_time) : 0;
+                    $differenceInMinutes = $punchInTime && $shiftInTime && $punchInTime->greaterThan($shiftInTime)
+                        ? $shiftInTime->diffInMinutes($punchInTime)
+                        : 0;
+                    $differenceOutMinutes = $punchOutTime && $shiftOutTime && $punchOutTime->lessThan($shiftOutTime)
+                        ? $punchOutTime->diffInMinutes($shiftOutTime)
+                        : 0;
 
-                    $work_difference = $punchInTime->diffInMinutes($punchOutTime);
+                    $work_difference = $punchInTime && $punchOutTime
+                        ? $punchInTime->diffInMinutes($punchOutTime)
+                        : null;
                     // 1. Check is allow single punch
-                    if ($this->log->user->category->single_punch_allowed_present && $punchInTime && $punchInTime != null && $punchOutTime == null) {
+                    if ($absentRule->allow_single_punch && $punchInTime && $punchOutTime === null) {
                         $this->debug('Single Punch Allowed');
 
                         $this->curatt->is_absent = false;
@@ -1686,19 +1737,11 @@ class AttCalculator
                     } else {
                         // 2. Check punch in time and out time
                         if (($punchInTime && $punchInTime != null) && ($punchOutTime && $punchOutTime != null)) {
+                            $wasAbsent = (bool) $this->curatt->is_absent;
                             $this->curatt->is_absent = false;
                             $this->curatt->save();
 
                             $processTags = $this->curatt->process_tags();
-                            $this->curatt->status_master_id = $this->curatt->status_master_id;
-                            $this->curatt->save();
-
-                            $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                ->where('is_locked', false)
-                                ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                            $statusMuster->status_master_id = $statusMuster->status_master_id;
-                            $statusMuster->day_count = $statusMuster->day_count;
-                            $statusMuster->save();
 
                             $processTags->where('name', 'Absent')->delete();
 
@@ -1728,21 +1771,7 @@ class AttCalculator
                             } else {
                                 $this->debug('User Work Time Not Less Than To Work Hours Less Than Time');
                                 if ($this->halfdayRuleWorkHourFlag == false) {
-                                    if ($this->curatt->is_half_day = true) {
-                                        $this->curatt->is_half_day = false;
-                                        $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                        $this->curatt->save();
-
-                                        $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                            ->where('is_locked', false)
-                                            ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                                        $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                        $statusMuster->day_count = $statusMuster->day_count;
-                                        $statusMuster->save();
-
-                                        $processTags = $this->curatt->process_tags();
-                                        $processTags->where('name', 'Half Day')->delete();
-                                    }
+                                    $this->clearHalfDayStatus();
                                 }
                             }
 
@@ -1750,20 +1779,19 @@ class AttCalculator
                             if ($differenceInMinutes > $absentRule->late_coming_minutes && $absentRule->late_coming_minutes > 0) {
                                 $today = $this->log->datetime;
 
-                                // TODO: check weekoff in get dates
-                                $lateDateToCheck = $today->copy()->subDays($absentRule->consecutive_late_coming - 1);
-
-                                $att_of_late_with_days = Attendance::where('user_id', $this->log->user->id)
-                                    ->where('is_late', true)
-                                    ->where('is_locked', false)
-                                    ->whereBetween('date', [$lateDateToCheck, $today])
-                                    ->count();
-
-                                $att_of_late = Attendance::where('user_id', $this->log->user->id)
-                                    ->where('is_late', true)
-                                    ->where('is_locked', false)
-                                    ->whereMonth('date', now()->month)
-                                    ->count();
+                                $consecutiveLateDays = (int) ceil((float) $absentRule->consecutive_late_coming);
+                                $att_of_late_with_days = $this->countFlagOnPreviousWorkingDays(
+                                    $this->log->user->id,
+                                    'is_late',
+                                    $today,
+                                    $consecutiveLateDays,
+                                ) + 1;
+                                $att_of_late = $this->countAttendanceFlagBetweenDates(
+                                    $this->log->user->id,
+                                    'is_late',
+                                    $today->copy()->startOfMonth(),
+                                    $today->copy()->subDay(),
+                                ) + 1;
 
                                 if ($att_of_late_with_days >= $absentRule->consecutive_late_coming && $absentRule->consecutive_late_coming > 0) {
                                     if ($absentRule->ignore_month_end_late && $this->isMonthEnd($this->log->datetime->format('Y-m-d'))) {
@@ -1806,20 +1834,19 @@ class AttCalculator
                             if ($differenceOutMinutes > $absentRule->early_going_minutes && $absentRule->early_going_minutes > 0) {
                                 $today = $this->log->datetime;
 
-                                // TODO: check weekoff in get dates
-                                $earlyDateToCheck = $today->copy()->subDays($absentRule->consecutive_early_going - 1);
-
-                                $att_of_early_with_days = Attendance::where('user_id', $this->log->user->id)
-                                    ->where('is_early', true)
-                                    ->where('is_locked', false)
-                                    ->whereBetween('date', [$earlyDateToCheck, $today])
-                                    ->count();
-
-                                $att_of_early = Attendance::where('user_id', $this->log->user->id)
-                                    ->where('is_early', true)
-                                    ->where('is_locked', false)
-                                    ->whereMonth('date', now()->month)
-                                    ->count();
+                                $consecutiveEarlyDays = (int) ceil((float) $absentRule->consecutive_early_going);
+                                $att_of_early_with_days = $this->countFlagOnPreviousWorkingDays(
+                                    $this->log->user->id,
+                                    'is_early',
+                                    $today,
+                                    $consecutiveEarlyDays,
+                                ) + 1;
+                                $att_of_early = $this->countAttendanceFlagBetweenDates(
+                                    $this->log->user->id,
+                                    'is_early',
+                                    $today->copy()->startOfMonth(),
+                                    $today->copy()->subDay(),
+                                ) + 1;
 
                                 if ($att_of_early_with_days >= $absentRule->consecutive_early_going && $absentRule->consecutive_early_going > 0) {
                                     if ($absentRule->ignore_month_end_early && $this->isMonthEnd($this->log->datetime->format('Y-m-d'))) {
@@ -1859,22 +1886,29 @@ class AttCalculator
                                 $this->debug('Absent Rule is not calculate | User not cross the limit of early going');
                             }
 
-                            if ($this->absentRuleWorkHourFlag == false && $absentRule->ignore_month_end_late == false && $this->absentRuleLateFlag == false && $absentRule->ignore_month_end_early == false && $this->absentRuleEarlyFlag == false) {
-                                if ($this->curatt->is_absent = true) {
-                                    $this->curatt->is_absent = false;
-                                    $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                    $this->curatt->save();
+                            if (
+                                ! $this->absentRuleWorkHourFlag
+                                && ! $this->absentRuleLateFlag
+                                && ! $this->absentRuleEarlyFlag
+                                && ($this->curatt->is_absent || $wasAbsent)
+                            ) {
+                                $this->curatt->is_absent = false;
+                                $statusCode = $this->curatt->is_half_day ? 'PA' : 'PP';
+                                $statusMaster = StatusMaster::where('code', $statusCode)->firstOrFail();
+                                $dayCount = $this->curatt->is_half_day ? 0.5 : 1.0;
+                                $this->curatt->status_master_id = $statusMaster->id;
+                                $this->curatt->save();
 
-                                    $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                        ->where('is_locked', false)
-                                        ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                                    $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                    $statusMuster->day_count = $statusMuster->day_count;
-                                    $statusMuster->save();
+                                StatusMuster::where('user_id', $this->log->user->id)
+                                    ->where('is_locked', false)
+                                    ->whereDate('date', $this->log->datetime->toDateString())
+                                    ->update([
+                                        'status_master_id' => $statusMaster->id,
+                                        'day_count' => $dayCount,
+                                    ]);
 
-                                    $processTags = $this->curatt->process_tags();
-                                    $processTags->where('name', 'Absent')->delete();
-                                }
+                                $processTags = $this->curatt->process_tags();
+                                $processTags->where('name', 'Absent')->delete();
                             }
                         } else {
                             $this->debug('Not have user punch in time | out time');
@@ -1900,13 +1934,19 @@ class AttCalculator
                     if ($this->curatt && $this->curatt->shift) {
                         $punchInTime = $this->curatt->in_time ? Carbon::parse($this->curatt->in_time) : null;
                         $punchOutTime = $this->curatt->out_time ? Carbon::parse($this->curatt->out_time) : null;
+                        $shiftInTime = $this->curatt->shift_in_time ? Carbon::parse($this->curatt->shift_in_time) : null;
+                        $shiftOutTime = $this->curatt->shift_out_time ? Carbon::parse($this->curatt->shift_out_time) : null;
 
-                        $differenceInMinutes = $punchInTime ? $this->curatt->shift_in_time->diffInMinutes($punchInTime) : 0;
-                        $differenceOutMinutes = $punchOutTime ? $punchOutTime->diffInMinutes($this->curatt->shift_out_time) : 0;
+                        $differenceInMinutes = $punchInTime && $shiftInTime ? $shiftInTime->diffInMinutes($punchInTime) : 0;
+                        $differenceOutMinutes = $punchOutTime && $shiftOutTime ? $punchOutTime->diffInMinutes($shiftOutTime) : 0;
 
-                        $work_difference = $punchInTime->diffInMinutes($punchOutTime);
+                        $work_difference = $punchInTime && $punchOutTime
+                            ? $punchInTime->diffInMinutes($punchOutTime)
+                            : null;
 
-                        $shift_hrs = $this->curatt->shift_in_time->diffInMinutes($this->curatt->shift_out_time);
+                        $shift_hrs = $shiftInTime && $shiftOutTime
+                            ? $shiftInTime->diffInMinutes($shiftOutTime)
+                            : 0;
                         $shift_half_hrs = $shift_hrs ? $shift_hrs / 2 : 0;
                         // 1. Check is allow single punch
                         if ($this->log->user->category->single_punch_allowed_present && $punchInTime && $punchInTime != null && $punchOutTime == null) {
@@ -1935,20 +1975,11 @@ class AttCalculator
                                 $this->curatt->save();
 
                                 $processTags = $this->curatt->process_tags();
-                                $this->curatt->status_master_id = $this->curatt->status_master_id;
-                                $this->curatt->save();
-
-                                $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                    ->where('is_locked', false)
-                                    ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                                $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                $statusMuster->day_count = $statusMuster->day_count;
-                                $statusMuster->save();
 
                                 $processTags->where('name', 'Absent')->delete();
 
                                 // 3. Check work hours with user work time]
-                                if ($work_difference < $shift_half_hrs && $shift_half_hrs > 0) {
+                                if ($work_difference !== null && $work_difference < $shift_half_hrs && $shift_half_hrs > 0) {
                                     $this->debug('Check User Work Time To Work Hours Less Than Time');
 
                                     if ($this->halfdayRuleWorkHourFlag == false) {
@@ -1973,17 +2004,9 @@ class AttCalculator
                                 } else {
                                     $this->debug('User Work Time Not Less Than To Work Hours Less Than Time');
                                     if ($this->halfdayRuleWorkHourFlag == false) {
-                                        if ($this->curatt->is_half_day = true) {
+                                        if ($this->curatt->is_half_day) {
                                             $this->curatt->is_half_day = false;
-                                            $this->curatt->status_master_id = $this->curatt->status_master_id;
                                             $this->curatt->save();
-
-                                            $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                                ->where('is_locked', false)
-                                                ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                                            $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                            $statusMuster->day_count = $statusMuster->day_count;
-                                            $statusMuster->save();
 
                                             $processTags = $this->curatt->process_tags();
                                             $processTags->where('name', 'Half Day')->delete();
@@ -1992,17 +2015,9 @@ class AttCalculator
                                 }
 
                                 if ($this->absentRuleWorkHourFlag == false && $this->absentRuleLateFlag == false && $this->absentRuleEarlyFlag == false) {
-                                    if ($this->curatt->is_absent = true) {
+                                    if ($this->curatt->is_absent) {
                                         $this->curatt->is_absent = false;
-                                        $this->curatt->status_master_id = $this->curatt->status_master_id;
                                         $this->curatt->save();
-
-                                        $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                            ->where('is_locked', false)
-                                            ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                                        $statusMuster->status_master_id = $statusMuster->status_master_id;
-                                        $statusMuster->day_count = $statusMuster->day_count;
-                                        $statusMuster->save();
 
                                         $processTags = $this->curatt->process_tags();
                                         $processTags->where('name', 'Absent')->delete();
@@ -2030,17 +2045,9 @@ class AttCalculator
                         }
                     } else {
                         $this->debug('Absent Rule is not calculate | User Shift not assign');
-                        if ($this->curatt && $this->curatt->is_absent = true) {
+                        if ($this->curatt && $this->curatt->is_absent) {
                             $this->curatt->is_absent = false;
-                            $this->curatt->status_master_id = $this->curatt->status_master_id;
                             $this->curatt->save();
-
-                            $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
-                                ->where('is_locked', false)
-                                ->where('date', $this->log->datetime->format('Y-m-d'))->first();
-                            $statusMuster->status_master_id = $statusMuster->status_master_id;
-                            $statusMuster->day_count = $statusMuster->day_count;
-                            $statusMuster->save();
 
                             $processTags = $this->curatt->process_tags();
                             $processTags->where('name', 'Absent')->delete();

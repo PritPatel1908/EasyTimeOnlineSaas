@@ -6,6 +6,7 @@ namespace Tests\Unit;
 
 use App\Attendance\AttCalculator;
 use App\Jobs\Tenant\ProcessPendingLogs;
+use App\Models\Tenant\AbsentRule;
 use App\Models\Tenant\Attendance;
 use App\Models\Tenant\AttendanceLog;
 use App\Models\Tenant\GeneralConfiguration;
@@ -401,7 +402,7 @@ class ProcessPendingLogsTest extends TestCase
     public function test_assigned_half_day_rule_controls_single_punch_behavior(): void
     {
         DB::table('users')->insert(['id' => 7]);
-        StatusMaster::create([
+        $statusMaster = StatusMaster::create([
             'code' => 'PP',
             'alias' => 'Present',
             'description' => 'Present',
@@ -465,6 +466,248 @@ class ProcessPendingLogsTest extends TestCase
 
             $this->assertSame($scenario['expected_half_day'], $attendance->fresh()->is_half_day);
         }
+    }
+
+    public function test_absent_rule_handles_missing_punches_without_crashing(): void
+    {
+        StatusMaster::create([
+            'code' => 'AA',
+            'alias' => 'Absent',
+            'description' => 'Absent',
+        ]);
+        [$calculator, $attendance] = $this->calculatorWithAbsentRule();
+
+        $calculator->checkAbsentRule();
+
+        $this->assertTrue($attendance->fresh()->is_absent);
+    }
+
+    public function test_absent_rule_allows_single_punch_when_configured(): void
+    {
+        $statusMaster = StatusMaster::create([
+            'code' => 'PP',
+            'alias' => 'Present',
+            'description' => 'Present',
+        ]);
+        [$calculator, $attendance] = $this->calculatorWithAbsentRule(7, true, true);
+
+        $calculator->checkAbsentRule();
+
+        $this->assertFalse($attendance->fresh()->is_absent);
+        $this->assertSame($statusMaster->id, $attendance->fresh()->status_master_id);
+    }
+
+    public function test_absent_rule_restores_present_status_when_previous_absence_no_longer_applies(): void
+    {
+        $absentStatus = StatusMaster::create([
+            'code' => 'AA',
+            'alias' => 'Absent',
+            'description' => 'Absent',
+        ]);
+        $presentStatus = StatusMaster::create([
+            'code' => 'PP',
+            'alias' => 'Present',
+            'description' => 'Present',
+        ]);
+        [$calculator, $attendance] = $this->calculatorWithAbsentRule(
+            punchInTime: '2026-04-15 08:00:00',
+            punchOutTime: '2026-04-15 17:00:00',
+        );
+        $attendance->is_absent = true;
+        $attendance->status_master_id = $absentStatus->id;
+        $attendance->save();
+        $statusMuster = StatusMuster::create([
+            'date' => '2026-04-15',
+            'user_id' => 7,
+            'status_master_id' => $absentStatus->id,
+            'day_count' => 0,
+            'year' => 2026,
+            'is_locked' => false,
+        ]);
+
+        $calculator->checkAbsentRule();
+
+        $this->assertFalse($attendance->fresh()->is_absent);
+        $this->assertSame($presentStatus->id, $attendance->fresh()->status_master_id);
+        $this->assertSame($presentStatus->id, $statusMuster->fresh()->status_master_id);
+        $this->assertSame(1.0, $statusMuster->fresh()->day_count);
+    }
+
+    public function test_absent_rule_clears_half_day_status_from_attendance_and_muster(): void
+    {
+        $presentStatus = StatusMaster::create([
+            'code' => 'PP',
+            'alias' => 'Present',
+            'description' => 'Present',
+        ]);
+        $halfDayStatus = StatusMaster::create([
+            'code' => 'PA',
+            'alias' => 'Present + Absent',
+            'description' => 'Half-day present',
+        ]);
+        [$calculator, $attendance] = $this->calculatorWithAbsentRule(
+            punchInTime: '2026-04-15 08:00:00',
+            punchOutTime: '2026-04-15 17:00:00',
+        );
+        $attendance->is_half_day = true;
+        $attendance->status_master_id = $halfDayStatus->id;
+        $attendance->save();
+        $statusMuster = StatusMuster::create([
+            'date' => '2026-04-15',
+            'user_id' => 7,
+            'status_master_id' => $halfDayStatus->id,
+            'day_count' => 0.5,
+            'year' => 2026,
+            'is_locked' => false,
+        ]);
+
+        $calculator->checkAbsentRule();
+
+        $this->assertFalse($attendance->fresh()->is_half_day);
+        $this->assertSame($presentStatus->id, $attendance->fresh()->status_master_id);
+        $this->assertSame($presentStatus->id, $statusMuster->fresh()->status_master_id);
+        $this->assertSame(1.0, $statusMuster->fresh()->day_count);
+    }
+
+    public function test_absent_rule_does_not_count_early_arrival_as_late(): void
+    {
+        [$calculator, $attendance] = $this->calculatorWithAbsentRule(
+            7,
+            punchInTime: '2026-04-15 07:30:00',
+            punchOutTime: '2026-04-15 17:00:00',
+            ruleAttributes: ['late_coming_minutes' => 5, 'consecutive_late_coming' => 1],
+        );
+
+        $calculator->checkAbsentRule();
+
+        $this->assertFalse($attendance->fresh()->is_absent);
+    }
+
+    public function test_absent_rule_does_not_count_late_departure_as_early(): void
+    {
+        [$calculator, $attendance] = $this->calculatorWithAbsentRule(
+            7,
+            punchInTime: '2026-04-15 08:00:00',
+            punchOutTime: '2026-04-15 17:30:00',
+            ruleAttributes: ['early_going_minutes' => 5, 'consecutive_early_going' => 1],
+        );
+
+        $calculator->checkAbsentRule();
+
+        $this->assertFalse($attendance->fresh()->is_absent);
+    }
+
+    public function test_inactive_absent_rule_is_not_applied(): void
+    {
+        [$calculator, $attendance] = $this->calculatorWithAbsentRule(
+            ruleAttributes: ['status' => 0],
+        );
+
+        $calculator->checkAbsentRule();
+
+        $this->assertFalse($attendance->fresh()->is_absent);
+    }
+
+    public function test_consecutive_late_rule_skips_weekoffs_between_workdays(): void
+    {
+        StatusMaster::create([
+            'code' => 'AA',
+            'alias' => 'Absent',
+            'description' => 'Absent',
+        ]);
+        [$calculator, $attendance] = $this->calculatorWithAbsentRule(
+            punchInTime: '2026-04-21 08:15:00',
+            punchOutTime: '2026-04-21 17:00:00',
+            ruleAttributes: ['late_coming_minutes' => 5, 'consecutive_late_coming' => 3],
+            attendanceDate: '2026-04-21',
+        );
+        $this->seedAttendanceDays([
+            ['date' => '2026-04-17', 'is_late' => true],
+            ['date' => '2026-04-18', 'is_weekoff' => true],
+            ['date' => '2026-04-19', 'is_weekoff' => true],
+            ['date' => '2026-04-20', 'is_late' => true],
+        ]);
+
+        $calculator->checkAbsentRule();
+
+        $this->assertTrue($attendance->fresh()->is_absent);
+    }
+
+    public function test_consecutive_early_rule_skips_holidays_between_workdays(): void
+    {
+        StatusMaster::create([
+            'code' => 'AA',
+            'alias' => 'Absent',
+            'description' => 'Absent',
+        ]);
+        [$calculator, $attendance] = $this->calculatorWithAbsentRule(
+            punchInTime: '2026-04-21 08:00:00',
+            punchOutTime: '2026-04-21 16:45:00',
+            ruleAttributes: ['early_going_minutes' => 5, 'consecutive_early_going' => 3],
+            attendanceDate: '2026-04-21',
+        );
+        $this->seedAttendanceDays([
+            ['date' => '2026-04-17', 'is_early' => true],
+            ['date' => '2026-04-18', 'is_holiday' => true],
+            ['date' => '2026-04-19', 'is_weekoff' => true],
+            ['date' => '2026-04-20', 'is_early' => true],
+        ]);
+
+        $calculator->checkAbsentRule();
+
+        $this->assertTrue($attendance->fresh()->is_absent);
+    }
+
+    public function test_consecutive_late_rule_is_broken_by_an_on_time_workday(): void
+    {
+        StatusMaster::create([
+            'code' => 'AA',
+            'alias' => 'Absent',
+            'description' => 'Absent',
+        ]);
+        [$calculator, $attendance] = $this->calculatorWithAbsentRule(
+            punchInTime: '2026-04-21 08:15:00',
+            punchOutTime: '2026-04-21 17:00:00',
+            ruleAttributes: ['late_coming_minutes' => 5, 'consecutive_late_coming' => 3],
+            attendanceDate: '2026-04-21',
+        );
+        $this->seedAttendanceDays([
+            ['date' => '2026-04-17', 'is_late' => true],
+            ['date' => '2026-04-18', 'is_weekoff' => true],
+            ['date' => '2026-04-19', 'is_weekoff' => true],
+            ['date' => '2026-04-20', 'is_late' => false],
+        ]);
+
+        $calculator->checkAbsentRule();
+
+        $this->assertFalse($attendance->fresh()->is_absent);
+    }
+
+    public function test_absent_rule_is_skipped_when_leave_or_comp_off_is_active(): void
+    {
+        DB::table('users')->insert(['id' => 7]);
+        $leaveId = DB::table('leave_applications')->insertGetId([
+            'from_date' => '2026-04-15',
+            'to_date' => '2026-04-15',
+        ]);
+        DB::table('leave_application_users')->insert([
+            'leave_application_id' => $leaveId,
+            'user_id' => 7,
+        ]);
+        DB::table('coffs')->insert([
+            'user_id' => 8,
+            'from_date' => '2026-04-15',
+            'to_date' => '2026-04-15',
+        ]);
+
+        [$leaveCalculator, $leaveAttendance] = $this->calculatorWithAbsentRule(7);
+        [$coffCalculator, $coffAttendance] = $this->calculatorWithAbsentRule(8);
+
+        $leaveCalculator->checkAbsentRule();
+        $coffCalculator->checkAbsentRule();
+
+        $this->assertFalse($leaveAttendance->fresh()->is_absent);
+        $this->assertFalse($coffAttendance->fresh()->is_absent);
     }
 
     public function test_short_workday_sets_half_day_attendance_muster_and_first_half_tag(): void
@@ -673,6 +916,84 @@ class ProcessPendingLogsTest extends TestCase
         (new \ReflectionProperty(AttCalculator::class, 'prv_log'))->setValue($calculator, $previousLog);
 
         return $calculator;
+    }
+
+    private function calculatorWithAbsentRule(
+        int $userId = 7,
+        bool $allowSinglePunch = false,
+        bool $withPunchIn = false,
+        ?string $punchInTime = null,
+        ?string $punchOutTime = null,
+        array $ruleAttributes = [],
+        string $attendanceDate = '2026-04-15',
+    ): array
+    {
+        if (! DB::table('users')->where('id', $userId)->exists()) {
+            DB::table('users')->insert(['id' => $userId]);
+        }
+
+        $user = new User;
+        $user->setAttribute('id', $userId);
+        $absentRule = new AbsentRule;
+        $absentRule->setAttribute('status', 1);
+        $absentRule->setAttribute('allow_single_punch', $allowSinglePunch);
+        $absentRule->setAttribute('work_hr_less_than_minutes', 0);
+        $absentRule->setAttribute('late_coming_minutes', 0);
+        $absentRule->setAttribute('early_going_minutes', 0);
+        foreach ($ruleAttributes as $attribute => $value) {
+            $absentRule->setAttribute($attribute, $value);
+        }
+        $user->setRelation('absent_rule', $absentRule);
+
+        $log = new AttendanceLog;
+        $log->setAttribute('datetime', Carbon::parse($attendanceDate.' 08:00:00'));
+        $log->setRelation('user', $user);
+
+        $attendance = Attendance::year(2026);
+        $attendance->user_id = $userId;
+        $attendance->date = $attendanceDate;
+        $attendance->shift_in_time = $attendanceDate.' 08:00:00';
+        $attendance->shift_out_time = $attendanceDate.' 17:00:00';
+        $attendance->in_time = $withPunchIn ? ($punchInTime ?? $attendanceDate.' 08:00:00') : $punchInTime;
+        $attendance->out_time = $punchOutTime;
+        $attendance->is_absent = false;
+        $attendance->is_half_day = false;
+        Schema::disableForeignKeyConstraints();
+        $attendance->save();
+        Schema::enableForeignKeyConstraints();
+
+        $shift = new Shift;
+        $attendance->setRelation('shift', $shift);
+
+        $calculator = new class($log) extends AttCalculator
+        {
+            protected function isSettingEnabled(string $key): bool
+            {
+                return $key === 'absent_rules';
+            }
+        };
+        (new \ReflectionProperty(AttCalculator::class, 'curatt'))->setValue($calculator, $attendance);
+
+        return [$calculator, $attendance];
+    }
+
+    private function seedAttendanceDays(array $days, int $userId = 7): void
+    {
+        Schema::disableForeignKeyConstraints();
+        try {
+            foreach ($days as $day) {
+                DB::table('attendances2026')->insert(array_merge([
+                    'user_id' => $userId,
+                    'is_locked' => false,
+                    'is_weekoff' => false,
+                    'is_holiday' => false,
+                    'is_late' => false,
+                    'is_early' => false,
+                ], $day));
+            }
+        } finally {
+            Schema::enableForeignKeyConstraints();
+        }
     }
 
     private function getCalculatorLog(AttCalculator $calculator): AttendanceLog
