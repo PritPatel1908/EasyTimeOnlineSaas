@@ -1092,6 +1092,12 @@ class AttCalculator
                 // $processTags = $this->curatt->process_tags();
                 // $processTags->where('name', 'No assigned shift')->delete();
                 foreach ($shifts as $shift) {
+                    if ($shift->auto_from === null || $shift->auto_to === null) {
+                        $this->debug('Skipping shift #'.$shift->id.' because its automatic shift window is incomplete');
+
+                        continue;
+                    }
+
                     $shift->auto_from = $this->log->datetime->copy()->setTimeFromTimeString($shift->auto_from->toTimeString());
                     $shift->auto_to = $this->log->datetime->copy()->setTimeFromTimeString($shift->auto_to->toTimeString());
                     if ($shift->auto_from > $shift->auto_to) {
@@ -1128,6 +1134,12 @@ class AttCalculator
             }
             if ($shifts && count($shifts) > 0) {
                 foreach ($shifts as $shift) {
+                    if ($shift->auto_from === null || $shift->auto_to === null) {
+                        $this->debug('Skipping shift #'.$shift->id.' because its automatic shift window is incomplete');
+
+                        continue;
+                    }
+
                     // dd($rotational_shift->rotation_values);
                     $shift->auto_from = $this->log->datetime->copy()->setTimeFromTimeString($shift->auto_from->toTimeString());
                     $shift->auto_to = $this->log->datetime->copy()->setTimeFromTimeString($shift->auto_to->toTimeString());

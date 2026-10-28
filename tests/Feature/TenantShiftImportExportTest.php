@@ -41,6 +41,20 @@ class TenantShiftImportExportTest extends TestCase
         ], Shift::IMPORT_EXPORT_COLUMNS);
     }
 
+    public function test_shift_time_casts_store_time_only_values_and_keep_long_cutoff_durations(): void
+    {
+        $shift = Shift::make([
+            'in_time' => '09:00',
+            'auto_to' => '18:30:45',
+            'cutoff_time' => '24:00:00',
+        ]);
+
+        $this->assertSame('09:00:00', $shift->getAttributes()['in_time']);
+        $this->assertSame('18:30:45', $shift->getAttributes()['auto_to']);
+        $this->assertSame('24:00:00', $shift->getAttributes()['cutoff_time']);
+        $this->assertSame('09:00:00', $shift->in_time->format('H:i:s'));
+    }
+
     public function test_import_sample_matches_the_shift_import_columns(): void
     {
         $response = app(ShiftController::class)->downloadImportSample();

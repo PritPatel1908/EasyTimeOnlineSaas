@@ -27,7 +27,7 @@ return new class extends Migration
             $table->time('auto_to')->nullable();
             $table->boolean('is_night_shift')->default(false);
             $table->boolean('set_cutoff')->default(false);
-            $table->time('cutoff_time')->after('set_cutoff')->nullable();
+            $table->string('cutoff_time', 8)->after('set_cutoff')->nullable();
             $table->softDeletes();
             $table->foreignId('created_by')->nullable()->constrained('users', 'id');
             $table->foreignId('updated_by')->nullable()->constrained('users', 'id');

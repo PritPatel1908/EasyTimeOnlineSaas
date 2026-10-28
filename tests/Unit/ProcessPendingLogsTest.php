@@ -44,9 +44,11 @@ class ProcessPendingLogsTest extends TestCase
             $table->time('out_time')->nullable();
             $table->time('first_half_end_time')->nullable();
             $table->time('second_half_start_time')->nullable();
+            $table->time('auto_from')->nullable();
+            $table->time('auto_to')->nullable();
             $table->boolean('is_night_shift')->default(false);
             $table->boolean('set_cutoff')->default(false);
-            $table->time('cutoff_time')->nullable();
+            $table->string('cutoff_time', 8)->nullable();
             $table->softDeletes();
             $table->unsignedBigInteger('created_by')->nullable();
             $table->unsignedBigInteger('updated_by')->nullable();
@@ -58,6 +60,8 @@ class ProcessPendingLogsTest extends TestCase
             $table->date('date');
             $table->unsignedBigInteger('user_id');
             $table->boolean('is_locked')->default(false);
+            $table->boolean('is_auto')->default(false);
+            $table->json('shift')->nullable();
             $table->unsignedBigInteger('calculated_shift')->nullable();
             $table->timestamps();
         });
@@ -147,6 +151,40 @@ class ProcessPendingLogsTest extends TestCase
             $calculator->checkInOrOut();
 
             $this->assertSame($isOut, $log->is_out);
+        }
+    }
+
+    public function test_automatic_shift_without_a_complete_window_does_not_break_attendance_processing(): void
+    {
+        $shift = Shift::create([
+            'auto_from' => null,
+            'auto_to' => null,
+        ]);
+
+        foreach (['auto', 'rotational'] as $index => $shiftType) {
+            $userId = 20 + $index;
+            DB::table('shift_musters')->insert([
+                'date' => '2026-01-01',
+                'user_id' => $userId,
+                'is_locked' => false,
+                'is_auto' => $shiftType === 'auto',
+                'shift' => json_encode([$shift->id], JSON_THROW_ON_ERROR),
+            ]);
+
+            $user = new User;
+            $user->setAttribute('id', $userId);
+            $user->setAttribute('shift_type', $shiftType);
+
+            $log = new AttendanceLog;
+            $log->setAttribute('id', $userId);
+            $log->setAttribute('datetime', Carbon::parse('2026-01-01 09:00:00'));
+            $log->setRelation('user', $user);
+
+            $calculator = new AttCalculator($log, true);
+            $calculator->retriveAssignedShift();
+
+            $this->assertSame($shift->id, $calculator->shift?->id);
+            $this->assertStringContainsString('automatic shift window is incomplete', implode(PHP_EOL, $calculator->getReturnLogs()));
         }
     }
 

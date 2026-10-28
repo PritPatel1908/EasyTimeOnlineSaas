@@ -6,6 +6,7 @@
 
 namespace App\Models\Tenant;
 
+use App\Casts\TimeOnly;
 use App\Traits\CUDby;
 use App\Traits\HasRelatedRecords;
 use Carbon\Carbon;
@@ -80,14 +81,14 @@ class Shift extends Model
     protected $casts = [
         'location_id' => 'array',
         'company_id' => 'array',
-        'in_time' => 'datetime',
-        'out_time' => 'datetime',
-        'first_half_end_time' => 'datetime',
-        'second_half_start_time' => 'datetime',
-        'brack_start_time' => 'datetime',
-        'brack_end_time' => 'datetime',
-        'auto_from' => 'datetime',
-        'auto_to' => 'datetime',
+        'in_time' => TimeOnly::class,
+        'out_time' => TimeOnly::class,
+        'first_half_end_time' => TimeOnly::class,
+        'second_half_start_time' => TimeOnly::class,
+        'brack_start_time' => TimeOnly::class,
+        'brack_end_time' => TimeOnly::class,
+        'auto_from' => TimeOnly::class,
+        'auto_to' => TimeOnly::class,
         'is_night_shift' => 'bool',
         'set_cutoff' => 'bool',
         'status' => 'int',
