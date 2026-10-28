@@ -206,6 +206,7 @@ class TenantManualAttendanceModuleTest extends TestCase
                 && $job->connection === 'database_tenant'
                 && $job->queue === 'processing';
         });
+        Bus::assertNotDispatched(ApproveUserManualAttendance::class);
     }
 
     public function test_manual_attendance_import_dispatches_one_punch_job_without_approval(): void

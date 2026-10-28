@@ -7,7 +7,6 @@ namespace App\Http\Controllers\Tenant;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tenant\StoreManualAttendanceRequest;
 use App\Http\Requests\Tenant\UpdateManualAttendanceRequest;
-use App\Jobs\Tenant\ApproveUserManualAttendance;
 use App\Jobs\Tenant\GenerateManualAttendanceExport;
 use App\Jobs\Tenant\ProcessManualAttendancePunches;
 use App\Jobs\Tenant\ProcessManualAttendanceImport;
@@ -319,10 +318,6 @@ class ManualAttendanceController extends Controller
     private function dispatchAttendanceProcessing(ManualAttendance $attendance): void
     {
         ProcessManualAttendancePunches::dispatch((int) $attendance->id)
-            ->onConnection('database_tenant')
-            ->onQueue('processing');
-
-        ApproveUserManualAttendance::dispatch($attendance)
             ->onConnection('database_tenant')
             ->onQueue('processing');
     }
