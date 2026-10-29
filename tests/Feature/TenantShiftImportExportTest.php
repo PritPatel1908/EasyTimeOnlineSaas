@@ -34,6 +34,7 @@ class TenantShiftImportExportTest extends TestCase
             'brack_end_time',
             'auto_from',
             'auto_to',
+            'is_flaxible',
             'is_night_shift',
             'set_cutoff',
             'cutoff_time',
@@ -53,6 +54,13 @@ class TenantShiftImportExportTest extends TestCase
         $this->assertSame('18:30:45', $shift->getAttributes()['auto_to']);
         $this->assertSame('24:00:00', $shift->getAttributes()['cutoff_time']);
         $this->assertSame('09:00:00', $shift->in_time->format('H:i:s'));
+    }
+
+    public function test_shift_flexible_flag_is_cast_to_boolean(): void
+    {
+        $shift = Shift::make(['is_flaxible' => 1]);
+
+        $this->assertTrue($shift->is_flaxible);
     }
 
     public function test_import_sample_matches_the_shift_import_columns(): void
@@ -108,6 +116,29 @@ class TenantShiftImportExportTest extends TestCase
             $this->assertSame('24:00', $row['cutoff_time']);
             $validateImportRow = new ReflectionMethod(ProcessShiftImport::class, 'validateImportRow');
             $this->assertSame([], $validateImportRow->invoke($job, $row));
+        } finally {
+            unlink($filePath);
+        }
+    }
+
+    public function test_shift_import_accepts_and_preserves_flexible_flag(): void
+    {
+        $filePath = tempnam(sys_get_temp_dir(), 'shift-import-');
+        $this->assertNotFalse($filePath);
+
+        try {
+            file_put_contents($filePath, "name,code,is_flaxible\nFlexible,FLEX,Yes\n");
+
+            $job = new ProcessShiftImport(1, 'unused');
+            $parseCsv = new ReflectionMethod(ProcessShiftImport::class, 'parseCsv');
+            $rows = $parseCsv->invoke($job, $filePath);
+            $row = $rows[2];
+
+            $validateImportRow = new ReflectionMethod(ProcessShiftImport::class, 'validateImportRow');
+            $this->assertSame([], $validateImportRow->invoke($job, $row));
+
+            $buildPayload = new ReflectionMethod(ProcessShiftImport::class, 'buildPayload');
+            $this->assertSame(1, $buildPayload->invoke($job, $row)['is_flaxible']);
         } finally {
             unlink($filePath);
         }

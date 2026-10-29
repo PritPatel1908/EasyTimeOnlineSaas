@@ -73,7 +73,7 @@
     </div>
 </div>
 
-<div class="card mb-4">
+<div id="shift-timing-section" class="card mb-4" @class(['d-none' => (bool) old('is_flaxible', $shift?->is_flaxible ?? false)])>
     <div class="card-header"><h5 class="card-title mb-0">Shift Timing</h5></div>
     <div class="card-body">
         <div class="row">
@@ -103,7 +103,16 @@
     <div class="card-header"><h5 class="card-title mb-0">Configuration</h5></div>
     <div class="card-body">
         <div class="row">
-            <div class="col-md-4 mb-3">
+            <div class="col-12 col-sm-6 col-lg mb-3">
+                <label class="form-label d-block">Flexible Shift</label>
+                <input type="hidden" name="is_flaxible" value="0">
+                <div class="form-check form-check-lg form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="is_flaxible" name="is_flaxible" value="1"
+                        @checked((bool) old('is_flaxible', $shift?->is_flaxible ?? false))>
+                    <label class="form-check-label" for="is_flaxible">Enable flexible timing</label>
+                </div>
+            </div>
+            <div class="col-12 col-sm-6 col-lg mb-3">
                 <label class="form-label d-block">Night Shift</label>
                 <input type="hidden" name="is_night_shift" value="0">
                 <div class="form-check form-check-lg form-switch">
@@ -112,7 +121,7 @@
                     <label class="form-check-label" for="is_night_shift">This shift crosses midnight</label>
                 </div>
             </div>
-            <div class="col-md-4 mb-3">
+            <div class="col-12 col-sm-6 col-lg mb-3">
                 <label class="form-label d-block">Set Cutoff Duration</label>
                 <input type="hidden" name="set_cutoff" value="0">
                 <div class="form-check form-check-lg form-switch">
@@ -121,7 +130,7 @@
                     <label class="form-check-label" for="set_cutoff">Enable cutoff</label>
                 </div>
             </div>
-            <div class="col-md-4 mb-3 cutoff-time-field" @class(['d-none' => !(bool) old('set_cutoff', $shift?->set_cutoff ?? false)])>
+            <div class="col-12 col-sm-6 col-lg mb-3 cutoff-time-field" @class(['d-none' => !(bool) old('set_cutoff', $shift?->set_cutoff ?? false)])>
                 <label class="form-label" for="cutoff_time">Cutoff Duration</label>
                 <input id="cutoff_time" name="cutoff_time" type="text" inputmode="numeric"
                     placeholder="HH:MM or HH:MM:SS" maxlength="9" autocomplete="off"
@@ -131,7 +140,7 @@
                 <x-validation-error field="cutoff_time" />
             </div>
 
-            <div class="col-md-4 mb-3">
+            <div class="col-12 col-sm-6 col-lg mb-3">
                 <label class="form-label" for="shift_status">Status <span class="text-danger">*</span></label>
                 <select id="shift_status" name="status" class="form-control select2 @error('status') is-invalid @enderror" required>
                     <option value="1" @selected(old('status', $shift?->status ?? 1) == 1)>Active</option>
@@ -147,17 +156,26 @@
             document.addEventListener('DOMContentLoaded', function () {
                 const cutoffToggle = document.getElementById('set_cutoff');
                 const cutoffTimeField = document.querySelector('.cutoff-time-field');
+                const flexibleToggle = document.getElementById('is_flaxible');
+                const shiftTimingSection = document.getElementById('shift-timing-section');
 
-                if (!cutoffToggle || !cutoffTimeField) {
-                    return;
+                if (cutoffToggle && cutoffTimeField) {
+                    const updateCutoffTimeVisibility = function () {
+                        cutoffTimeField.classList.toggle('d-none', !cutoffToggle.checked);
+                    };
+
+                    cutoffToggle.addEventListener('change', updateCutoffTimeVisibility);
+                    updateCutoffTimeVisibility();
                 }
 
-                const updateCutoffTimeVisibility = function () {
-                    cutoffTimeField.classList.toggle('d-none', !cutoffToggle.checked);
-                };
+                if (flexibleToggle && shiftTimingSection) {
+                    const updateShiftTimingVisibility = function () {
+                        shiftTimingSection.classList.toggle('d-none', flexibleToggle.checked);
+                    };
 
-                cutoffToggle.addEventListener('change', updateCutoffTimeVisibility);
-                updateCutoffTimeVisibility();
+                    flexibleToggle.addEventListener('change', updateShiftTimingVisibility);
+                    updateShiftTimingVisibility();
+                }
             });
         </script>
     @endpush

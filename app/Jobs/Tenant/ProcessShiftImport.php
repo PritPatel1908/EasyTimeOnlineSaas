@@ -211,7 +211,7 @@ class ProcessShiftImport implements ShouldQueue
             'cutoff_time' => ['nullable', 'regex:/^(?:[0-9]{1,2}|[0-7][0-9]{2}|8(?:[0-2][0-9]|3[0-8])):[0-5][0-9](?::[0-5][0-9])?$/'],
         ];
 
-        foreach (['is_night_shift', 'set_cutoff', 'status'] as $field) {
+        foreach (['is_flaxible', 'is_night_shift', 'set_cutoff', 'status'] as $field) {
             if ($this->normalizedBoolean((string) ($row[$field] ?? ''), $field === 'status' ? 1 : 0) === null) {
                 return [$field . ' must be Active, Inactive, Yes, No, 1, or 0'];
             }
@@ -281,6 +281,7 @@ class ProcessShiftImport implements ShouldQueue
             'code' => trim($row['code']),
             'location_id' => $this->resolveIds(Location::class, $row['location'] ?? '') ?? [],
             'company_id' => $this->resolveIds(Company::class, $row['company'] ?? '') ?? [],
+            'is_flaxible' => $this->normalizedBoolean((string) ($row['is_flaxible'] ?? ''), 0),
             'is_night_shift' => $this->normalizedBoolean((string) ($row['is_night_shift'] ?? ''), 0),
             'set_cutoff' => $this->normalizedBoolean((string) ($row['set_cutoff'] ?? ''), 0),
             'status' => $this->normalizedBoolean((string) ($row['status'] ?? ''), 1),

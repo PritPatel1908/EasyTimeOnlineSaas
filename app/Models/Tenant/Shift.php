@@ -31,6 +31,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property Carbon|null $brack_end_time
  * @property Carbon|null $auto_from
  * @property Carbon|null $auto_to
+ * @property bool $is_flaxible
  * @property bool $is_night_shift
  * @property bool $set_cutoff
  * @property string|null $cutoff_time
@@ -70,6 +71,7 @@ class Shift extends Model
         'brack_end_time',
         'auto_from',
         'auto_to',
+        'is_flaxible',
         'is_night_shift',
         'set_cutoff',
         'cutoff_time',
@@ -89,6 +91,7 @@ class Shift extends Model
         'brack_end_time' => TimeOnly::class,
         'auto_from' => TimeOnly::class,
         'auto_to' => TimeOnly::class,
+        'is_flaxible' => 'bool',
         'is_night_shift' => 'bool',
         'set_cutoff' => 'bool',
         'status' => 'int',
@@ -110,6 +113,7 @@ class Shift extends Model
         'brack_end_time',
         'auto_from',
         'auto_to',
+        'is_flaxible',
         'is_night_shift',
         'set_cutoff',
         'cutoff_time',

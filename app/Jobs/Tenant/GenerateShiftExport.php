@@ -68,7 +68,7 @@ class GenerateShiftExport implements ShouldQueue
                 $row[] = match ($column) {
                     'location' => implode(', ', $locations),
                     'company' => implode(', ', $companies),
-                    'is_night_shift', 'set_cutoff' => $shift->{$column} ? 'Yes' : 'No',
+                    'is_flaxible', 'is_night_shift', 'set_cutoff' => $shift->{$column} ? 'Yes' : 'No',
                     'status' => (int) $shift->status === 1 ? 'Active' : 'Inactive',
                     default => $this->formatValue($shift->{$column}),
                 };

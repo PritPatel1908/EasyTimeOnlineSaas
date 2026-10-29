@@ -30,6 +30,7 @@
             </div></div>
         </div>
 
+        @unless ($shift->is_flaxible)
         <div class="card mb-4">
             <div class="card-header"><h5 class="mb-0">Shift Timing</h5></div>
             <div class="card-body"><div class="row">
@@ -50,10 +51,12 @@
                 @endforeach
             </div></div>
         </div>
+        @endunless
 
         <div class="card">
             <div class="card-header"><h5 class="mb-0">Configuration</h5></div>
             <div class="card-body"><div class="row">
+                <div class="col-md-4 mb-3"><small class="text-muted d-block">Flexible Shift</small><span>{{ $shift->is_flaxible ? 'Yes' : 'No' }}</span></div>
                 <div class="col-md-4 mb-3"><small class="text-muted d-block">Night Shift</small><span>{{ $shift->is_night_shift ? 'Yes' : 'No' }}</span></div>
                 <div class="col-md-4 mb-3"><small class="text-muted d-block">Set Cutoff</small><span>{{ $shift->set_cutoff ? 'Yes' : 'No' }}</span></div>
                 <div class="col-md-4 mb-3"><small class="text-muted d-block">Cutoff Duration</small><span>{{ $shift->cutoff_time ?? '—' }}</span></div>

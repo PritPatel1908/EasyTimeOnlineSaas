@@ -18,6 +18,7 @@ class UpdateShiftRequest extends FormRequest
         $this->merge([
             'location_id' => $this->input('location_id', []),
             'company_id' => $this->input('company_id', []),
+            'is_flaxible' => $this->boolean('is_flaxible'),
             'is_night_shift' => $this->boolean('is_night_shift'),
             'set_cutoff' => $this->boolean('set_cutoff'),
         ]);
@@ -45,6 +46,7 @@ class UpdateShiftRequest extends FormRequest
             'brack_end_time' => ['nullable', 'date_format:H:i,H:i:s'],
             'auto_from' => ['nullable', 'date_format:H:i,H:i:s'],
             'auto_to' => ['nullable', 'date_format:H:i,H:i:s'],
+            'is_flaxible' => ['required', 'boolean'],
             'is_night_shift' => ['required', 'boolean'],
             'set_cutoff' => ['required', 'boolean'],
             'cutoff_time' => ['nullable', 'required_if:set_cutoff,1', 'regex:/^(?:[0-9]{1,2}|[0-7][0-9]{2}|8(?:[0-2][0-9]|3[0-8])):[0-5][0-9](?::[0-5][0-9])?$/'],
