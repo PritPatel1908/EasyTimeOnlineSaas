@@ -947,8 +947,9 @@
 
 .hrms-menu-search-result:hover,
 .hrms-menu-search-result.is-active {
-    background: variables.$light;
-    color: variables.$gray-900;
+    background: variables.$primary-transparent;
+    color: variables.$primary;
+    font-weight: 600;
 }
 
 .hrms-menu-search-result-label,

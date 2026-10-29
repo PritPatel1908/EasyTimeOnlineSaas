@@ -515,6 +515,33 @@ class AttCalculator
         ];
     }
 
+    /**
+     * @return array{start: Carbon, end: Carbon}|null
+     */
+    private function getAttendanceCutoffWindow(Attendance $attendance, int $cutoffSeconds): ?array
+    {
+        if (! $attendance->shift?->is_flaxible) {
+            return $attendance->shift === null
+                ? null
+                : $this->getShiftCutoffWindow($attendance->shift, $attendance->date, $cutoffSeconds);
+        }
+
+        if ($attendance->shift_in_time === null || $attendance->shift_out_time === null) {
+            return null;
+        }
+
+        $shiftStart = Carbon::parse($attendance->shift_in_time);
+        $shiftEnd = Carbon::parse($attendance->shift_out_time);
+        if ($attendance->is_night_shift && $shiftEnd->lessThanOrEqualTo($shiftStart)) {
+            $shiftEnd->addDay();
+        }
+
+        return [
+            'start' => $shiftStart,
+            'end' => $shiftEnd->addSeconds($cutoffSeconds),
+        ];
+    }
+
     private function setPunchAttendanceDateFromCutoff(): void
     {
         if ($this->log->user === null || $this->log->datetime === null || $this->prv_log === null) {
@@ -566,6 +593,13 @@ class AttCalculator
     private function setPunchAttendanceDateFromPreviousLog(?Shift $shift): void
     {
         $attendanceDate = $this->prv_log->datetime->copy();
+
+        if ($shift?->is_flaxible && $shift->is_night_shift) {
+            $previousAttendance = $this->getPreviousAttendanceForPunch();
+            if ($previousAttendance?->shift_id === $shift->id) {
+                $attendanceDate = $previousAttendance->date->copy();
+            }
+        }
 
         if (
             $shift?->is_night_shift
@@ -1080,6 +1114,7 @@ class AttCalculator
 
         // Handle cutoff time logic
         $this->handleCutoffTime();
+        $this->applyFlexibleShiftTimesToAttendance();
     }
 
     private function updateStatusMuster(string $statusCode, ?float $dayCount = null, bool $incrementDayCount = false): void
@@ -1128,6 +1163,46 @@ class AttCalculator
             : null;
 
         $this->normalizeNightShiftEndTime();
+    }
+
+    private function isFlexibleShift(): bool
+    {
+        return (bool) ($this->curatt?->shift?->is_flaxible ?? $this->shift?->is_flaxible ?? false);
+    }
+
+    private function applyFlexibleShiftTimesToAttendance(): void
+    {
+        if ($this->curatt === null || ! $this->isFlexibleShift()) {
+            return;
+        }
+
+        $inTime = $this->curatt->in_time ? Carbon::parse($this->curatt->in_time) : null;
+        $outTime = $this->curatt->out_time ? Carbon::parse($this->curatt->out_time) : null;
+        $firstPunch = $inTime === null || ($outTime !== null && $outTime->lessThan($inTime))
+            ? $outTime
+            : $inTime;
+        $lastPunch = $outTime === null || ($inTime !== null && $inTime->greaterThan($outTime))
+            ? $inTime
+            : $outTime;
+
+        if ($firstPunch === null || $lastPunch === null) {
+            return;
+        }
+
+        $currentShiftInTime = $this->curatt->shift_in_time ? Carbon::parse($this->curatt->shift_in_time) : null;
+        $currentShiftOutTime = $this->curatt->shift_out_time ? Carbon::parse($this->curatt->shift_out_time) : null;
+
+        if (
+            $currentShiftInTime?->equalTo($firstPunch)
+            && $currentShiftOutTime?->equalTo($lastPunch)
+        ) {
+            return;
+        }
+
+        $this->curatt->shift_in_time = $firstPunch;
+        $this->curatt->shift_out_time = $lastPunch;
+        $this->curatt->save();
+        $this->debug('Flexible shift boundaries set to first and last attendance punches');
     }
 
     private function normalizeNightShiftEndTime(): bool
@@ -1191,7 +1266,7 @@ class AttCalculator
             if ($prev_att && $prev_att->shift != null && $prev_att->shift != null) {
                 $shiftCutoffSeconds = $this->getDurationSeconds($prev_att->shift->getRawOriginal('cutoff_time'), 'shift cutoff');
                 $cutoffWindow = $prev_att->shift->set_cutoff && $shiftCutoffSeconds > 0
-                    ? $this->getShiftCutoffWindow($prev_att->shift, $prev_att->date, $shiftCutoffSeconds)
+                    ? $this->getAttendanceCutoffWindow($prev_att, $shiftCutoffSeconds)
                     : null;
                 if ($cutoffWindow !== null) {
 
@@ -1211,11 +1286,13 @@ class AttCalculator
                         $this->curatt->save();
                     }
                 } else {
-                    $shift_start = Carbon::parse($prev_att->date)
-                        ->setTimeFromTimeString($prev_att->shift->in_time->format('H:i:s'));
+                    $shift_start = $prev_att->shift->is_flaxible
+                        ? ($prev_att->shift_in_time ? Carbon::parse($prev_att->shift_in_time) : null)
+                        : Carbon::parse($prev_att->date)
+                            ->setTimeFromTimeString($prev_att->shift->in_time->format('H:i:s'));
 
                     $maxGapSeconds = $this->getConfiguredDurationSeconds('max_gap_btwn_prv_in_and_curtt_out');
-                    if ($maxGapSeconds > 0) {
+                    if ($maxGapSeconds > 0 && $shift_start !== null) {
                         $shift_cutoff_time = Carbon::parse($prev_att->date)
                             ->setTimeFromTimeString($prev_att->shift->in_time->format('H:i:s'))
                             ->addSeconds($maxGapSeconds);
@@ -1446,6 +1523,7 @@ class AttCalculator
             }
 
             if ($this->log->user->half_day_rule && $this->curatt->shift && $this->curatt) {
+                $isFlexibleShift = $this->isFlexibleShift();
                 $punchInTime = $this->curatt->in_time ? Carbon::parse($this->curatt->in_time) : null;
                 $punchOutTime = $this->curatt->out_time ? Carbon::parse($this->curatt->out_time) : null;
 
@@ -1498,11 +1576,9 @@ class AttCalculator
                             $this->debug('Check User Work Time To Work Hours Less Than Time');
 
                             $this->halfdayRuleWorkHourFlag = true;
-                            [$statusCode, $tagName] = $this->halfDayWorkPeriod(
-                                $punchInTime,
-                                $punchOutTime,
-                                $shiftInTime,
-                            );
+                            [$statusCode, $tagName] = $isFlexibleShift
+                                ? ['PA', 'Half Day']
+                                : $this->halfDayWorkPeriod($punchInTime, $punchOutTime, $shiftInTime);
                             $this->applyHalfDayResult($statusCode, $tagName);
                         } else {
                             $this->halfdayRuleWorkHourFlag = false;
@@ -1510,7 +1586,7 @@ class AttCalculator
                         }
 
                         // 4. Check user is late | early minutes and no of late | early to compare
-                        if ($differenceInMinutes > $halfdayRule->late_coming_minutes && $halfdayRule->late_coming_minutes > 0) {
+                        if (! $isFlexibleShift && $differenceInMinutes > $halfdayRule->late_coming_minutes && $halfdayRule->late_coming_minutes > 0) {
                             $today = $this->log->datetime;
 
                             if ($halfdayRule->ignore_month_end_late && $this->isMonthEnd($today->format('Y-m-d'))) {
@@ -1567,7 +1643,7 @@ class AttCalculator
                             $this->debug('Half Day Rule is not calculate | User not cross the limit of late coming');
                         }
 
-                        if ($differenceOutMinutes > $halfdayRule->early_going_minutes && $halfdayRule->early_going_minutes > 0) {
+                        if (! $isFlexibleShift && $differenceOutMinutes > $halfdayRule->early_going_minutes && $halfdayRule->early_going_minutes > 0) {
                             $today = $this->log->datetime;
 
                             if ($halfdayRule->ignore_month_end_early && $this->isMonthEnd($today->format('Y-m-d'))) {
@@ -1972,6 +2048,7 @@ class AttCalculator
                     // 2. Check punch in time and out time
                     if (($punchInTime && $punchInTime != null) && ($punchOutTime && $punchOutTime != null)) {
                         $wasAbsent = (bool) $this->curatt->is_absent;
+                        $isFlexibleShift = $this->isFlexibleShift();
                         $this->curatt->is_absent = false;
                         $this->curatt->save();
 
@@ -1980,7 +2057,36 @@ class AttCalculator
                         $processTags->where('name', 'Absent')->delete();
 
                         // 3. Check work hours with user work time]
-                        if ($work_difference < $absentRule->work_hr_less_than_minutes && $absentRule->work_hr_less_than_minutes > 0) {
+                        if ($isFlexibleShift) {
+                            $this->absentRuleWorkHourFlag = $work_difference !== null
+                                && $absentRule->work_hr_less_than_minutes > 0
+                                && $work_difference < $absentRule->work_hr_less_than_minutes;
+
+                            if ($this->absentRuleWorkHourFlag) {
+                                $this->debug('Flexible shift work time is below the absent-rule minimum');
+                                $this->curatt->is_absent = true;
+                                $this->curatt->is_half_day = false;
+                                $this->curatt->status_master_id = StatusMaster::where('code', 'AA')->firstOrFail()->id;
+                                $this->curatt->save();
+
+                                StatusMuster::where('user_id', $this->log->user->id)
+                                    ->where('is_locked', false)
+                                    ->where('date', $this->log->datetime->format('Y-m-d'))
+                                    ->update([
+                                        'status_master_id' => StatusMaster::where('code', 'AA')->first()->id,
+                                        'day_count' => 0.0,
+                                    ]);
+
+                                $this->curatt->process_tags()
+                                    ->whereIn('name', ['Half Day | Is First Half', 'Half Day | Is Second Half', 'Half Day'])
+                                    ->delete();
+                                $this->curatt->process_tags()->create([
+                                    'name' => 'Absent',
+                                    'color' => 'danger',
+                                    'icon' => 'heroicon-o-document-duplicate',
+                                ]);
+                            }
+                        } elseif ($work_difference < $absentRule->work_hr_less_than_minutes && $absentRule->work_hr_less_than_minutes > 0) {
                             $this->debug('Check User Work Time To Work Hours Less Than Time');
 
                             if ($this->halfdayRuleWorkHourFlag == false) {
@@ -2010,7 +2116,7 @@ class AttCalculator
                         }
 
                         // 4. Check user is late | early minutes and no of late | early to compare
-                        if ($differenceInMinutes > $absentRule->late_coming_minutes && $absentRule->late_coming_minutes > 0) {
+                        if (! $isFlexibleShift && $differenceInMinutes > $absentRule->late_coming_minutes && $absentRule->late_coming_minutes > 0) {
                             $today = $this->log->datetime;
 
                             $consecutiveLateDays = (int) ceil((float) $absentRule->consecutive_late_coming);
@@ -2065,7 +2171,7 @@ class AttCalculator
                             $this->debug('Absent Rule is not calculate | User not cross the limit of late coming');
                         }
 
-                        if ($differenceOutMinutes > $absentRule->early_going_minutes && $absentRule->early_going_minutes > 0) {
+                        if (! $isFlexibleShift && $differenceOutMinutes > $absentRule->early_going_minutes && $absentRule->early_going_minutes > 0) {
                             $today = $this->log->datetime;
 
                             $consecutiveEarlyDays = (int) ceil((float) $absentRule->consecutive_early_going);
@@ -2300,6 +2406,15 @@ class AttCalculator
             return;
         }
 
+        if ($this->isFlexibleShift()) {
+            $this->debug('Skipping early-going check for a flexible shift');
+            $this->curatt->is_early = false;
+            $this->curatt->save();
+            $this->curatt->process_tags()->where('name', 'Early Going')->delete();
+
+            return;
+        }
+
         if ($this->normalizeNightShiftEndTime()) {
             $this->curatt->save();
         }
@@ -2416,6 +2531,13 @@ class AttCalculator
             return;
         }
 
+        if ($this->isFlexibleShift()) {
+            $this->debug('Skipping late-coming check for a flexible shift');
+            $this->updateLateComingStatus(false);
+
+            return;
+        }
+
         if ($this->curatt->shift_in_time === null || $this->curatt->in_time === null) {
             $this->debug('Skipping late coming check because shift start or punch-in time is missing');
             $this->updateLateComingStatus(false);
@@ -2516,6 +2638,18 @@ class AttCalculator
         $this->debug('~~~Checking OverTime Rule');
         $this->curatt->row_overtime_minutes = 0;
         $this->curatt->total_overtime_minutes = 0;
+        if ($this->isFlexibleShift()) {
+            $this->debug('Skipping overtime calculation for a flexible shift');
+            $this->otFlag = false;
+            $this->overtime_early = 0;
+            $this->overtime_late = 0;
+            $this->curatt->is_over_time = false;
+            $this->curatt->save();
+            $this->curatt->process_tags()->where('name', 'Overtime')->delete();
+
+            return;
+        }
+
         if (! $this->curatt->shift_in_time || ! $this->curatt->shift_out_time) {
             $this->debug('Skipping overtime calculation because attendance has no shift times');
             $this->curatt->save();

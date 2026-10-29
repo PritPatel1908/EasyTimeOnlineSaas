@@ -15601,8 +15601,9 @@ table.table-bordered thead tr th p {
 
 .hrms-menu-search-result:hover,
 .hrms-menu-search-result.is-active {
-  background: #F8F9FA;
-  color: #111827;
+  background: #FEF1EB;
+  color: #F26522;
+  font-weight: 600;
 }
 
 .hrms-menu-search-result-label,

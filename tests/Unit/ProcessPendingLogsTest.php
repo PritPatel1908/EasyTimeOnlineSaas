@@ -48,6 +48,7 @@ class ProcessPendingLogsTest extends TestCase
             $table->time('second_half_start_time')->nullable();
             $table->time('auto_from')->nullable();
             $table->time('auto_to')->nullable();
+            $table->boolean('is_flaxible')->default(false);
             $table->boolean('is_night_shift')->default(false);
             $table->boolean('set_cutoff')->default(false);
             $table->string('cutoff_time', 8)->nullable();
@@ -909,6 +910,195 @@ class ProcessPendingLogsTest extends TestCase
         $this->assertNull($attendance->shift_in_time);
         $this->assertNull($attendance->shift_out_time);
         $this->assertFalse($attendance->is_night_shift);
+    }
+
+    public function test_flexible_shift_boundaries_follow_the_first_and_last_punches(): void
+    {
+        DB::table('users')->insert(['id' => 7]);
+        $shift = new Shift;
+        $shift->is_flaxible = true;
+        $attendance = Attendance::year(2026);
+        $attendance->user_id = 7;
+        $attendance->date = '2026-10-26';
+        $attendance->in_time = '2026-10-26 09:15:00';
+        $attendance->out_time = '2026-10-26 17:45:00';
+        $attendance->setRelation('shift', $shift);
+
+        $calculator = new AttCalculator(new AttendanceLog);
+        (new \ReflectionProperty(AttCalculator::class, 'curatt'))->setValue($calculator, $attendance);
+        (new \ReflectionProperty(AttCalculator::class, 'shift'))->setValue($calculator, $shift);
+
+        Schema::disableForeignKeyConstraints();
+        try {
+            (new \ReflectionMethod(AttCalculator::class, 'applyFlexibleShiftTimesToAttendance'))->invoke($calculator);
+        } finally {
+            Schema::enableForeignKeyConstraints();
+        }
+
+        $this->assertSame('2026-10-26 09:15:00', $attendance->fresh()->shift_in_time->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-10-26 17:45:00', $attendance->fresh()->shift_out_time->format('Y-m-d H:i:s'));
+    }
+
+    public function test_flexible_shift_cutoff_uses_attendance_boundaries_when_shift_times_are_not_configured(): void
+    {
+        $shift = new Shift;
+        $shift->is_flaxible = true;
+        $attendance = new Attendance;
+        $attendance->shift_in_time = '2026-10-26 09:15:00';
+        $attendance->shift_out_time = '2026-10-26 17:45:00';
+        $attendance->is_night_shift = false;
+        $attendance->setRelation('shift', $shift);
+
+        $calculator = new AttCalculator(new AttendanceLog);
+        $cutoffWindow = (new \ReflectionMethod(AttCalculator::class, 'getAttendanceCutoffWindow'))
+            ->invoke($calculator, $attendance, 3600);
+
+        $this->assertSame('2026-10-26 09:15:00', $cutoffWindow['start']->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-10-26 18:45:00', $cutoffWindow['end']->format('Y-m-d H:i:s'));
+    }
+
+    public function test_flexible_shift_skips_late_early_and_overtime_rules(): void
+    {
+        DB::table('users')->insert(['id' => 7]);
+        $user = new User;
+        $user->setAttribute('id', 7);
+        $shift = new Shift;
+        $shift->is_flaxible = true;
+        $attendance = Attendance::year(2026);
+        $attendance->user_id = 7;
+        $attendance->date = '2026-10-26';
+        $attendance->shift_in_time = '2026-10-26 09:00:00';
+        $attendance->shift_out_time = '2026-10-26 17:00:00';
+        $attendance->in_time = '2026-10-26 09:00:00';
+        $attendance->out_time = '2026-10-26 17:00:00';
+        $attendance->is_late = true;
+        $attendance->is_early = true;
+        $attendance->is_over_time = true;
+        $attendance->row_overtime_minutes = 60;
+        $attendance->total_overtime_minutes = 60;
+        Schema::disableForeignKeyConstraints();
+        $attendance->save();
+        Schema::enableForeignKeyConstraints();
+        $attendance->setRelation('shift', $shift);
+
+        $log = new AttendanceLog;
+        $log->setAttribute('datetime', Carbon::parse('2026-10-26 17:00:00'));
+        $log->setRelation('user', $user);
+        $calculator = new AttCalculator($log);
+        (new \ReflectionProperty(AttCalculator::class, 'curatt'))->setValue($calculator, $attendance);
+
+        $calculator->checkLateComingRule();
+        $calculator->checkEarlyGoingRule();
+        $calculator->checkOverTimeRule();
+
+        $savedAttendance = $attendance->fresh();
+        $this->assertFalse($savedAttendance->is_late);
+        $this->assertFalse($savedAttendance->is_early);
+        $this->assertFalse($savedAttendance->is_over_time);
+        $this->assertSame(0, $savedAttendance->row_overtime_minutes);
+        $this->assertSame(0, $savedAttendance->total_overtime_minutes);
+    }
+
+    public function test_flexible_shift_half_day_rule_uses_work_hours_and_ignores_late_and_early_settings(): void
+    {
+        $halfDayStatus = StatusMaster::create([
+            'code' => 'PA',
+            'alias' => 'Present + Absent',
+            'description' => 'Half-day present',
+        ]);
+        DB::table('users')->insert(['id' => 7]);
+        $user = new User;
+        $user->setAttribute('id', 7);
+        $rule = new HalfDayRule;
+        $rule->setAttribute('status', 1);
+        $rule->setAttribute('single_punch_allowed', false);
+        $rule->setAttribute('work_hr_less_than_minutes', 360);
+        $rule->setAttribute('late_coming_minutes', 1);
+        $rule->setAttribute('no_of_late', 1);
+        $rule->setAttribute('consecutive_late_coming', 1);
+        $rule->setAttribute('early_going_minutes', 1);
+        $rule->setAttribute('no_of_early', 1);
+        $rule->setAttribute('consecutive_early_going', 1);
+        $user->setRelation('half_day_rule', $rule);
+
+        $shift = new Shift;
+        $shift->is_flaxible = true;
+        $attendance = Attendance::year(2026);
+        $attendance->user_id = 7;
+        $attendance->date = '2026-10-26';
+        $attendance->shift_in_time = '2026-10-26 09:00:00';
+        $attendance->shift_out_time = '2026-10-26 13:00:00';
+        $attendance->in_time = '2026-10-26 09:00:00';
+        $attendance->out_time = '2026-10-26 13:00:00';
+        $attendance->setRelation('shift', $shift);
+        Schema::disableForeignKeyConstraints();
+        $attendance->save();
+        Schema::enableForeignKeyConstraints();
+
+        $log = new AttendanceLog;
+        $log->setAttribute('datetime', Carbon::parse('2026-10-26 13:00:00'));
+        $log->setRelation('user', $user);
+        $calculator = new AttCalculator($log);
+        (new \ReflectionProperty(AttCalculator::class, 'curatt'))->setValue($calculator, $attendance);
+
+        $calculator->checkHalfDayRule();
+
+        $savedAttendance = $attendance->fresh();
+        $this->assertTrue($savedAttendance->is_half_day);
+        $this->assertSame($halfDayStatus->id, $savedAttendance->status_master_id);
+        $this->assertDatabaseHas('process_tags', [
+            'taggable_type' => Attendance::class,
+            'taggable_id' => $attendance->id,
+            'name' => 'Half Day',
+        ]);
+    }
+
+    public function test_flexible_shift_absent_rule_uses_minimum_work_time_without_late_or_early_rules(): void
+    {
+        $absentStatus = StatusMaster::create([
+            'code' => 'AA',
+            'alias' => 'Absent',
+            'description' => 'Absent',
+        ]);
+        DB::table('users')->insert(['id' => 7]);
+        $user = new User;
+        $user->setAttribute('id', 7);
+        $rule = new AbsentRule;
+        $rule->setAttribute('status', 1);
+        $rule->setAttribute('allow_single_punch', false);
+        $rule->setAttribute('work_hr_less_than_minutes', 360);
+        $rule->setAttribute('late_coming_minutes', 1);
+        $rule->setAttribute('consecutive_late_coming', 1);
+        $rule->setAttribute('early_going_minutes', 1);
+        $rule->setAttribute('consecutive_early_going', 1);
+        $user->setRelation('absent_rule', $rule);
+
+        $shift = new Shift;
+        $shift->is_flaxible = true;
+        $attendance = Attendance::year(2026);
+        $attendance->user_id = 7;
+        $attendance->date = '2026-10-26';
+        $attendance->shift_in_time = '2026-10-26 09:00:00';
+        $attendance->shift_out_time = '2026-10-26 14:00:00';
+        $attendance->in_time = '2026-10-26 09:00:00';
+        $attendance->out_time = '2026-10-26 14:00:00';
+        $attendance->setRelation('shift', $shift);
+        Schema::disableForeignKeyConstraints();
+        $attendance->save();
+        Schema::enableForeignKeyConstraints();
+
+        $log = new AttendanceLog;
+        $log->setAttribute('datetime', Carbon::parse('2026-10-26 14:00:00'));
+        $log->setRelation('user', $user);
+        $calculator = new AttCalculator($log);
+        (new \ReflectionProperty(AttCalculator::class, 'curatt'))->setValue($calculator, $attendance);
+
+        $calculator->checkAbsentRule();
+
+        $savedAttendance = $attendance->fresh();
+        $this->assertTrue($savedAttendance->is_absent);
+        $this->assertFalse($savedAttendance->is_half_day);
+        $this->assertSame($absentStatus->id, $savedAttendance->status_master_id);
     }
 
     public function test_night_shift_end_time_moves_to_next_day_without_changing_attendance_date(): void
