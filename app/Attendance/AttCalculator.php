@@ -807,7 +807,7 @@ class AttCalculator
                 $this->debug('datetime is between in and out time so no need to update attendance');
             }
         }
-        $this->shift = $this->curatt->shift;
+        $this->shift ??= $this->curatt->shift;
 
         $shift_muster = ShiftMuster::where('user_id', $this->log->user->id)->where('is_locked', false)->where('date', $this->log->datetime->format('Y-m-d'))->first();
         if ($shift_muster && ($this->shift !== null || $this->log->user->shift_type == 'auto')) {
@@ -1283,6 +1283,7 @@ class AttCalculator
     public function retriveAssignedShift(): void
     {
         $this->debug('~~~Retriving assigned shift');
+        $this->shift = null;
         if ($this->log->user->shift_type == 'auto') {
             $this->debug('Shift type is auto');
             // $shifts = $this->log->user->shifts;
@@ -1387,15 +1388,25 @@ class AttCalculator
                 return;
             }
 
-            // TODO: assign default shift from general configuration
-            $this->debug('No shift matched; falling back to the first configured shift');
-            $this->shift = Shift::first();
-            if ($this->shift === null) {
-                $this->debug('No shifts are configured; attendance will be processed without shift data');
-            }
+            $this->debug('No shift matched the user shift muster; leaving shift unassigned');
             // $processTags = $this->curatt->process_tags();
             // $processTags->where('name', 'Default Shift Assign')->delete();
             // $processTags->create(['name' => 'Default Shift Assign', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
+        }
+    }
+
+    public function resetCalculatedShiftMuster(): void
+    {
+        $updated = ShiftMuster::where('user_id', $this->log->user->id)
+            ->where('is_locked', false)
+            ->where('date', $this->log->datetime->format('Y-m-d'))
+            ->update([
+                'calculated_shift' => null,
+                'is_calculated' => false,
+            ]);
+
+        if ($updated > 0) {
+            $this->debug('Reset calculated shift on '.$updated.' unlocked shift muster(s) because no shift matched');
         }
     }
 

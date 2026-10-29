@@ -136,6 +136,23 @@ class ProcessPendingLogs implements ShouldBeUnique, ShouldQueue
             return;
         }
 
+        $attCalculator->retriveAssignedShift();
+        if ($attCalculator->shift === null) {
+            $attCalculator->debug('No shift matched the user shift muster; skipping punch processing');
+            $attCalculator->resetCalculatedShiftMuster();
+            $log->is_staged = true;
+            $log->save();
+            $log->process_tags()->create([
+                'name' => 'No Assigned Shift',
+                'color' => 'danger',
+            ]);
+            if ($this->returnLog) {
+                $this->returningLogArray = $attCalculator->getReturnLogs();
+            }
+
+            return;
+        }
+
         $log->save();
         $attCalculator->retriveAttendance();
         // if ($log->user->late_coming_rule_id != null) {

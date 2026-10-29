@@ -91,22 +91,22 @@
                     <x-validation-error field="ignore_late_going" />
                 </div>
             </div>
-            <div class="col-lg-6 col-md-6 mb-3">
+            <div id="ignore_overtime_field" class="col-lg-6 col-md-6 mb-3 @if(old('ignore_late_going', $overtimeRule?->ignore_late_going ?? false)) d-none @endif">
                 <label class="form-label" for="ignore_overtime">Ignore Overtime (minutes)</label>
                 <input id="ignore_overtime" name="ignore_overtime" type="hidden"
                     value="{{ old('ignore_overtime', $overtimeRule?->ignore_overtime ?? '0.00') }}">
                 <input id="ignore_overtime_display" type="text" placeholder="HH:mm" maxlength="8"
-                    pattern="\d+:[0-5]\d" required
+                    pattern="\d+:[0-5]\d" @unless(old('ignore_late_going', $overtimeRule?->ignore_late_going ?? false)) required @endunless
                     class="form-control @error('ignore_overtime') is-invalid @enderror"
                     value="{{ $durationInputValue(old('ignore_overtime', $overtimeRule?->ignore_overtime ?? '0.00')) }}">
                 <x-validation-error field="ignore_overtime" />
             </div>
-            <div class="col-lg-6 col-md-6 mb-3">
+            <div id="ignore_late_going_overtime_field" class="col-lg-6 col-md-6 mb-3 @unless(old('ignore_late_going', $overtimeRule?->ignore_late_going ?? false)) d-none @endunless">
                 <label class="form-label" for="ignore_late_going_overtime">Ignore Late Going Overtime (minutes)</label>
                 <input id="ignore_late_going_overtime" name="ignore_late_going_overtime" type="hidden"
                     value="{{ old('ignore_late_going_overtime', $overtimeRule?->ignore_late_going_overtime ?? '0.00') }}">
                 <input id="ignore_late_going_overtime_display" type="text" placeholder="HH:mm" maxlength="8"
-                    pattern="\d+:[0-5]\d" required
+                    pattern="\d+:[0-5]\d" @if(old('ignore_late_going', $overtimeRule?->ignore_late_going ?? false)) required @endif
                     class="form-control @error('ignore_late_going_overtime') is-invalid @enderror"
                     value="{{ $durationInputValue(old('ignore_late_going_overtime', $overtimeRule?->ignore_late_going_overtime ?? '0.00')) }}">
                 <x-validation-error field="ignore_late_going_overtime" />
@@ -182,6 +182,22 @@
 @push('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        var ignoreLateGoing = document.getElementById('ignore_late_going');
+        var ignoreOvertimeField = document.getElementById('ignore_overtime_field');
+        var ignoreLateGoingOvertimeField = document.getElementById('ignore_late_going_overtime_field');
+        var ignoreOvertimeDisplay = document.getElementById('ignore_overtime_display');
+        var ignoreLateGoingOvertimeDisplay = document.getElementById('ignore_late_going_overtime_display');
+
+        function updateGoingFields() {
+            ignoreOvertimeField.classList.toggle('d-none', ignoreLateGoing.checked);
+            ignoreLateGoingOvertimeField.classList.toggle('d-none', !ignoreLateGoing.checked);
+            ignoreOvertimeDisplay.required = !ignoreLateGoing.checked;
+            ignoreLateGoingOvertimeDisplay.required = ignoreLateGoing.checked;
+        }
+
+        updateGoingFields();
+        ignoreLateGoing.addEventListener('change', updateGoingFields);
+
         document.addEventListener('keydown', function (event) {
             var input = event.target;
             if (!(input instanceof HTMLInputElement) || input.placeholder !== 'HH:mm' || event.key !== 'Backspace') {

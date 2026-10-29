@@ -84,6 +84,7 @@ class ProcessPendingLogsTest extends TestCase
             $table->boolean('is_auto')->default(false);
             $table->json('shift')->nullable();
             $table->unsignedBigInteger('calculated_shift')->nullable();
+            $table->boolean('is_calculated')->default(false);
             $table->timestamps();
         });
         Schema::create('status_masters', function ($table): void {
@@ -221,6 +222,99 @@ class ProcessPendingLogsTest extends TestCase
             }
             $this->assertStringContainsString('automatic shift window is incomplete', implode(PHP_EOL, $calculator->getReturnLogs()));
         }
+    }
+
+    public function test_automatic_shift_outside_its_muster_window_stays_unassigned(): void
+    {
+        $shift = Shift::create([
+            'auto_from' => '10:00:00',
+            'auto_to' => '18:00:00',
+        ]);
+        Shift::create([
+            'auto_from' => '08:00:00',
+            'auto_to' => '16:00:00',
+        ]);
+        DB::table('shift_musters')->insert([
+            'date' => '2026-01-01',
+            'user_id' => 22,
+            'is_locked' => false,
+            'is_auto' => true,
+            'shift' => json_encode([$shift->id], JSON_THROW_ON_ERROR),
+        ]);
+
+        $user = new User;
+        $user->setAttribute('id', 22);
+        $user->setAttribute('shift_type', 'auto');
+
+        $log = new AttendanceLog;
+        $log->setAttribute('datetime', Carbon::parse('2026-01-01 09:00:00'));
+        $log->setRelation('user', $user);
+
+        $calculator = new AttCalculator($log, true);
+        $calculator->retriveAssignedShift();
+
+        $this->assertNull($calculator->shift);
+        $this->assertStringContainsString('No automatic shift matched; leaving shift unassigned', implode(PHP_EOL, $calculator->getReturnLogs()));
+    }
+
+    public function test_fixed_shift_without_a_muster_does_not_use_a_global_shift(): void
+    {
+        Shift::create([
+            'in_time' => '09:00:00',
+            'out_time' => '18:00:00',
+        ]);
+
+        $user = new User;
+        $user->setAttribute('id', 23);
+        $user->setAttribute('shift_type', 'fixed');
+
+        $log = new AttendanceLog;
+        $log->setAttribute('datetime', Carbon::parse('2026-01-01 09:00:00'));
+        $log->setRelation('user', $user);
+
+        $calculator = new AttCalculator($log, true);
+        $calculator->retriveAssignedShift();
+
+        $this->assertNull($calculator->shift);
+    }
+
+    public function test_unmatched_shift_resets_calculated_shift_on_unlocked_muster(): void
+    {
+        DB::table('shift_musters')->insert([
+            [
+                'date' => '2026-01-01',
+                'user_id' => 24,
+                'is_locked' => false,
+                'is_auto' => true,
+                'shift' => json_encode([1, 2], JSON_THROW_ON_ERROR),
+                'calculated_shift' => 4,
+                'is_calculated' => true,
+            ],
+            [
+                'date' => '2026-01-01',
+                'user_id' => 25,
+                'is_locked' => true,
+                'is_auto' => true,
+                'shift' => json_encode([1, 2], JSON_THROW_ON_ERROR),
+                'calculated_shift' => 4,
+                'is_calculated' => true,
+            ],
+        ]);
+
+        $user = new User;
+        $user->setAttribute('id', 24);
+        $log = new AttendanceLog;
+        $log->setAttribute('datetime', Carbon::parse('2026-01-01 09:00:00'));
+        $log->setRelation('user', $user);
+
+        (new AttCalculator($log))->resetCalculatedShiftMuster();
+
+        $unlockedMuster = DB::table('shift_musters')->where('user_id', 24)->first();
+        $lockedMuster = DB::table('shift_musters')->where('user_id', 25)->first();
+        $this->assertNull($unlockedMuster->calculated_shift);
+        $this->assertFalse((bool) $unlockedMuster->is_calculated);
+        $this->assertSame(4, (int) $lockedMuster->calculated_shift);
+        $this->assertTrue((bool) $lockedMuster->is_calculated);
     }
 
     public function test_attendance_persists_late_early_and_overtime_minutes(): void
