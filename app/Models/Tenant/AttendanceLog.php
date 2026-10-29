@@ -67,6 +67,7 @@ class AttendanceLog extends Model
         'is_ignored' => 'bool',
         'has_error' => 'bool',
         'is_locked' => 'bool',
+        'status' => 'int',
     ];
 
     protected $fillable = [

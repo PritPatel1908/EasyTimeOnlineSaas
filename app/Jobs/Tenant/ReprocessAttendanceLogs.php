@@ -168,6 +168,7 @@ class ReprocessAttendanceLogs implements ShouldBeUnique, ShouldQueue
         return AttendanceLog::query()
             ->whereBetween('datetime', [$this->startDateTime, $this->endDateTime])
             ->where('is_locked', false)
+            ->where('status', '!=', 0)
             ->when($this->employeeIds !== [], fn ($query) => $query->whereIn('user_id', $this->employeeIds));
     }
 }

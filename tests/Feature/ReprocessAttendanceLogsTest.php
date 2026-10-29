@@ -54,6 +54,7 @@ class ReprocessAttendanceLogsTest extends TestCase
             $table->boolean('is_manual')->default(false);
             $table->boolean('is_out')->default(false);
             $table->boolean('debug_me')->default(false);
+            $table->unsignedTinyInteger('status')->default(1);
             $table->unsignedBigInteger('created_by')->nullable();
             $table->unsignedBigInteger('updated_by')->nullable();
             $table->unsignedBigInteger('deleted_by')->nullable();
@@ -130,6 +131,28 @@ class ReprocessAttendanceLogsTest extends TestCase
         $this->assertTrue((bool) DB::table('attendance_logs')->where('id', $matchingLogId)->value('is_staged'));
         $this->assertFalse((bool) DB::table('attendance_logs')->where('id', $matchingLogId)->value('is_ignored'));
         $this->assertTrue((bool) DB::table('attendance_logs')->where('id', $outsideRangeLogId)->value('is_calculated'));
+    }
+
+    public function test_reprocessing_does_not_reset_or_delete_attendance_for_status_zero_logs(): void
+    {
+        $inactiveLogId = DB::table('attendance_logs')->insertGetId([
+            'user_code' => 'INACTIVE',
+            'datetime' => '2026-03-10 09:00:00',
+            'status' => 0,
+            'is_calculated' => true,
+            'is_staged' => false,
+        ]);
+        DB::table('attendances2026')->insert([
+            'user_id' => 101,
+            'date' => '2026-03-10',
+            'in_log_id' => $inactiveLogId,
+            'is_locked' => false,
+        ]);
+
+        (new ReprocessAttendanceLogs('2026-03-10 00:00:00', '2026-03-10 23:59:59'))->handle();
+
+        $this->assertSame(1, DB::table('attendances2026')->count());
+        $this->assertTrue((bool) DB::table('attendance_logs')->where('id', $inactiveLogId)->value('is_calculated'));
     }
 
     public function test_reprocess_form_dispatches_selected_employee_and_datetime_range(): void

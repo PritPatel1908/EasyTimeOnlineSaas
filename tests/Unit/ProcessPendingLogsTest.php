@@ -74,6 +74,7 @@ class ProcessPendingLogsTest extends TestCase
             $table->boolean('is_manual')->default(false);
             $table->boolean('debug_me')->default(false);
             $table->boolean('has_error')->default(false);
+            $table->unsignedTinyInteger('status')->default(1);
             $table->unsignedBigInteger('created_by')->nullable();
             $table->unsignedBigInteger('updated_by')->nullable();
             $table->unsignedBigInteger('deleted_by')->nullable();
@@ -177,17 +178,64 @@ class ProcessPendingLogsTest extends TestCase
         $this->assertSame('42', $restoredJob->uniqueId());
     }
 
+    public function test_direct_processing_skips_logs_with_status_zero_without_changing_them(): void
+    {
+        $logId = DB::table('attendance_logs')->insertGetId([
+            'user_code' => 'DISABLED',
+            'datetime' => '2026-03-10 09:00:00',
+            'status' => 0,
+            'is_calculated' => false,
+            'is_staged' => false,
+        ]);
+        DB::table('process_tags')->insert([
+            'taggable_type' => AttendanceLog::class,
+            'taggable_id' => $logId,
+            'name' => 'Existing tag',
+        ]);
+
+        (new ProcessPendingLogs($logId))->handle();
+
+        $log = DB::table('attendance_logs')->where('id', $logId)->first();
+        $this->assertSame(0, (int) $log->is_calculated);
+        $this->assertSame(0, (int) $log->is_staged);
+        $this->assertSame(1, DB::table('process_tags')->where('taggable_id', $logId)->count());
+    }
+
+    public function test_pending_batch_skips_logs_with_status_zero(): void
+    {
+        $logId = DB::table('attendance_logs')->insertGetId([
+            'user_code' => 'DISABLED',
+            'datetime' => '2026-03-10 09:00:00',
+            'status' => 0,
+            'is_calculated' => false,
+            'is_staged' => false,
+        ]);
+
+        (new \App\Jobs\Tenant\ProcessPendingLogsBatch)->handle();
+
+        $log = DB::table('attendance_logs')->where('id', $logId)->first();
+        $this->assertSame(0, (int) $log->is_calculated);
+        $this->assertSame(0, (int) $log->is_staged);
+    }
+
     public function test_manual_punch_direction_does_not_require_a_machine(): void
     {
-        foreach ([false, true] as $isOut) {
+        $scenarios = [
+            ['punch_type' => 1, 'stored_is_out' => true, 'expected_is_out' => false],
+            ['punch_type' => 2, 'stored_is_out' => false, 'expected_is_out' => true],
+            ['punch_type' => null, 'stored_is_out' => true, 'expected_is_out' => true],
+        ];
+
+        foreach ($scenarios as $scenario) {
             $log = new AttendanceLog;
             $log->setAttribute('is_manual', true);
-            $log->setAttribute('is_out', $isOut);
+            $log->setAttribute('punch_type', $scenario['punch_type']);
+            $log->setAttribute('is_out', $scenario['stored_is_out']);
 
             $calculator = new AttCalculator($log);
             $calculator->checkInOrOut();
 
-            $this->assertSame($isOut, $log->is_out);
+            $this->assertSame($scenario['expected_is_out'], $log->is_out);
         }
     }
 
@@ -1423,6 +1471,56 @@ class ProcessPendingLogsTest extends TestCase
         $this->assertSame($presentStatus->id, $attendance->fresh()->status_master_id);
         $this->assertSame($presentStatus->id, $statusMuster->fresh()->status_master_id);
         $this->assertSame(1.0, $statusMuster->fresh()->day_count);
+    }
+
+    public function test_absent_work_hour_threshold_overrides_half_day_rule_result(): void
+    {
+        $absentStatus = StatusMaster::create([
+            'code' => 'AA',
+            'alias' => 'Absent',
+            'description' => 'Absent',
+        ]);
+        $halfDayStatus = StatusMaster::create([
+            'code' => 'PA',
+            'alias' => 'Present + Absent',
+            'description' => 'Half-day present',
+        ]);
+        [$calculator, $attendance] = $this->calculatorWithAbsentRule(
+            punchInTime: '2026-04-15 08:00:00',
+            punchOutTime: '2026-04-15 09:30:00',
+            ruleAttributes: ['work_hr_less_than_minutes' => 200],
+        );
+        $attendance->is_half_day = true;
+        $attendance->status_master_id = $halfDayStatus->id;
+        $attendance->save();
+        $statusMuster = StatusMuster::create([
+            'date' => '2026-04-15',
+            'user_id' => 7,
+            'status_master_id' => $halfDayStatus->id,
+            'day_count' => 0.5,
+            'year' => 2026,
+            'is_locked' => false,
+        ]);
+        $calculator->halfdayRuleWorkHourFlag = true;
+
+        $calculator->checkAbsentRule();
+
+        $savedAttendance = $attendance->fresh();
+        $this->assertTrue($savedAttendance->is_absent);
+        $this->assertFalse($savedAttendance->is_half_day);
+        $this->assertSame($absentStatus->id, $savedAttendance->status_master_id);
+        $this->assertSame($absentStatus->id, $statusMuster->fresh()->status_master_id);
+        $this->assertSame(0.0, $statusMuster->fresh()->day_count);
+        $this->assertDatabaseHas('process_tags', [
+            'taggable_type' => Attendance::class,
+            'taggable_id' => $attendance->id,
+            'name' => 'Absent',
+        ]);
+        $this->assertDatabaseMissing('process_tags', [
+            'taggable_type' => Attendance::class,
+            'taggable_id' => $attendance->id,
+            'name' => 'Half Day',
+        ]);
     }
 
     public function test_absent_rule_does_not_count_early_arrival_as_late(): void

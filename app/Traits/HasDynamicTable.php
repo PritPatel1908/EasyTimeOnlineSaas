@@ -26,6 +26,7 @@ trait HasDynamicTable
             $this->createDynamicTable($tablename, $year);
         }
         $this->setTable($tablename);
+        $this->ensureDynamicTableColumns($tablename);
     }
 
     protected function getDynamicTableName($year)
@@ -49,6 +50,8 @@ trait HasDynamicTable
             });
         }
     }
+
+    protected function ensureDynamicTableColumns(string $tablename): void {}
 
     public function scopeTableYear($query, $year)
     {

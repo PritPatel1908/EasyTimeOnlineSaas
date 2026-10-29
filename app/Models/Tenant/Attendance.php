@@ -7,6 +7,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 
 // genrate attendane doc
 /**
@@ -36,6 +37,7 @@ use Illuminate\Database\Schema\Blueprint;
  * @property int $early_minutes
  * @property bool $is_over_time
  * @property int $work_time Total worked minutes
+ * @property float $c_off_days
  * @property int $row_overtime_minutes
  * @property int $total_overtime_minutes
  * @property int $approved_overtime_minutes
@@ -52,6 +54,8 @@ use Illuminate\Database\Schema\Blueprint;
 class Attendance extends Model
 {
     use HasDynamicTable;
+
+    private static array $dynamicTablesWithCoffDays = [];
 
     protected $table = '';
 
@@ -82,6 +86,24 @@ class Attendance extends Model
     protected function baseTableName()
     {
         return 'attendances';
+    }
+
+    protected function ensureDynamicTableColumns(string $tablename): void
+    {
+        $connection = $this->getConnection();
+        $schema = Schema::connection($connection->getName());
+        $cacheKey = $connection->getName().':'.$connection->getDatabaseName().':'.$tablename;
+        if (isset(self::$dynamicTablesWithCoffDays[$cacheKey])) {
+            return;
+        }
+
+        if (! $schema->hasColumn($tablename, 'c_off_days')) {
+            $schema->table($tablename, function (Blueprint $table): void {
+                $table->decimal('c_off_days', 10, 2)->default(0);
+            });
+        }
+
+        self::$dynamicTablesWithCoffDays[$cacheKey] = true;
     }
 
     protected function defineSchema(Blueprint $table, $year)
@@ -116,6 +138,7 @@ class Attendance extends Model
         $table->boolean('is_absent')->default(false);
         $table->boolean('is_over_time')->default(false);
         $table->unsignedInteger('work_time')->default(0);
+        $table->decimal('c_off_days', 10, 2)->default(0);
         $table->unsignedInteger('row_overtime_minutes')->default(0);
         $table->unsignedInteger('total_overtime_minutes')->default(0);
         $table->unsignedInteger('approved_overtime_minutes')->default(0);
@@ -156,6 +179,7 @@ class Attendance extends Model
         'early_minutes',
         'is_over_time',
         'work_time',
+        'c_off_days',
         'row_overtime_minutes',
         'total_overtime_minutes',
         'approved_overtime_minutes',
@@ -192,6 +216,7 @@ class Attendance extends Model
         'early_minutes' => 'int',
         'is_over_time' => 'boolean',
         'work_time' => 'int',
+        'c_off_days' => 'decimal:2',
         'row_overtime_minutes' => 'int',
         'total_overtime_minutes' => 'int',
         'approved_overtime_minutes' => 'int',

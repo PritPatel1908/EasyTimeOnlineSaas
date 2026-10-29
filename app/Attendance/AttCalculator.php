@@ -4,10 +4,13 @@ namespace App\Attendance;
 
 use App\Models\Tenant\Attendance;
 use App\Models\Tenant\AttendanceLog;
+use App\Models\Tenant\Category;
 use App\Models\Tenant\Coff;
 use App\Models\Tenant\GeneralConfiguration;
 use App\Models\Tenant\InOutMuster;
 use App\Models\Tenant\LeaveApplication;
+use App\Models\Tenant\ManualPunch;
+use App\Models\Tenant\OvertimeRule;
 use App\Models\Tenant\OvertimeSlab;
 use App\Models\Tenant\Shift;
 use App\Models\Tenant\ShiftMuster;
@@ -36,6 +39,10 @@ class AttCalculator
     private ?Attendance $previousPunchAttendance = null;
 
     private bool $previousPunchAttendanceResolved = false;
+
+    private bool $halfDayCycleResetDateResolved = false;
+
+    private ?string $halfDayCycleResetDate = null;
 
     protected ?string $punchAttendanceDate = null;
 
@@ -201,10 +208,16 @@ class AttCalculator
         }
 
         if ($this->log->is_manual) {
+            $punchType = ManualPunch::normalizePunchType($this->log->punch_type);
+            if ($this->log->punch_type !== null && array_key_exists($punchType, ManualPunch::PUNCH_TYPES)) {
+                $this->log->is_out = ManualPunch::isOutDirection($punchType);
+            } else {
+                $this->log->is_out = (bool) $this->log->is_out;
+            }
+
             $this->debug($this->log->is_out
                 ? 'Fixed Punch type is "Out Device" due to manual punch'
                 : 'Fixed Punch type is "In Device" due to manual punch');
-            $this->log->is_out = (bool) $this->log->is_out;
             $this->applyConfiguredGapRules();
             $this->setPunchAttendanceDateFromCutoff();
         } elseif ($this->machine?->access_direction == 'in' || $this->machine?->access_direction == '1') {
@@ -1452,6 +1465,12 @@ class AttCalculator
             return;
         }
 
+        if ($this->shouldBypassTimingRules()) {
+            $this->debug('Skipping half-day rules because the category bypasses timing rules');
+
+            return;
+        }
+
         if ($this->normalizeNightShiftEndTime()) {
             $this->curatt->save();
         }
@@ -1559,12 +1578,14 @@ class AttCalculator
                                     'is_late',
                                     $lateDateToCheck,
                                     $today->copy()->subDay(),
+                                    true,
                                 ) + 1;
                                 $att_of_late = $this->countAttendanceFlagBetweenDates(
                                     $this->log->user->id,
                                     'is_late',
                                     $today->copy()->startOfMonth(),
                                     $today->copy()->subDay(),
+                                    true,
                                 ) + 1;
 
                                 if ($att_of_late_with_days >= $halfdayRule->consecutive_late_coming && $halfdayRule->consecutive_late_coming > 0) {
@@ -1616,12 +1637,14 @@ class AttCalculator
                                     'is_early',
                                     $earlyDateToCheck,
                                     $today->copy()->subDay(),
+                                    true,
                                 ) + 1;
                                 $att_of_early = $this->countAttendanceFlagBetweenDates(
                                     $this->log->user->id,
                                     'is_early',
                                     $today->copy()->startOfMonth(),
                                     $today->copy()->subDay(),
+                                    true,
                                 ) + 1;
 
                                 if ($att_of_early_with_days >= $halfdayRule->consecutive_early_going && $halfdayRule->consecutive_early_going > 0) {
@@ -1823,8 +1846,13 @@ class AttCalculator
         return ['PA', 'Half Day'];
     }
 
-    private function countAttendanceFlagBetweenDates(int $userId, string $flag, Carbon $from, Carbon $to): int
-    {
+    private function countAttendanceFlagBetweenDates(
+        int $userId,
+        string $flag,
+        Carbon $from,
+        Carbon $to,
+        bool $resetOnHalfDay = false,
+    ): int {
         if ($from->toDateString() > $to->toDateString()) {
             return 0;
         }
@@ -1832,6 +1860,15 @@ class AttCalculator
         $count = 0;
         $fromDate = $from->copy()->startOfDay();
         $toDate = $to->copy()->startOfDay();
+        if ($resetOnHalfDay) {
+            $cycleResetDate = $this->halfDayCycleResetDateBefore($userId, $toDate);
+            if ($cycleResetDate !== null && $cycleResetDate >= $fromDate->toDateString()) {
+                $fromDate = Carbon::parse($cycleResetDate)->addDay()->startOfDay();
+            }
+        }
+        if ($fromDate->gt($toDate)) {
+            return 0;
+        }
 
         for ($year = $fromDate->year; $year <= $toDate->year; $year++) {
             $yearStart = $fromDate->copy()->max(Carbon::create($year, 1, 1)->startOfDay());
@@ -1880,6 +1917,40 @@ class AttCalculator
         }
 
         return $count;
+    }
+
+    private function halfDayCycleResetDateBefore(int $userId, Carbon $date): ?string
+    {
+        if (! $this->log->user?->category?->reset_halfday_rule_cycle) {
+            return null;
+        }
+
+        if ($this->halfDayCycleResetDateResolved) {
+            return $this->halfDayCycleResetDate;
+        }
+
+        $this->halfDayCycleResetDateResolved = true;
+        for ($year = $date->year; $year >= 1900; $year--) {
+            if (! Schema::hasTable('attendances'.$year)) {
+                continue;
+            }
+
+            $attendance = Attendance::year($year)
+                ->where('user_id', $userId)
+                ->where('is_locked', false)
+                ->where('is_half_day', true)
+                ->whereDate('date', '<', $date->toDateString())
+                ->orderByDesc('date')
+                ->first(['date']);
+
+            if ($attendance !== null) {
+                $this->halfDayCycleResetDate = $attendance->date->toDateString();
+
+                return $this->halfDayCycleResetDate;
+            }
+        }
+
+        return null;
     }
 
     private function applyHalfDayResult(string $statusCode, string $tagName): void
@@ -1939,6 +2010,12 @@ class AttCalculator
 
     public function checkAbsentRule(): void
     {
+        if ($this->curatt !== null && $this->shouldBypassTimingRules()) {
+            $this->debug('Skipping absent rules because the category bypasses timing rules');
+
+            return;
+        }
+
         if ($this->curatt !== null && $this->normalizeNightShiftEndTime()) {
             $this->curatt->save();
         }
@@ -2049,26 +2126,24 @@ class AttCalculator
                             }
                         } elseif ($work_difference < $absentRule->work_hr_less_than_minutes && $absentRule->work_hr_less_than_minutes > 0) {
                             $this->debug('Check User Work Time To Work Hours Less Than Time');
+                            $this->absentRuleWorkHourFlag = true;
+                            $absentStatus = StatusMaster::where('code', 'AA')->firstOrFail();
+                            $this->curatt->is_absent = true;
+                            $this->curatt->is_half_day = false;
+                            $this->curatt->status_master_id = $absentStatus->id;
+                            $this->curatt->save();
 
-                            if ($this->halfdayRuleWorkHourFlag == false) {
-                                $this->curatt->is_half_day = true;
-                                $this->curatt->save();
+                            StatusMuster::where('user_id', $this->log->user->id)
+                                ->where('is_locked', false)
+                                ->whereDate('date', $this->log->datetime->toDateString())
+                                ->update([
+                                    'status_master_id' => $absentStatus->id,
+                                    'day_count' => 0.0,
+                                ]);
 
-                                $processTags = $this->curatt->process_tags();
-                                $this->curatt->status_master_id = StatusMaster::where('code', 'PA')->first()->id;
-                                $this->curatt->save();
-
-                                StatusMuster::where('user_id', $this->log->user->id)
-                                    ->where('is_locked', false)
-                                    ->where('date', $this->log->datetime->format('Y-m-d'))
-                                    ->update([
-                                        'status_master_id' => StatusMaster::where('code', 'PA')->first()->id,
-                                        'day_count' => 0.5,
-                                    ]);
-
-                                $processTags->where('name', 'Half Day | Is First Half')->orWhere('name', 'Half Day | Is Second Half')->orWhere('name', 'Half Day')->delete();
-                                $processTags->create(['name' => 'Half Day', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
-                            }
+                            $processTags = $this->curatt->process_tags();
+                            $processTags->whereIn('name', ['Half Day | Is First Half', 'Half Day | Is Second Half', 'Half Day', 'Absent'])->delete();
+                            $processTags->create(['name' => 'Absent', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
                         } else {
                             $this->debug('User Work Time Not Less Than To Work Hours Less Than Time');
                             if ($this->halfdayRuleWorkHourFlag == false) {
@@ -2367,6 +2442,12 @@ class AttCalculator
             return;
         }
 
+        if ($this->shouldBypassTimingRules()) {
+            $this->debug('Skipping early-going rule because the category bypasses timing rules');
+
+            return;
+        }
+
         if ($this->isFlexibleShift()) {
             $this->debug('Skipping early-going check for a flexible shift');
             $this->curatt->is_early = false;
@@ -2492,6 +2573,12 @@ class AttCalculator
             return;
         }
 
+        if ($this->shouldBypassTimingRules()) {
+            $this->debug('Skipping late-coming rule because the category bypasses timing rules');
+
+            return;
+        }
+
         if ($this->isFlexibleShift()) {
             $this->debug('Skipping late-coming check for a flexible shift');
             $this->updateLateComingStatus(false);
@@ -2599,6 +2686,21 @@ class AttCalculator
         $this->debug('~~~Checking OverTime Rule');
         $this->curatt->row_overtime_minutes = 0;
         $this->curatt->total_overtime_minutes = 0;
+        $user = $this->log->user;
+        $overtimeRule = $user?->overtime_rule;
+        $category = $user?->category;
+
+        if ($this->curatt->is_weekoff) {
+            if ($category?->regular_ot_on_wo) {
+                $this->calculateWeekOffOvertime($category, $overtimeRule);
+            } else {
+                $this->debug('Skipping overtime on the week off because the category setting is disabled');
+                $this->handleRegularHours();
+            }
+
+            return;
+        }
+
         if ($this->isFlexibleShift()) {
             $this->debug('Skipping overtime calculation for a flexible shift');
             $this->otFlag = false;
@@ -2624,10 +2726,6 @@ class AttCalculator
         $this->otFlag = false;
         $this->overtime_early = 0;
         $this->overtime_late = 0;
-
-        $user = $this->log->user;
-        $overtimeRule = $user?->overtime_rule;
-        $category = $user?->category;
 
         if (! $this->curatt->in_time || ! $this->curatt->out_time) {
             $this->debug('Overtime cannot be calculated without both in and out punches');
@@ -2758,6 +2856,14 @@ class AttCalculator
 
     private function markOvertime(int $totalMinutes): void
     {
+        if (
+            $this->curatt->is_holiday
+            && $this->log->user?->category?->give_double_ot_in_public_holiday
+        ) {
+            $totalMinutes *= 2;
+            $this->debug('Doubled final overtime because the category doubles overtime on public holidays');
+        }
+
         $overtimeStatus = StatusMaster::where('code', 'PPO')->firstOrFail();
         $this->curatt->status_master_id = $overtimeStatus->id;
         $this->curatt->is_over_time = true;
@@ -2824,13 +2930,298 @@ class AttCalculator
 
         $inTime = $this->curatt->in_time ? Carbon::parse($this->curatt->in_time) : null;
         $outTime = $this->curatt->out_time ? Carbon::parse($this->curatt->out_time) : null;
+        $category = $this->log->user->category;
+
+        if ($category?->ignore_before_after_shift_punch) {
+            [$inTime, $outTime] = $this->limitPunchesToShift($inTime, $outTime);
+            $this->curatt->in_time = $inTime;
+            $this->curatt->out_time = $outTime;
+        }
+
         $workTime = $inTime !== null && $outTime !== null && $outTime->greaterThan($inTime)
             ? $inTime->diffInMinutes($outTime)
             : 0;
 
-        $this->curatt->work_time = max(0, (int) $workTime);
+        $workTime = max(0, (int) $workTime);
+        if ($category?->ignore_break_in_attendance) {
+            $breakMinutes = $this->breakMinutesToDeduct($inTime, $outTime);
+            $workTime = max(0, $workTime - $breakMinutes);
+            $this->debug('Deducted '.$breakMinutes.' break minutes from attendance work time');
+        }
+
+        $workTime = $this->fixedWorkTime($workTime);
+        $this->curatt->work_time = $workTime;
+        $this->curatt->c_off_days = $this->calculateWeekOffHolidayCOffDays($workTime);
         $this->curatt->save();
-        $this->debug('Updated attendance work time to '.$this->curatt->work_time.' minutes between first and last punches');
+        $this->debug('Updated attendance work time to '.$this->curatt->work_time.' minutes');
+    }
+
+    private function shouldBypassTimingRules(): bool
+    {
+        return (bool) ($this->log->user?->category?->bypass_timing_rule ?? false);
+    }
+
+    /**
+     * @return array{0: ?Carbon, 1: ?Carbon}
+     */
+    private function limitPunchesToShift(?Carbon $inTime, ?Carbon $outTime): array
+    {
+        if ($this->curatt->shift_in_time === null || $this->curatt->shift_out_time === null) {
+            return [$inTime, $outTime];
+        }
+
+        $shiftInTime = Carbon::parse($this->curatt->shift_in_time);
+        $shiftOutTime = Carbon::parse($this->curatt->shift_out_time);
+        if ($this->curatt->is_night_shift && $shiftOutTime->lessThanOrEqualTo($shiftInTime)) {
+            $shiftOutTime->addDay();
+        }
+
+        if ($inTime !== null) {
+            $inTime = $inTime->max($shiftInTime)->min($shiftOutTime);
+        }
+        if ($outTime !== null) {
+            $outTime = $outTime->max($shiftInTime)->min($shiftOutTime);
+        }
+
+        return [$inTime, $outTime];
+    }
+
+    private function fixedWorkTime(int $workTime): int
+    {
+        $category = $this->log->user?->category;
+        if (! $category?->fix_work_hours || $this->curatt->shift_in_time === null || $this->curatt->shift_out_time === null) {
+            return $workTime;
+        }
+
+        $shiftInTime = Carbon::parse($this->curatt->shift_in_time);
+        $shiftOutTime = Carbon::parse($this->curatt->shift_out_time);
+        if ($this->curatt->is_night_shift && $shiftOutTime->lessThanOrEqualTo($shiftInTime)) {
+            $shiftOutTime->addDay();
+        }
+        $shiftMinutes = (int) $shiftInTime->diffInMinutes($shiftOutTime);
+        if ($workTime <= $shiftMinutes) {
+            return $workTime;
+        }
+
+        if ($category->fix_work_hours_as_per_shift) {
+            $this->debug('Capped work time to the assigned shift duration of '.$shiftMinutes.' minutes');
+
+            return $shiftMinutes;
+        }
+
+        $fixedMinutes = $this->durationValueToMinutes($category->fix_work_hours_value);
+        if ($fixedMinutes === null) {
+            $this->debug('Fix work hours is enabled but its configured value is invalid; retaining calculated work time');
+
+            return $workTime;
+        }
+
+        $this->debug('Replaced work time with the configured '.$fixedMinutes.' minute value');
+
+        return $fixedMinutes;
+    }
+
+    private function breakMinutesToDeduct(?Carbon $inTime, ?Carbon $outTime): int
+    {
+        $shift = $this->curatt->shift;
+        if (
+            $inTime === null
+            || $outTime === null
+            || $shift?->brack_start_time === null
+            || $shift?->brack_end_time === null
+            || $this->curatt->shift_in_time === null
+        ) {
+            return 0;
+        }
+
+        $shiftInTime = Carbon::parse($this->curatt->shift_in_time);
+        $breakStart = Carbon::parse($shift->brack_start_time)
+            ->setDate($shiftInTime->year, $shiftInTime->month, $shiftInTime->day);
+        $breakEnd = Carbon::parse($shift->brack_end_time)
+            ->setDate($shiftInTime->year, $shiftInTime->month, $shiftInTime->day);
+        if ($breakStart->lessThanOrEqualTo($shiftInTime)) {
+            $breakStart->addDay();
+        }
+        if ($breakEnd->lessThanOrEqualTo($breakStart)) {
+            $breakEnd->addDay();
+        }
+
+        $scheduledOverlap = $this->overlapMinutes($inTime, $outTime, $breakStart, $breakEnd);
+        if ($scheduledOverlap === 0) {
+            return 0;
+        }
+
+        $logs = AttendanceLog::query()
+            ->where('user_id', $this->log->user->id)
+            ->where('is_ignored', false)
+            ->whereBetween('datetime', [$inTime, $outTime])
+            ->orderBy('datetime')
+            ->orderBy('id')
+            ->get(['datetime', 'is_out']);
+
+        $pendingOutTime = null;
+        $actualBreakMinutes = 0;
+        $foundBreakPair = false;
+        foreach ($logs as $punch) {
+            $punchTime = Carbon::parse($punch->datetime);
+            if ($punch->is_out) {
+                $pendingOutTime = $punchTime;
+
+                continue;
+            }
+
+            if ($pendingOutTime !== null && $punchTime->greaterThan($pendingOutTime)) {
+                $overlap = $this->overlapMinutes($pendingOutTime, $punchTime, $breakStart, $breakEnd);
+                if ($overlap > 0) {
+                    $foundBreakPair = true;
+                    $actualBreakMinutes += $overlap;
+                }
+            }
+            $pendingOutTime = null;
+        }
+
+        return $foundBreakPair
+            ? min($scheduledOverlap, $actualBreakMinutes)
+            : $scheduledOverlap;
+    }
+
+    private function overlapMinutes(Carbon $start, Carbon $end, Carbon $windowStart, Carbon $windowEnd): int
+    {
+        $overlapStart = $start->max($windowStart);
+        $overlapEnd = $end->min($windowEnd);
+
+        return $overlapEnd->greaterThan($overlapStart)
+            ? (int) $overlapStart->diffInMinutes($overlapEnd)
+            : 0;
+    }
+
+    private function calculateWeekOffHolidayCOffDays(int $workTime): float
+    {
+        $category = $this->log->user?->category;
+        if (
+            ! $category?->is_eligible_for_c_off
+            || $workTime <= 0
+        ) {
+            return 0.0;
+        }
+
+        $isPaidHoliday = (bool) $this->curatt->is_holiday && (bool) $category->is_holiday_paid;
+        $isPaidWeekOff = (bool) $this->curatt->is_weekoff && (bool) $category->is_week_off_paid;
+        if (! $isPaidHoliday && ! $isPaidWeekOff) {
+            return 0.0;
+        }
+
+        $workedMinutes = $workTime;
+        $creditDays = 0.0;
+        foreach ($category->c_off_against_wo_hl_slabs()->orderBy('id')->get() as $slab) {
+            $fromMinutes = $this->timeValueToMinutes($slab->getRawOriginal('from_time'));
+            $toMinutes = $this->timeValueToMinutes($slab->getRawOriginal('to_time'));
+            if (
+                ($fromMinutes === null || $workedMinutes >= $fromMinutes)
+                && ($toMinutes === null || $workedMinutes <= $toMinutes)
+            ) {
+                $creditDays = (float) ($slab->credit_days ?? 0);
+                break;
+            }
+        }
+
+        if ($this->curatt->is_holiday && $category->give_double_coff_in_public_holiday) {
+            $creditDays *= 2;
+            $this->debug('Doubled C-Off credit because the category doubles C-Off on public holidays');
+        }
+
+        $this->debug('Calculated '.$creditDays.' C-Off credit days from '.$workedMinutes.' worked minutes');
+
+        return $creditDays;
+    }
+
+    private function timeValueToMinutes(mixed $value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (preg_match('/^(\d{1,3}):([0-5]\d)(?::[0-5]\d)?$/', (string) $value, $matches) !== 1) {
+            return null;
+        }
+
+        return ((int) $matches[1] * 60) + (int) $matches[2];
+    }
+
+    private function durationValueToMinutes(mixed $value): ?int
+    {
+        if (! is_string($value) && ! is_numeric($value)) {
+            return null;
+        }
+
+        $duration = trim((string) $value);
+        if ($duration === '') {
+            return null;
+        }
+
+        if (str_contains($duration, ':')) {
+            return $this->timeValueToMinutes($duration);
+        }
+
+        if (! is_numeric($duration) || (float) $duration < 0) {
+            return null;
+        }
+
+        return (int) round((float) $duration * 60);
+    }
+
+    private function calculateWeekOffOvertime(Category $category, ?OvertimeRule $overtimeRule): void
+    {
+        $workMinutes = max(0, (int) $this->curatt->work_time);
+        if ($workMinutes === 0) {
+            $this->debug('No work time recorded on the week off; no overtime awarded');
+            $this->handleRegularHours();
+
+            return;
+        }
+
+        $totalMinutes = $overtimeRule !== null
+            ? $overtimeRule->calculateOvertimeMinutes(0, 0, $workMinutes, 0)
+            : $workMinutes;
+
+        if ($overtimeRule === null && $category->skip_overtime) {
+            $skipMinutes = ((int) $category->skip_overtime->format('H') * 60)
+                + (int) $category->skip_overtime->format('i');
+            $totalMinutes = max(0, $totalMinutes - $skipMinutes);
+        }
+
+        $this->curatt->row_overtime_minutes = $totalMinutes;
+        $this->debug('Week-off overtime after applicable rules: '.$totalMinutes.' minutes');
+        if ($totalMinutes <= 0) {
+            $this->handleRegularHours();
+
+            return;
+        }
+
+        if ($overtimeRule !== null) {
+            $slabs = $overtimeRule->overtime_slabs()->orderByDesc('value_from')->get();
+            if ($slabs->isEmpty()) {
+                $this->handleOvertime(null, $totalMinutes);
+                $this->otFlag = true;
+
+                return;
+            }
+
+            $slab = $slabs->first(fn (OvertimeSlab $overtimeSlab): bool => $overtimeSlab->containsMinutes($totalMinutes));
+            if ($slab !== null) {
+                $this->handleOvertime($slab, $totalMinutes);
+                $this->otFlag = true;
+
+                return;
+            }
+
+            $this->handleRegularHours($totalMinutes);
+
+            return;
+        }
+
+        $this->markOvertime($totalMinutes);
+        $this->otFlag = true;
     }
 
     public function handelFixedIn(): void

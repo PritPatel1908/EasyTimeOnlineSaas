@@ -56,10 +56,19 @@ class ProcessPendingLogs implements ShouldBeUnique, ShouldQueue
     public function handle(): void
     {
         $log = AttendanceLog::query()->findOrFail($this->logId);
-        $log->process_tags()->delete();
         $attCalculator = new AttCalculator($log, $this->returnLog);
 
         $attCalculator->debug('----------------------'.'ProcessStarted for #'.$log->id.'|'.$log->user_code.'|'.$log->datetime.'----------------------');
+        if ($log->status === 0) {
+            $attCalculator->debug('Skipping attendance log because its status is 0');
+            if ($this->returnLog) {
+                $this->returningLogArray = $attCalculator->getReturnLogs();
+            }
+
+            return;
+        }
+
+        $log->process_tags()->delete();
         if ($attCalculator->checkAlreadyCalculated()) {
             $attCalculator->debug('#'.$log->id.' is already calculated');
             if ($this->returnLog) {

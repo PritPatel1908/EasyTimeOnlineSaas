@@ -25,7 +25,14 @@ final class CategoryRequestRules
             $fields[$field] = ['nullable', 'integer', 'min:0'];
         }
         $fields['canteen_break_limit'] = ['nullable', 'string', 'max:255'];
-        $fields['fix_work_hours_value'] = ['nullable', 'string', 'max:255'];
+        $fields['fix_work_hours_value'] = [
+            'exclude_unless:fix_work_hours,1',
+            'exclude_if:fix_work_hours_as_per_shift,1',
+            'required',
+            'string',
+            'regex:/^\d{1,3}(?::[0-5]\d(?::[0-5]\d)?|\.\d{1,2})?$/',
+            'max:255',
+        ];
         $fields['leave_type_id'] = ['nullable', 'array'];
         $fields['leave_type_id.*'] = ['integer', 'exists:leave_types,id'];
         $fields['c_off_against_wo_hl_slabs'] = ['nullable', 'array'];

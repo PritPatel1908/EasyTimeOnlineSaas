@@ -43,7 +43,8 @@ class ProcessPendingLogsBatch implements ShouldBeUnique, ShouldQueue
                 ->where('is_ignored', false)
                 ->where('has_error', false)
                 ->where('is_staged', $this->staged)
-                ->where('is_locked', false);
+                ->where('is_locked', false)
+                ->where('status', '!=', 0);
 
             if ($hasCursor) {
                 $query->where(function ($query) use ($cursorDate, $cursorId): void {
