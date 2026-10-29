@@ -1939,7 +1939,7 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
             $this->debug('Final Total Overtime after rule deductions: '.$totalMinutes);
 
             $slab = $overtimeRule->overtime_slabs()
-                ->orderBy('value_from')
+                ->orderByDesc('value_from')
                 ->get()
                 ->first(fn (OvertimeSlab $overtimeSlab): bool => $totalMinutes > 0 && $overtimeSlab->containsMinutes($totalMinutes));
 
@@ -2123,7 +2123,7 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
         $this->debug('User get overtime '.$overtimerule_slab->formattedHeadValue().' Hour');
         $this->curatt->status_master_id = StatusMaster::where('code', 'PPO')->first()->id;
         $this->curatt->is_over_time = true;
-        $this->curatt->total_overtime_minutes = $totalMinutes;
+        $this->curatt->total_overtime_minutes = $overtimerule_slab->headValueInMinutes() ?? $totalMinutes;
         $this->curatt->save();
 
         StatusMuster::where('user_id', $this->user->id)

@@ -2571,7 +2571,7 @@ class AttCalculator
             $this->debug('Final Total Overtime: '.$totalMinutes);
 
             $slab = $overtimeRule->overtime_slabs()
-                ->orderBy('value_from')
+                ->orderByDesc('value_from')
                 ->get()
                 ->first(fn ($overtimeSlab): bool => $totalMinutes > 0 && $overtimeSlab->containsMinutes($totalMinutes));
 
@@ -2624,8 +2624,9 @@ class AttCalculator
 
     private function handleOvertime(OvertimeSlab $overtimeSlab, int $totalMinutes): void
     {
+        $overtimeMinutes = $overtimeSlab->headValueInMinutes() ?? $totalMinutes;
         $this->debug('User get overtime '.$overtimeSlab->formattedHeadValue().' Hour');
-        $this->markOvertime($totalMinutes);
+        $this->markOvertime($overtimeMinutes);
     }
 
     private function markOvertime(int $totalMinutes): void

@@ -56,11 +56,16 @@ class OvertimeSlab extends Model
 
     public function formattedHeadValue(): string
     {
-        $minutes = $this->timeValueInMinutes($this->head_value);
+        $minutes = $this->headValueInMinutes();
 
         return $minutes === null
             ? '00:00'
             : sprintf('%02d:%02d', intdiv($minutes, 60), $minutes % 60);
+    }
+
+    public function headValueInMinutes(): ?int
+    {
+        return $this->timeValueInMinutes($this->head_value);
     }
 
     private function timeValueInMinutes(mixed $value): ?int

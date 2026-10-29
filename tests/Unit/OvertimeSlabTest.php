@@ -22,6 +22,7 @@ class OvertimeSlabTest extends TestCase
         $this->assertTrue($slab->containsMinutes(60));
         $this->assertTrue($slab->containsMinutes(120));
         $this->assertFalse($slab->containsMinutes(121));
+        $this->assertSame(90, $slab->headValueInMinutes());
         $this->assertSame('01:30', $slab->formattedHeadValue());
     }
 
@@ -57,6 +58,16 @@ class OvertimeSlabTest extends TestCase
         ]);
 
         $this->assertFalse($slab->containsMinutes(1));
+    }
+
+    public function test_a_slab_with_no_head_value_has_no_mapped_overtime(): void
+    {
+        $slab = new OvertimeSlab([
+            'value_from' => '00:00',
+            'value_to' => '01:00',
+        ]);
+
+        $this->assertNull($slab->headValueInMinutes());
     }
 
     public function test_invalid_slab_values_are_reported(): void
