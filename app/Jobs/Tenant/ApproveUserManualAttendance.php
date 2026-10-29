@@ -1916,15 +1916,20 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
             $punchInTime = Carbon::parse($this->curatt->in_time);
             $punchOutTime = Carbon::parse($this->curatt->out_time);
 
+            $this->debug(sprintf(
+                'Using overtime rule #%d: ignore early coming %d min, ignore late coming %d min, ignore late going %s (%d min), ignore overtime %d min',
+                $overtimeRule->id,
+                $overtimeRule->ignoreEarlyComingMinutesValue(),
+                $overtimeRule->ignoreLateComingMinutesValue(),
+                $overtimeRule->ignore_late_going ? 'enabled' : 'disabled',
+                (int) round((float) $overtimeRule->ignore_late_going_overtime),
+                (int) round((float) $overtimeRule->ignore_overtime),
+            ));
+
             $earlyMinutes = max(0, (int) floor(($shiftInTime->getTimestamp() - $punchInTime->getTimestamp()) / 60));
             $lateMinutes = max(0, (int) floor(($punchInTime->getTimestamp() - $shiftInTime->getTimestamp()) / 60));
             $lateGoingMinutes = max(0, (int) floor(($punchOutTime->getTimestamp() - $shiftOutTime->getTimestamp()) / 60));
             $earlyGoingMinutes = max(0, (int) floor(($shiftOutTime->getTimestamp() - $punchOutTime->getTimestamp()) / 60));
-            $this->curatt->row_overtime_minutes = max(
-                0,
-                $earlyMinutes + $lateGoingMinutes - $lateMinutes - $earlyGoingMinutes,
-            );
-
             $comingMinutes = $overtimeRule->adjustedComingMinutes($earlyMinutes, $lateMinutes);
             $this->overtime_early = $comingMinutes['early'];
             $this->overtime_late = $comingMinutes['late'];
@@ -1934,23 +1939,49 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
                 $lateGoingMinutes,
                 $earlyGoingMinutes,
             );
+            $this->curatt->row_overtime_minutes = $totalMinutes;
 
             $this->debug('After shift overtime minutes before deduction: '.$lateGoingMinutes);
-            $this->debug('Final Total Overtime after rule deductions: '.$totalMinutes);
+            $this->debug(sprintf(
+                'Overtime inputs: early coming %d, late coming %d, late going %d, early going %d; adjusted coming: early %d, late %d',
+                $earlyMinutes,
+                $lateMinutes,
+                $lateGoingMinutes,
+                $earlyGoingMinutes,
+                $comingMinutes['early'],
+                $comingMinutes['late'],
+            ));
+            $this->debug('Final row overtime after all rule deductions: '.$this->curatt->row_overtime_minutes);
 
-            $slab = $overtimeRule->overtime_slabs()
+            $slabs = $overtimeRule->overtime_slabs()
                 ->orderByDesc('value_from')
-                ->get()
-                ->first(fn (OvertimeSlab $overtimeSlab): bool => $totalMinutes > 0 && $overtimeSlab->containsMinutes($totalMinutes));
+                ->get();
+
+            if ($slabs->isEmpty()) {
+                $this->debug('No overtime slabs configured; using final row overtime as total overtime');
+                if ($this->curatt->row_overtime_minutes > 0) {
+                    $this->handleOvertime(null, $this->curatt->row_overtime_minutes);
+                    $this->otFlag = true;
+
+                    return;
+                }
+
+                $this->handleRegularHours();
+
+                return;
+            }
+
+            $slab = $slabs->first(fn (OvertimeSlab $overtimeSlab): bool => $this->curatt->row_overtime_minutes > 0
+                && $overtimeSlab->containsMinutes($this->curatt->row_overtime_minutes));
 
             if ($slab) {
-                $this->handleOvertime($slab, $totalMinutes);
+                $this->handleOvertime($slab, $this->curatt->row_overtime_minutes);
                 $this->otFlag = true;
 
                 return;
             }
 
-            $this->handleRegularHours($totalMinutes);
+            $this->handleRegularHours($this->curatt->row_overtime_minutes);
 
             return;
         }
@@ -2008,14 +2039,13 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
                 $this->debug('Late diff value after out punch minus : '.$out_diff);
             }
 
-            $this->curatt->row_overtime_minutes = max(0, (int) $out_diff);
-
             // Apply skip overtime - subtract the configured skip time from calculated overtime
             if ($skipOvertimeMinutes > 0 && $out_diff > 0) {
                 $overtimeBeforeSkip = $out_diff;
                 $out_diff = max(0, $out_diff - $skipOvertimeMinutes);
                 $this->debug('Overtime after applying skip period: '.$out_diff.' (reduced by '.$skipOvertimeMinutes.' minutes)');
             }
+            $this->curatt->row_overtime_minutes = max(0, (int) $out_diff);
 
             if ($out_diff >= 0) {
                 $totalDiff = $out_diff;
@@ -2118,12 +2148,15 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
     //     return sprintf('%02d:%02d', $hours, $minutes);
     // }
 
-    private function handleOvertime(OvertimeSlab $overtimerule_slab, int $totalMinutes)
+    private function handleOvertime(?OvertimeSlab $overtimerule_slab, int $totalMinutes)
     {
-        $this->debug('User get overtime '.$overtimerule_slab->formattedHeadValue().' Hour');
+        $overtimeMinutes = $overtimerule_slab?->headValueInMinutes() ?? $totalMinutes;
+        $this->debug($overtimerule_slab
+            ? 'User get overtime '.$overtimerule_slab->formattedHeadValue().' Hour'
+            : 'User get overtime '.sprintf('%02d:%02d', intdiv($overtimeMinutes, 60), $overtimeMinutes % 60).' Hour (no slab configured)');
         $this->curatt->status_master_id = StatusMaster::where('code', 'PPO')->first()->id;
         $this->curatt->is_over_time = true;
-        $this->curatt->total_overtime_minutes = $overtimerule_slab->headValueInMinutes() ?? $totalMinutes;
+        $this->curatt->total_overtime_minutes = $overtimeMinutes;
         $this->curatt->save();
 
         StatusMuster::where('user_id', $this->user->id)

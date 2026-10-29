@@ -2547,42 +2547,72 @@ class AttCalculator
         $punchOutTime = Carbon::parse($this->curatt->out_time);
 
         if ($overtimeRule) {
+            $this->debug(sprintf(
+                'Using overtime rule #%d: ignore early coming %d min, ignore late coming %d min, ignore late going %s (%d min), ignore overtime %d min',
+                $overtimeRule->id,
+                $overtimeRule->ignoreEarlyComingMinutesValue(),
+                $overtimeRule->ignoreLateComingMinutesValue(),
+                $overtimeRule->ignore_late_going ? 'enabled' : 'disabled',
+                (int) round((float) $overtimeRule->ignore_late_going_overtime),
+                (int) round((float) $overtimeRule->ignore_overtime),
+            ));
+
             $earlyMinutes = max(0, (int) floor(($shiftInTime->getTimestamp() - $punchInTime->getTimestamp()) / 60));
             $lateMinutes = max(0, (int) floor(($punchInTime->getTimestamp() - $shiftInTime->getTimestamp()) / 60));
             $lateGoingMinutes = max(0, (int) floor(($punchOutTime->getTimestamp() - $shiftOutTime->getTimestamp()) / 60));
             $earlyGoingMinutes = max(0, (int) floor(($shiftOutTime->getTimestamp() - $punchOutTime->getTimestamp()) / 60));
-            $this->curatt->row_overtime_minutes = max(
-                0,
-                $earlyMinutes + $lateGoingMinutes - $lateMinutes - $earlyGoingMinutes,
-            );
-
             $totalMinutes = $overtimeRule->calculateOvertimeMinutes(
                 $earlyMinutes,
                 $lateMinutes,
                 $lateGoingMinutes,
                 $earlyGoingMinutes,
             );
+            $this->curatt->row_overtime_minutes = $totalMinutes;
             $comingMinutes = $overtimeRule->adjustedComingMinutes($earlyMinutes, $lateMinutes);
 
             $this->overtime_early = $comingMinutes['early'];
             $this->overtime_late = $comingMinutes['late'];
             $this->debug('After shift overtime minutes: '.$lateGoingMinutes);
-            $this->debug('Overtime after coming/going deductions: '.$totalMinutes);
-            $this->debug('Final Total Overtime: '.$totalMinutes);
+            $this->debug(sprintf(
+                'Overtime inputs: early coming %d, late coming %d, late going %d, early going %d; adjusted coming: early %d, late %d',
+                $earlyMinutes,
+                $lateMinutes,
+                $lateGoingMinutes,
+                $earlyGoingMinutes,
+                $comingMinutes['early'],
+                $comingMinutes['late'],
+            ));
+            $this->debug('Final row overtime after all rule deductions: '.$this->curatt->row_overtime_minutes);
 
-            $slab = $overtimeRule->overtime_slabs()
+            $slabs = $overtimeRule->overtime_slabs()
                 ->orderByDesc('value_from')
-                ->get()
-                ->first(fn ($overtimeSlab): bool => $totalMinutes > 0 && $overtimeSlab->containsMinutes($totalMinutes));
+                ->get();
+
+            if ($slabs->isEmpty()) {
+                $this->debug('No overtime slabs configured; using final row overtime as total overtime');
+                if ($this->curatt->row_overtime_minutes > 0) {
+                    $this->handleOvertime(null, $this->curatt->row_overtime_minutes);
+                    $this->otFlag = true;
+
+                    return;
+                }
+
+                $this->handleRegularHours();
+
+                return;
+            }
+
+            $slab = $slabs->first(fn ($overtimeSlab): bool => $this->curatt->row_overtime_minutes > 0
+                && $overtimeSlab->containsMinutes($this->curatt->row_overtime_minutes));
 
             if ($slab) {
-                $this->handleOvertime($slab, $totalMinutes);
+                $this->handleOvertime($slab, $this->curatt->row_overtime_minutes);
                 $this->otFlag = true;
 
                 return;
             }
 
-            $this->handleRegularHours($totalMinutes);
+            $this->handleRegularHours($this->curatt->row_overtime_minutes);
 
             return;
         }
@@ -2602,7 +2632,6 @@ class AttCalculator
         $this->overtime_early = $earlyMinutes;
         $this->overtime_late = $lateMinutes;
         $totalMinutes = max(0, $earlyMinutes + $lateGoingMinutes - $lateMinutes - $earlyGoingMinutes);
-        $this->curatt->row_overtime_minutes = $totalMinutes;
         $this->debug('Calculated overtime minutes before category skip: '.$totalMinutes);
 
         if ($category->skip_overtime) {
@@ -2610,6 +2639,7 @@ class AttCalculator
             $totalMinutes = max(0, $totalMinutes - $skipMinutes);
             $this->debug('Overtime after applying category skip: '.$totalMinutes.' minutes');
         }
+        $this->curatt->row_overtime_minutes = $totalMinutes;
 
         if ($totalMinutes > 0) {
             $this->debug('User get overtime '.sprintf('%02d:%02d', intdiv($totalMinutes, 60), $totalMinutes % 60).' Hour');
@@ -2622,10 +2652,12 @@ class AttCalculator
         $this->handleRegularHours();
     }
 
-    private function handleOvertime(OvertimeSlab $overtimeSlab, int $totalMinutes): void
+    private function handleOvertime(?OvertimeSlab $overtimeSlab, int $totalMinutes): void
     {
-        $overtimeMinutes = $overtimeSlab->headValueInMinutes() ?? $totalMinutes;
-        $this->debug('User get overtime '.$overtimeSlab->formattedHeadValue().' Hour');
+        $overtimeMinutes = $overtimeSlab?->headValueInMinutes() ?? $totalMinutes;
+        $this->debug($overtimeSlab
+            ? 'User get overtime '.$overtimeSlab->formattedHeadValue().' Hour'
+            : 'User get overtime '.sprintf('%02d:%02d', intdiv($overtimeMinutes, 60), $overtimeMinutes % 60).' Hour (no slab configured)');
         $this->markOvertime($overtimeMinutes);
     }
 

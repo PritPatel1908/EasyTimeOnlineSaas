@@ -158,7 +158,7 @@ class OvertimeRule extends Model
         }
 
         $time = trim((string) $value);
-        if (preg_match('/^(\d{1,2}):(\d{2})(?::\d{2})?$/', $time, $matches) !== 1) {
+        if (preg_match('/^(\d{1,2}):(\d{2})(?::\d{2}(?:\.\d+)?)?$/', $time, $matches) !== 1) {
             return 0;
         }
 
