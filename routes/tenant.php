@@ -293,6 +293,8 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->names('manual-shift-changes');
                     Route::get('attendance-logs', [AttendanceLogController::class, 'index'])
                         ->middleware('tenant.permission:AttendanceLog,read')->name('attendance-logs.index');
+                    Route::get('time-card', [AttendanceLogController::class, 'timeCard'])
+                        ->middleware('tenant.permission:AttendanceLog,read')->name('time-card.index');
                     Route::post('attendance-logs/reprocess-range', [AttendanceLogController::class, 'reprocessRange'])
                         ->middleware('tenant.permission:AttendanceLog,write')->name('attendance-logs.reprocess-range');
                     Route::post('attendance-logs/delete-range', [AttendanceLogController::class, 'deleteRange'])

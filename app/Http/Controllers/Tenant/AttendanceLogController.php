@@ -9,8 +9,10 @@ use App\Jobs\Tenant\DeleteAttendanceLogs;
 use App\Jobs\Tenant\ProcessPendingLogs;
 use App\Jobs\Tenant\ReprocessAttendanceLogs;
 use App\Jobs\Tenant\RestoreAttendanceLogs;
+use App\Models\Tenant\Attendance;
 use App\Models\Tenant\AttendanceLog;
 use App\Models\Tenant\User;
+use Carbon\Carbon;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,6 +21,81 @@ use Illuminate\Validation\ValidationException;
 
 class AttendanceLogController extends Controller
 {
+    public function timeCard(Request $request): View
+    {
+        $currentYear = (int) now()->format('Y');
+        $firstLogDate = AttendanceLog::query()->min('datetime');
+        $lastLogDate = AttendanceLog::query()->max('datetime');
+        $firstYear = $firstLogDate ? Carbon::parse($firstLogDate)->year : $currentYear;
+        $lastYear = max($lastLogDate ? Carbon::parse($lastLogDate)->year : $currentYear, $currentYear);
+        $years = range($lastYear, min($firstYear, $currentYear));
+
+        $filters = $request->validate([
+            'year' => ['nullable', 'integer', 'min:1900', 'max:2200'],
+            'start_date' => ['nullable', 'date_format:Y-m-d'],
+            'end_date' => ['nullable', 'date_format:Y-m-d'],
+            'employee_id' => ['nullable', 'integer', 'exists:users,id'],
+        ]);
+        $year = (int) ($filters['year'] ?? $currentYear);
+
+        if (! in_array($year, $years, true)) {
+            throw ValidationException::withMessages([
+                'year' => 'Select a year available in the year list.',
+            ]);
+        }
+
+        $startDate = $filters['start_date'] ?? Carbon::create($year, 1, 1)->toDateString();
+        $endDate = $filters['end_date'] ?? Carbon::create($year, 12, 31)->toDateString();
+
+        if (
+            Carbon::parse($startDate)->year !== $year
+            || Carbon::parse($endDate)->year !== $year
+            || Carbon::parse($endDate)->lt(Carbon::parse($startDate))
+        ) {
+            throw ValidationException::withMessages([
+                'start_date' => 'Choose a valid date range within the selected year.',
+            ]);
+        }
+
+        $employee = null;
+        if (! empty($filters['employee_id'])) {
+            $employee = User::query()
+                ->where('user_type', 'employee')
+                ->find($filters['employee_id']);
+
+            if (! $employee) {
+                throw ValidationException::withMessages([
+                    'employee_id' => 'Select a valid employee.',
+                ]);
+            }
+        }
+
+        $query = Attendance::year($year)
+            ->with('user')
+            ->whereBetween('date', [$startDate, $endDate]);
+
+        if ($employee) {
+            $query->where('user_id', $employee->id);
+        }
+
+        return view('time-management.time-card.index', [
+            'attendanceRecords' => $query
+                ->orderByDesc('date')
+                ->latest('id')
+                ->paginate(50)
+                ->withQueryString(),
+            'employees' => User::query()
+                ->where('user_type', 'employee')
+                ->orderBy('code')
+                ->get(['id', 'name', 'code']),
+            'years' => $years,
+            'year' => $year,
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+            'employeeId' => (string) ($employee?->id ?? ''),
+        ]);
+    }
+
     public function index(Request $request): View
     {
         $filters = $request->validate([
