@@ -243,6 +243,44 @@ class AttendanceCategoryCalculationTest extends TestCase
         $this->assertSame(480, $attendance->fresh()->work_time);
     }
 
+    public function test_fix_work_hours_as_per_shift_skips_overtime(): void
+    {
+        Schema::create('process_tags', function (Blueprint $table): void {
+            $table->id();
+            $table->morphs('taggable');
+            $table->string('name');
+            $table->string('color')->nullable();
+            $table->string('icon')->nullable();
+            $table->timestamps();
+        });
+
+        $category = $this->category([
+            'fix_work_hours' => true,
+            'fix_work_hours_as_per_shift' => true,
+        ]);
+        $attendance = $this->attendance([
+            'in_time' => '2026-10-25 08:00:00',
+            'out_time' => '2026-10-25 18:00:00',
+            'is_over_time' => true,
+            'row_overtime_minutes' => 60,
+            'total_overtime_minutes' => 60,
+        ]);
+        $attendance->process_tags()->create([
+            'name' => 'Overtime',
+            'color' => 'danger',
+            'icon' => 'heroicon-o-document-duplicate',
+        ]);
+        $calculator = $this->calculator($category, $attendance);
+
+        $calculator->checkOverTimeRule();
+
+        $attendance->refresh();
+        $this->assertFalse($attendance->is_over_time);
+        $this->assertSame(0, $attendance->row_overtime_minutes);
+        $this->assertSame(0, $attendance->total_overtime_minutes);
+        $this->assertSame(0, $attendance->process_tags()->where('name', 'Overtime')->count());
+    }
+
     public function test_week_off_work_time_is_overtime_and_public_holiday_ot_is_doubled(): void
     {
         Schema::create('overtime_slabs', function (Blueprint $table): void {
@@ -330,6 +368,38 @@ class AttendanceCategoryCalculationTest extends TestCase
 
         $attendance->refresh();
         $this->assertFalse($attendance->is_over_time);
+        $this->assertSame(0, $attendance->total_overtime_minutes);
+    }
+
+    public function test_fix_work_hours_skips_week_off_overtime(): void
+    {
+        Schema::create('process_tags', function (Blueprint $table): void {
+            $table->id();
+            $table->morphs('taggable');
+            $table->string('name');
+            $table->string('color')->nullable();
+            $table->string('icon')->nullable();
+            $table->timestamps();
+        });
+
+        $category = $this->category([
+            'fix_work_hours' => true,
+            'regular_ot_on_wo' => true,
+        ]);
+        $attendance = $this->attendance([
+            'is_weekoff' => true,
+            'work_time' => 480,
+            'is_over_time' => true,
+            'row_overtime_minutes' => 480,
+            'total_overtime_minutes' => 480,
+        ]);
+        $calculator = $this->calculator($category, $attendance);
+
+        $calculator->checkOverTimeRule();
+
+        $attendance->refresh();
+        $this->assertFalse($attendance->is_over_time);
+        $this->assertSame(0, $attendance->row_overtime_minutes);
         $this->assertSame(0, $attendance->total_overtime_minutes);
     }
 

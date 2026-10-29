@@ -2690,6 +2690,16 @@ class AttCalculator
         $overtimeRule = $user?->overtime_rule;
         $category = $user?->category;
 
+        if ($category?->fix_work_hours) {
+            $this->debug('Skipping overtime because fix work hours is enabled');
+            $this->otFlag = false;
+            $this->overtime_early = 0;
+            $this->overtime_late = 0;
+            $this->handleRegularHours();
+
+            return;
+        }
+
         if ($this->curatt->is_weekoff) {
             if ($category?->regular_ot_on_wo) {
                 $this->calculateWeekOffOvertime($category, $overtimeRule);
