@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Controllers\Tenant\AttendanceLogController;
+use App\Jobs\Tenant\DeleteAttendanceLogs;
 use App\Jobs\Tenant\ProcessPendingLogs;
 use App\Jobs\Tenant\ReprocessAttendanceLogs;
+use App\Jobs\Tenant\RestoreAttendanceLogs;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
@@ -73,6 +75,7 @@ class ReprocessAttendanceLogsTest extends TestCase
             Schema::create($tableName, function ($table): void {
                 $table->id();
                 $table->unsignedBigInteger('user_id')->nullable();
+                $table->unsignedBigInteger('attendance_log_id')->nullable();
                 $table->date('date')->nullable();
                 $table->unsignedBigInteger('in_log_id')->nullable();
                 $table->unsignedBigInteger('out_log_id')->nullable();
@@ -184,6 +187,142 @@ class ReprocessAttendanceLogsTest extends TestCase
         });
     }
 
+    public function test_delete_range_form_dispatches_selected_employee_and_datetime_range(): void
+    {
+        Bus::fake();
+        $employeeId = DB::table('users')->insertGetId([
+            'user_type' => 'employee',
+            'name' => 'Example Employee',
+            'code' => 'EMP001',
+        ]);
+
+        $response = app(AttendanceLogController::class)->deleteRange(Request::create(
+            '/time-management/attendance-logs/delete-range',
+            'POST',
+            [
+                'start_datetime' => '2026-03-10T09:00',
+                'end_datetime' => '2026-03-10T17:00',
+                'employee_ids' => [(string) $employeeId],
+            ],
+        ));
+
+        $this->assertStringEndsWith('/time-management/attendance-logs', $response->getTargetUrl());
+        Bus::assertDispatched(DeleteAttendanceLogs::class, static function (DeleteAttendanceLogs $job) use ($employeeId): bool {
+            return $job->startDateTime === '2026-03-10 09:00:00'
+                && $job->endDateTime === '2026-03-10 17:00:59'
+                && $job->employeeIds === [$employeeId]
+                && $job->connection === 'database_tenant'
+                && $job->queue === 'processing';
+        });
+    }
+
+    public function test_restore_range_form_dispatches_selected_employee_and_datetime_range(): void
+    {
+        Bus::fake();
+        $employeeId = DB::table('users')->insertGetId([
+            'user_type' => 'employee',
+            'name' => 'Example Employee',
+            'code' => 'EMP001',
+        ]);
+
+        $response = app(AttendanceLogController::class)->restoreRange(Request::create(
+            '/time-management/attendance-logs/restore-range',
+            'POST',
+            [
+                'start_datetime' => '2026-03-10T09:00',
+                'end_datetime' => '2026-03-10T17:00',
+                'employee_ids' => [(string) $employeeId],
+            ],
+        ));
+
+        $this->assertStringEndsWith('/time-management/attendance-logs?deleted=1', $response->getTargetUrl());
+        Bus::assertDispatched(RestoreAttendanceLogs::class, static function (RestoreAttendanceLogs $job) use ($employeeId): bool {
+            return $job->startDateTime === '2026-03-10 09:00:00'
+                && $job->endDateTime === '2026-03-10 17:00:59'
+                && $job->employeeIds === [$employeeId]
+                && $job->connection === 'database_tenant'
+                && $job->queue === 'processing';
+        });
+    }
+
+    public function test_restore_range_job_restores_only_matching_deleted_punches_with_requested_flags(): void
+    {
+        $matchingLogId = DB::table('attendance_logs')->insertGetId([
+            'user_id' => 101,
+            'datetime' => '2026-03-10 12:00:00',
+            'is_calculated' => true,
+            'is_ignored' => true,
+            'status' => 0,
+            'deleted_at' => now(),
+        ]);
+        $outsideRangeLogId = DB::table('attendance_logs')->insertGetId([
+            'user_id' => 101,
+            'datetime' => '2026-03-11 12:00:00',
+            'status' => 0,
+            'deleted_at' => now(),
+        ]);
+        $differentEmployeeLogId = DB::table('attendance_logs')->insertGetId([
+            'user_id' => 102,
+            'datetime' => '2026-03-10 12:00:00',
+            'status' => 0,
+            'deleted_at' => now(),
+        ]);
+
+        (new RestoreAttendanceLogs('2026-03-10 09:00:00', '2026-03-10 17:00:59', [101]))->handle();
+
+        $restoredLog = DB::table('attendance_logs')->where('id', $matchingLogId)->first();
+        $this->assertNull($restoredLog->deleted_at);
+        $this->assertSame(1, (int) $restoredLog->status);
+        $this->assertSame(0, (int) $restoredLog->is_calculated);
+        $this->assertSame(0, (int) $restoredLog->is_ignored);
+        $this->assertNotNull(DB::table('attendance_logs')->where('id', $outsideRangeLogId)->value('deleted_at'));
+        $this->assertNotNull(DB::table('attendance_logs')->where('id', $differentEmployeeLogId)->value('deleted_at'));
+    }
+
+    public function test_delete_range_job_deletes_only_matching_unlocked_active_punches(): void
+    {
+        $matchingLogId = DB::table('attendance_logs')->insertGetId([
+            'user_id' => 101,
+            'datetime' => '2026-03-10 12:00:00',
+            'is_calculated' => true,
+            'is_ignored' => false,
+            'is_locked' => false,
+            'status' => 1,
+        ]);
+        DB::table('attendances2026')->insert([
+            'attendance_log_id' => $matchingLogId,
+            'date' => '2026-03-10',
+        ]);
+        $lockedLogId = DB::table('attendance_logs')->insertGetId([
+            'user_id' => 101,
+            'datetime' => '2026-03-10 13:00:00',
+            'is_locked' => true,
+            'status' => 1,
+        ]);
+        $outsideRangeLogId = DB::table('attendance_logs')->insertGetId([
+            'user_id' => 101,
+            'datetime' => '2026-03-11 12:00:00',
+            'status' => 1,
+        ]);
+        $differentEmployeeLogId = DB::table('attendance_logs')->insertGetId([
+            'user_id' => 102,
+            'datetime' => '2026-03-10 12:00:00',
+            'status' => 1,
+        ]);
+
+        (new DeleteAttendanceLogs('2026-03-10 09:00:00', '2026-03-10 17:00:59', [101]))->handle();
+
+        $deletedLog = DB::table('attendance_logs')->where('id', $matchingLogId)->first();
+        $this->assertSame(0, (int) $deletedLog->status);
+        $this->assertSame(0, (int) $deletedLog->is_calculated);
+        $this->assertSame(1, (int) $deletedLog->is_ignored);
+        $this->assertNotNull($deletedLog->deleted_at);
+        $this->assertSame($matchingLogId, (int) DB::table('attendances2026')->value('attendance_log_id'));
+        $this->assertNull(DB::table('attendance_logs')->where('id', $lockedLogId)->value('deleted_at'));
+        $this->assertNull(DB::table('attendance_logs')->where('id', $outsideRangeLogId)->value('deleted_at'));
+        $this->assertNull(DB::table('attendance_logs')->where('id', $differentEmployeeLogId)->value('deleted_at'));
+    }
+
     public function test_individual_reprocess_resets_and_dispatches_an_ignored_log(): void
     {
         Bus::fake();
@@ -212,5 +351,60 @@ class ReprocessAttendanceLogsTest extends TestCase
         $this->assertFalse((bool) DB::table('attendance_logs')->where('id', $logId)->value('is_calculated'));
         $this->assertFalse((bool) DB::table('attendance_logs')->where('id', $logId)->value('is_ignored'));
         Bus::assertDispatched(ProcessPendingLogs::class, fn (ProcessPendingLogs $job): bool => $job->uniqueId() === (string) $logId);
+    }
+
+    public function test_deleting_a_punch_marks_it_inactive_ignored_and_uncalculated(): void
+    {
+        $logId = DB::table('attendance_logs')->insertGetId([
+            'datetime' => '2026-03-10 09:00:00',
+            'is_calculated' => true,
+            'is_ignored' => false,
+            'status' => 1,
+        ]);
+
+        $response = app(AttendanceLogController::class)->destroy($this->requestForLog($logId, 'delete'));
+
+        $log = DB::table('attendance_logs')->where('id', $logId)->first();
+        $this->assertStringEndsWith('/time-management/attendance-logs', $response->getTargetUrl());
+        $this->assertSame(0, (int) $log->status);
+        $this->assertSame(0, (int) $log->is_calculated);
+        $this->assertSame(1, (int) $log->is_ignored);
+        $this->assertNotNull($log->deleted_at);
+    }
+
+    public function test_restoring_a_deleted_punch_marks_it_active_ignored_off_and_uncalculated(): void
+    {
+        $logId = DB::table('attendance_logs')->insertGetId([
+            'datetime' => '2026-03-10 09:00:00',
+            'is_calculated' => true,
+            'is_ignored' => true,
+            'status' => 0,
+            'deleted_at' => now(),
+        ]);
+
+        $response = app(AttendanceLogController::class)->restore($this->requestForLog($logId, 'restore'));
+
+        $log = DB::table('attendance_logs')->where('id', $logId)->first();
+        $this->assertStringEndsWith('/time-management/attendance-logs?deleted=1', $response->getTargetUrl());
+        $this->assertSame(1, (int) $log->status);
+        $this->assertSame(0, (int) $log->is_calculated);
+        $this->assertSame(0, (int) $log->is_ignored);
+        $this->assertNull($log->deleted_at);
+    }
+
+    private function requestForLog(int $logId, string $action): Request
+    {
+        $request = Request::create('/time-management/attendance-logs/'.$logId.'/'.$action, 'POST');
+        $request->setRouteResolver(static fn () => new class($logId)
+        {
+            public function __construct(private int $logId) {}
+
+            public function parameter(string $name, mixed $default = null): mixed
+            {
+                return $name === 'attendance_log' ? $this->logId : $default;
+            }
+        });
+
+        return $request;
     }
 }

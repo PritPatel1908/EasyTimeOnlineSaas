@@ -14,7 +14,19 @@
                 </ol></nav>
             </div>
             <div class="d-flex align-items-center gap-2">
-                @if (! $attendanceLog->is_locked && ! $attendanceLog->is_ignored && \App\Support\TenantPermissions::userCan('AttendanceLog', 'write'))
+                @if ($attendanceLog->trashed() && \App\Support\TenantPermissions::userCan('AttendanceLog', 'delete'))
+                    <form method="POST" action="{{ url('time-management/attendance-logs/'.$attendanceLog->id.'/restore') }}">
+                        @csrf
+                        <button type="submit" class="btn btn-success" onclick="return confirm('Restore this punch?')">
+                            <i class="ti ti-refresh me-1"></i>Restore Punch
+                        </button>
+                    </form>
+                @elseif (\App\Support\TenantPermissions::userCan('AttendanceLog', 'delete') && ! $attendanceLog->is_locked)
+                    <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#delete_attendance_log_modal_{{ $attendanceLog->id }}">
+                        <i class="ti ti-trash me-1"></i>Delete Punch
+                    </button>
+                @endif
+                @if (! $attendanceLog->trashed() && ! $attendanceLog->is_locked && ! $attendanceLog->is_ignored && $attendanceLog->status === 1 && \App\Support\TenantPermissions::userCan('AttendanceLog', 'write'))
                     <form method="POST" action="{{ url('time-management/attendance-logs/'.$attendanceLog->id.'/reprocess') }}">
                         @csrf
                         <button type="submit" class="btn btn-primary" onclick="return confirm('Reprocess this punch and recalculate attendance?')">
@@ -59,4 +71,7 @@
     </div>
     @include('partials.footer')
 </div>
+@if (! $attendanceLog->trashed() && ! $attendanceLog->is_locked && \App\Support\TenantPermissions::userCan('AttendanceLog', 'delete'))
+    @include('time-management.attendance-logs.partials.delete-modal', ['attendanceLog' => $attendanceLog])
+@endif
 @endsection

@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Exceptions\DeleteBlockedException;
 use App\Helpers\DatabaseReferenceChecker;
+use App\Models\Tenant\AttendanceLog;
 use App\Support\TenantPermissions;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\DevCommands;
@@ -41,6 +42,10 @@ class AppServiceProvider extends ServiceProvider
             $model = $models[0] ?? null;
 
             if (! $model instanceof Model || $model->getKey() === null) {
+                return;
+            }
+
+            if ($model instanceof AttendanceLog && ! $model->isForceDeleting()) {
                 return;
             }
 

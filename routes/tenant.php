@@ -295,10 +295,18 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middleware('tenant.permission:AttendanceLog,read')->name('attendance-logs.index');
                     Route::post('attendance-logs/reprocess-range', [AttendanceLogController::class, 'reprocessRange'])
                         ->middleware('tenant.permission:AttendanceLog,write')->name('attendance-logs.reprocess-range');
+                    Route::post('attendance-logs/delete-range', [AttendanceLogController::class, 'deleteRange'])
+                        ->middleware('tenant.permission:AttendanceLog,delete')->name('attendance-logs.delete-range');
+                    Route::post('attendance-logs/restore-range', [AttendanceLogController::class, 'restoreRange'])
+                        ->middleware('tenant.permission:AttendanceLog,delete')->name('attendance-logs.restore-range');
                     Route::get('attendance-logs/{attendance_log}', [AttendanceLogController::class, 'show'])
                         ->middleware('tenant.permission:AttendanceLog,read')->name('attendance-logs.show');
                     Route::post('attendance-logs/{attendance_log}/reprocess', [AttendanceLogController::class, 'reprocess'])
                         ->middleware('tenant.permission:AttendanceLog,write')->name('attendance-logs.reprocess');
+                    Route::post('attendance-logs/{attendance_log}/delete', [AttendanceLogController::class, 'destroy'])
+                        ->middleware('tenant.permission:AttendanceLog,delete')->name('attendance-logs.delete');
+                    Route::post('attendance-logs/{attendance_log}/restore', [AttendanceLogController::class, 'restore'])
+                        ->middleware('tenant.permission:AttendanceLog,delete')->name('attendance-logs.restore');
                     Route::get('leave-applications/export', [LeaveApplicationController::class, 'export'])
                         ->middleware('tenant.permission:LeaveApplication,export')->name('leave-applications.export');
                     Route::get('leave-applications/import/sample', [LeaveApplicationController::class, 'downloadImportSample'])

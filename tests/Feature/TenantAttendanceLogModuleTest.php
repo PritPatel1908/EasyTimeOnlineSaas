@@ -22,6 +22,7 @@ class TenantAttendanceLogModuleTest extends TestCase
         $attendanceLog = Mockery::mock(AttendanceLog::class)->makePartial();
         $attendanceLog->setRawAttributes([
             'id' => 42,
+            'status' => 1,
             'is_locked' => false,
             'is_ignored' => false,
         ]);
@@ -30,6 +31,7 @@ class TenantAttendanceLogModuleTest extends TestCase
             ->with([
                 'is_calculated' => false,
                 'is_staged' => false,
+                'is_ignored' => false,
                 'has_error' => false,
             ])
             ->andReturn(true);
@@ -44,20 +46,19 @@ class TenantAttendanceLogModuleTest extends TestCase
         });
     }
 
-    public function test_locked_and_ignored_logs_are_not_reprocessed(): void
+    public function test_locked_logs_are_not_reprocessed(): void
     {
         Bus::fake();
 
-        foreach ([
-            ['id' => 43, 'is_locked' => true, 'is_ignored' => false],
-            ['id' => 44, 'is_locked' => false, 'is_ignored' => true],
-        ] as $attributes) {
-            $attendanceLog = Mockery::mock(AttendanceLog::class)->makePartial();
-            $attendanceLog->setRawAttributes($attributes);
+        $attendanceLog = Mockery::mock(AttendanceLog::class)->makePartial();
+        $attendanceLog->setRawAttributes([
+            'id' => 43,
+            'status' => 1,
+            'is_locked' => true,
+            'is_ignored' => false,
+        ]);
 
-            app(AttendanceLogController::class)->reprocess($this->requestForLog($attendanceLog));
-        }
-
+        app(AttendanceLogController::class)->reprocess($this->requestForLog($attendanceLog));
         Bus::assertNothingDispatched();
     }
 
