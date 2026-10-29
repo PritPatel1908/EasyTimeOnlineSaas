@@ -155,6 +155,8 @@ class ProcessPendingLogs implements ShouldBeUnique, ShouldQueue
 
         $log->save();
         $attCalculator->retriveAttendance();
+        $attCalculator->createOrUpdateInOutMuster();
+        $attCalculator->syncAttendanceWorkTime();
         // if ($log->user->late_coming_rule_id != null) {
         $attCalculator->checkLateComingRule();
         // }
@@ -170,7 +172,6 @@ class ProcessPendingLogs implements ShouldBeUnique, ShouldQueue
         // if ($log->user->absent_rule_id != null) {
         $attCalculator->checkAbsentRule();
         // }
-        $attCalculator->createOrUpdateInOutMuster();
 
         $log->update([
             'is_calculated' => true,

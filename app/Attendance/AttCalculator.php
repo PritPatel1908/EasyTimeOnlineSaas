@@ -1361,100 +1361,57 @@ class AttCalculator
     {
         $this->debug('~~~Retriving assigned shift');
         $this->shift = null;
-        if ($this->log->user->shift_type == 'auto') {
-            $this->debug('Shift type is auto');
-            // $shifts = $this->log->user->shifts;
-            $shift_musters = ShiftMuster::where('user_id', $this->log->user->id)->where('is_locked', false)->where('is_auto', true)->where('date', $this->log->datetime->format('Y-m-d'))->get();
-            $shifts = collect([]);
-            foreach ($shift_musters as $shift_muster) {
-                $shifts = $shifts->concat(Shift::whereIn('id', $shift_muster->shift)->get());
-            }
-            if ($shifts && count($shifts) > 0) {
-                // $processTags = $this->curatt->process_tags();
-                // $processTags->where('name', 'No assigned shift')->delete();
-                foreach ($shifts as $shift) {
-                    if ($shift->auto_from === null || $shift->auto_to === null) {
-                        $this->debug('Skipping shift #'.$shift->id.' because its automatic shift window is incomplete');
+        $shiftMusters = ShiftMuster::where('user_id', $this->log->user->id)
+            ->where('is_locked', false)
+            ->where('date', $this->log->datetime->format('Y-m-d'))
+            ->get();
 
-                        continue;
-                    }
+        foreach ($shiftMusters as $shiftMuster) {
+            $shifts = Shift::whereIn('id', $shiftMuster->shift ?? [])->get();
 
-                    $shift->auto_from = $this->log->datetime->copy()->setTimeFromTimeString($shift->auto_from->toTimeString());
-                    $shift->auto_to = $this->log->datetime->copy()->setTimeFromTimeString($shift->auto_to->toTimeString());
-                    if ($shift->auto_from > $shift->auto_to) {
-                        if ($this->log->datetime->between($shift->auto_from, $shift->auto_to->copy()->addDay())) {
-                            $this->debug('Auto Night Shift Assigned : '.$shift->id.'|'.$shift->code);
-                            $this->shift = $shift;
-                            break;
-                        } elseif ($this->log->datetime->between($att_day = $shift->auto_from->copy()->subDay(), $shift->auto_to)) {
-                            $this->debug('Auto Previous Night Shift Assigned : '.$shift->id.'|'.$shift->code);
-                            $this->attendance_date = $att_day->format('Y-m-d');
-                            $this->attendance_changed = true;
-                            $this->debug('Attendance date changed to '.$this->attendance_date);
-                            $this->shift = $shift;
-                            break;
-                        }
-                    } elseif ($this->log->datetime->between($shift->auto_from, $shift->auto_to)) {
-                        $this->debug('Auto Shift Assigned : '.$shift->id.'|'.$shift->code);
-                        $this->shift = $shift;
-                        break;
-                    }
-                    $this->debug('Shift #'.$shift->code.' is not matched');
-                    $this->debug('BOOL'.$this->log->datetime.'|'.$shift->auto_from.'|'.$shift->auto_to);
-                }
-            }
-        }
-        // TODO: check shift_type is rotational if rotational to assign rotational wise shift is work properly
-        elseif ($this->log->user->shift_type == 'rotational') {
-            $this->debug('Shift type is rotational');
-            // $shifts = $this->log->user?->shift_rotation?->rotation_values;
-            $shift_musters = ShiftMuster::where('user_id', $this->log->user->id)->where('is_locked', false)->where('date', $this->log->datetime->format('Y-m-d'))->get();
-            $shifts = collect([]);
-            foreach ($shift_musters as $shift_muster) {
-                $shifts = $shifts->concat(Shift::whereIn('id', $shift_muster->shift)->get());
-            }
-            if ($shifts && count($shifts) > 0) {
-                foreach ($shifts as $shift) {
-                    if ($shift->auto_from === null || $shift->auto_to === null) {
-                        $this->debug('Skipping shift #'.$shift->id.' because its automatic shift window is incomplete');
-
-                        continue;
-                    }
-
-                    // dd($rotational_shift->rotation_values);
-                    $shift->auto_from = $this->log->datetime->copy()->setTimeFromTimeString($shift->auto_from->toTimeString());
-                    $shift->auto_to = $this->log->datetime->copy()->setTimeFromTimeString($shift->auto_to->toTimeString());
-                    if ($shift->auto_from > $shift->auto_to) {
-                        if ($this->log->datetime->between($shift->auto_from, $shift->auto_to->copy()->addDay())) {
-                            $this->debug('Rotational Night Shift Assigned : '.$shift->id.'|'.$shift->code);
-                            $this->shift = $shift;
-                            break;
-                        } elseif ($this->log->datetime->between($att_day = $shift->auto_from->copy()->subDay(), $shift->auto_to)) {
-                            $this->debug('Rotational Previous Night Shift Assigned : '.$shift->id.'|'.$shift->code);
-                            $this->attendance_date = $att_day->format('Y-m-d');
-                            $this->attendance_changed = true;
-                            $this->debug('Attendance date changed to '.$this->attendance_date);
-                            $this->shift = $shift;
-                            break;
-                        }
-                    } elseif ($this->log->datetime->between($shift->auto_from, $shift->auto_to)) {
-                        $this->debug('Rotational Shift Assigned : '.$shift->id.'|'.$shift->code);
-                        $this->shift = $shift;
-                        break;
-                    }
-                    $this->debug('Shift #'.$shift->code.' is not matched');
-                    $this->debug('BOOL'.$this->log->datetime.'|'.$shift->auto_from.'|'.$shift->auto_to);
-                }
-            }
-        } else {
-            $shift_musters = ShiftMuster::where('user_id', $this->log->user->id)->where('is_locked', false)->where('date', $this->log->datetime->format('Y-m-d'))->get();
-            $shifts = collect([]);
-            foreach ($shift_musters as $shift_muster) {
-                $shifts = $shifts->concat(Shift::whereIn('id', $shift_muster->shift)->get());
-            }
-            if ($shifts && count($shifts) > 0) {
-                $this->debug('Fixed Shift : '.$shifts?->first()->code);
+            if (! $shiftMuster->is_auto) {
                 $this->shift = $shifts->first();
+                if ($this->shift !== null) {
+                    $this->debug('Assigned shift from non-automatic shift muster: '.$this->shift->id.'|'.$this->shift->code);
+                    break;
+                }
+
+                continue;
+            }
+
+            foreach ($shifts as $shift) {
+                if ($shift->auto_from === null || $shift->auto_to === null) {
+                    $this->debug('Skipping shift #'.$shift->id.' because its automatic shift window is incomplete');
+
+                    continue;
+                }
+
+                $autoFrom = $this->log->datetime->copy()->setTimeFromTimeString($shift->auto_from->toTimeString());
+                $autoTo = $this->log->datetime->copy()->setTimeFromTimeString($shift->auto_to->toTimeString());
+                if ($autoFrom->gt($autoTo)) {
+                    if ($this->log->datetime->between($autoFrom, $autoTo->copy()->addDay())) {
+                        $this->debug('Auto Night Shift Assigned : '.$shift->id.'|'.$shift->code);
+                        $this->shift = $shift;
+                        break 2;
+                    }
+
+                    $previousShiftEnd = $autoTo;
+                    if ($this->log->datetime->between($autoFrom->copy()->subDay(), $previousShiftEnd)) {
+                        $this->debug('Auto Previous Night Shift Assigned : '.$shift->id.'|'.$shift->code);
+                        $this->attendance_date = $autoFrom->copy()->subDay()->format('Y-m-d');
+                        $this->attendance_changed = true;
+                        $this->debug('Attendance date changed to '.$this->attendance_date);
+                        $this->shift = $shift;
+                        break 2;
+                    }
+                } elseif ($this->log->datetime->between($autoFrom, $autoTo)) {
+                    $this->debug('Auto Shift Assigned : '.$shift->id.'|'.$shift->code);
+                    $this->shift = $shift;
+                    break 2;
+                }
+
+                $this->debug('Shift #'.$shift->code.' is not matched');
+                $this->debug('BOOL'.$this->log->datetime.'|'.$autoFrom.'|'.$autoTo);
             }
         }
 
@@ -1523,7 +1480,6 @@ class AttCalculator
             }
 
             if ($this->log->user->half_day_rule && $this->curatt->shift && $this->curatt) {
-                $isFlexibleShift = $this->isFlexibleShift();
                 $punchInTime = $this->curatt->in_time ? Carbon::parse($this->curatt->in_time) : null;
                 $punchOutTime = $this->curatt->out_time ? Carbon::parse($this->curatt->out_time) : null;
 
@@ -1541,9 +1497,12 @@ class AttCalculator
                 $differenceOutMinutes = $punchOutTime && $punchOutTime->lessThan($shiftOutTime)
                     ? $punchOutTime->diffInMinutes($shiftOutTime)
                     : 0;
-                $work_difference = $punchInTime && $punchOutTime && $punchOutTime->greaterThan($punchInTime)
-                    ? $punchInTime->diffInMinutes($punchOutTime)
-                    : null;
+                $isFlexibleShift = $this->isFlexibleShift();
+                $work_difference = $isFlexibleShift
+                    ? (int) $this->curatt->work_time
+                    : ($punchInTime && $punchOutTime && $punchOutTime->greaterThan($punchInTime)
+                        ? $punchInTime->diffInMinutes($punchOutTime)
+                        : null);
                 // 1. Check is allow single punch
                 if ($halfdayRule->single_punch_allowed && $punchInTime && $punchOutTime === null) {
                     $this->debug('Single Punch Allowed');
@@ -2021,9 +1980,12 @@ class AttCalculator
                     ? $punchOutTime->diffInMinutes($shiftOutTime)
                     : 0;
 
-                $work_difference = $punchInTime && $punchOutTime
-                    ? $punchInTime->diffInMinutes($punchOutTime)
-                    : null;
+                $isFlexibleShift = $this->isFlexibleShift();
+                $work_difference = $isFlexibleShift
+                    ? (int) $this->curatt->work_time
+                    : ($punchInTime && $punchOutTime
+                        ? $punchInTime->diffInMinutes($punchOutTime)
+                        : null);
                 // 1. Check is allow single punch
                 if ($absentRule->allow_single_punch && $punchInTime && $punchOutTime === null) {
                     $this->debug('Single Punch Allowed');
@@ -2048,7 +2010,6 @@ class AttCalculator
                     // 2. Check punch in time and out time
                     if (($punchInTime && $punchInTime != null) && ($punchOutTime && $punchOutTime != null)) {
                         $wasAbsent = (bool) $this->curatt->is_absent;
-                        $isFlexibleShift = $this->isFlexibleShift();
                         $this->curatt->is_absent = false;
                         $this->curatt->save();
 
@@ -2853,6 +2814,23 @@ class AttCalculator
         } else {
             $this->debug('In/Out punch is duplicate, not create or update InOut Muster');
         }
+    }
+
+    public function syncAttendanceWorkTime(): void
+    {
+        if ($this->curatt === null || $this->log->user === null) {
+            return;
+        }
+
+        $inTime = $this->curatt->in_time ? Carbon::parse($this->curatt->in_time) : null;
+        $outTime = $this->curatt->out_time ? Carbon::parse($this->curatt->out_time) : null;
+        $workTime = $inTime !== null && $outTime !== null && $outTime->greaterThan($inTime)
+            ? $inTime->diffInMinutes($outTime)
+            : 0;
+
+        $this->curatt->work_time = max(0, (int) $workTime);
+        $this->curatt->save();
+        $this->debug('Updated attendance work time to '.$this->curatt->work_time.' minutes between first and last punches');
     }
 
     public function handelFixedIn(): void

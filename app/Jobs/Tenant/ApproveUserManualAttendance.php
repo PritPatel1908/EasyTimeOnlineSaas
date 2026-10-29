@@ -151,6 +151,10 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
 
     public function createAttendance(): void
     {
+        $isFlexibleShift = (bool) $this->shift->is_flaxible;
+        $inTime = $this->manualAttendance->in_time;
+        $outTime = $this->manualAttendance->out_time;
+
         $this->curatt = Attendance::year($this->manualAttendance->in_time->year)->updateOrCreate([
             'user_id' => $this->user->id,
             'date' => $this->manualAttendance->in_time->copy()->format('Y-m-d'),
@@ -164,13 +168,21 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
             'sub_category_id' => $this->user->sub_category_id,
             'in_time' => $this->manualAttendance->in_time,
             'out_time' => $this->manualAttendance->out_time,
+            'work_time' => $inTime !== null && $outTime !== null
+                ? max(0, $inTime->diffInMinutes($outTime))
+                : 0,
             'shift_id' => $this->shift->id,
             'area_id' => $this->user->areas->first()?->id,
             'shift_code' => $this->shift->code,
-            'shift_in_time' => $this->shift->in_time,
-            'shift_out_time' => $this->shift->out_time,
+            'shift_in_time' => $isFlexibleShift ? $inTime : $this->shift->in_time,
+            'shift_out_time' => $isFlexibleShift ? $outTime : $this->shift->out_time,
             'is_manual' => true,
         ]);
+    }
+
+    private function isFlexibleShift(): bool
+    {
+        return (bool) ($this->curatt?->shift?->is_flaxible ?? $this->shift?->is_flaxible ?? false);
     }
 
     private function assignedOrganizationId(string $field): ?int
@@ -282,7 +294,10 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
                 $differenceInMinutes = $this->shift->in_time->diffInMinutes($punchInTime);
                 $differenceOutMinutes = $punchOutTime->diffInMinutes($this->shift->out_time);
 
-                $work_difference = $punchInTime->diffInMinutes($punchOutTime);
+                $isFlexibleShift = $this->isFlexibleShift();
+                $work_difference = $isFlexibleShift
+                    ? (int) $this->curatt->work_time
+                    : $punchInTime->diffInMinutes($punchOutTime);
                 // 1. Check is allow single punch
                 if ($halfdayRule->single_punch_allowed && $punchInTime && $punchInTime != null && $punchOutTime == null) {
                     $this->debug('Single Punch Allowed');
@@ -369,7 +384,7 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
                         }
 
                         // 4. Check user is late | early minutes and no of late | early to compare
-                        if ($differenceInMinutes > $halfdayRule->late_coming_minutes && $halfdayRule->late_coming_minutes > 0) {
+                        if (! $isFlexibleShift && $differenceInMinutes > $halfdayRule->late_coming_minutes && $halfdayRule->late_coming_minutes > 0) {
                             $today = Carbon::today();
 
                             $lateDateToCheck = $today->copy()->subDays($halfdayRule->consecutive_late_coming - 1);
@@ -424,7 +439,7 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
                             $this->debug('Half Day Rule is not calculate | User not cross the limit of late coming');
                         }
 
-                        if ($differenceOutMinutes > $halfdayRule->early_going_minutes && $halfdayRule->early_going_minutes > 0) {
+                        if (! $isFlexibleShift && $differenceOutMinutes > $halfdayRule->early_going_minutes && $halfdayRule->early_going_minutes > 0) {
                             $today = Carbon::today();
 
                             $earlyDateToCheck = $today->copy()->subDays($halfdayRule->consecutive_early_going - 1);
@@ -527,7 +542,10 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
                     $differenceInMinutes = $punchInTime ? $this->curatt->shift_in_time->diffInMinutes($punchInTime) : 0;
                     $differenceOutMinutes = $punchOutTime ? $punchOutTime->diffInMinutes($this->curatt->shift_out_time) : 0;
 
-                    $work_difference = $punchInTime->diffInMinutes($punchOutTime);
+                    $isFlexibleShift = $this->isFlexibleShift();
+                    $work_difference = $isFlexibleShift
+                        ? (int) $this->curatt->work_time
+                        : $punchInTime->diffInMinutes($punchOutTime);
 
                     $shift_hrs = $this->curatt->shift_in_time->diffInMinutes($this->curatt->shift_out_time);
                     $shift_half_hrs = $shift_hrs ? $shift_hrs / 2 : 0;
@@ -719,7 +737,9 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
                 $differenceInMinutes = $punchInTime ? $this->curatt->shift_in_time->diffInMinutes($punchInTime) : 0;
                 $differenceOutMinutes = $punchOutTime ? $punchOutTime->diffInMinutes($this->curatt->shift_out_time) : 0;
 
-                $work_difference = $punchInTime->diffInMinutes($punchOutTime);
+                $work_difference = $this->isFlexibleShift()
+                    ? (int) $this->curatt->work_time
+                    : $punchInTime->diffInMinutes($punchOutTime);
                 // 1. Check is allow single punch
                 if ($this->user->category->single_punch_allowed_present && $punchInTime && $punchInTime != null && $punchOutTime == null) {
                     $this->debug('Single Punch Allowed');
@@ -808,7 +828,7 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
                         }
 
                         // 4. Check user is late | early minutes and no of late | early to compare
-                        if ($differenceInMinutes > $absentRule->late_coming_minutes && $absentRule->late_coming_minutes > 0) {
+                        if (! $this->isFlexibleShift() && $differenceInMinutes > $absentRule->late_coming_minutes && $absentRule->late_coming_minutes > 0) {
                             $today = Carbon::today();
 
                             // TODO: check weekoff in get dates
@@ -864,7 +884,7 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
                             $this->debug('Absent Rule is not calculate | User not cross the limit of late coming');
                         }
 
-                        if ($differenceOutMinutes > $absentRule->early_going_minutes && $absentRule->early_going_minutes > 0) {
+                        if (! $this->isFlexibleShift() && $differenceOutMinutes > $absentRule->early_going_minutes && $absentRule->early_going_minutes > 0) {
                             $today = Carbon::today();
 
                             // TODO: check weekoff in get dates
@@ -967,7 +987,9 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
                     $differenceInMinutes = $punchInTime ? $this->curatt->shift_in_time->diffInMinutes($punchInTime) : 0;
                     $differenceOutMinutes = $punchOutTime ? $punchOutTime->diffInMinutes($this->curatt->shift_out_time) : 0;
 
-                    $work_difference = $punchInTime->diffInMinutes($punchOutTime);
+                    $work_difference = $this->isFlexibleShift()
+                        ? (int) $this->curatt->work_time
+                        : $punchInTime->diffInMinutes($punchOutTime);
 
                     $shift_hrs = $this->curatt->shift_in_time->diffInMinutes($this->curatt->shift_out_time);
                     $shift_half_hrs = $shift_hrs ? $shift_hrs / 2 : 0;
@@ -1125,6 +1147,14 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
     public function checkEarlyGoingRule(): void
     {
         if ($this->curatt === null) {
+            return;
+        }
+
+        if ($this->isFlexibleShift()) {
+            $this->curatt->is_early = false;
+            $this->curatt->save();
+            $this->curatt->process_tags()->where('name', 'Early Going')->delete();
+
             return;
         }
 
@@ -1799,6 +1829,14 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
             return;
         }
 
+        if ($this->isFlexibleShift()) {
+            $this->curatt->is_late = false;
+            $this->curatt->save();
+            $this->curatt->process_tags()->where('name', 'Late Coming')->delete();
+
+            return;
+        }
+
         if ($this->curatt->shift_in_time === null || $this->curatt->in_time === null) {
             $this->debug('Skipping late coming check because shift start or punch-in time is missing');
             $this->updateManualLateComingStatus(false);
@@ -1900,6 +1938,14 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
         $this->curatt->row_overtime_minutes = 0;
         $this->curatt->total_overtime_minutes = 0;
         $this->otFlag = false;
+        if ($this->isFlexibleShift()) {
+            $this->curatt->is_over_time = false;
+            $this->curatt->save();
+            $this->curatt->process_tags()->where('name', 'Overtime')->delete();
+
+            return;
+        }
+
         $overtimeRule = $this->user->overtime_rule;
 
         if ($overtimeRule) {

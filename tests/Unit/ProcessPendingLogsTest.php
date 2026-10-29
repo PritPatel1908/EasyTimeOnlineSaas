@@ -11,6 +11,7 @@ use App\Models\Tenant\Attendance;
 use App\Models\Tenant\AttendanceLog;
 use App\Models\Tenant\GeneralConfiguration;
 use App\Models\Tenant\HalfDayRule;
+use App\Models\Tenant\InOutMuster;
 use App\Models\Tenant\LateComingRule;
 use App\Models\Tenant\Machine;
 use App\Models\Tenant\Shift;
@@ -29,6 +30,8 @@ class ProcessPendingLogsTest extends TestCase
     {
         parent::setUp();
 
+        Schema::dropIfExists('in_out_musters2026');
+        Schema::dropIfExists('in_out_musters2025');
         Schema::create('users', function ($table): void {
             $table->id();
             $table->softDeletes();
@@ -143,6 +146,8 @@ class ProcessPendingLogsTest extends TestCase
     protected function tearDown(): void
     {
         Schema::dropIfExists('process_tags');
+        Schema::dropIfExists('in_out_musters2026');
+        Schema::dropIfExists('in_out_musters2025');
         Schema::dropIfExists('short_leave_applications');
         Schema::dropIfExists('coffs');
         Schema::dropIfExists('leave_application_users');
@@ -186,26 +191,32 @@ class ProcessPendingLogsTest extends TestCase
         }
     }
 
-    public function test_automatic_shift_without_a_complete_window_stays_unassigned(): void
+    public function test_shift_assignment_uses_muster_type_instead_of_user_shift_type(): void
     {
         $shift = Shift::create([
             'auto_from' => null,
             'auto_to' => null,
         ]);
 
-        foreach (['auto', 'rotational'] as $index => $shiftType) {
+        $scenarios = [
+            ['user_shift_type' => 'auto', 'muster_is_auto' => true, 'expected_shift_id' => null],
+            ['user_shift_type' => 'rotational', 'muster_is_auto' => false, 'expected_shift_id' => $shift->id],
+            ['user_shift_type' => 'auto', 'muster_is_auto' => false, 'expected_shift_id' => $shift->id],
+        ];
+
+        foreach ($scenarios as $index => $scenario) {
             $userId = 20 + $index;
             DB::table('shift_musters')->insert([
                 'date' => '2026-01-01',
                 'user_id' => $userId,
                 'is_locked' => false,
-                'is_auto' => $shiftType === 'auto',
+                'is_auto' => $scenario['muster_is_auto'],
                 'shift' => json_encode([$shift->id], JSON_THROW_ON_ERROR),
             ]);
 
             $user = new User;
             $user->setAttribute('id', $userId);
-            $user->setAttribute('shift_type', $shiftType);
+            $user->setAttribute('shift_type', $scenario['user_shift_type']);
 
             $log = new AttendanceLog;
             $log->setAttribute('id', $userId);
@@ -215,13 +226,14 @@ class ProcessPendingLogsTest extends TestCase
             $calculator = new AttCalculator($log, true);
             $calculator->retriveAssignedShift();
 
-            if ($shiftType === 'auto') {
-                $this->assertNull($calculator->shift);
+            $this->assertSame($scenario['expected_shift_id'], $calculator->shift?->id);
+
+            if ($scenario['muster_is_auto']) {
                 $this->assertStringContainsString('No automatic shift matched; leaving shift unassigned', implode(PHP_EOL, $calculator->getReturnLogs()));
+                $this->assertStringContainsString('automatic shift window is incomplete', implode(PHP_EOL, $calculator->getReturnLogs()));
             } else {
-                $this->assertSame($shift->id, $calculator->shift?->id);
+                $this->assertStringContainsString('Assigned shift from non-automatic shift muster', implode(PHP_EOL, $calculator->getReturnLogs()));
             }
-            $this->assertStringContainsString('automatic shift window is incomplete', implode(PHP_EOL, $calculator->getReturnLogs()));
         }
     }
 
@@ -427,14 +439,38 @@ class ProcessPendingLogsTest extends TestCase
         Schema::dropIfExists('attendances2025');
         Schema::create('attendances2025', function ($table): void {
             $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('date');
+            $table->dateTime('in_time')->nullable();
+            $table->dateTime('out_time')->nullable();
         });
-        $migration = require database_path('migrations/tenant/2026_10_28_000001_add_attendance_duration_fields.php');
+        Schema::create('in_out_musters2025', function ($table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('date');
+            $table->unsignedInteger('work_time')->nullable();
+            $table->boolean('is_locked')->default(false);
+        });
+        DB::table('attendances2025')->insert([
+            'user_id' => 7,
+            'date' => '2025-01-01',
+            'in_time' => '2025-01-01 08:00:00',
+            'out_time' => '2025-01-01 18:00:00',
+        ]);
+        DB::table('in_out_musters2025')->insert([
+            ['user_id' => 7, 'date' => '2025-01-01', 'work_time' => 180, 'is_locked' => false],
+            ['user_id' => 7, 'date' => '2025-01-01', 'work_time' => 90, 'is_locked' => true],
+        ]);
+        $durationMigration = require database_path('migrations/tenant/2026_10_28_000001_add_attendance_duration_fields.php');
+        $workTimeMigration = require database_path('migrations/tenant/2026_10_29_000002_add_work_time_to_attendances.php');
 
-        $migration->up();
-
+        $durationMigration->up();
+        $workTimeMigration->up();
         foreach (['late_minutes', 'early_minutes', 'total_overtime_minutes', 'approved_overtime_minutes'] as $column) {
             $this->assertTrue(Schema::hasColumn('attendances2025', $column));
         }
+        $this->assertTrue(Schema::hasColumn('attendances2025', 'work_time'));
+        $this->assertSame(600, (int) DB::table('attendances2025')->value('work_time'));
     }
 
     public function test_row_overtime_migration_upgrades_existing_year_tables(): void
@@ -957,6 +993,52 @@ class ProcessPendingLogsTest extends TestCase
         $this->assertSame('2026-10-26 18:45:00', $cutoffWindow['end']->format('Y-m-d H:i:s'));
     }
 
+    public function test_attendance_work_time_uses_first_to_last_punch_span(): void
+    {
+        DB::table('users')->insert(['id' => 7]);
+        $attendance = Attendance::year(2026);
+        $attendance->user_id = 7;
+        $attendance->date = '2026-10-26';
+        $attendance->in_time = '2026-10-26 08:00:00';
+        $attendance->out_time = '2026-10-26 21:25:00';
+        Schema::disableForeignKeyConstraints();
+        try {
+            $attendance->save();
+            InOutMuster::year(2026)->create([
+                'user_id' => 7,
+                'date' => '2026-10-26',
+                'work_time' => 120,
+                'is_locked' => false,
+            ]);
+            InOutMuster::year(2026)->create([
+                'user_id' => 7,
+                'date' => '2026-10-26',
+                'work_time' => 240,
+                'is_locked' => false,
+            ]);
+            InOutMuster::year(2026)->create([
+                'user_id' => 7,
+                'date' => '2026-10-26',
+                'work_time' => 90,
+                'is_locked' => true,
+            ]);
+        } finally {
+            Schema::enableForeignKeyConstraints();
+        }
+
+        $log = new AttendanceLog;
+        $log->setAttribute('datetime', Carbon::parse('2026-10-26 17:00:00'));
+        $user = new User;
+        $user->setAttribute('id', 7);
+        $log->setRelation('user', $user);
+        $calculator = new AttCalculator($log);
+        (new \ReflectionProperty(AttCalculator::class, 'curatt'))->setValue($calculator, $attendance);
+
+        $calculator->syncAttendanceWorkTime();
+
+        $this->assertSame(805, $attendance->fresh()->work_time);
+    }
+
     public function test_flexible_shift_skips_late_early_and_overtime_rules(): void
     {
         DB::table('users')->insert(['id' => 7]);
@@ -1030,6 +1112,7 @@ class ProcessPendingLogsTest extends TestCase
         $attendance->shift_out_time = '2026-10-26 13:00:00';
         $attendance->in_time = '2026-10-26 09:00:00';
         $attendance->out_time = '2026-10-26 13:00:00';
+        $attendance->work_time = 240;
         $attendance->setRelation('shift', $shift);
         Schema::disableForeignKeyConstraints();
         $attendance->save();
@@ -1082,6 +1165,7 @@ class ProcessPendingLogsTest extends TestCase
         $attendance->shift_out_time = '2026-10-26 14:00:00';
         $attendance->in_time = '2026-10-26 09:00:00';
         $attendance->out_time = '2026-10-26 14:00:00';
+        $attendance->work_time = 300;
         $attendance->setRelation('shift', $shift);
         Schema::disableForeignKeyConstraints();
         $attendance->save();
