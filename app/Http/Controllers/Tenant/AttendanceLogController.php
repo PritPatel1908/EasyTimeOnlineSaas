@@ -14,8 +14,10 @@ use App\Models\Tenant\AttendanceLog;
 use App\Models\Tenant\User;
 use Carbon\Carbon;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -23,6 +25,21 @@ class AttendanceLogController extends Controller
 {
     public function timeCard(Request $request): View
     {
+        return view('time-management.time-card.index', $this->timeCardData($request));
+    }
+
+    public function filterTimeCard(Request $request): JsonResponse
+    {
+        return response()->json([
+            'html' => view('time-management.time-card.partials.records', $this->timeCardData($request))->render(),
+        ]);
+    }
+
+    private function timeCardData(Request $request): array
+    {
+        $guard = Auth::guard('tenant');
+        $user = $guard->user();
+        $isSuperAdmin = $guard->id() == 1 || $user?->hasRole('super_admin');
         $currentYear = (int) now()->format('Y');
         $firstLogDate = AttendanceLog::query()->min('datetime');
         $lastLogDate = AttendanceLog::query()->max('datetime');
@@ -70,15 +87,20 @@ class AttendanceLogController extends Controller
             }
         }
 
+        $employeeId = $employee?->id;
+        if ($employeeId === null && ! $isSuperAdmin) {
+            $employeeId = $guard->id();
+        }
+
         $query = Attendance::year($year)
             ->with('user')
             ->whereBetween('date', [$startDate, $endDate]);
 
-        if ($employee) {
-            $query->where('user_id', $employee->id);
+        if ($employeeId !== null) {
+            $query->where('user_id', $employeeId);
         }
 
-        return view('time-management.time-card.index', [
+        return [
             'attendanceRecords' => $query
                 ->orderByDesc('date')
                 ->latest('id')
@@ -88,12 +110,13 @@ class AttendanceLogController extends Controller
                 ->where('user_type', 'employee')
                 ->orderBy('code')
                 ->get(['id', 'name', 'code']),
+            'isSuperAdmin' => $isSuperAdmin,
             'years' => $years,
             'year' => $year,
             'startDate' => $startDate,
             'endDate' => $endDate,
-            'employeeId' => (string) ($employee?->id ?? ''),
-        ]);
+            'employeeId' => (string) ($employeeId ?? ''),
+        ];
     }
 
     public function index(Request $request): View

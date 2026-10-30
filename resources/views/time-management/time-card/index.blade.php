@@ -19,7 +19,13 @@
                 <h5 class="mb-0">Filter Attendance</h5>
             </div>
             <div class="card-body">
-                <form id="time_card_filter_form" method="GET" action="{{ url('time-management/time-card') }}">
+                <form id="time_card_filter_form" method="POST" action="{{ url('time-management/time-card') }}"
+                    data-default-year="{{ now()->format('Y') }}"
+                    data-default-employee="{{ $isSuperAdmin ? '' : auth('tenant')->id() }}"
+                    data-default-start-date="{{ now()->startOfYear()->toDateString() }}"
+                    data-default-end-date="{{ now()->endOfYear()->toDateString() }}">
+                    @csrf
+                    <input type="hidden" name="page" value="1">
                     <div class="row align-items-end">
                         <div class="col-md-3 mb-3">
                             <label for="time_card_year" class="form-label">Year</label>
@@ -32,9 +38,11 @@
                         <div class="col-md-3 mb-3">
                             <label for="time_card_employee" class="form-label">Employee</label>
                             <select id="time_card_employee" name="employee_id" class="form-select">
-                                <option value="">All Employees</option>
+                                @if ($isSuperAdmin)
+                                    <option value="" @selected($employeeId === '' || $employeeId === null)>All Employees</option>
+                                @endif
                                 @foreach ($employees as $employee)
-                                    <option value="{{ $employee->id }}" @selected($employeeId === (string) $employee->id)>
+                                    <option value="{{ $employee->id }}" @selected((string) $employeeId === (string) $employee->id)>
                                         {{ $employee->name }}{{ $employee->code ? ' ('.$employee->code.')' : '' }}
                                     </option>
                                 @endforeach
@@ -51,89 +59,121 @@
                                 min="{{ $year }}-01-01" max="{{ $year }}-12-31" value="{{ $endDate }}">
                         </div>
                         <div class="col-md-2 mb-3 d-flex gap-2">
-                            <button type="submit" class="btn btn-primary"><i class="ti ti-filter me-1"></i>Apply</button>
-                            <a href="{{ url('time-management/time-card') }}" class="btn btn-light">Reset</a>
+                            <button id="time_card_reset" type="button" class="btn btn-light d-flex align-items-center">
+                                <i class="ti ti-status-change me-1"></i>Reset
+                            </button>
                         </div>
                     </div>
                 </form>
             </div>
         </div>
 
-        <div class="card">
-            <div class="card-header d-flex align-items-center justify-content-between flex-wrap row-gap-2">
-                <h5 class="mb-0">Attendance Records — {{ $year }}</h5>
-                <span class="text-muted fs-13">{{ $attendanceRecords->total() }} records</span>
-            </div>
-            <div class="card-body p-0">
-                <div class="custom-datatable-filter table-responsive">
-                    <table class="table datatable">
-                        <thead class="thead-light">
-                            <tr>
-                                <th>Attendance ID</th>
-                                <th>Employee</th>
-                                <th>Date</th>
-                                <th>Shift</th>
-                                <th>In Time</th>
-                                <th>Out Time</th>
-                                <th>Work Hours</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse ($attendanceRecords as $attendance)
-                                <tr>
-                                    <td>#{{ $attendance->id }}</td>
-                                    <td>
-                                        {{ $attendance->user?->name ?? 'Unknown employee' }}
-                                        <small class="d-block text-muted">{{ $attendance->user?->code ?: '—' }}</small>
-                                    </td>
-                                    <td>{{ $attendance->date?->format('Y-m-d') ?? '—' }}</td>
-                                    <td>{{ $attendance->shift_code ?? $attendance->shift?->name ?? '—' }}</td>
-                                    <td>{{ $attendance->in_time?->format('H:i:s') ?? '—' }}</td>
-                                    <td>{{ $attendance->out_time?->format('H:i:s') ?? '—' }}</td>
-                                    <td>{{ intdiv($attendance->work_time, 60) }}h {{ $attendance->work_time % 60 }}m</td>
-                                    <td>
-                                        @if ($attendance->has_error)
-                                            <span class="badge bg-danger">Error</span>
-                                        @elseif ($attendance->is_absent)
-                                            <span class="badge bg-danger">Absent</span>
-                                        @elseif ($attendance->is_half_day)
-                                            <span class="badge bg-warning">Half Day</span>
-                                        @elseif ($attendance->is_holiday)
-                                            <span class="badge bg-info">Holiday</span>
-                                        @elseif ($attendance->is_weekoff)
-                                            <span class="badge bg-secondary">Week Off</span>
-                                        @elseif ($attendance->is_late)
-                                            <span class="badge bg-warning">Late</span>
-                                        @else
-                                            <span class="badge bg-success">Present</span>
-                                        @endif
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr><td colspan="8" class="text-center py-4 text-muted">No attendance records found for the selected filters.</td></tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            @if ($attendanceRecords->hasPages())
-                <div class="card-footer d-flex align-items-center justify-content-between flex-wrap row-gap-2">
-                    <p class="mb-0 text-muted fs-13">Showing {{ $attendanceRecords->firstItem() }}–{{ $attendanceRecords->lastItem() }} of {{ $attendanceRecords->total() }} records</p>
-                    {{ $attendanceRecords->links() }}
-                </div>
-            @endif
+        <div id="time_card_results" aria-live="polite">
+            @include('time-management.time-card.partials.records')
         </div>
+        <div id="time_card_filter_status" class="visually-hidden" role="status" aria-live="polite"></div>
     </div>
     @include('partials.footer')
 </div>
 @push('scripts')
 <script>
-    document.getElementById('time_card_year').addEventListener('change', function () {
-        document.getElementById('time_card_start_date').value = '';
-        document.getElementById('time_card_end_date').value = '';
-        document.getElementById('time_card_filter_form').submit();
-    });
+    (function () {
+        const form = document.getElementById('time_card_filter_form');
+        const results = document.getElementById('time_card_results');
+        const status = document.getElementById('time_card_filter_status');
+        const year = document.getElementById('time_card_year');
+        const startDate = document.getElementById('time_card_start_date');
+        const endDate = document.getElementById('time_card_end_date');
+        let activeRequest;
+
+        async function filterTimeCard() {
+            if (activeRequest) {
+                activeRequest.abort();
+            }
+            const request = new AbortController();
+            activeRequest = request;
+            status.className = 'visually-hidden';
+            status.textContent = 'Loading attendance records.';
+            results.setAttribute('aria-busy', 'true');
+
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': form.querySelector('[name="_token"]').value,
+                        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+                    },
+                    body: new URLSearchParams(new FormData(form)),
+                    signal: request.signal
+                });
+                const data = await response.json();
+
+                if (!response.ok) {
+                    const validationMessage = data.errors
+                        ? Object.values(data.errors).flat().join(' ')
+                        : data.message;
+                    throw new Error(validationMessage || 'Unable to load attendance records.');
+                }
+
+                results.innerHTML = data.html;
+                if (typeof window.initializeDataTables === 'function') {
+                    window.initializeDataTables(results);
+                }
+                status.className = 'visually-hidden';
+                status.textContent = 'Attendance records updated.';
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    status.className = 'alert alert-danger mt-2';
+                    status.textContent = error.message || 'Unable to load attendance records.';
+                }
+            } finally {
+                if (activeRequest === request) {
+                    activeRequest = null;
+                    results.removeAttribute('aria-busy');
+                }
+            }
+        }
+
+        form.addEventListener('submit', function (event) {
+            event.preventDefault();
+            form.elements.page.value = '1';
+            filterTimeCard();
+        });
+
+        form.querySelectorAll('select, input[type="date"]').forEach(function (field) {
+            field.addEventListener('change', function () {
+                if (field === year) {
+                    startDate.min = year.value + '-01-01';
+                    startDate.max = year.value + '-12-31';
+                    endDate.min = year.value + '-01-01';
+                    endDate.max = year.value + '-12-31';
+                    startDate.value = startDate.min;
+                    endDate.value = endDate.max;
+                }
+                form.requestSubmit();
+            });
+        });
+
+        document.getElementById('time_card_reset').addEventListener('click', function () {
+            year.value = form.dataset.defaultYear;
+            startDate.value = form.dataset.defaultStartDate;
+            endDate.value = form.dataset.defaultEndDate;
+            form.querySelector('[name="employee_id"]').value = form.dataset.defaultEmployee;
+            form.elements.page.value = '1';
+            form.requestSubmit();
+        });
+
+        results.addEventListener('click', function (event) {
+            const link = event.target.closest('.pagination a');
+            if (!link) {
+                return;
+            }
+            event.preventDefault();
+            form.elements.page.value = new URL(link.href, window.location.href).searchParams.get('page') || '1';
+            filterTimeCard();
+        });
+    })();
 </script>
 @endpush
 @endsection

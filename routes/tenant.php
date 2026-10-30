@@ -295,6 +295,8 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middleware('tenant.permission:AttendanceLog,read')->name('attendance-logs.index');
                     Route::get('time-card', [AttendanceLogController::class, 'timeCard'])
                         ->middleware('tenant.permission:AttendanceLog,read')->name('time-card.index');
+                    Route::post('time-card', [AttendanceLogController::class, 'filterTimeCard'])
+                        ->middleware('tenant.permission:AttendanceLog,read')->name('time-card.filter');
                     Route::post('attendance-logs/reprocess-range', [AttendanceLogController::class, 'reprocessRange'])
                         ->middleware('tenant.permission:AttendanceLog,write')->name('attendance-logs.reprocess-range');
                     Route::post('attendance-logs/delete-range', [AttendanceLogController::class, 'deleteRange'])

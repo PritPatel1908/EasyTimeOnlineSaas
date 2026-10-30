@@ -81,7 +81,9 @@ Template Name: Smarthr - Bootstrap Admin Template
 	// grid unrendered. Rendering the same .gridjs-* class names ourselves avoids
 	// the dependency (and the race) entirely while keeping the existing
 	// _gridjs.scss styling working unchanged.
-	document.querySelectorAll('.datatable').forEach(function (table) {
+	window.initializeDataTables = function (root) {
+		var scope = root || document;
+		scope.querySelectorAll('.datatable').forEach(function (table) {
 		var headerCells = Array.prototype.slice.call(table.querySelectorAll('thead th'));
 		if (headerCells.length === 0) return;
 
@@ -374,7 +376,10 @@ Template Name: Smarthr - Bootstrap Admin Template
 		}
 
 		render();
-	});
+		});
+	};
+
+	window.initializeDataTables();
 
 
 
