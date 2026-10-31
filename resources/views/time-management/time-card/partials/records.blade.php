@@ -127,7 +127,7 @@
                                         $statusClass = 'bg-primary';
                                     }
                                 @endphp
-                                <span class="badge {{ $statusClass }}">{{ $statusLabel }}</span>
+                                <span class="badge {{ $statusClass }}">{{ $attendance->status_master?->alias ?? $statusLabel }}</span>
                             </td>
                         </tr>
                     @empty

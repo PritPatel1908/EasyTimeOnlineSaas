@@ -93,7 +93,7 @@ class AttendanceLogController extends Controller
         }
 
         $query = Attendance::year($year)
-            ->with('user')
+            ->with(['user', 'status_master'])
             ->whereBetween('date', [$startDate, $endDate]);
 
         if ($employeeId !== null) {

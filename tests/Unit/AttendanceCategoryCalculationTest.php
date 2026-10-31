@@ -9,6 +9,7 @@ use App\Http\Requests\Tenant\CategoryRequestRules;
 use App\Models\Tenant\Attendance;
 use App\Models\Tenant\AttendanceLog;
 use App\Models\Tenant\Category;
+use App\Models\Tenant\OvertimeRule;
 use App\Models\Tenant\Shift;
 use App\Models\Tenant\User;
 use Illuminate\Database\Schema\Blueprint;
@@ -47,6 +48,7 @@ class AttendanceCategoryCalculationTest extends TestCase
         Schema::dropIfExists('overtime_slabs');
         Schema::dropIfExists('status_masters');
         Schema::dropIfExists('status_musters');
+        Schema::dropIfExists('week_off_musters');
         Schema::dropIfExists('process_tags');
         Schema::create('attendance_logs', function (Blueprint $table): void {
             $table->id();
@@ -346,6 +348,87 @@ class AttendanceCategoryCalculationTest extends TestCase
         $this->assertTrue($attendance->is_over_time);
     }
 
+    public function test_week_off_overtime_uses_all_work_minutes_with_and_without_slabs(): void
+    {
+        Schema::create('overtime_slabs', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('overtime_rule_id');
+            $table->string('value_from')->nullable();
+            $table->string('value_to')->nullable();
+            $table->string('head_value')->nullable();
+            $table->decimal('decimal_value', 10, 2)->nullable();
+        });
+        Schema::create('status_masters', function (Blueprint $table): void {
+            $table->id();
+            $table->string('code');
+            $table->string('alias')->nullable();
+            $table->string('description')->nullable();
+            $table->timestamps();
+        });
+        Schema::create('status_musters', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('date');
+            $table->unsignedBigInteger('status_master_id')->nullable();
+            $table->decimal('day_count', 5, 2)->default(0);
+            $table->boolean('is_locked')->default(false);
+            $table->timestamps();
+        });
+        Schema::create('process_tags', function (Blueprint $table): void {
+            $table->id();
+            $table->morphs('taggable');
+            $table->string('name');
+            $table->string('color')->nullable();
+            $table->string('icon')->nullable();
+            $table->timestamps();
+        });
+        DB::table('status_masters')->insert([
+            'code' => 'PPO',
+            'alias' => 'Overtime',
+            'description' => 'Overtime',
+        ]);
+        DB::table('status_musters')->insert([
+            'user_id' => 25,
+            'date' => '2026-10-25',
+            'day_count' => 0,
+            'is_locked' => false,
+        ]);
+
+        $category = $this->category(['regular_ot_on_wo' => true]);
+        $attendance = $this->attendance([
+            'is_weekoff' => true,
+            'work_time' => 480,
+        ]);
+        $overtimeRule = new OvertimeRule([
+            'ignore_late_going' => true,
+            'ignore_late_going_overtime' => 60,
+            'ignore_overtime' => 120,
+        ]);
+        $overtimeRule->id = 7;
+        DB::table('overtime_slabs')->insert([
+            'overtime_rule_id' => $overtimeRule->id,
+            'value_from' => '04:00:00',
+            'value_to' => '08:00:00',
+            'head_value' => '03:00:00',
+        ]);
+
+        $calculator = $this->calculator($category, $attendance, $overtimeRule);
+        $calculator->checkOverTimeRule();
+
+        $attendance->refresh();
+        $this->assertSame(480, $attendance->row_overtime_minutes);
+        $this->assertSame(180, $attendance->total_overtime_minutes);
+        $this->assertTrue($attendance->is_over_time);
+
+        DB::table('overtime_slabs')->delete();
+        $calculator->checkOverTimeRule();
+
+        $attendance->refresh();
+        $this->assertSame(480, $attendance->row_overtime_minutes);
+        $this->assertSame(480, $attendance->total_overtime_minutes);
+        $this->assertTrue($attendance->is_over_time);
+    }
+
     public function test_week_off_work_time_is_not_overtime_when_the_category_setting_is_disabled(): void
     {
         Schema::create('process_tags', function (Blueprint $table): void {
@@ -369,6 +452,75 @@ class AttendanceCategoryCalculationTest extends TestCase
         $attendance->refresh();
         $this->assertFalse($attendance->is_over_time);
         $this->assertSame(0, $attendance->total_overtime_minutes);
+    }
+
+    public function test_active_week_off_muster_sets_wop_status_in_attendance_and_muster(): void
+    {
+        Schema::create('status_masters', function (Blueprint $table): void {
+            $table->id();
+            $table->string('code');
+        });
+        Schema::create('week_off_musters', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('date');
+            $table->boolean('is_locked')->default(false);
+            $table->unsignedTinyInteger('wo_type');
+        });
+        Schema::create('status_musters', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('date');
+            $table->unsignedBigInteger('status_master_id')->nullable();
+            $table->decimal('day_count', 5, 2)->default(0);
+            $table->boolean('is_locked')->default(false);
+            $table->timestamps();
+        });
+        Schema::create('process_tags', function (Blueprint $table): void {
+            $table->id();
+            $table->morphs('taggable');
+            $table->string('name');
+            $table->string('color')->nullable();
+            $table->string('icon')->nullable();
+            $table->timestamps();
+        });
+
+        DB::table('status_masters')->insert([
+            ['code' => 'PP'],
+            ['code' => 'WOP'],
+        ]);
+        DB::table('week_off_musters')->insert([
+            'user_id' => 25,
+            'date' => '2026-10-25',
+            'is_locked' => false,
+            'wo_type' => 1,
+        ]);
+        DB::table('status_musters')->insert([
+            'user_id' => 25,
+            'date' => '2026-10-25',
+            'status_master_id' => DB::table('status_masters')->where('code', 'PP')->value('id'),
+            'day_count' => 1,
+            'is_locked' => false,
+        ]);
+
+        $category = $this->category();
+        $attendance = $this->attendance(['is_weekoff' => false]);
+        $calculator = $this->calculator($category, $attendance);
+        $syncWeekOffFlag = new ReflectionMethod(AttCalculator::class, 'syncWeekOffFlagFromMuster');
+        $syncWeekOffFlag->setAccessible(true);
+        $method = new ReflectionMethod(AttCalculator::class, 'updateLateComingStatus');
+        $method->setAccessible(true);
+
+        $syncWeekOffFlag->invoke($calculator);
+        $method->invoke($calculator, true);
+
+        $wopStatusId = DB::table('status_masters')->where('code', 'WOP')->value('id');
+        $this->assertTrue((bool) $attendance->fresh()->is_weekoff);
+        $this->assertSame($wopStatusId, $attendance->fresh()->status_master_id);
+        $this->assertSame(
+            $wopStatusId,
+            DB::table('status_musters')->where('user_id', 25)->value('status_master_id'),
+        );
     }
 
     public function test_fix_work_hours_skips_week_off_overtime(): void
@@ -493,12 +645,16 @@ class AttendanceCategoryCalculationTest extends TestCase
         return $attendance;
     }
 
-    private function calculator(Category $category, Attendance $attendance): AttCalculator
+    private function calculator(
+        Category $category,
+        Attendance $attendance,
+        ?OvertimeRule $overtimeRule = null,
+    ): AttCalculator
     {
         $user = new User;
         $user->id = 25;
         $user->setRelation('category', $category);
-        $user->setRelation('overtime_rule', null);
+        $user->setRelation('overtime_rule', $overtimeRule);
 
         $log = new AttendanceLog;
         $log->datetime = Carbon::parse('2026-10-25 12:00:00');

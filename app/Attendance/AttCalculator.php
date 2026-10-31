@@ -18,6 +18,7 @@ use App\Models\Tenant\ShortLeaveApplication;
 // use App\Models\VisitorInOutMuster;
 use App\Models\Tenant\StatusMaster;
 use App\Models\Tenant\StatusMuster;
+use App\Models\Tenant\WeekOffMuster;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -856,6 +857,8 @@ class AttCalculator
         }
         $this->shift ??= $this->curatt->shift;
 
+        $this->syncWeekOffFlagFromMuster();
+
         $shift_muster = ShiftMuster::where('user_id', $this->log->user->id)->where('is_locked', false)->where('date', $this->log->datetime->format('Y-m-d'))->first();
         if ($shift_muster && ($this->shift !== null || $this->log->user->shift_type == 'auto')) {
             $shift_muster->calculated_shift = $this->shift?->id;
@@ -1054,14 +1057,15 @@ class AttCalculator
         } else {
             if ($this->log->user->category->single_punch_allowed_present != null && $this->log->user->category->single_punch_allowed_present == 'true' && $this->curatt->in_time) {
                 $this->debug('Single Punch Allowed');
-                $this->curatt->status_master_id = StatusMaster::where('code', 'PP')->first()->id;
+                $statusMaster = StatusMaster::where('code', $this->presentStatusCode())->firstOrFail();
+                $this->curatt->status_master_id = $statusMaster->id;
                 $this->curatt->save();
 
                 StatusMuster::where('user_id', $this->log->user->id)
                     ->where('is_locked', false)
                     ->where('date', $this->log->datetime->format('Y-m-d'))
                     ->update([
-                        'status_master_id' => StatusMaster::where('code', 'PP')->first()->id,
+                        'status_master_id' => $statusMaster->id,
                         'day_count' => 1.0,
                     ]);
             } else {
@@ -1091,14 +1095,15 @@ class AttCalculator
                         ]);
                 } elseif ($this->curatt->in_time && $this->curatt->out_time) {
                     $this->debug('User in time get and out time get');
-                    $this->curatt->status_master_id = StatusMaster::where('code', 'PP')->first()->id;
+                    $statusMaster = StatusMaster::where('code', $this->presentStatusCode())->firstOrFail();
+                    $this->curatt->status_master_id = $statusMaster->id;
                     $this->curatt->save();
 
                     StatusMuster::where('user_id', $this->log->user->id)
                         ->where('is_locked', false)
                         ->where('date', $this->log->datetime->format('Y-m-d'))
                         ->update([
-                            'status_master_id' => StatusMaster::where('code', 'PP')->first()->id,
+                            'status_master_id' => $statusMaster->id,
                             'day_count' => 1.0,
                         ]);
                 } else {
@@ -1158,6 +1163,30 @@ class AttCalculator
 
         $statusMuster->status_master_id = $statusMaster->id;
         $statusMuster->save();
+    }
+
+    private function presentStatusCode(): string
+    {
+        return (bool) ($this->curatt?->is_weekoff) ? 'WOP' : 'PP';
+    }
+
+    private function syncWeekOffFlagFromMuster(): void
+    {
+        if (
+            ! WeekOffMuster::query()
+                ->where('user_id', $this->curatt->user_id)
+                ->whereDate('date', $this->curatt->date)
+                ->where('is_locked', false)
+                ->whereIn('wo_type', [1, 2, 3])
+                ->exists()
+            || $this->curatt->is_weekoff
+        ) {
+            return;
+        }
+
+        $this->curatt->is_weekoff = true;
+        $this->curatt->save();
+        $this->debug('Marked attendance as week off from the active week-off muster');
     }
 
     private function applyCurrentShiftToAttendance(): void
@@ -1530,14 +1559,15 @@ class AttCalculator
                     $this->curatt->save();
 
                     $processTags = $this->curatt->process_tags();
-                    $this->curatt->status_master_id = StatusMaster::where('code', 'PP')->firstOrFail()->id;
+                    $statusMaster = StatusMaster::where('code', $this->presentStatusCode())->firstOrFail();
+                    $this->curatt->status_master_id = $statusMaster->id;
                     $this->curatt->save();
 
                     StatusMuster::where('user_id', $this->log->user->id)
                         ->where('is_locked', false)
                         ->whereDate('date', $this->log->datetime->toDateString())
                         ->update([
-                            'status_master_id' => StatusMaster::where('code', 'PP')->first()->id,
+                            'status_master_id' => $statusMaster->id,
                             'day_count' => 1.0,
                         ]);
 
@@ -1744,14 +1774,15 @@ class AttCalculator
                         $this->curatt->save();
 
                         $processTags = $this->curatt->process_tags();
-                        $this->curatt->status_master_id = StatusMaster::where('code', 'PP')->first()->id;
+                        $statusMaster = StatusMaster::where('code', $this->presentStatusCode())->firstOrFail();
+                        $this->curatt->status_master_id = $statusMaster->id;
                         $this->curatt->save();
 
                         StatusMuster::where('user_id', $this->log->user->id)
                             ->where('is_locked', false)
                             ->whereDate('date', $this->log->datetime->toDateString())
                             ->update([
-                                'status_master_id' => StatusMaster::where('code', 'PP')->first()->id,
+                                'status_master_id' => $statusMaster->id,
                                 'day_count' => 1.0,
                             ]);
 
@@ -1982,7 +2013,7 @@ class AttCalculator
     private function clearHalfDayStatus(): void
     {
         if ($this->curatt->is_half_day) {
-            $presentStatus = StatusMaster::where('code', 'PP')->firstOrFail();
+            $presentStatus = StatusMaster::where('code', $this->presentStatusCode())->firstOrFail();
             $this->curatt->is_half_day = false;
             $this->curatt->status_master_id = $presentStatus->id;
             $this->curatt->save();
@@ -2071,14 +2102,15 @@ class AttCalculator
                     $this->curatt->save();
 
                     $processTags = $this->curatt->process_tags();
-                    $this->curatt->status_master_id = StatusMaster::where('code', 'PP')->first()->id;
+                    $statusMaster = StatusMaster::where('code', $this->presentStatusCode())->firstOrFail();
+                    $this->curatt->status_master_id = $statusMaster->id;
                     $this->curatt->save();
 
                     StatusMuster::where('user_id', $this->log->user->id)
                         ->where('is_locked', false)
                         ->where('date', $this->log->datetime->format('Y-m-d'))
                         ->update([
-                            'status_master_id' => StatusMaster::where('code', 'PP')->first()->id,
+                            'status_master_id' => $statusMaster->id,
                             'day_count' => 1.0,
                         ]);
 
@@ -2269,7 +2301,7 @@ class AttCalculator
                             && ($this->curatt->is_absent || $wasAbsent)
                         ) {
                             $this->curatt->is_absent = false;
-                            $statusCode = $this->curatt->is_half_day ? 'PA' : 'PP';
+                            $statusCode = $this->curatt->is_half_day ? 'PA' : $this->presentStatusCode();
                             $statusMaster = StatusMaster::where('code', $statusCode)->firstOrFail();
                             $dayCount = $this->curatt->is_half_day ? 0.5 : 1.0;
                             $this->curatt->status_master_id = $statusMaster->id;
@@ -2332,14 +2364,15 @@ class AttCalculator
                         $this->curatt->save();
 
                         $processTags = $this->curatt->process_tags();
-                        $this->curatt->status_master_id = StatusMaster::where('code', 'PP')->first()->id;
+                        $statusMaster = StatusMaster::where('code', $this->presentStatusCode())->firstOrFail();
+                        $this->curatt->status_master_id = $statusMaster->id;
                         $this->curatt->save();
 
                         StatusMuster::where('user_id', $this->log->user->id)
                             ->where('is_locked', false)
                             ->where('date', $this->log->datetime->format('Y-m-d'))
                             ->update([
-                                'status_master_id' => StatusMaster::where('code', 'PP')->first()->id,
+                                'status_master_id' => $statusMaster->id,
                                 'day_count' => 1.0,
                             ]);
 
@@ -2473,7 +2506,7 @@ class AttCalculator
             ->where('to_date', '>=', $date)
             ->first();
 
-        $statusCode = 'PP';
+        $statusCode = $this->presentStatusCode();
         $approvedEarlyGoingMinutes = 0;
 
         if ($leaveApplication !== null) {
@@ -2621,7 +2654,7 @@ class AttCalculator
             return;
         }
 
-        $statusCode = 'PP';
+        $statusCode = $this->presentStatusCode();
         $approvedGraceMinutes = 0;
 
         if ($leaveApplication !== null) {
@@ -2648,8 +2681,9 @@ class AttCalculator
         $this->updateLateComingStatus($isLate, $statusCode);
     }
 
-    private function updateLateComingStatus(bool $isLate, string $statusCode = 'PP'): void
+    private function updateLateComingStatus(bool $isLate, ?string $statusCode = null): void
     {
+        $statusCode ??= $this->presentStatusCode();
         $this->curatt->is_late = $isLate;
 
         if ($isLate) {
@@ -2659,7 +2693,7 @@ class AttCalculator
             } else {
                 $this->curatt->status_master_id = $statusMaster->id;
 
-                if ($statusCode === 'PP') {
+                if (in_array($statusCode, ['PP', 'WOP'], true)) {
                     StatusMuster::where('user_id', $this->log->user->id)
                         ->where('is_locked', false)
                         ->where('date', $this->log->datetime->format('Y-m-d'))
@@ -2702,7 +2736,7 @@ class AttCalculator
 
         if ($this->curatt->is_weekoff) {
             if ($category?->regular_ot_on_wo) {
-                $this->calculateWeekOffOvertime($category, $overtimeRule);
+                $this->calculateWeekOffOvertime($overtimeRule);
             } else {
                 $this->debug('Skipping overtime on the week off because the category setting is disabled');
                 $this->handleRegularHours();
@@ -3180,7 +3214,7 @@ class AttCalculator
         return (int) round((float) $duration * 60);
     }
 
-    private function calculateWeekOffOvertime(Category $category, ?OvertimeRule $overtimeRule): void
+    private function calculateWeekOffOvertime(?OvertimeRule $overtimeRule): void
     {
         $workMinutes = max(0, (int) $this->curatt->work_time);
         if ($workMinutes === 0) {
@@ -3190,47 +3224,32 @@ class AttCalculator
             return;
         }
 
-        $totalMinutes = $overtimeRule !== null
-            ? $overtimeRule->calculateOvertimeMinutes(0, 0, $workMinutes, 0)
-            : $workMinutes;
+        $this->curatt->row_overtime_minutes = $workMinutes;
+        $this->debug('Week-off work time counted as overtime: '.$workMinutes.' minutes');
 
-        if ($overtimeRule === null && $category->skip_overtime) {
-            $skipMinutes = ((int) $category->skip_overtime->format('H') * 60)
-                + (int) $category->skip_overtime->format('i');
-            $totalMinutes = max(0, $totalMinutes - $skipMinutes);
-        }
+        if ($overtimeRule !== null) {
+            $slabs = $overtimeRule->overtime_slabs()->orderByDesc('value_from')->get();
+            if ($slabs->isEmpty()) {
+                $this->handleOvertime(null, $workMinutes);
+                $this->otFlag = true;
 
-        $this->curatt->row_overtime_minutes = $totalMinutes;
-        $this->debug('Week-off overtime after applicable rules: '.$totalMinutes.' minutes');
-        if ($totalMinutes <= 0) {
+                return;
+            }
+
+            $slab = $slabs->first(fn (OvertimeSlab $overtimeSlab): bool => $overtimeSlab->containsMinutes($workMinutes));
+            if ($slab !== null) {
+                $this->handleOvertime($slab, $workMinutes);
+                $this->otFlag = true;
+
+                return;
+            }
+
             $this->handleRegularHours();
 
             return;
         }
 
-        if ($overtimeRule !== null) {
-            $slabs = $overtimeRule->overtime_slabs()->orderByDesc('value_from')->get();
-            if ($slabs->isEmpty()) {
-                $this->handleOvertime(null, $totalMinutes);
-                $this->otFlag = true;
-
-                return;
-            }
-
-            $slab = $slabs->first(fn (OvertimeSlab $overtimeSlab): bool => $overtimeSlab->containsMinutes($totalMinutes));
-            if ($slab !== null) {
-                $this->handleOvertime($slab, $totalMinutes);
-                $this->otFlag = true;
-
-                return;
-            }
-
-            $this->handleRegularHours($totalMinutes);
-
-            return;
-        }
-
-        $this->markOvertime($totalMinutes);
+        $this->markOvertime($workMinutes);
         $this->otFlag = true;
     }
 
