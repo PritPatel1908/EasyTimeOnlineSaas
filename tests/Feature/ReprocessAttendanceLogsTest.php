@@ -40,6 +40,8 @@ class ReprocessAttendanceLogsTest extends TestCase
             $table->string('user_type')->nullable();
             $table->string('name')->nullable();
             $table->string('code')->nullable();
+            $table->text('location_id')->nullable();
+            $table->text('category_id')->nullable();
             $table->softDeletes();
         });
 
@@ -80,9 +82,95 @@ class ReprocessAttendanceLogsTest extends TestCase
                 $table->unsignedBigInteger('in_log_id')->nullable();
                 $table->unsignedBigInteger('out_log_id')->nullable();
                 $table->boolean('is_locked')->default(false);
+                $table->boolean('is_holiday')->default(false);
+                $table->boolean('is_weekoff')->default(false);
+                $table->boolean('is_half_day')->default(false);
+                $table->unsignedBigInteger('status_master_id')->nullable();
                 $table->timestamps();
             });
         }
+
+        Schema::create('week_off_musters', function ($table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('date');
+            $table->unsignedTinyInteger('wo_type');
+            $table->boolean('is_locked')->default(false);
+            $table->timestamps();
+        });
+
+        Schema::create('holidays', function ($table): void {
+            $table->id();
+            $table->string('name');
+            $table->date('date');
+            $table->softDeletes();
+            $table->timestamps();
+        });
+
+        Schema::create('locations', function ($table): void {
+            $table->id();
+        });
+
+        Schema::create('categories', function ($table): void {
+            $table->id();
+        });
+
+        foreach (['holiday_locations', 'holiday_categories'] as $tableName) {
+            Schema::create($tableName, function ($table) use ($tableName): void {
+                $table->id();
+                $table->unsignedBigInteger('holiday_id');
+                $table->unsignedBigInteger($tableName === 'holiday_locations' ? 'location_id' : 'category_id');
+                $table->timestamps();
+            });
+        }
+
+        Schema::create('status_masters', function ($table): void {
+            $table->id();
+            $table->string('code');
+        });
+
+        Schema::create('status_musters', function ($table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('date');
+            $table->unsignedBigInteger('status_master_id')->nullable();
+            $table->float('day_count')->default(0);
+            $table->boolean('is_locked')->default(false);
+            $table->timestamps();
+        });
+
+        Schema::create('leave_types', function ($table): void {
+            $table->id();
+            $table->string('code');
+            $table->string('description')->nullable();
+            $table->softDeletes();
+        });
+
+        Schema::create('leave_applications', function ($table): void {
+            $table->id();
+            $table->unsignedBigInteger('leave_type_id')->nullable();
+            $table->date('from_date');
+            $table->date('to_date');
+            $table->boolean('is_only_half')->default(false);
+            $table->boolean('is_second_half')->default(false);
+            $table->boolean('is_first_half')->default(false);
+            $table->softDeletes();
+        });
+
+        Schema::create('leave_application_users', function ($table): void {
+            $table->id();
+            $table->unsignedBigInteger('leave_application_id');
+            $table->unsignedBigInteger('user_id');
+            $table->timestamps();
+        });
+
+        Schema::create('approval_statuses', function ($table): void {
+            $table->id();
+            $table->string('approvable_type');
+            $table->unsignedBigInteger('approvable_id');
+            $table->string('approval_status')->default('pending');
+            $table->timestamps();
+        });
     }
 
     protected function tearDown(): void
@@ -156,6 +244,167 @@ class ReprocessAttendanceLogsTest extends TestCase
 
         $this->assertSame(1, DB::table('attendances2026')->count());
         $this->assertTrue((bool) DB::table('attendance_logs')->where('id', $inactiveLogId)->value('is_calculated'));
+    }
+
+    public function test_reprocessing_creates_attendance_for_punchless_week_offs_and_applicable_holidays(): void
+    {
+        DB::table('locations')->insert([['id' => 1], ['id' => 2]]);
+        DB::table('categories')->insert(['id' => 1]);
+        $userId = DB::table('users')->insertGetId([
+            'user_type' => 'employee',
+            'name' => 'Example Employee',
+            'code' => 'EMP001',
+            'location_id' => json_encode([1]),
+            'category_id' => json_encode([1]),
+        ]);
+        DB::table('week_off_musters')->insert([
+            'user_id' => $userId,
+            'date' => '2026-03-10',
+            'wo_type' => 1,
+            'is_locked' => false,
+        ]);
+        DB::table('week_off_musters')->insert([
+            'user_id' => $userId,
+            'date' => '2026-03-13',
+            'wo_type' => 3,
+            'is_locked' => false,
+        ]);
+
+        $holidayId = DB::table('holidays')->insertGetId([
+            'name' => 'Company Holiday',
+            'date' => '2026-03-11',
+        ]);
+        DB::table('holiday_locations')->insert([
+            'holiday_id' => $holidayId,
+            'location_id' => 1,
+        ]);
+        DB::table('holiday_categories')->insert([
+            'holiday_id' => $holidayId,
+            'category_id' => 1,
+        ]);
+        $unrelatedHolidayId = DB::table('holidays')->insertGetId([
+            'name' => 'Other Location Holiday',
+            'date' => '2026-03-12',
+        ]);
+        DB::table('holiday_locations')->insert([
+            'holiday_id' => $unrelatedHolidayId,
+            'location_id' => 2,
+        ]);
+        DB::table('holiday_categories')->insert([
+            'holiday_id' => $unrelatedHolidayId,
+            'category_id' => 1,
+        ]);
+        DB::table('status_masters')->insert([
+            ['code' => 'WO'],
+            ['code' => 'HL'],
+            ['code' => 'AWO'],
+            ['code' => 'WOA'],
+        ]);
+
+        (new ReprocessAttendanceLogs(
+            '2026-03-10 00:00:00',
+            '2026-03-13 23:59:59',
+        ))->handle();
+
+        $attendances = DB::table('attendances2026')->orderBy('date')->get();
+        $this->assertSame(3, $attendances->count());
+        $this->assertSame('2026-03-10', $attendances[0]->date);
+        $this->assertTrue((bool) $attendances[0]->is_weekoff);
+        $this->assertFalse((bool) $attendances[0]->is_holiday);
+        $this->assertSame('2026-03-11', $attendances[1]->date);
+        $this->assertFalse((bool) $attendances[1]->is_weekoff);
+        $this->assertTrue((bool) $attendances[1]->is_holiday);
+        $this->assertSame('2026-03-13', $attendances[2]->date);
+        $this->assertTrue((bool) $attendances[2]->is_weekoff);
+        $this->assertTrue((bool) $attendances[2]->is_half_day);
+        $this->assertSame(
+            DB::table('status_masters')->where('code', 'AWO')->value('id'),
+            $attendances[2]->status_master_id,
+        );
+    }
+
+    public function test_reprocessing_uses_approved_half_day_leave_and_preserves_sandwich_muster_result(): void
+    {
+        $userId = DB::table('users')->insertGetId([
+            'user_type' => 'employee',
+            'name' => 'Example Employee',
+            'code' => 'EMP001',
+        ]);
+        DB::table('leave_types')->insert(['id' => 1, 'code' => 'PL']);
+        $sandwichStatusId = DB::table('status_masters')->insertGetId(['code' => 'SL']);
+        $halfLeaveStatusId = DB::table('status_masters')->insertGetId(['code' => 'APL']);
+        $weekOffStatusId = DB::table('status_masters')->insertGetId(['code' => 'WO']);
+
+        DB::table('week_off_musters')->insert([
+            'user_id' => $userId,
+            'date' => '2026-03-10',
+            'wo_type' => 1,
+            'is_locked' => false,
+        ]);
+        DB::table('status_musters')->insert([
+            'user_id' => $userId,
+            'date' => '2026-03-10',
+            'status_master_id' => $sandwichStatusId,
+            'is_locked' => false,
+        ]);
+
+        $sandwichLeaveId = DB::table('leave_applications')->insertGetId([
+            'leave_type_id' => 1,
+            'from_date' => '2026-03-10',
+            'to_date' => '2026-03-10',
+        ]);
+        $approvedHalfLeaveId = DB::table('leave_applications')->insertGetId([
+            'leave_type_id' => 1,
+            'from_date' => '2026-03-11',
+            'to_date' => '2026-03-11',
+            'is_only_half' => true,
+        ]);
+        $pendingLeaveId = DB::table('leave_applications')->insertGetId([
+            'leave_type_id' => 1,
+            'from_date' => '2026-03-12',
+            'to_date' => '2026-03-12',
+        ]);
+
+        foreach ([$sandwichLeaveId, $approvedHalfLeaveId, $pendingLeaveId] as $applicationId) {
+            DB::table('leave_application_users')->insert([
+                'leave_application_id' => $applicationId,
+                'user_id' => $userId,
+            ]);
+        }
+        DB::table('approval_statuses')->insert([
+            [
+                'approvable_type' => \App\Models\Tenant\LeaveApplication::class,
+                'approvable_id' => $sandwichLeaveId,
+                'approval_status' => 'approved',
+            ],
+            [
+                'approvable_type' => \App\Models\Tenant\LeaveApplication::class,
+                'approvable_id' => $approvedHalfLeaveId,
+                'approval_status' => 'approved',
+            ],
+            [
+                'approvable_type' => \App\Models\Tenant\LeaveApplication::class,
+                'approvable_id' => $pendingLeaveId,
+                'approval_status' => 'pending',
+            ],
+        ]);
+
+        (new ReprocessAttendanceLogs(
+            '2026-03-10 00:00:00',
+            '2026-03-12 23:59:59',
+            [$userId],
+        ))->handle();
+
+        $sandwichAttendance = DB::table('attendances2026')->whereDate('date', '2026-03-10')->first();
+        $halfLeaveAttendance = DB::table('attendances2026')->whereDate('date', '2026-03-11')->first();
+
+        $this->assertNotNull($sandwichAttendance);
+        $this->assertTrue((bool) $sandwichAttendance->is_weekoff);
+        $this->assertSame($sandwichStatusId, (int) $sandwichAttendance->status_master_id);
+        $this->assertNotNull($halfLeaveAttendance);
+        $this->assertSame($halfLeaveStatusId, (int) $halfLeaveAttendance->status_master_id);
+        $this->assertSame(2, DB::table('attendances2026')->count());
+        $this->assertNotSame($weekOffStatusId, (int) $sandwichAttendance->status_master_id);
     }
 
     public function test_reprocess_form_dispatches_selected_employee_and_datetime_range(): void

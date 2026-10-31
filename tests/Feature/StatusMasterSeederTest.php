@@ -81,6 +81,7 @@ class StatusMasterSeederTest extends TestCase
                 'SLA',
                 'SLP',
                 'WOA',
+                'WHP',
                 'WOP',
             ],
             DB::table('status_masters')->orderBy('code')->pluck('code')->all(),

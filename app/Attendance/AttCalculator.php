@@ -7,6 +7,7 @@ use App\Models\Tenant\AttendanceLog;
 use App\Models\Tenant\Category;
 use App\Models\Tenant\Coff;
 use App\Models\Tenant\GeneralConfiguration;
+use App\Models\Tenant\Holiday;
 use App\Models\Tenant\InOutMuster;
 use App\Models\Tenant\LeaveApplication;
 use App\Models\Tenant\ManualPunch;
@@ -41,11 +42,18 @@ class AttCalculator
 
     private bool $previousPunchAttendanceResolved = false;
 
+    /**
+     * @var array<string, ?LeaveApplication>
+     */
+    private array $approvedLeaveApplicationsByDate = [];
+
     private bool $halfDayCycleResetDateResolved = false;
 
     private ?string $halfDayCycleResetDate = null;
 
     protected ?string $punchAttendanceDate = null;
+
+    private ?int $weekOffType = null;
 
     public $f_years = null;
 
@@ -858,6 +866,7 @@ class AttCalculator
         $this->shift ??= $this->curatt->shift;
 
         $this->syncWeekOffFlagFromMuster();
+        $this->syncHolidayFlagFromList();
 
         $shift_muster = ShiftMuster::where('user_id', $this->log->user->id)->where('is_locked', false)->where('date', $this->log->datetime->format('Y-m-d'))->first();
         if ($shift_muster && ($this->shift !== null || $this->log->user->shift_type == 'auto')) {
@@ -866,10 +875,7 @@ class AttCalculator
             $shift_muster->save();
         }
 
-        $leave_application = LeaveApplication::whereHas('users', fn ($query) => $query->whereKey($this->log->user->id))
-            ->where('from_date', '<=', $this->log->datetime->format('Y-m-d'))
-            ->where('to_date', '>=', $this->log->datetime->format('Y-m-d'))
-            ->first();
+        $leave_application = $this->approvedLeaveApplicationForDate($this->log->datetime->toDateString());
 
         $coff = Coff::where('user_id', $this->log->user->id)
             ->where('from_date', '<=', $this->log->datetime->format('Y-m-d'))
@@ -1167,26 +1173,111 @@ class AttCalculator
 
     private function presentStatusCode(): string
     {
+        if ((bool) ($this->curatt?->is_holiday)) {
+            return 'WHP';
+        }
+
+        if ($this->weekOffType === 2) {
+            return 'WOP';
+        }
+
+        if ($this->weekOffType === 3) {
+            return 'PWO';
+        }
+
         return (bool) ($this->curatt?->is_weekoff) ? 'WOP' : 'PP';
     }
 
     private function syncWeekOffFlagFromMuster(): void
     {
-        if (
-            ! WeekOffMuster::query()
-                ->where('user_id', $this->curatt->user_id)
-                ->whereDate('date', $this->curatt->date)
-                ->where('is_locked', false)
-                ->whereIn('wo_type', [1, 2, 3])
-                ->exists()
-            || $this->curatt->is_weekoff
-        ) {
+        if ($this->curatt === null) {
             return;
         }
 
-        $this->curatt->is_weekoff = true;
+        $weekOffType = WeekOffMuster::query()
+            ->where('user_id', $this->curatt->user_id)
+            ->whereDate('date', $this->curatt->date)
+            ->where('is_locked', false)
+            ->whereIn('wo_type', [1, 2, 3])
+            ->value('wo_type');
+        $this->weekOffType = $weekOffType === null ? null : (int) $weekOffType;
+        $isWeekOff = $this->weekOffType !== null;
+
+        $wasWeekOff = (bool) $this->curatt->is_weekoff;
+        $isHalfWeekOff = in_array($this->weekOffType, [2, 3], true);
+        $targetHalfDay = $isWeekOff || $wasWeekOff
+            ? $isHalfWeekOff
+            : (bool) $this->curatt->is_half_day;
+        $attendanceChanged = (bool) $this->curatt->is_weekoff !== $isWeekOff
+            || (bool) $this->curatt->is_half_day !== $targetHalfDay;
+
+        if (! $attendanceChanged) {
+            return;
+        }
+
+        $this->curatt->is_weekoff = $isWeekOff;
+        $this->curatt->is_half_day = $targetHalfDay;
+        if ($isHalfWeekOff) {
+            $hasPunches = $this->curatt->in_time !== null || $this->curatt->out_time !== null;
+            $statusCode = $hasPunches
+                ? $this->presentStatusCode()
+                : ($this->weekOffType === 3 ? 'AWO' : 'WOA');
+            $this->curatt->status_master_id = StatusMaster::where('code', $statusCode)->firstOrFail()->id;
+        }
         $this->curatt->save();
-        $this->debug('Marked attendance as week off from the active week-off muster');
+        $this->debug($isHalfWeekOff
+            ? 'Marked attendance as a half-day week off from the active week-off muster'
+            : ($isWeekOff
+                ? 'Marked attendance as week off from the active week-off muster'
+                : 'Cleared attendance week-off flag because no active week-off muster exists'));
+    }
+
+    private function syncHolidayFlagFromList(): void
+    {
+        if ($this->curatt === null || $this->log->user === null) {
+            return;
+        }
+
+        $locationIds = array_map('intval', (array) $this->log->user->location_id);
+        $categoryIds = array_map('intval', (array) $this->log->user->category_id);
+
+        $isHoliday = $locationIds !== []
+            && $categoryIds !== []
+            && Holiday::query()
+                ->whereDate('date', $this->curatt->date)
+                ->whereHas('locations', fn ($query) => $query->whereIn('locations.id', $locationIds))
+                ->whereHas('categories', fn ($query) => $query->whereIn('categories.id', $categoryIds))
+                ->exists();
+
+        if ((bool) $this->curatt->is_holiday !== $isHoliday) {
+            $this->curatt->is_holiday = $isHoliday;
+            $this->curatt->save();
+            $this->debug($isHoliday
+                ? 'Marked attendance as holiday from the employee holiday list'
+                : 'Cleared attendance holiday flag because no applicable holiday exists');
+        }
+    }
+
+    private function approvedLeaveApplicationForDate(string $date): ?LeaveApplication
+    {
+        if (array_key_exists($date, $this->approvedLeaveApplicationsByDate)) {
+            return $this->approvedLeaveApplicationsByDate[$date];
+        }
+
+        $applications = LeaveApplication::query()
+            ->whereHas('users', fn ($query) => $query->whereKey($this->log->user->id))
+            ->whereDate('from_date', '<=', $date)
+            ->whereDate('to_date', '>=', $date)
+            ->with(['approval_statuses', 'leave_type'])
+            ->get();
+
+        foreach ($applications as $application) {
+            if ($application->overallApprovalStatus() === 'approved') {
+                return $this->approvedLeaveApplicationsByDate[$date] = $application;
+            }
+        }
+
+        return $this->approvedLeaveApplicationsByDate[$date] = null;
     }
 
     private function applyCurrentShiftToAttendance(): void
@@ -1507,10 +1598,7 @@ class AttCalculator
         $this->halfdayRuleEarlyFlag = false;
         $this->halfdayRuleWorkHourFlag = false;
 
-        $leave_application = LeaveApplication::whereHas('users', fn ($query) => $query->whereKey($this->log->user->id))
-            ->where('from_date', '<=', $this->log->datetime->format('Y-m-d'))
-            ->where('to_date', '>=', $this->log->datetime->format('Y-m-d'))
-            ->first();
+        $leave_application = $this->approvedLeaveApplicationForDate($this->log->datetime->toDateString());
 
         $coff = Coff::where('user_id', $this->log->user->id)
             ->where('from_date', '<=', $this->log->datetime->format('Y-m-d'))
@@ -1518,6 +1606,12 @@ class AttCalculator
             ->first();
 
         if ($leave_application === null && $coff === null) {
+            if ($this->curatt->is_weekoff || $this->curatt->is_holiday) {
+                $this->clearSpecialDayRuleFlags();
+                $this->debug('Skipping half-day rules because attendance is a week off or holiday');
+
+                return;
+            }
 
             $this->debug('~~~Checking HalfDay Rule');
             $halfdayRule = $this->log->user->half_day_rule;
@@ -1568,7 +1662,7 @@ class AttCalculator
                         ->whereDate('date', $this->log->datetime->toDateString())
                         ->update([
                             'status_master_id' => $statusMaster->id,
-                            'day_count' => 1.0,
+                            'day_count' => $this->curatt->is_half_day ? 0.5 : 1.0,
                         ]);
 
                     $processTags->where('name', 'Half Day | Is First Half')->orWhere('name', 'Half Day | Is Second Half')->orWhere('name', 'Half Day')->delete();
@@ -1783,7 +1877,7 @@ class AttCalculator
                             ->whereDate('date', $this->log->datetime->toDateString())
                             ->update([
                                 'status_master_id' => $statusMaster->id,
-                                'day_count' => 1.0,
+                                'day_count' => $this->curatt->is_half_day ? 0.5 : 1.0,
                             ]);
 
                         $processTags->where('name', 'Half Day | Is First Half')->orWhere('name', 'Half Day | Is Second Half')->orWhere('name', 'Half Day')->delete();
@@ -2032,6 +2126,40 @@ class AttCalculator
             ->delete();
     }
 
+    private function clearSpecialDayRuleFlags(): void
+    {
+        if (! $this->curatt->is_absent && ! $this->curatt->is_half_day) {
+            return;
+        }
+
+        $statusCode = $this->presentStatusCode();
+        if (
+            in_array($this->weekOffType, [2, 3], true)
+            && $this->curatt->in_time === null
+            && $this->curatt->out_time === null
+        ) {
+            $statusCode = $this->weekOffType === 3 ? 'AWO' : 'WOA';
+        }
+
+        $statusMaster = StatusMaster::where('code', $statusCode)->firstOrFail();
+        $this->curatt->is_absent = false;
+        $this->curatt->is_half_day = in_array($this->weekOffType, [2, 3], true);
+        $this->curatt->status_master_id = $statusMaster->id;
+        $this->curatt->save();
+
+        StatusMuster::where('user_id', $this->log->user->id)
+            ->where('is_locked', false)
+            ->whereDate('date', $this->log->datetime->toDateString())
+            ->update([
+                'status_master_id' => $statusMaster->id,
+                'day_count' => $this->curatt->is_half_day ? 0.5 : 1.0,
+            ]);
+
+        $this->curatt->process_tags()
+            ->whereIn('name', ['Absent', 'Half Day | Is First Half', 'Half Day | Is Second Half', 'Half Day'])
+            ->delete();
+    }
+
     public function isMonthEnd($date)
     {
         $date = Carbon::parse($date);
@@ -2051,10 +2179,7 @@ class AttCalculator
             $this->curatt->save();
         }
 
-        $leave_application = LeaveApplication::whereHas('users', fn ($query) => $query->whereKey($this->log->user->id))
-            ->where('from_date', '<=', $this->log->datetime->format('Y-m-d'))
-            ->where('to_date', '>=', $this->log->datetime->format('Y-m-d'))
-            ->first();
+        $leave_application = $this->approvedLeaveApplicationForDate($this->log->datetime->toDateString());
 
         $coff = Coff::where('user_id', $this->log->user->id)
             ->where('from_date', '<=', $this->log->datetime->format('Y-m-d'))
@@ -2062,6 +2187,12 @@ class AttCalculator
             ->first();
 
         if ($leave_application === null && $coff === null) {
+            if ($this->curatt->is_weekoff || $this->curatt->is_holiday) {
+                $this->clearSpecialDayRuleFlags();
+                $this->debug('Skipping absent rules because attendance is a week off or holiday');
+
+                return;
+            }
 
             $this->debug('~~~Checking Absent Rule');
             $absentRule = $this->log->user->absent_rule;
@@ -2494,10 +2625,7 @@ class AttCalculator
             $this->curatt->save();
         }
         $date = $this->log->datetime->format('Y-m-d');
-        $leaveApplication = LeaveApplication::whereHas('users', fn ($query) => $query->whereKey($this->log->user->id))
-            ->where('from_date', '<=', $date)
-            ->where('to_date', '>=', $date)
-            ->first();
+        $leaveApplication = $this->approvedLeaveApplicationForDate($date);
         $shortLeave = ShortLeaveApplication::where('user_id', $this->log->user->id)
             ->where('date', $date)
             ->first();
@@ -2635,10 +2763,7 @@ class AttCalculator
         }
 
         $date = $this->log->datetime->format('Y-m-d');
-        $leaveApplication = LeaveApplication::whereHas('users', fn ($query) => $query->whereKey($this->log->user->id))
-            ->where('from_date', '<=', $date)
-            ->where('to_date', '>=', $date)
-            ->first();
+        $leaveApplication = $this->approvedLeaveApplicationForDate($date);
         $shortLeave = ShortLeaveApplication::where('user_id', $this->log->user->id)
             ->where('date', $date)
             ->first();
@@ -2693,7 +2818,7 @@ class AttCalculator
             } else {
                 $this->curatt->status_master_id = $statusMaster->id;
 
-                if (in_array($statusCode, ['PP', 'WOP'], true)) {
+                if (in_array($statusCode, ['PP', 'WOP', 'PWO', 'WHP'], true)) {
                     StatusMuster::where('user_id', $this->log->user->id)
                         ->where('is_locked', false)
                         ->where('date', $this->log->datetime->format('Y-m-d'))

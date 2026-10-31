@@ -454,7 +454,7 @@ class AttendanceCategoryCalculationTest extends TestCase
         $this->assertSame(0, $attendance->total_overtime_minutes);
     }
 
-    public function test_active_week_off_muster_sets_wop_status_in_attendance_and_muster(): void
+    public function test_active_second_half_week_off_muster_sets_half_day_attendance_status(): void
     {
         Schema::create('status_masters', function (Blueprint $table): void {
             $table->id();
@@ -488,12 +488,14 @@ class AttendanceCategoryCalculationTest extends TestCase
         DB::table('status_masters')->insert([
             ['code' => 'PP'],
             ['code' => 'WOP'],
+            ['code' => 'PWO'],
+            ['code' => 'AWO'],
         ]);
         DB::table('week_off_musters')->insert([
             'user_id' => 25,
             'date' => '2026-10-25',
             'is_locked' => false,
-            'wo_type' => 1,
+            'wo_type' => 3,
         ]);
         DB::table('status_musters')->insert([
             'user_id' => 25,
@@ -512,13 +514,18 @@ class AttendanceCategoryCalculationTest extends TestCase
         $method->setAccessible(true);
 
         $syncWeekOffFlag->invoke($calculator);
+        $absentWeekOffStatusId = DB::table('status_masters')->where('code', 'AWO')->value('id');
+        $this->assertTrue((bool) $attendance->fresh()->is_half_day);
+        $this->assertSame($absentWeekOffStatusId, $attendance->fresh()->status_master_id);
+
         $method->invoke($calculator, true);
 
-        $wopStatusId = DB::table('status_masters')->where('code', 'WOP')->value('id');
+        $pwoStatusId = DB::table('status_masters')->where('code', 'PWO')->value('id');
         $this->assertTrue((bool) $attendance->fresh()->is_weekoff);
-        $this->assertSame($wopStatusId, $attendance->fresh()->status_master_id);
+        $this->assertTrue((bool) $attendance->fresh()->is_half_day);
+        $this->assertSame($pwoStatusId, $attendance->fresh()->status_master_id);
         $this->assertSame(
-            $wopStatusId,
+            $pwoStatusId,
             DB::table('status_musters')->where('user_id', 25)->value('status_master_id'),
         );
     }

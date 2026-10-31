@@ -14,6 +14,7 @@ class StatusMasterSeeder extends Seeder
     {
         foreach ([
             'WOP' => 'The individual is present in week off.',
+            'WHP' => 'The individual is present in week off or holiday.',
             'PWO' => 'The individual is present in week off.',
             'AWO' => 'The individual is absent on a week off.',
             'WOA' => 'The individual is absent on a week off.',

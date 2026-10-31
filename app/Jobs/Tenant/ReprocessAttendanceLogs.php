@@ -6,7 +6,13 @@ namespace App\Jobs\Tenant;
 
 use App\Models\Tenant\Attendance;
 use App\Models\Tenant\AttendanceLog;
+use App\Models\Tenant\Holiday;
 use App\Models\Tenant\InOutMuster;
+use App\Models\Tenant\LeaveApplication;
+use App\Models\Tenant\StatusMaster;
+use App\Models\Tenant\StatusMuster;
+use App\Models\Tenant\User;
+use App\Models\Tenant\WeekOffMuster;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -17,6 +23,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use RuntimeException;
 use Throwable;
 
 class ReprocessAttendanceLogs implements ShouldBeUnique, ShouldQueue
@@ -50,6 +57,7 @@ class ReprocessAttendanceLogs implements ShouldBeUnique, ShouldQueue
     {
         $this->preparePunchesForReprocessing();
         $this->processPunches();
+        $this->createMissingWeekOffHolidayAndLeaveAttendances();
     }
 
     private function preparePunchesForReprocessing(): void
@@ -170,5 +178,183 @@ class ReprocessAttendanceLogs implements ShouldBeUnique, ShouldQueue
             ->where('is_locked', false)
             ->where('status', '!=', 0)
             ->when($this->employeeIds !== [], fn ($query) => $query->whereIn('user_id', $this->employeeIds));
+    }
+
+    private function createMissingWeekOffHolidayAndLeaveAttendances(): void
+    {
+        $usersQuery = User::query()->where('user_type', 'employee');
+        if ($this->employeeIds !== []) {
+            $usersQuery->whereIn('id', $this->employeeIds);
+        }
+
+        $users = $usersQuery->get(['id', 'location_id', 'category_id']);
+        if ($users->isEmpty()) {
+            return;
+        }
+
+        $startDate = Carbon::parse($this->startDateTime)->startOfDay();
+        $endDate = Carbon::parse($this->endDateTime)->startOfDay();
+        $attendanceTypes = [];
+
+        if (Schema::hasTable('week_off_musters')) {
+            $weekOffMusters = WeekOffMuster::query()
+                ->whereIn('user_id', $users->modelKeys())
+                ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
+                ->where('is_locked', false)
+                ->whereIn('wo_type', [1, 2, 3])
+                ->get(['user_id', 'date', 'wo_type']);
+
+            foreach ($weekOffMusters as $weekOffMuster) {
+                $attendanceTypes[$weekOffMuster->user_id][$weekOffMuster->date->toDateString()]['weekoff_type'] = (int) $weekOffMuster->wo_type;
+            }
+        }
+
+        if (Schema::hasTable('holidays')) {
+            $holidays = Holiday::query()
+                ->with(['locations:id', 'categories:id'])
+                ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
+                ->get();
+
+            foreach ($users as $user) {
+                $locationIds = array_map('intval', (array) $user->location_id);
+                $categoryIds = array_map('intval', (array) $user->category_id);
+
+                if ($locationIds === [] || $categoryIds === []) {
+                    continue;
+                }
+
+                foreach ($holidays as $holiday) {
+                    $hasLocation = $holiday->locations->contains(
+                        fn ($location): bool => in_array((int) $location->id, $locationIds, true),
+                    );
+                    $hasCategory = $holiday->categories->contains(
+                        fn ($category): bool => in_array((int) $category->id, $categoryIds, true),
+                    );
+
+                    if ($hasLocation && $hasCategory) {
+                        $attendanceTypes[$user->id][$holiday->date->toDateString()]['is_holiday'] = true;
+                    }
+                }
+            }
+        }
+
+        if (Schema::hasTable('leave_applications') && Schema::hasTable('approval_statuses')) {
+            $userIds = $users->modelKeys();
+            $approvedLeaveApplications = LeaveApplication::query()
+                ->whereHas('users', fn ($query) => $query->whereIn('users.id', $userIds))
+                ->whereDate('from_date', '<=', $endDate->toDateString())
+                ->whereDate('to_date', '>=', $startDate->toDateString())
+                ->whereHas('approval_statuses', fn ($query) => $query->where('approval_status', 'approved'))
+                ->whereDoesntHave('approval_statuses', fn ($query) => $query->where('approval_status', '!=', 'approved'))
+                ->with(['users', 'leave_type'])
+                ->get();
+
+            foreach ($approvedLeaveApplications as $application) {
+                if ($application->leave_type === null) {
+                    throw new RuntimeException('Approved leave application #'.$application->id.' has no leave type.');
+                }
+
+                foreach ($application->users->whereIn('id', $userIds) as $user) {
+                    $leaveStart = Carbon::parse($application->from_date)->max($startDate);
+                    $leaveEnd = Carbon::parse($application->to_date)->min($endDate);
+
+                    for ($date = $leaveStart->copy(); $date->lte($leaveEnd); $date->addDay()) {
+                        $statusCode = $application->leave_type->code;
+                        if (
+                            $application->is_only_half
+                            || ($date->isSameDay($application->from_date) && $application->is_second_half)
+                        ) {
+                            $statusCode = 'A'.$statusCode;
+                        } elseif ($date->isSameDay($application->to_date) && $application->is_first_half) {
+                            $statusCode .= 'A';
+                        }
+
+                        $attendanceTypes[$user->id][$date->toDateString()]['leave_status_code'] = $statusCode;
+                    }
+                }
+            }
+        }
+
+        if ($attendanceTypes === []) {
+            return;
+        }
+
+        $statusMasterIds = StatusMaster::query()
+            ->pluck('id', 'code');
+
+        foreach ($attendanceTypes as $userId => $dates) {
+            foreach ($dates as $date => $attendanceType) {
+                $year = Carbon::parse($date)->year;
+                $attendanceQuery = Attendance::year($year)
+                    ->where('user_id', $userId)
+                    ->whereDate('date', $date)
+                    ->where('is_locked', false);
+                $attendance = $attendanceQuery->first();
+
+                if ($attendance !== null && ($attendance->in_log_id !== null || $attendance->out_log_id !== null)) {
+                    continue;
+                }
+
+                $isHoliday = (bool) ($attendanceType['is_holiday'] ?? false);
+                $weekOffType = $attendanceType['weekoff_type'] ?? null;
+                $isWeekOff = $weekOffType !== null;
+                $isHalfWeekOff = ! $isHoliday && in_array($weekOffType, [2, 3], true);
+                $statusCode = $isHoliday
+                    ? 'HL'
+                    : ($isHalfWeekOff ? ($weekOffType === 3 ? 'AWO' : 'WOA') : 'WO');
+                $statusMasterId = $statusMasterIds->get($statusCode);
+
+                if (isset($attendanceType['leave_status_code'])) {
+                    $leaveStatusMasterId = $statusMasterIds->get($attendanceType['leave_status_code']);
+                    if ($leaveStatusMasterId === null) {
+                        throw new RuntimeException(
+                            'Status master '.$attendanceType['leave_status_code'].' is missing while creating attendance.',
+                        );
+                    }
+
+                    $hasWeekOffOrHoliday = $isHoliday || $isWeekOff;
+                    $statusMuster = $hasWeekOffOrHoliday && Schema::hasTable('status_musters')
+                        ? StatusMuster::query()
+                            ->where('user_id', $userId)
+                            ->whereDate('date', $date)
+                            ->where('is_locked', false)
+                            ->first()
+                        : null;
+                    $musterStatusCode = $statusMuster?->status_master_id
+                        ? $statusMasterIds->search($statusMuster->status_master_id, true)
+                        : null;
+
+                    if (! $hasWeekOffOrHoliday) {
+                        $statusMasterId = $leaveStatusMasterId;
+                    } elseif (
+                        $statusMuster?->status_master_id !== null
+                        && $musterStatusCode !== false
+                        && $musterStatusCode !== 'AA'
+                    ) {
+                        $statusMasterId = $statusMuster->status_master_id;
+                    } else {
+                        $statusMasterId = $leaveStatusMasterId;
+                    }
+                }
+
+                if ($statusMasterId === null) {
+                    throw new RuntimeException('Status master '.$statusCode.' is missing while creating attendance.');
+                }
+
+                Attendance::year($year)->updateOrCreate(
+                    [
+                        'user_id' => $userId,
+                        'date' => $date,
+                        'is_locked' => false,
+                    ],
+                    [
+                        'is_holiday' => $isHoliday,
+                        'is_weekoff' => $isWeekOff,
+                        'is_half_day' => $isHalfWeekOff,
+                        'status_master_id' => $statusMasterId,
+                    ],
+                );
+            }
+        }
     }
 }

@@ -111,14 +111,32 @@ class ProcessPendingLogsTest extends TestCase
         });
         Schema::create('leave_applications', function ($table): void {
             $table->id();
+            $table->unsignedBigInteger('leave_type_id')->nullable();
             $table->date('from_date');
             $table->date('to_date');
+            $table->boolean('is_only_half')->default(false);
+            $table->boolean('is_second_half')->default(false);
+            $table->boolean('is_first_half')->default(false);
+            $table->softDeletes();
+        });
+        Schema::create('leave_types', function ($table): void {
+            $table->id();
+            $table->string('code');
+            $table->string('description')->nullable();
             $table->softDeletes();
         });
         Schema::create('leave_application_users', function ($table): void {
             $table->id();
             $table->unsignedBigInteger('leave_application_id');
             $table->unsignedBigInteger('user_id');
+            $table->timestamps();
+        });
+        Schema::create('approval_statuses', function ($table): void {
+            $table->id();
+            $table->string('approvable_type');
+            $table->unsignedBigInteger('approvable_id');
+            $table->string('approval_status');
+            $table->timestamps();
         });
         Schema::create('coffs', function ($table): void {
             $table->id();
@@ -153,6 +171,8 @@ class ProcessPendingLogsTest extends TestCase
         Schema::dropIfExists('coffs');
         Schema::dropIfExists('leave_application_users');
         Schema::dropIfExists('leave_applications');
+        Schema::dropIfExists('leave_types');
+        Schema::dropIfExists('approval_statuses');
         Schema::dropIfExists('attendance_logs');
         Schema::dropIfExists('attendances2025');
         Schema::dropIfExists('attendances2026');
@@ -216,6 +236,78 @@ class ProcessPendingLogsTest extends TestCase
         $log = DB::table('attendance_logs')->where('id', $logId)->first();
         $this->assertSame(0, (int) $log->is_calculated);
         $this->assertSame(0, (int) $log->is_staged);
+    }
+
+    public function test_attendance_calculator_uses_only_fully_approved_leave_applications(): void
+    {
+        DB::table('users')->insert(['id' => 7]);
+        DB::table('leave_types')->insert(['id' => 1, 'code' => 'PL']);
+
+        $pendingId = DB::table('leave_applications')->insertGetId([
+            'leave_type_id' => 1,
+            'from_date' => '2026-03-10',
+            'to_date' => '2026-03-10',
+        ]);
+        $approvedId = DB::table('leave_applications')->insertGetId([
+            'leave_type_id' => 1,
+            'from_date' => '2026-03-10',
+            'to_date' => '2026-03-10',
+        ]);
+        $rejectedId = DB::table('leave_applications')->insertGetId([
+            'leave_type_id' => 1,
+            'from_date' => '2026-03-10',
+            'to_date' => '2026-03-10',
+        ]);
+
+        foreach ([$pendingId, $approvedId, $rejectedId] as $applicationId) {
+            DB::table('leave_application_users')->insert([
+                'leave_application_id' => $applicationId,
+                'user_id' => 7,
+            ]);
+        }
+        DB::table('approval_statuses')->insert([
+            [
+                'approvable_type' => \App\Models\Tenant\LeaveApplication::class,
+                'approvable_id' => $pendingId,
+                'approval_status' => 'pending',
+            ],
+            [
+                'approvable_type' => \App\Models\Tenant\LeaveApplication::class,
+                'approvable_id' => $approvedId,
+                'approval_status' => 'approved',
+            ],
+            [
+                'approvable_type' => \App\Models\Tenant\LeaveApplication::class,
+                'approvable_id' => $rejectedId,
+                'approval_status' => 'rejected',
+            ],
+        ]);
+
+        $log = new AttendanceLog;
+        $log->setRelation('user', User::query()->findOrFail(7));
+        $calculator = new AttCalculator($log);
+        $method = new \ReflectionMethod(AttCalculator::class, 'approvedLeaveApplicationForDate');
+        $method->setAccessible(true);
+
+        $this->assertSame($approvedId, $method->invoke($calculator, '2026-03-10')->id);
+        $this->assertNull($method->invoke($calculator, '2026-03-11'));
+    }
+
+    public function test_holiday_and_week_off_attendance_use_their_worked_status_codes(): void
+    {
+        $attendance = new Attendance;
+        $attendance->is_weekoff = true;
+        $log = new AttendanceLog;
+        $calculator = new AttCalculator($log);
+        $currentAttendance = new \ReflectionProperty(AttCalculator::class, 'curatt');
+        $currentAttendance->setValue($calculator, $attendance);
+        $method = new \ReflectionMethod(AttCalculator::class, 'presentStatusCode');
+        $method->setAccessible(true);
+
+        $this->assertSame('WOP', $method->invoke($calculator));
+
+        $attendance->is_holiday = true;
+        $this->assertSame('WHP', $method->invoke($calculator));
     }
 
     public function test_manual_punch_direction_does_not_require_a_machine(): void
