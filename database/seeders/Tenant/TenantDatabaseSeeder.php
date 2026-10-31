@@ -103,6 +103,8 @@ class TenantDatabaseSeeder extends Seeder
             }
         }
 
+        $this->call(StatusMasterSeeder::class);
+
         activity()
             ->causedBy($user)
             ->performedOn($user)
