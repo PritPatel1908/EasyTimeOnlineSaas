@@ -6,10 +6,13 @@ namespace Tests\Unit;
 
 use App\Attendance\AttCalculator;
 use App\Http\Requests\Tenant\CategoryRequestRules;
+use App\Models\Tenant\AbsentRule;
 use App\Models\Tenant\Attendance;
 use App\Models\Tenant\AttendanceLog;
 use App\Models\Tenant\Category;
+use App\Models\Tenant\EarlyGoingRule;
 use App\Models\Tenant\HalfDayRule;
+use App\Models\Tenant\LateComingRule;
 use App\Models\Tenant\OvertimeRule;
 use App\Models\Tenant\Shift;
 use App\Models\Tenant\User;
@@ -876,6 +879,159 @@ class AttendanceCategoryCalculationTest extends TestCase
         $this->assertFalse((bool) $attendance->is_early);
         $this->assertFalse((bool) $attendance->is_half_day);
         $this->assertFalse((bool) $attendance->is_absent);
+    }
+
+    public function test_category_single_punch_present_skips_timing_rules_and_sets_present_status(): void
+    {
+        Schema::create('status_masters', function (Blueprint $table): void {
+            $table->id();
+            $table->string('code');
+        });
+        Schema::create('status_musters', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('date');
+            $table->unsignedBigInteger('status_master_id')->nullable();
+            $table->decimal('day_count', 5, 2)->default(0);
+            $table->boolean('is_locked')->default(false);
+        });
+        Schema::create('week_off_musters', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('date');
+            $table->unsignedTinyInteger('wo_type');
+            $table->boolean('is_locked')->default(false);
+        });
+        Schema::create('process_tags', function (Blueprint $table): void {
+            $table->id();
+            $table->morphs('taggable');
+            $table->string('name');
+            $table->string('color')->nullable();
+            $table->string('icon')->nullable();
+            $table->timestamps();
+        });
+        $presentStatusId = DB::table('status_masters')->insertGetId(['code' => 'PP']);
+        DB::table('status_musters')->insert([
+            'user_id' => 25,
+            'date' => '2026-10-25',
+            'day_count' => 0,
+            'is_locked' => false,
+        ]);
+
+        $category = $this->category(['single_punch_allowed_present' => true]);
+        $attendance = $this->attendance([
+            'in_time' => Carbon::parse('2026-10-25 10:00:00'),
+            'is_late' => true,
+            'is_early' => true,
+            'is_half_day' => true,
+            'is_absent' => true,
+        ]);
+        foreach (['Late Coming', 'Early Going', 'Half Day', 'Absent'] as $tag) {
+            $attendance->process_tags()->create(['name' => $tag]);
+        }
+
+        $user = new User;
+        $user->id = 25;
+        $user->setRelation('category', $category);
+        $user->setRelation('late_coming_rule', new LateComingRule);
+        $user->setRelation('early_going_rule', new EarlyGoingRule);
+        $user->setRelation('half_day_rule', new HalfDayRule);
+        $user->setRelation('absent_rule', new AbsentRule);
+        $log = new AttendanceLog;
+        $log->datetime = Carbon::parse('2026-10-25 10:00:00');
+        $log->setRelation('user', $user);
+        $calculator = new AttCalculator($log);
+        $calculator->curatt = $attendance;
+
+        $calculator->checkLateComingRule();
+        $calculator->checkEarlyGoingRule();
+        $calculator->checkHalfDayRule();
+        $calculator->checkAbsentRule();
+
+        $attendance->refresh();
+        $this->assertFalse((bool) $attendance->is_late);
+        $this->assertFalse((bool) $attendance->is_early);
+        $this->assertFalse((bool) $attendance->is_half_day);
+        $this->assertFalse((bool) $attendance->is_absent);
+        $this->assertSame($presentStatusId, $attendance->status_master_id);
+        $this->assertSame(
+            $presentStatusId,
+            DB::table('status_musters')->where('user_id', 25)->value('status_master_id'),
+        );
+        $this->assertSame(1.0, (float) DB::table('status_musters')->where('user_id', 25)->value('day_count'));
+        $this->assertSame(0, $attendance->process_tags()->count());
+    }
+
+    public function test_double_punch_runs_timing_rules_unless_category_bypasses_them(): void
+    {
+        Schema::create('status_masters', function (Blueprint $table): void {
+            $table->id();
+            $table->string('code');
+        });
+        Schema::create('status_musters', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('date');
+            $table->unsignedBigInteger('status_master_id')->nullable();
+            $table->decimal('day_count', 5, 2)->default(0);
+            $table->boolean('is_locked')->default(false);
+        });
+        Schema::create('week_off_musters', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('date');
+            $table->unsignedTinyInteger('wo_type');
+            $table->boolean('is_locked')->default(false);
+        });
+        Schema::create('process_tags', function (Blueprint $table): void {
+            $table->id();
+            $table->morphs('taggable');
+            $table->string('name');
+            $table->string('color')->nullable();
+            $table->string('icon')->nullable();
+            $table->timestamps();
+        });
+        DB::table('status_masters')->insert(['code' => 'PP']);
+        DB::table('status_musters')->insert([
+            'user_id' => 25,
+            'date' => '2026-10-25',
+            'day_count' => 1,
+            'is_locked' => false,
+        ]);
+
+        $category = $this->category(['single_punch_allowed_present' => true]);
+        $attendance = $this->attendance([
+            'in_time' => Carbon::parse('2026-10-25 10:00:00'),
+            'out_time' => Carbon::parse('2026-10-25 18:00:00'),
+        ]);
+        $calculator = $this->calculator($category, $attendance);
+        $calculator->log->user->setRelation('late_coming_rule', new LateComingRule([
+            'status' => 1,
+            'ignore_late_coming_minutes' => 0,
+        ]));
+
+        $calculator->checkLateComingRule();
+        $this->assertTrue((bool) $attendance->fresh()->is_late);
+
+        $bypassCategory = $this->category([
+            'single_punch_allowed_present' => true,
+            'bypass_timing_rule' => true,
+        ]);
+        $bypassAttendance = $this->attendance([
+            'date' => '2026-10-26',
+            'shift_in_time' => Carbon::parse('2026-10-26 09:00:00'),
+            'shift_out_time' => Carbon::parse('2026-10-26 17:00:00'),
+            'in_time' => Carbon::parse('2026-10-26 10:00:00'),
+            'out_time' => Carbon::parse('2026-10-26 18:00:00'),
+        ]);
+        $bypassCalculator = $this->calculator($bypassCategory, $bypassAttendance);
+        $bypassCalculator->log->user->setRelation('late_coming_rule', new LateComingRule([
+            'status' => 1,
+            'ignore_late_coming_minutes' => 0,
+        ]));
+
+        $bypassCalculator->checkLateComingRule();
+        $this->assertFalse((bool) $bypassAttendance->fresh()->is_late);
     }
 
     public function test_halfday_rule_cycle_counts_only_events_after_the_last_halfday(): void

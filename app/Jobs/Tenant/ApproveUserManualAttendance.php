@@ -70,21 +70,16 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
             $this->retriveAssignedShift();
             $this->createAttendance();
             $this->assignStatus();
-            // if ($this->user->late_coming_rule_id != null) {
-            $this->checkLateComingRule();
-            // }
-            // if ($this->user->early_going_rule_id != null) {
-            $this->checkEarlyGoingRule();
-            // }
-            // if ($this->user->overtime_rule_id != null) {
+            if (
+                ! $this->applySinglePunchPresentStatus()
+                && ! $this->user->category?->bypass_timing_rule
+            ) {
+                $this->checkLateComingRule();
+                $this->checkEarlyGoingRule();
+                $this->checkHalfDayRule();
+                $this->checkAbsentRule();
+            }
             $this->checkOverTimeRule();
-            // }
-            // if ($this->user->half_day_rule_id != null) {
-            $this->checkHalfDayRule();
-            // }
-            // if ($this->user->absent_rule_id != null) {
-            $this->checkAbsentRule();
-            // }
         }
     }
 
@@ -183,6 +178,48 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
     private function isFlexibleShift(): bool
     {
         return (bool) ($this->curatt?->shift?->is_flaxible ?? $this->shift?->is_flaxible ?? false);
+    }
+
+    private function applySinglePunchPresentStatus(): bool
+    {
+        if (
+            ! $this->user->category?->single_punch_allowed_present
+            || $this->curatt?->in_time === null
+            || $this->curatt->out_time !== null
+        ) {
+            return false;
+        }
+
+        $statusMaster = StatusMaster::where('code', 'PP')->firstOrFail();
+        $this->curatt->is_late = false;
+        $this->curatt->is_early = false;
+        $this->curatt->is_half_day = false;
+        $this->curatt->is_absent = false;
+        $this->curatt->status_master_id = $statusMaster->id;
+        $this->curatt->save();
+
+        StatusMuster::where('user_id', $this->user->id)
+            ->where('is_locked', false)
+            ->whereDate('date', $this->manualAttendance->in_time->toDateString())
+            ->update([
+                'status_master_id' => $statusMaster->id,
+                'day_count' => 1,
+            ]);
+
+        $this->curatt->process_tags()
+            ->whereIn('name', [
+                'Late Coming',
+                'Early Going',
+                'Half Day | Is First Half',
+                'Half Day | Is Second Half',
+                'Half Day',
+                'Absent',
+            ])
+            ->delete();
+
+        $this->debug('Single punch is treated as present; timing rules were skipped');
+
+        return true;
     }
 
     private function assignedOrganizationId(string $field): ?int
@@ -1938,6 +1975,9 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
         $this->curatt->row_overtime_minutes = 0;
         $this->curatt->total_overtime_minutes = 0;
         $this->otFlag = false;
+        if ($this->user->category?->need_approval_for_overtime === false) {
+            $this->curatt->approved_overtime_minutes = 0;
+        }
         if ($this->isFlexibleShift()) {
             $this->curatt->is_over_time = false;
             $this->curatt->save();
@@ -2106,6 +2146,9 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
                     $this->curatt->status_master_id = StatusMaster::where('code', 'PPO')->first()->id;
                     $this->curatt->is_over_time = true;
                     $this->curatt->total_overtime_minutes = (int) $totalDiff;
+                    if ($this->user->category?->need_approval_for_overtime === false) {
+                        $this->curatt->approved_overtime_minutes = (int) $totalDiff;
+                    }
                     $this->curatt->save();
 
                     StatusMuster::where('user_id', $this->manualAttendance->user->id)
@@ -2203,6 +2246,9 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
         $this->curatt->status_master_id = StatusMaster::where('code', 'PPO')->first()->id;
         $this->curatt->is_over_time = true;
         $this->curatt->total_overtime_minutes = $overtimeMinutes;
+        if ($this->user->category?->need_approval_for_overtime === false) {
+            $this->curatt->approved_overtime_minutes = $overtimeMinutes;
+        }
         $this->curatt->save();
 
         StatusMuster::where('user_id', $this->user->id)
@@ -2223,6 +2269,9 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
         $this->debug('User  not get overtime | not have any overtime slab for user overtime hour');
         $this->curatt->is_over_time = false;
         $this->curatt->total_overtime_minutes = $totalMinutes;
+        if ($this->user->category?->need_approval_for_overtime === false) {
+            $this->curatt->approved_overtime_minutes = 0;
+        }
         $this->curatt->status_master_id = $this->curatt->status_master_id;
         $this->curatt->save();
 

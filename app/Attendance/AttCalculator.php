@@ -53,6 +53,8 @@ class AttCalculator
 
     protected ?string $punchAttendanceDate = null;
 
+    private bool $assignedShiftOverridesPunchCutoff = false;
+
     private ?int $weekOffType = null;
 
     public $f_years = null;
@@ -567,6 +569,12 @@ class AttCalculator
     private function setPunchAttendanceDateFromCutoff(): void
     {
         if ($this->log->user === null || $this->log->datetime === null || $this->prv_log === null) {
+            return;
+        }
+
+        if (! $this->log->is_out) {
+            $this->debug('Keeping In punch on its own date instead of reusing the previous attendance cutoff window');
+
             return;
         }
 
@@ -1089,6 +1097,7 @@ class AttCalculator
                         ]);
                 } elseif ($this->curatt->in_time == null && $this->curatt->out_time) {
                     $this->debug('User in time null and out time get');
+                    $this->debug('Resolving attendance status AP for an Out punch without an In punch');
                     $this->curatt->status_master_id = StatusMaster::where('code', 'AP')->first()->id;
                     $this->curatt->save();
 
@@ -1099,6 +1108,7 @@ class AttCalculator
                             'status_master_id' => StatusMaster::where('code', 'AP')->first()->id,
                             'day_count' => 0.5,
                         ]);
+                    $this->debug('Resolved attendance status AP for an Out punch without an In punch');
                 } elseif ($this->curatt->in_time && $this->curatt->out_time) {
                     $this->debug('User in time get and out time get');
                     $statusMaster = StatusMaster::where('code', $this->presentStatusCode())->firstOrFail();
@@ -1410,6 +1420,12 @@ class AttCalculator
                 return;
             }
 
+            if ($this->assignedShiftOverridesPunchCutoff) {
+                $this->debug('Keeping Out punch on its assigned shift date instead of reusing the previous cutoff attendance');
+
+                return;
+            }
+
             // Get previous day's attendance
             $prev_att = $this->queryPrvAttendance($this->f_years);
 
@@ -1510,6 +1526,12 @@ class AttCalculator
     public function retriveAssignedShift(): void
     {
         $this->debug('~~~Retriving assigned shift');
+        if ($this->punchAttendanceDate !== null && $this->curatt === null) {
+            $this->attendance_date = $this->log->datetime->format('Y-m-d');
+            $this->attendance_changed = false;
+            $this->f_years = $this->log->datetime->year;
+        }
+
         $this->shift = null;
         $shiftMusters = ShiftMuster::where('user_id', $this->log->user->id)
             ->where('is_locked', false)
@@ -1577,6 +1599,35 @@ class AttCalculator
             // $processTags->where('name', 'Default Shift Assign')->delete();
             // $processTags->create(['name' => 'Default Shift Assign', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
         }
+
+        $this->reconcilePunchCutoffWithAssignedShift();
+    }
+
+    private function reconcilePunchCutoffWithAssignedShift(): void
+    {
+        if ($this->punchAttendanceDate === null || $this->shift === null || $this->curatt !== null) {
+            return;
+        }
+
+        $cutoffDate = $this->punchAttendanceDate;
+        $cutoffYear = Carbon::parse($cutoffDate)->year;
+        $cutoffAttendance = Attendance::year($cutoffYear)
+            ->where('user_id', $this->log->user->id)
+            ->where('date', $cutoffDate)
+            ->where('is_locked', false)
+            ->first();
+
+        if (
+            $this->attendance_date === $cutoffDate
+            && $cutoffAttendance?->shift_id === $this->shift->id
+        ) {
+            return;
+        }
+
+        $this->debug('Assigned shift takes precedence over the previous shift cutoff window');
+        $this->assignedShiftOverridesPunchCutoff = true;
+        $this->punchAttendanceDate = null;
+        $this->f_years = Carbon::parse($this->attendance_date)->year;
     }
 
     public function resetCalculatedShiftMuster(): void
@@ -1599,6 +1650,10 @@ class AttCalculator
         if ($this->curatt === null || $this->log->user === null || $this->log->datetime === null) {
             $this->debug('Skipping half-day check because attendance, user, or log date is missing');
 
+            return;
+        }
+
+        if ($this->applySinglePunchPresentStatus()) {
             return;
         }
 
@@ -2385,6 +2440,10 @@ class AttCalculator
 
     public function checkAbsentRule(): void
     {
+        if ($this->curatt !== null && $this->applySinglePunchPresentStatus()) {
+            return;
+        }
+
         if ($this->curatt !== null && $this->shouldBypassTimingRules()) {
             $this->debug('Skipping absent rules because the category bypasses timing rules');
 
@@ -2829,6 +2888,10 @@ class AttCalculator
             return;
         }
 
+        if ($this->applySinglePunchPresentStatus()) {
+            return;
+        }
+
         if ($this->clearHalfWeekOffTimingFlag('early')) {
             return;
         }
@@ -2961,6 +3024,10 @@ class AttCalculator
             return;
         }
 
+        if ($this->applySinglePunchPresentStatus()) {
+            return;
+        }
+
         if ($this->clearHalfWeekOffTimingFlag('late')) {
             return;
         }
@@ -3079,6 +3146,9 @@ class AttCalculator
         $user = $this->log->user;
         $overtimeRule = $user?->overtime_rule;
         $category = $user?->category;
+        if ($category?->need_approval_for_overtime === false) {
+            $this->curatt->approved_overtime_minutes = 0;
+        }
 
         if ($category?->fix_work_hours) {
             $this->debug('Skipping overtime because fix work hours is enabled');
@@ -3268,6 +3338,9 @@ class AttCalculator
         $this->curatt->status_master_id = $overtimeStatus->id;
         $this->curatt->is_over_time = true;
         $this->curatt->total_overtime_minutes = $totalMinutes;
+        if ($this->log->user?->category?->need_approval_for_overtime === false) {
+            $this->curatt->approved_overtime_minutes = $totalMinutes;
+        }
         $this->curatt->save();
 
         StatusMuster::where('user_id', $this->log->user->id)
@@ -3288,6 +3361,9 @@ class AttCalculator
         $this->debug('User does not qualify for overtime');
         $this->curatt->is_over_time = false;
         $this->curatt->total_overtime_minutes = $totalMinutes;
+        if ($this->log->user?->category?->need_approval_for_overtime === false) {
+            $this->curatt->approved_overtime_minutes = 0;
+        }
         $this->curatt->save();
 
         $processTags = $this->curatt->process_tags();
@@ -3359,6 +3435,51 @@ class AttCalculator
     private function shouldBypassTimingRules(): bool
     {
         return (bool) ($this->log->user?->category?->bypass_timing_rule ?? false);
+    }
+
+    private function applySinglePunchPresentStatus(): bool
+    {
+        if (
+            ! $this->log->user?->category?->single_punch_allowed_present
+            || $this->curatt->in_time === null
+            || $this->curatt->out_time !== null
+        ) {
+            return false;
+        }
+
+        $statusCode = $this->presentStatusCode();
+        $statusMaster = StatusMaster::where('code', $statusCode)->firstOrFail();
+        $date = $this->curatt->date?->toDateString() ?? $this->log->datetime->toDateString();
+
+        $this->curatt->is_late = false;
+        $this->curatt->is_early = false;
+        $this->curatt->is_half_day = false;
+        $this->curatt->is_absent = false;
+        $this->curatt->status_master_id = $statusMaster->id;
+        $this->curatt->save();
+
+        StatusMuster::where('user_id', $this->log->user->id)
+            ->where('is_locked', false)
+            ->whereDate('date', $date)
+            ->update([
+                'status_master_id' => $statusMaster->id,
+                'day_count' => 1,
+            ]);
+
+        $this->curatt->process_tags()
+            ->whereIn('name', [
+                'Late Coming',
+                'Early Going',
+                'Half Day | Is First Half',
+                'Half Day | Is Second Half',
+                'Half Day',
+                'Absent',
+            ])
+            ->delete();
+
+        $this->debug('Single punch is treated as present; timing rules were skipped');
+
+        return true;
     }
 
     /**

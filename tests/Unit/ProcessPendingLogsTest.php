@@ -9,6 +9,7 @@ use App\Jobs\Tenant\ProcessPendingLogs;
 use App\Models\Tenant\AbsentRule;
 use App\Models\Tenant\Attendance;
 use App\Models\Tenant\AttendanceLog;
+use App\Models\Tenant\Category;
 use App\Models\Tenant\GeneralConfiguration;
 use App\Models\Tenant\HalfDayRule;
 use App\Models\Tenant\InOutMuster;
@@ -470,6 +471,29 @@ class ProcessPendingLogsTest extends TestCase
         $this->assertTrue((bool) $lockedMuster->is_calculated);
     }
 
+    public function test_in_punch_after_a_shift_cutoff_stays_on_its_own_attendance_date(): void
+    {
+        $log = new AttendanceLog;
+        $log->setAttribute('datetime', Carbon::parse('2026-11-04 09:00:00'));
+        $log->setAttribute('is_out', false);
+        $user = new User;
+        $user->setAttribute('id', 7);
+        $log->setRelation('user', $user);
+
+        $calculator = new AttCalculator($log, true);
+        $previousLog = new AttendanceLog;
+        $previousLog->setAttribute('id', 14);
+        $previousLog->setAttribute('datetime', Carbon::parse('2026-11-03 22:05:00'));
+        (new \ReflectionProperty(AttCalculator::class, 'prv_log'))->setValue($calculator, $previousLog);
+
+        (new \ReflectionMethod(AttCalculator::class, 'setPunchAttendanceDateFromCutoff'))->invoke($calculator);
+
+        $this->assertStringContainsString(
+            'Keeping In punch on its own date',
+            implode(PHP_EOL, $calculator->getReturnLogs()),
+        );
+    }
+
     public function test_attendance_persists_late_early_and_overtime_minutes(): void
     {
         DB::table('users')->insert(['id' => 7]);
@@ -572,6 +596,39 @@ class ProcessPendingLogsTest extends TestCase
         $this->assertSame(0, $savedAttendance->row_overtime_minutes);
         $this->assertSame(75, $savedAttendance->total_overtime_minutes);
         $this->assertSame(0, $savedAttendance->approved_overtime_minutes);
+    }
+
+    public function test_marking_overtime_auto_approves_it_when_category_does_not_require_approval(): void
+    {
+        DB::table('users')->insert(['id' => 7]);
+        StatusMaster::create([
+            'code' => 'PPO',
+            'alias' => 'Present + Overtime',
+            'description' => 'Present with overtime',
+        ]);
+        $attendance = Attendance::year(2026);
+        $attendance->user_id = 7;
+        $attendance->date = '2026-01-01';
+        Schema::disableForeignKeyConstraints();
+        $attendance->save();
+        Schema::enableForeignKeyConstraints();
+
+        $user = new User;
+        $user->setAttribute('id', 7);
+        $category = new Category;
+        $category->need_approval_for_overtime = false;
+        $user->setRelation('category', $category);
+        $log = new AttendanceLog;
+        $log->setAttribute('datetime', Carbon::parse('2026-01-01 18:00:00'));
+        $log->setRelation('user', $user);
+        $calculator = new AttCalculator($log);
+        (new \ReflectionProperty(AttCalculator::class, 'curatt'))->setValue($calculator, $attendance);
+
+        (new \ReflectionMethod(AttCalculator::class, 'markOvertime'))->invoke($calculator, 75);
+
+        $savedAttendance = $attendance->fresh();
+        $this->assertSame(75, $savedAttendance->total_overtime_minutes);
+        $this->assertSame(75, $savedAttendance->approved_overtime_minutes);
     }
 
     public function test_attendance_duration_migration_upgrades_existing_year_tables(): void
@@ -757,6 +814,51 @@ class ProcessPendingLogsTest extends TestCase
 
         $this->assertTrue($automaticLog->is_out);
         $this->assertSame('2026-01-01', $automaticCalculator->attendance_date);
+    }
+
+    public function test_assigned_shift_on_punch_date_takes_precedence_over_previous_shift_cutoff(): void
+    {
+        $shift = Shift::create([
+            'in_time' => '09:00:00',
+            'out_time' => '21:00:00',
+            'set_cutoff' => true,
+            'cutoff_time' => '18:00:00',
+            'is_night_shift' => false,
+        ]);
+        DB::table('shift_musters')->insert([
+            'user_id' => 8,
+            'date' => '2026-11-05',
+            'is_locked' => false,
+            'is_auto' => false,
+            'shift' => json_encode([$shift->id]),
+        ]);
+        DB::table('users')->insert(['id' => 8]);
+
+        $calculator = $this->calculatorWithPreviousPunch(
+            '2026-11-04 22:05:00',
+            false,
+            '2026-11-05 09:00:00',
+            8,
+        );
+        $log = $this->getCalculatorLog($calculator);
+        $log->setAttribute('is_manual', true);
+        $log->setAttribute('is_out', true);
+        $this->createPreviousAttendanceForPunch($calculator, $shift, '2026-11-04', 8);
+
+        $calculator->setFyears();
+        $calculator->checkInOrOut();
+        $calculator->retriveAssignedShift();
+
+        $this->assertNull((new \ReflectionProperty(AttCalculator::class, 'punchAttendanceDate'))->getValue($calculator));
+        $this->assertSame('2026-11-05', $calculator->attendance_date);
+        $this->assertSame($shift->id, $calculator->shift->id);
+
+        $currentAttendance = new Attendance;
+        $currentAttendance->setAttribute('date', Carbon::parse('2026-11-05'));
+        $calculator->curatt = $currentAttendance;
+        $calculator->handleCutoffTime();
+
+        $this->assertSame($currentAttendance, $calculator->curatt);
     }
 
     public function test_cutoff_is_not_applied_when_the_previous_attendance_cutoff_has_expired(): void

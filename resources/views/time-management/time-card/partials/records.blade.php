@@ -25,6 +25,19 @@
                 </thead>
                 <tbody>
                     @forelse ($attendanceRecords as $attendance)
+                        @php
+                            $needsOvertimeApproval = $attendance->user?->category?->need_approval_for_overtime;
+                            $rawOvertimeMinutes = (int) ($attendance->total_overtime_minutes > 0
+                                ? $attendance->total_overtime_minutes
+                                : $attendance->row_overtime_minutes);
+                            $displayOvertimeMinutes = $rawOvertimeMinutes;
+                            $displayApprovedOvertimeMinutes = (int) $attendance->approved_overtime_minutes;
+                            if ($needsOvertimeApproval === false) {
+                                $displayApprovedOvertimeMinutes = $attendance->is_over_time
+                                    ? $rawOvertimeMinutes
+                                    : 0;
+                            }
+                        @endphp
                         <tr>
                             <td>#{{ $attendance->id }}</td>
                             <td>
@@ -71,21 +84,19 @@
                                 @endif
                             </td>
                             <td>
-                                @if ($attendance->is_over_time || $attendance->total_overtime_minutes > 0 || $attendance->row_overtime_minutes > 0)
+                                @if ($attendance->is_over_time || $displayOvertimeMinutes > 0)
                                     <span class="badge bg-primary">Yes</span>
-                                    @if ($attendance->total_overtime_minutes > 0)
-                                        <small class="d-block text-muted">{{ intdiv($attendance->total_overtime_minutes, 60) }}h {{ $attendance->total_overtime_minutes % 60 }}m</small>
-                                    @elseif ($attendance->row_overtime_minutes > 0)
-                                        <small class="d-block text-muted">{{ intdiv($attendance->row_overtime_minutes, 60) }}h {{ $attendance->row_overtime_minutes % 60 }}m</small>
+                                    @if ($displayOvertimeMinutes > 0)
+                                        <small class="d-block text-muted">{{ intdiv($displayOvertimeMinutes, 60) }}h {{ $displayOvertimeMinutes % 60 }}m</small>
                                     @endif
                                 @else
                                     <span class="text-muted">No</span>
                                 @endif
                             </td>
                             <td>
-                                @if ($attendance->approved_overtime_minutes > 0)
+                                @if ($displayApprovedOvertimeMinutes > 0)
                                     <span class="badge bg-primary">Yes</span>
-                                    <small class="d-block text-muted">{{ intdiv($attendance->approved_overtime_minutes, 60) }}h {{ $attendance->approved_overtime_minutes % 60 }}m</small>
+                                    <small class="d-block text-muted">{{ intdiv($displayApprovedOvertimeMinutes, 60) }}h {{ $displayApprovedOvertimeMinutes % 60 }}m</small>
                                 @else
                                     <span class="text-muted">No</span>
                                 @endif
@@ -119,10 +130,10 @@
                                     } elseif ($attendance->is_early) {
                                         $statusLabel = 'Early';
                                         $statusClass = 'bg-info';
-                                    } elseif ($attendance->approved_overtime_minutes > 0) {
+                                    } elseif ($displayApprovedOvertimeMinutes > 0) {
                                         $statusLabel = 'Approved Overtime';
                                         $statusClass = 'bg-primary';
-                                    } elseif ($attendance->is_over_time || $attendance->total_overtime_minutes > 0 || $attendance->row_overtime_minutes > 0) {
+                                    } elseif ($attendance->is_over_time || $displayOvertimeMinutes > 0) {
                                         $statusLabel = 'Overtime';
                                         $statusClass = 'bg-primary';
                                     }
