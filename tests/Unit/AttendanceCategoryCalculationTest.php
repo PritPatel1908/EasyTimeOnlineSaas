@@ -894,6 +894,7 @@ class AttendanceCategoryCalculationTest extends TestCase
             $table->unsignedBigInteger('status_master_id')->nullable();
             $table->decimal('day_count', 5, 2)->default(0);
             $table->boolean('is_locked')->default(false);
+            $table->timestamps();
         });
         Schema::create('week_off_musters', function (Blueprint $table): void {
             $table->id();
@@ -960,6 +961,95 @@ class AttendanceCategoryCalculationTest extends TestCase
         );
         $this->assertSame(1.0, (float) DB::table('status_musters')->where('user_id', 25)->value('day_count'));
         $this->assertSame(0, $attendance->process_tags()->count());
+    }
+
+    public function test_category_single_punch_half_day_sets_half_day_status_and_muster_count(): void
+    {
+        Schema::create('status_masters', function (Blueprint $table): void {
+            $table->id();
+            $table->string('code');
+        });
+        Schema::create('status_musters', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('date');
+            $table->unsignedBigInteger('status_master_id')->nullable();
+            $table->decimal('day_count', 5, 2)->default(0);
+            $table->boolean('is_locked')->default(false);
+            $table->timestamps();
+        });
+        Schema::create('week_off_musters', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('date');
+            $table->unsignedTinyInteger('wo_type');
+            $table->boolean('is_locked')->default(false);
+        });
+        Schema::create('process_tags', function (Blueprint $table): void {
+            $table->id();
+            $table->morphs('taggable');
+            $table->string('name');
+            $table->string('color')->nullable();
+            $table->string('icon')->nullable();
+            $table->timestamps();
+        });
+        $halfDayStatusId = DB::table('status_masters')->insertGetId(['code' => 'PA']);
+        DB::table('status_masters')->insert(['code' => 'PP']);
+        DB::table('status_musters')->insert([
+            'user_id' => 25,
+            'date' => '2026-10-25',
+            'day_count' => 1,
+            'is_locked' => false,
+        ]);
+
+        $category = $this->category(['single_punch_allowed_half_day' => true]);
+        $attendance = $this->attendance([
+            'in_time' => Carbon::parse('2026-10-25 10:00:00'),
+            'is_absent' => true,
+        ]);
+        $attendance->process_tags()->create(['name' => 'Absent']);
+        $calculator = $this->calculator($category, $attendance);
+
+        $calculator->checkHalfDayRule();
+        $calculator->checkAbsentRule();
+
+        $attendance->refresh();
+        $this->assertTrue((bool) $attendance->is_half_day);
+        $this->assertFalse((bool) $attendance->is_absent);
+        $this->assertSame($halfDayStatusId, $attendance->status_master_id);
+        $this->assertSame(
+            $halfDayStatusId,
+            DB::table('status_musters')->where('user_id', 25)->value('status_master_id'),
+        );
+        $this->assertSame(0.5, (float) DB::table('status_musters')->where('user_id', 25)->value('day_count'));
+        $this->assertSame(['Half Day'], $attendance->process_tags()->pluck('name')->all());
+    }
+
+    public function test_category_disallowing_single_punch_half_day_skips_half_day_and_absent_rules(): void
+    {
+        $category = $this->category(['single_punch_allowed_half_day' => false]);
+        $attendance = $this->attendance([
+            'in_time' => Carbon::parse('2026-10-25 10:00:00'),
+            'is_half_day' => false,
+            'is_absent' => false,
+        ]);
+        $user = new User;
+        $user->id = 25;
+        $user->setRelation('category', $category);
+        $user->setRelation('half_day_rule', new HalfDayRule(['status' => 1]));
+        $user->setRelation('absent_rule', new AbsentRule(['status' => 1]));
+        $log = new AttendanceLog;
+        $log->datetime = Carbon::parse('2026-10-25 10:00:00');
+        $log->setRelation('user', $user);
+        $calculator = new AttCalculator($log);
+        $calculator->curatt = $attendance;
+
+        $calculator->checkHalfDayRule();
+        $calculator->checkAbsentRule();
+
+        $attendance->refresh();
+        $this->assertFalse((bool) $attendance->is_half_day);
+        $this->assertFalse((bool) $attendance->is_absent);
     }
 
     public function test_double_punch_runs_timing_rules_unless_category_bypasses_them(): void

@@ -2444,6 +2444,12 @@ class AttCalculator
             return;
         }
 
+        if ($this->curatt !== null && $this->hasSinglePunch()) {
+            $this->debug('Skipping absent rules because attendance has only one punch');
+
+            return;
+        }
+
         if ($this->curatt !== null && $this->shouldBypassTimingRules()) {
             $this->debug('Skipping absent rules because the category bypasses timing rules');
 
@@ -2491,6 +2497,16 @@ class AttCalculator
 
                 $punchInTime = $this->curatt->in_time ? Carbon::parse($this->curatt->in_time) : null;
                 $punchOutTime = $this->curatt->out_time ? Carbon::parse($this->curatt->out_time) : null;
+                if (
+                    $punchInTime !== null
+                    && $punchOutTime !== null
+                    && (int) $this->curatt->work_time <= 0
+                ) {
+                    $this->debug('Skipping absent rules because recorded work time is not greater than zero');
+
+                    return;
+                }
+
                 $shiftInTime = $this->curatt->shift_in_time ? Carbon::parse($this->curatt->shift_in_time) : null;
                 $shiftOutTime = $this->curatt->shift_out_time ? Carbon::parse($this->curatt->shift_out_time) : null;
 
@@ -2888,7 +2904,7 @@ class AttCalculator
             return;
         }
 
-        if ($this->applySinglePunchPresentStatus()) {
+        if ($this->applySinglePunchPresentStatus(checkTimingRules: true)) {
             return;
         }
 
@@ -2992,19 +3008,23 @@ class AttCalculator
         $wasEarly = (bool) $this->curatt->is_early;
 
         if ($isEarly || $wasEarly || $forceStatusUpdate) {
-            $statusMaster = StatusMaster::where('code', $statusCode)->firstOrFail();
             $this->curatt->is_early = $isEarly;
-            $this->curatt->status_master_id = $statusMaster->id;
-            $this->curatt->save();
+            if (! $this->curatt->is_half_day) {
+                $statusMaster = StatusMaster::where('code', $statusCode)->firstOrFail();
+                $this->curatt->status_master_id = $statusMaster->id;
+                $this->curatt->save();
 
-            if ($updateStatusMuster) {
-                StatusMuster::where('user_id', $this->log->user->id)
-                    ->where('is_locked', false)
-                    ->where('date', $this->log->datetime->format('Y-m-d'))
-                    ->update([
-                        'status_master_id' => $statusMaster->id,
-                        'day_count' => 1,
-                    ]);
+                if ($updateStatusMuster) {
+                    StatusMuster::where('user_id', $this->log->user->id)
+                        ->where('is_locked', false)
+                        ->where('date', $this->log->datetime->format('Y-m-d'))
+                        ->update([
+                            'status_master_id' => $statusMaster->id,
+                            'day_count' => 1,
+                        ]);
+                }
+            } else {
+                $this->curatt->save();
             }
         }
 
@@ -3024,7 +3044,7 @@ class AttCalculator
             return;
         }
 
-        if ($this->applySinglePunchPresentStatus()) {
+        if ($this->applySinglePunchPresentStatus(checkTimingRules: true)) {
             return;
         }
 
@@ -3109,7 +3129,7 @@ class AttCalculator
         $statusCode ??= $this->presentStatusCode();
         $this->curatt->is_late = $isLate;
 
-        if ($isLate) {
+        if ($isLate && ! $this->curatt->is_half_day) {
             $statusMaster = StatusMaster::where('code', $statusCode)->first();
             if ($statusMaster === null) {
                 $this->debug('Cannot set late-coming status because status '.$statusCode.' was not found');
@@ -3437,20 +3457,43 @@ class AttCalculator
         return (bool) ($this->log->user?->category?->bypass_timing_rule ?? false);
     }
 
-    private function applySinglePunchPresentStatus(): bool
+    private function applySinglePunchPresentStatus(bool $checkTimingRules = false): bool
     {
-        if (
-            ! $this->log->user?->category?->single_punch_allowed_present
-            || $this->curatt->in_time === null
-            || $this->curatt->out_time !== null
-        ) {
+        if (! $this->hasSinglePunch()) {
             return false;
         }
 
+        $category = $this->log->user?->category;
+
+        if ($category?->single_punch_allowed_half_day) {
+            $this->curatt->process_tags()
+                ->whereIn('name', [
+                    'Half Day | Is First Half',
+                    'Half Day | Is Second Half',
+                    'Half Day',
+                    'Absent',
+                ])
+                ->delete();
+
+            $this->applyHalfDayResult('PA', 'Half Day');
+            $this->debug('Single punch is treated as half day');
+
+            return ! $checkTimingRules;
+        }
+
+        if (! $category?->single_punch_allowed_present) {
+            if ($category?->single_punch_allowed_half_day !== false) {
+                return false;
+            }
+
+            $this->debug('Skipping half-day and absent rules because attendance has only one punch');
+
+            return ! $checkTimingRules;
+        }
+
+        $date = $this->curatt->date?->toDateString() ?? $this->log->datetime->toDateString();
         $statusCode = $this->presentStatusCode();
         $statusMaster = StatusMaster::where('code', $statusCode)->firstOrFail();
-        $date = $this->curatt->date?->toDateString() ?? $this->log->datetime->toDateString();
-
         $this->curatt->is_late = false;
         $this->curatt->is_early = false;
         $this->curatt->is_half_day = false;
@@ -3480,6 +3523,11 @@ class AttCalculator
         $this->debug('Single punch is treated as present; timing rules were skipped');
 
         return true;
+    }
+
+    private function hasSinglePunch(): bool
+    {
+        return ($this->curatt->in_time !== null) !== ($this->curatt->out_time !== null);
     }
 
     /**

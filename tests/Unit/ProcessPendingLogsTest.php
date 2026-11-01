@@ -10,6 +10,7 @@ use App\Models\Tenant\AbsentRule;
 use App\Models\Tenant\Attendance;
 use App\Models\Tenant\AttendanceLog;
 use App\Models\Tenant\Category;
+use App\Models\Tenant\EarlyGoingRule;
 use App\Models\Tenant\GeneralConfiguration;
 use App\Models\Tenant\HalfDayRule;
 use App\Models\Tenant\InOutMuster;
@@ -110,6 +111,13 @@ class ProcessPendingLogsTest extends TestCase
             $table->boolean('is_locked');
             $table->timestamps();
         });
+        Schema::create('week_off_musters', function ($table): void {
+            $table->id();
+            $table->date('date');
+            $table->unsignedBigInteger('user_id');
+            $table->unsignedTinyInteger('wo_type');
+            $table->boolean('is_locked')->default(false);
+        });
         Schema::create('leave_applications', function ($table): void {
             $table->id();
             $table->unsignedBigInteger('leave_type_id')->nullable();
@@ -178,6 +186,7 @@ class ProcessPendingLogsTest extends TestCase
         Schema::dropIfExists('attendances2025');
         Schema::dropIfExists('attendances2026');
         Schema::dropIfExists('status_musters');
+        Schema::dropIfExists('week_off_musters');
         Schema::dropIfExists('status_masters');
         Schema::dropIfExists('shift_musters');
         Schema::dropIfExists('shifts');
@@ -1580,9 +1589,9 @@ class ProcessPendingLogsTest extends TestCase
         $this->assertTrue($attendance->fresh()->is_absent);
     }
 
-    public function test_absent_rule_allows_single_punch_when_configured(): void
+    public function test_absent_rule_skips_single_punch_even_when_rule_allows_it(): void
     {
-        $statusMaster = StatusMaster::create([
+        StatusMaster::create([
             'code' => 'PP',
             'alias' => 'Present',
             'description' => 'Present',
@@ -1592,7 +1601,132 @@ class ProcessPendingLogsTest extends TestCase
         $calculator->checkAbsentRule();
 
         $this->assertFalse($attendance->fresh()->is_absent);
-        $this->assertSame($statusMaster->id, $attendance->fresh()->status_master_id);
+        $this->assertNull($attendance->fresh()->status_master_id);
+    }
+
+    public function test_absent_rule_requires_positive_work_time_for_two_punches(): void
+    {
+        StatusMaster::create([
+            'code' => 'AA',
+            'alias' => 'Absent',
+            'description' => 'Absent',
+        ]);
+        [$calculator, $attendance] = $this->calculatorWithAbsentRule(
+            ruleAttributes: ['work_hr_less_than_minutes' => 500],
+            punchInTime: '2026-04-15 08:00:00',
+            punchOutTime: '2026-04-15 17:00:00',
+        );
+        $attendance->work_time = 0;
+        $attendance->save();
+
+        $calculator->checkAbsentRule();
+
+        $this->assertFalse($attendance->fresh()->is_absent);
+    }
+
+    public function test_single_punch_half_day_still_checks_late_and_early_rules(): void
+    {
+        $halfDayStatus = StatusMaster::create([
+            'code' => 'PA',
+            'alias' => 'Present + Absent',
+            'description' => 'Half-day present',
+        ]);
+        StatusMaster::create([
+            'code' => 'PP',
+            'alias' => 'Present',
+            'description' => 'Present',
+        ]);
+
+        $category = new Category([
+            'single_punch_allowed_present' => false,
+            'single_punch_allowed_half_day' => true,
+        ]);
+        $scenarios = [
+            [
+                'date' => '2026-10-26',
+                'in_time' => '2026-10-26 10:00:00',
+                'out_time' => null,
+                'is_late' => true,
+                'is_early' => false,
+                'timing_tag' => 'Late Coming',
+            ],
+            [
+                'date' => '2026-10-27',
+                'in_time' => null,
+                'out_time' => '2026-10-27 15:00:00',
+                'is_late' => false,
+                'is_early' => true,
+                'timing_tag' => 'Early Going',
+            ],
+        ];
+
+        foreach ($scenarios as $scenario) {
+            $user = new User;
+            $user->setAttribute('id', 7);
+            $user->setRelation('category', $category);
+
+            $lateRule = new LateComingRule;
+            $lateRule->setAttribute('status', 1);
+            $lateRule->setAttribute('ignore_late_coming_minutes', 0);
+            $user->setRelation('late_coming_rule', $lateRule);
+
+            $earlyRule = new EarlyGoingRule;
+            $earlyRule->setAttribute('status', 1);
+            $earlyRule->setAttribute('ignore_early_going_minutes', 0);
+            $user->setRelation('early_going_rule', $earlyRule);
+
+            $attendance = Attendance::year(2026);
+            $attendance->user_id = 7;
+            $attendance->date = $scenario['date'];
+            $attendance->shift_in_time = $scenario['date'].' 09:00:00';
+            $attendance->shift_out_time = $scenario['date'].' 17:00:00';
+            $attendance->in_time = $scenario['in_time'];
+            $attendance->out_time = $scenario['out_time'];
+            $attendance->work_time = 0;
+            $attendance->is_half_day = false;
+            $attendance->is_late = false;
+            $attendance->is_early = false;
+            $attendance->is_absent = false;
+            $attendance->setRelation('shift', new Shift);
+            Schema::disableForeignKeyConstraints();
+            $attendance->save();
+            Schema::enableForeignKeyConstraints();
+
+            DB::table('status_musters')->insert([
+                'date' => $scenario['date'],
+                'user_id' => 7,
+                'day_count' => 0,
+                'year' => 2026,
+                'is_locked' => false,
+            ]);
+
+            $log = new AttendanceLog;
+            $log->setAttribute('datetime', Carbon::parse($scenario['date'].' 12:00:00'));
+            $log->setRelation('user', $user);
+            $calculator = new AttCalculator($log);
+            (new \ReflectionProperty(AttCalculator::class, 'curatt'))->setValue($calculator, $attendance);
+
+            $calculator->checkLateComingRule();
+            $calculator->checkEarlyGoingRule();
+            $calculator->checkHalfDayRule();
+            $calculator->checkAbsentRule();
+
+            $savedAttendance = $attendance->fresh();
+            $this->assertTrue($savedAttendance->is_half_day);
+            $this->assertSame($scenario['is_late'], $savedAttendance->is_late);
+            $this->assertSame($scenario['is_early'], $savedAttendance->is_early);
+            $this->assertFalse($savedAttendance->is_absent);
+            $this->assertSame($halfDayStatus->id, $savedAttendance->status_master_id);
+            $this->assertDatabaseHas('process_tags', [
+                'taggable_type' => Attendance::class,
+                'taggable_id' => $attendance->id,
+                'name' => $scenario['timing_tag'],
+            ]);
+            $this->assertSame(0.5, (float) DB::table('status_musters')
+                ->where('user_id', 7)
+                ->whereDate('date', $scenario['date'])
+                ->value('day_count'));
+        }
     }
 
     public function test_absent_rule_restores_present_status_when_previous_absence_no_longer_applies(): void
@@ -2239,6 +2373,9 @@ class ProcessPendingLogsTest extends TestCase
         $attendance->out_time = $punchOutTime;
         $attendance->is_absent = false;
         $attendance->is_half_day = false;
+        $attendance->work_time = $punchInTime !== null && $punchOutTime !== null
+            ? Carbon::parse($punchInTime)->diffInMinutes(Carbon::parse($punchOutTime))
+            : 0;
         Schema::disableForeignKeyConstraints();
         $attendance->save();
         Schema::enableForeignKeyConstraints();
