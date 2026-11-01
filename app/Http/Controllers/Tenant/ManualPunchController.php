@@ -45,8 +45,7 @@ class ManualPunchController extends Controller
                 ->with('Users')
                 ->latest('punch_date')
                 ->latest('id')
-                ->paginate(15)
-                ->withQueryString(),
+                ->get(),
         ]);
     }
 

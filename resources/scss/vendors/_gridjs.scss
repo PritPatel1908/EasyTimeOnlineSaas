@@ -369,6 +369,18 @@ td.gridjs-message {
     }
 }
 
+#manual-punches-table + .gridjs-datatable-wrapper {
+    .gridjs-pages {
+        margin-left: auto;
+    }
+
+    @include mixins.respond-below(md) {
+        .gridjs-pages {
+            margin-left: 0;
+        }
+    }
+}
+
 // Dark mode — mirrors _theme.scss's [data-theme="dark"] convention
 [data-theme="dark"] {
     .gridjs-container {

@@ -35,19 +35,13 @@
                 <h5>Manual Punch List</h5>
             </div>
             <div class="card-body p-0"><div class="custom-datatable-filter table-responsive">
-                <table class="table datatable">
+                <table id="manual-punches-table" class="table datatable">
                     <thead class="thead-light"><tr>
                         <th class="no-sort"><div class="form-check form-check-md"><input class="form-check-input datatable-select-all" type="checkbox" id="select-all" aria-label="Select all rows"></div></th><th>Employees</th><th>Punch Type</th><th>Date</th><th>Time</th><th>Reason</th><th></th>
                     </tr></thead>
                     <tbody>@include('time-management.manual-punches.partials.rows', ['punches' => $punches])</tbody>
                 </table>
             </div></div>
-            @if ($punches->hasPages())
-                <div class="card-footer d-flex align-items-center justify-content-between flex-wrap row-gap-2">
-                    <p class="mb-0 text-muted fs-13">Showing {{ $punches->firstItem() }}–{{ $punches->lastItem() }} of {{ $punches->total() }} manual punches</p>
-                    {{ $punches->links() }}
-                </div>
-            @endif
         </div>
     </div>
     @include('partials.footer')

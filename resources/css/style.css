@@ -25280,6 +25280,15 @@ td.gridjs-message {
   content: "\ea61";
 }
 
+#manual-punches-table + .gridjs-datatable-wrapper .gridjs-pages {
+  margin-left: auto;
+}
+@media (max-width: 767.98px) {
+  #manual-punches-table + .gridjs-datatable-wrapper .gridjs-pages {
+    margin-left: 0;
+  }
+}
+
 [data-theme=dark] .gridjs-container {
   color: #D8DFEE;
 }
