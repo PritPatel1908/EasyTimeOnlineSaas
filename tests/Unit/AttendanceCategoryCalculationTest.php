@@ -549,7 +549,7 @@ class AttendanceCategoryCalculationTest extends TestCase
         );
     }
 
-    public function test_half_day_week_off_uses_present_half_and_counts_only_week_off_half_as_overtime(): void
+    public function test_half_day_week_off_removes_half_day_flag_when_present_in_working_half(): void
     {
         Schema::create('status_masters', function (Blueprint $table): void {
             $table->id();
@@ -561,6 +561,15 @@ class AttendanceCategoryCalculationTest extends TestCase
             $table->date('date');
             $table->boolean('is_locked')->default(false);
             $table->unsignedTinyInteger('wo_type');
+        });
+        Schema::create('status_musters', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('date');
+            $table->boolean('is_locked')->default(false);
+            $table->unsignedBigInteger('status_master_id')->nullable();
+            $table->decimal('day_count', 5, 2)->default(0);
+            $table->timestamps();
         });
         Schema::create('process_tags', function (Blueprint $table): void {
             $table->id();
@@ -581,6 +590,12 @@ class AttendanceCategoryCalculationTest extends TestCase
             'is_locked' => false,
             'wo_type' => 3,
         ]);
+        DB::table('status_musters')->insert([
+            'user_id' => 25,
+            'date' => '2026-10-25',
+            'is_locked' => false,
+            'day_count' => 0,
+        ]);
 
         $category = $this->category(['regular_ot_on_wo' => true]);
         $attendance = $this->attendance([
@@ -594,6 +609,10 @@ class AttendanceCategoryCalculationTest extends TestCase
         $shift->setAttribute('first_half_end_time', '12:00:00');
         $shift->setAttribute('second_half_start_time', '13:00:00');
         $attendance->setRelation('shift', $shift);
+        $attendance->process_tags()->create([
+            'name' => 'Half Day',
+            'color' => 'danger',
+        ]);
 
         $user = new User;
         $user->id = 25;
@@ -615,13 +634,18 @@ class AttendanceCategoryCalculationTest extends TestCase
 
         $attendance->refresh();
         $this->assertTrue((bool) $attendance->is_weekoff);
-        $this->assertTrue((bool) $attendance->is_half_day);
+        $this->assertFalse((bool) $attendance->is_half_day);
         $this->assertFalse((bool) $attendance->is_absent);
         $this->assertSame(
             DB::table('status_masters')->where('code', 'PWO')->value('id'),
             $attendance->status_master_id,
         );
         $this->assertSame(0.5, (float) DB::table('status_musters')->where('user_id', 25)->value('day_count'));
+        $this->assertDatabaseMissing('process_tags', [
+            'taggable_type' => Attendance::class,
+            'taggable_id' => $attendance->id,
+            'name' => 'Half Day',
+        ]);
 
         $calculator->checkOverTimeRule();
 

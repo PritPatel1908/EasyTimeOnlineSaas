@@ -1259,6 +1259,16 @@ class AttCalculator
         return $this->weekOffType;
     }
 
+    private function attendanceDayCount(): float
+    {
+        return (
+            $this->curatt->is_weekoff
+            && in_array($this->currentWeekOffType(), [2, 3], true)
+        ) || $this->curatt->is_half_day
+            ? 0.5
+            : 1.0;
+    }
+
     private function syncHolidayFlagFromList(): void
     {
         if ($this->curatt === null || $this->log->user === null) {
@@ -1653,7 +1663,10 @@ class AttCalculator
             return;
         }
 
-        if ($this->applySinglePunchPresentStatus()) {
+        if (
+            $this->applySinglePunchPresentStatus()
+            && ! ($this->hasSinglePunch() && $this->curatt->is_late)
+        ) {
             return;
         }
 
@@ -1703,6 +1716,12 @@ class AttCalculator
             $halfdayRule = $this->log->user->half_day_rule;
             if ($halfdayRule !== null && (int) $halfdayRule->status !== 1) {
                 $this->debug('Skipping half-day check because the assigned rule is inactive');
+
+                return;
+            }
+
+            if ($this->hasSinglePunch() && $this->curatt->is_late) {
+                $this->applyLateOccurrenceHalfDayForSinglePunch();
 
                 return;
             }
@@ -1797,13 +1816,12 @@ class AttCalculator
                                     'is_late',
                                     $today->copy()->startOfMonth(),
                                     $today->copy()->subDay(),
-                                    true,
                                 ) + 1;
 
                                 if ($att_of_late_with_days >= $halfdayRule->consecutive_late_coming && $halfdayRule->consecutive_late_coming > 0) {
                                     $this->debug('User has exceeded the consecutive late coming');
                                     $this->halfdayRuleLateFlag = true;
-                                } elseif ($att_of_late > $halfdayRule->no_of_late && $halfdayRule->no_of_late > 0) {
+                                } elseif ($att_of_late >= $halfdayRule->no_of_late && $halfdayRule->no_of_late > 0) {
                                     $this->debug('User has exceeded the no late limit');
                                     $this->halfdayRuleLateFlag = true;
                                 } else {
@@ -1987,6 +2005,69 @@ class AttCalculator
 
             $this->clearOppositeTimingFlagForHalfDay();
         }
+    }
+
+    private function applyLateOccurrenceHalfDayForSinglePunch(): void
+    {
+        $halfdayRule = $this->log->user->half_day_rule;
+        $punchInTime = $this->curatt->in_time ? Carbon::parse($this->curatt->in_time) : null;
+        $shiftInTime = $this->curatt->shift_in_time ? Carbon::parse($this->curatt->shift_in_time) : null;
+
+        if (
+            $halfdayRule === null
+            || (int) $halfdayRule->status !== 1
+            || $halfdayRule->single_punch_allowed
+            || $this->isFlexibleShift()
+            || $punchInTime === null
+            || $shiftInTime === null
+            || $halfdayRule->late_coming_minutes <= 0
+        ) {
+            return;
+        }
+
+        $differenceInMinutes = $punchInTime->greaterThan($shiftInTime)
+            ? $shiftInTime->diffInMinutes($punchInTime)
+            : 0;
+        if ($differenceInMinutes <= $halfdayRule->late_coming_minutes) {
+            return;
+        }
+
+        $today = $this->log->datetime;
+        if ($halfdayRule->ignore_month_end_late && $this->isMonthEnd($today->format('Y-m-d'))) {
+            $this->debug('Ignoring half-day late-coming rule on a configured month boundary');
+
+            return;
+        }
+
+        $lateDateToCheck = $today->copy()->subDays(max(0, (int) $halfdayRule->consecutive_late_coming - 1));
+        $consecutiveLateOccurrences = $this->countAttendanceFlagBetweenDates(
+            $this->log->user->id,
+            'is_late',
+            $lateDateToCheck,
+            $today->copy()->subDay(),
+            true,
+        ) + 1;
+        $monthlyLateOccurrences = $this->countAttendanceFlagBetweenDates(
+            $this->log->user->id,
+            'is_late',
+            $today->copy()->startOfMonth(),
+            $today->copy()->subDay(),
+        ) + 1;
+        $lateOccurrenceLimitReached = (
+            $halfdayRule->consecutive_late_coming > 0
+            && $consecutiveLateOccurrences >= $halfdayRule->consecutive_late_coming
+        ) || (
+            $halfdayRule->no_of_late > 0
+            && $monthlyLateOccurrences >= $halfdayRule->no_of_late
+        );
+
+        if (! $lateOccurrenceLimitReached) {
+            return;
+        }
+
+        $this->halfdayRuleLateFlag = true;
+        $this->debug('User has reached the late-coming half-day limit with a single punch');
+        $this->applyHalfDayResult('PA', 'Half Day');
     }
 
     /**
@@ -2319,10 +2400,16 @@ class AttCalculator
         };
         $statusMaster = StatusMaster::where('code', $statusCode)->firstOrFail();
         $this->curatt->is_weekoff = true;
-        $this->curatt->is_half_day = true;
+        $this->curatt->is_half_day = ! $isPresent;
         $this->curatt->is_absent = ! $isPresent;
         $this->curatt->status_master_id = $statusMaster->id;
         $this->curatt->save();
+
+        if ($isPresent) {
+            $this->curatt->process_tags()
+                ->whereIn('name', ['Half Day | Is First Half', 'Half Day | Is Second Half', 'Half Day'])
+                ->delete();
+        }
 
         StatusMuster::where('user_id', $this->log->user->id)
             ->where('is_locked', false)
@@ -3020,7 +3107,7 @@ class AttCalculator
                         ->where('date', $this->log->datetime->format('Y-m-d'))
                         ->update([
                             'status_master_id' => $statusMaster->id,
-                            'day_count' => 1,
+                            'day_count' => $this->attendanceDayCount(),
                         ]);
                 }
             } else {
@@ -3142,7 +3229,7 @@ class AttCalculator
                         ->where('date', $this->log->datetime->format('Y-m-d'))
                         ->update([
                             'status_master_id' => $statusMaster->id,
-                            'day_count' => 1,
+                            'day_count' => $this->attendanceDayCount(),
                         ]);
                 }
             }
@@ -3368,7 +3455,7 @@ class AttCalculator
             ->where('date', $this->log->datetime->format('Y-m-d'))
             ->update([
                 'status_master_id' => $overtimeStatus->id,
-                'day_count' => $this->curatt->is_half_day ? 0.5 : 1,
+                'day_count' => $this->attendanceDayCount(),
             ]);
 
         $processTags = $this->curatt->process_tags();

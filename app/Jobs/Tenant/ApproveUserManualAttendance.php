@@ -445,7 +445,7 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
                                     $this->debug('User has exceeded the consecutive late coming');
                                     $this->halfdayRuleLateFlag = true;
                                 }
-                            } elseif ($att_of_late > $halfdayRule->no_of_late && $halfdayRule->no_of_late > 0) {
+                            } elseif ($att_of_late >= $halfdayRule->no_of_late && $halfdayRule->no_of_late > 0) {
                                 $this->debug('User has exceeded the no late limit');
                                 $this->halfdayRuleLateFlag = true;
                             } else {

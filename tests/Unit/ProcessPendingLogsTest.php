@@ -2158,7 +2158,7 @@ class ProcessPendingLogsTest extends TestCase
         }
     }
 
-    public function test_late_occurrence_threshold_includes_current_unflagged_attendance(): void
+    public function test_half_day_applies_on_the_configured_late_occurrence(): void
     {
         DB::table('users')->insert(['id' => 7]);
         $statusMaster = StatusMaster::create([
@@ -2169,10 +2169,24 @@ class ProcessPendingLogsTest extends TestCase
         Attendance::year(2026);
         Schema::disableForeignKeyConstraints();
         DB::table('attendances2026')->insert([
-            'user_id' => 7,
-            'date' => '2026-04-14',
-            'is_late' => true,
-            'is_locked' => false,
+            [
+                'user_id' => 7,
+                'date' => '2026-11-06',
+                'is_late' => true,
+                'is_locked' => false,
+            ],
+            [
+                'user_id' => 7,
+                'date' => '2026-11-07',
+                'is_half_day' => true,
+                'is_locked' => false,
+            ],
+            [
+                'user_id' => 7,
+                'date' => '2026-11-09',
+                'is_late' => true,
+                'is_locked' => false,
+            ],
         ]);
         Schema::enableForeignKeyConstraints();
 
@@ -2181,15 +2195,20 @@ class ProcessPendingLogsTest extends TestCase
         $rule->setAttribute('single_punch_allowed', false);
         $rule->setAttribute('work_hr_less_than_minutes', 0);
         $rule->setAttribute('late_coming_minutes', 5);
-        $rule->setAttribute('no_of_late', 1);
+        $rule->setAttribute('no_of_late', 3);
         $rule->setAttribute('consecutive_late_coming', 0);
         $rule->setAttribute('early_going_minutes', 0);
         $user = new User;
         $user->setAttribute('id', 7);
         $user->setRelation('half_day_rule', $rule);
+        $category = new Category;
+        $category->setAttribute('single_punch_allowed_present', false);
+        $category->setAttribute('single_punch_allowed_half_day', false);
+        $category->setAttribute('reset_halfday_rule_cycle', true);
+        $user->setRelation('category', $category);
 
         $log = new AttendanceLog;
-        $log->setAttribute('datetime', Carbon::parse('2026-04-15 08:30:00'));
+        $log->setAttribute('datetime', Carbon::parse('2026-11-10 08:30:00'));
         $log->setRelation('user', $user);
 
         $shift = new Shift;
@@ -2197,12 +2216,12 @@ class ProcessPendingLogsTest extends TestCase
         $shift->setAttribute('second_half_start_time', '13:00:00');
         $attendance = Attendance::year(2026);
         $attendance->user_id = 7;
-        $attendance->date = '2026-04-15';
-        $attendance->shift_in_time = '2026-04-15 08:00:00';
-        $attendance->shift_out_time = '2026-04-15 17:00:00';
-        $attendance->in_time = '2026-04-15 08:30:00';
-        $attendance->out_time = '2026-04-15 17:00:00';
-        $attendance->is_late = false;
+        $attendance->date = '2026-11-10';
+        $attendance->shift_in_time = '2026-11-10 08:00:00';
+        $attendance->shift_out_time = '2026-11-10 17:00:00';
+        $attendance->in_time = '2026-11-10 08:30:00';
+        $attendance->out_time = null;
+        $attendance->is_late = true;
         $attendance->is_early = false;
         $attendance->is_night_shift = false;
         $attendance->is_half_day = false;
