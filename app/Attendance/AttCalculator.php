@@ -1177,11 +1177,12 @@ class AttCalculator
             return 'WHP';
         }
 
-        if ($this->weekOffType === 2) {
+        $weekOffType = $this->currentWeekOffType();
+        if ($weekOffType === 2) {
             return 'WOP';
         }
 
-        if ($this->weekOffType === 3) {
+        if ($weekOffType === 3) {
             return 'PWO';
         }
 
@@ -1194,13 +1195,7 @@ class AttCalculator
             return;
         }
 
-        $weekOffType = WeekOffMuster::query()
-            ->where('user_id', $this->curatt->user_id)
-            ->whereDate('date', $this->curatt->date)
-            ->where('is_locked', false)
-            ->whereIn('wo_type', [1, 2, 3])
-            ->value('wo_type');
-        $this->weekOffType = $weekOffType === null ? null : (int) $weekOffType;
+        $this->weekOffType = $this->currentWeekOffType();
         $isWeekOff = $this->weekOffType !== null;
 
         $wasWeekOff = (bool) $this->curatt->is_weekoff;
@@ -1220,16 +1215,38 @@ class AttCalculator
         if ($isHalfWeekOff) {
             $hasPunches = $this->curatt->in_time !== null || $this->curatt->out_time !== null;
             $statusCode = $hasPunches
-                ? $this->presentStatusCode()
-                : ($this->weekOffType === 3 ? 'AWO' : 'WOA');
+            ? $this->presentStatusCode()
+            : ($this->weekOffType === 3 ? 'AWO' : 'WOA');
             $this->curatt->status_master_id = StatusMaster::where('code', $statusCode)->firstOrFail()->id;
         }
         $this->curatt->save();
         $this->debug($isHalfWeekOff
             ? 'Marked attendance as a half-day week off from the active week-off muster'
             : ($isWeekOff
-                ? 'Marked attendance as week off from the active week-off muster'
-                : 'Cleared attendance week-off flag because no active week-off muster exists'));
+            ? 'Marked attendance as week off from the active week-off muster'
+            : 'Cleared attendance week-off flag because no active week-off muster exists'));
+    }
+
+    private function currentWeekOffType(): ?int
+    {
+        if ($this->weekOffType !== null) {
+            return $this->weekOffType;
+        }
+
+        if ($this->curatt === null) {
+            return null;
+        }
+
+        $weekOffType = WeekOffMuster::query()
+            ->where('user_id', $this->curatt->user_id)
+            ->whereDate('date', $this->curatt->date)
+            ->where('is_locked', false)
+            ->whereIn('wo_type', [1, 2, 3])
+            ->value('wo_type');
+
+        $this->weekOffType = $weekOffType === null ? null : (int) $weekOffType;
+
+        return $this->weekOffType;
     }
 
     private function syncHolidayFlagFromList(): void
@@ -1586,6 +1603,13 @@ class AttCalculator
         }
 
         if ($this->shouldBypassTimingRules()) {
+            if (
+                $this->curatt->is_weekoff
+                && ! $this->curatt->is_holiday
+                && in_array($this->currentWeekOffType(), [2, 3], true)
+            ) {
+                $this->syncHalfWeekOffAttendanceStatus();
+            }
             $this->debug('Skipping half-day rules because the category bypasses timing rules');
 
             return;
@@ -1606,6 +1630,13 @@ class AttCalculator
             ->first();
 
         if ($leave_application === null && $coff === null) {
+            if ($this->curatt->is_weekoff && ! $this->curatt->is_holiday && in_array($this->currentWeekOffType(), [2, 3], true)) {
+                $this->syncHalfWeekOffAttendanceStatus();
+                $this->debug('Skipping regular half-day rules because the attendance is a half-day week off');
+
+                return;
+            }
+
             if ($this->curatt->is_weekoff || $this->curatt->is_holiday) {
                 $this->clearSpecialDayRuleFlags();
                 $this->debug('Skipping half-day rules because attendance is a week off or holiday');
@@ -1678,9 +1709,11 @@ class AttCalculator
                             $this->debug('Check User Work Time To Work Hours Less Than Time');
 
                             $this->halfdayRuleWorkHourFlag = true;
-                            [$statusCode, $tagName] = $isFlexibleShift
-                                ? ['PA', 'Half Day']
-                                : $this->halfDayWorkPeriod($punchInTime, $punchOutTime, $shiftInTime);
+                            [$statusCode, $tagName] = $this->halfDayWorkPeriod(
+                                $punchInTime,
+                                $punchOutTime,
+                                $shiftInTime,
+                            ) ?? ['PA', 'Half Day'];
                             $this->applyHalfDayResult($statusCode, $tagName);
                         } else {
                             $this->halfdayRuleWorkHourFlag = false;
@@ -1725,23 +1758,14 @@ class AttCalculator
                             }
 
                             if ($this->halfdayRuleLateFlag) {
-                                $this->curatt->is_half_day = true;
-                                $this->curatt->save();
-
-                                $this->curatt->status_master_id = StatusMaster::where('code', 'PA')->firstOrFail()->id;
-                                $this->curatt->save();
-
-                                StatusMuster::where('user_id', $this->log->user->id)
-                                    ->where('is_locked', false)
-                                    ->whereDate('date', $this->log->datetime->toDateString())
-                                    ->update([
-                                        'status_master_id' => StatusMaster::where('code', 'PA')->first()->id,
-                                        'day_count' => 0.5,
-                                    ]);
-
-                                $processTags = $this->curatt->process_tags();
-                                $processTags->where('name', 'Half Day | Is First Half')->orWhere('name', 'Half Day | Is Second Half')->orWhere('name', 'Half Day')->delete();
-                                $processTags->create(['name' => 'Half Day', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
+                                [$statusCode, $tagName] = $this->halfDayWorkPeriod(
+                                    $punchInTime,
+                                    $punchOutTime,
+                                    $shiftInTime,
+                                    false,
+                                    'AP',
+                                ) ?? ['AP', 'Half Day | Is Second Half'];
+                                $this->applyHalfDayResult($statusCode, $tagName);
                             }
                         } else {
                             $this->debug('Half Day Rule is not calculate | User not cross the limit of late coming');
@@ -1784,23 +1808,14 @@ class AttCalculator
                             }
 
                             if ($this->halfdayRuleEarlyFlag) {
-                                $this->curatt->is_half_day = true;
-                                $this->curatt->save();
-
-                                $this->curatt->status_master_id = StatusMaster::where('code', 'PA')->firstOrFail()->id;
-                                $this->curatt->save();
-
-                                StatusMuster::where('user_id', $this->log->user->id)
-                                    ->where('is_locked', false)
-                                    ->whereDate('date', $this->log->datetime->toDateString())
-                                    ->update([
-                                        'status_master_id' => StatusMaster::where('code', 'PA')->first()->id,
-                                        'day_count' => 0.5,
-                                    ]);
-
-                                $processTags = $this->curatt->process_tags();
-                                $processTags->where('name', 'Half Day | Is First Half')->orWhere('name', 'Half Day | Is Second Half')->orWhere('name', 'Half Day')->delete();
-                                $processTags->create(['name' => 'Half Day', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
+                                [$statusCode, $tagName] = $this->halfDayWorkPeriod(
+                                    $punchInTime,
+                                    $punchOutTime,
+                                    $shiftInTime,
+                                    false,
+                                    'PA',
+                                ) ?? ['PA', 'Half Day | Is First Half'];
+                                $this->applyHalfDayResult($statusCode, $tagName);
                             }
                         } else {
                             $this->debug('Half Day Rule is not calculate | User not cross the limit of early going');
@@ -1846,20 +1861,6 @@ class AttCalculator
                         $shiftOutTime->addDay();
                     }
 
-                    $differenceInMinutes = $punchInTime && $punchInTime->greaterThan($shiftInTime)
-                        ? $shiftInTime->diffInMinutes($punchInTime)
-                        : 0;
-                    $differenceOutMinutes = $punchOutTime && $punchOutTime->lessThan($shiftOutTime)
-                        ? $punchOutTime->diffInMinutes($shiftOutTime)
-                        : 0;
-
-                    $work_difference = $punchInTime && $punchOutTime && $punchOutTime->greaterThan($punchInTime)
-                        ? $punchInTime->diffInMinutes($punchOutTime)
-                        : null;
-
-                    $shift_hrs = $shiftInTime->diffInMinutes($shiftOutTime);
-                    $shift_half_hrs = $shift_hrs ? $shift_hrs / 2 : 0;
-
                     // 1. Check is allow single punch
                     if ($this->log->user->category?->single_punch_allowed_present && $punchInTime && $punchOutTime === null) {
                         $this->debug('Single Punch Allowed');
@@ -1889,22 +1890,17 @@ class AttCalculator
                             $processTags->where('name', 'Half Day | Is First Half')->orWhere('name', 'Half Day | Is Second Half')->orWhere('name', 'Half Day')->delete();
 
                             // 3. Check work hours with user work time
-                            if ($work_difference !== null && $work_difference < $shift_half_hrs && $shift_half_hrs > 0) {
-                                $this->debug('Check User Work Time To Work Hours Less Than Time');
-
-                                $this->halfdayRuleWorkHourFlag = true;
-                                [$statusCode, $tagName] = $this->halfDayWorkPeriod(
-                                    $punchInTime,
-                                    $punchOutTime,
-                                    $shiftInTime,
-                                );
-                                $this->applyHalfDayResult($statusCode, $tagName);
+                            $halfDayResult = $this->halfDayWorkPeriod(
+                                $punchInTime,
+                                $punchOutTime,
+                                $shiftInTime,
+                                true,
+                            );
+                            if ($halfDayResult !== null) {
+                                $this->debug('Shift half boundaries show attendance in only one half');
+                                $this->applyHalfDayResult(...$halfDayResult);
                             } else {
-                                $this->halfdayRuleWorkHourFlag = false;
-                                $this->debug('User Work Time Not Less Than To Work Hours Less Than Time');
-                            }
-
-                            if (! $this->halfdayRuleWorkHourFlag && ! $this->halfdayRuleLateFlag && ! $this->halfdayRuleEarlyFlag) {
+                                $this->debug('Shift half boundaries show attendance in both halves or no identifiable half');
                                 $this->clearHalfDayStatus();
                             }
                         } else {
@@ -1934,13 +1930,20 @@ class AttCalculator
                 }
             }
 
+            $this->clearOppositeTimingFlagForHalfDay();
         }
     }
 
     /**
-     * @return array{0: string, 1: string}
+     * @return array{0: string, 1: string}|null
      */
-    private function halfDayWorkPeriod(Carbon $punchInTime, Carbon $punchOutTime, Carbon $shiftInTime): array
+    private function halfDayWorkPeriod(
+        Carbon $punchInTime,
+        Carbon $punchOutTime,
+        Carbon $shiftInTime,
+        bool $requireSingleHalf = false,
+        string $fallbackStatus = 'PA',
+    ): ?array
     {
         $shiftBoundary = static function ($time) use ($shiftInTime): ?Carbon {
             if ($time === null) {
@@ -1959,16 +1962,45 @@ class AttCalculator
 
         $firstHalfEnd = $shiftBoundary($this->curatt->shift->first_half_end_time);
         $secondHalfStart = $shiftBoundary($this->curatt->shift->second_half_start_time);
+        $shiftOutTime = Carbon::parse($this->curatt->shift_out_time);
+        if ($this->curatt->is_night_shift && $shiftOutTime->lessThanOrEqualTo($shiftInTime)) {
+            $shiftOutTime->addDay();
+        }
 
-        if ($firstHalfEnd !== null && $punchOutTime->lessThanOrEqualTo($firstHalfEnd)) {
+        if (
+            $firstHalfEnd === null
+            || $secondHalfStart === null
+            || ! $firstHalfEnd->greaterThan($shiftInTime)
+            || ! $firstHalfEnd->lessThan($shiftOutTime)
+            || $secondHalfStart->lessThan($firstHalfEnd)
+            || ! $secondHalfStart->lessThan($shiftOutTime)
+        ) {
+            return $requireSingleHalf ? null : [$fallbackStatus, 'Half Day'];
+        }
+
+        $firstHalfMinutes = $this->overlapMinutes($punchInTime, $punchOutTime, $shiftInTime, $firstHalfEnd);
+        $secondHalfMinutes = $this->overlapMinutes($punchInTime, $punchOutTime, $secondHalfStart, $shiftOutTime);
+        if ($requireSingleHalf) {
+            if ($firstHalfMinutes > 0 && $secondHalfMinutes === 0) {
+                return ['PA', 'Half Day | Is First Half'];
+            }
+
+            if ($secondHalfMinutes > 0 && $firstHalfMinutes === 0) {
+                return ['AP', 'Half Day | Is Second Half'];
+            }
+
+            return null;
+        }
+
+        if ($firstHalfMinutes > $secondHalfMinutes) {
             return ['PA', 'Half Day | Is First Half'];
         }
 
-        if ($secondHalfStart !== null && $punchInTime->greaterThanOrEqualTo($secondHalfStart)) {
+        if ($secondHalfMinutes > $firstHalfMinutes) {
             return ['AP', 'Half Day | Is Second Half'];
         }
 
-        return ['PA', 'Half Day'];
+        return $requireSingleHalf ? null : [$fallbackStatus, 'Half Day'];
     }
 
     private function countAttendanceFlagBetweenDates(
@@ -2082,6 +2114,7 @@ class AttCalculator
     {
         $statusMaster = StatusMaster::where('code', $statusCode)->firstOrFail();
         $this->curatt->is_half_day = true;
+        $this->curatt->is_absent = false;
         $this->curatt->status_master_id = $statusMaster->id;
         $this->curatt->save();
 
@@ -2102,6 +2135,27 @@ class AttCalculator
             'color' => 'danger',
             'icon' => 'heroicon-o-document-duplicate',
         ]);
+    }
+
+    private function clearOppositeTimingFlagForHalfDay(): void
+    {
+        if (! $this->curatt->is_half_day) {
+            return;
+        }
+
+        $halfDayTags = $this->curatt->process_tags()
+            ->whereIn('name', ['Half Day | Is First Half', 'Half Day | Is Second Half'])
+            ->pluck('name');
+
+        if ($halfDayTags->contains('Half Day | Is First Half')) {
+            $this->curatt->is_early = false;
+            $this->curatt->save();
+            $this->curatt->process_tags()->where('name', 'Early Going')->delete();
+        } elseif ($halfDayTags->contains('Half Day | Is Second Half')) {
+            $this->curatt->is_late = false;
+            $this->curatt->save();
+            $this->curatt->process_tags()->where('name', 'Late Coming')->delete();
+        }
     }
 
     private function clearHalfDayStatus(): void
@@ -2160,6 +2214,168 @@ class AttCalculator
             ->delete();
     }
 
+    private function syncHalfWeekOffAttendanceStatus(): void
+    {
+        $weekOffType = $this->currentWeekOffType();
+        $periods = $this->halfWeekOffPeriods();
+
+        if ($periods === null) {
+            $this->debug('Cannot classify half-day week-off attendance because shift half boundaries are missing');
+
+            return;
+        }
+
+        $punchInTime = $this->curatt->in_time ? Carbon::parse($this->curatt->in_time) : null;
+        $punchOutTime = $this->curatt->out_time ? Carbon::parse($this->curatt->out_time) : null;
+        $isPresent = false;
+        $presentMinutes = 0;
+        $halfDayRule = $this->log->user->half_day_rule;
+
+        if (
+            $punchInTime !== null
+            && $punchOutTime !== null
+            && $punchOutTime->greaterThan($punchInTime)
+        ) {
+            $presentMinutes = $this->workedMinutesWithin($punchInTime, $punchOutTime, $periods['present']);
+            if ($halfDayRule !== null && (int) $halfDayRule->status === 1 && $halfDayRule->work_hr_less_than_minutes > 0) {
+                // A half-day week off only requires the threshold for one working half.
+                $minimumPresentMinutes = (int) ceil((int) $halfDayRule->work_hr_less_than_minutes / 2);
+                $presentPeriodMinutes = $periods['present'][0]->diffInMinutes($periods['present'][1]);
+                $isPresent = $presentMinutes >= min($minimumPresentMinutes, $presentPeriodMinutes);
+            } else {
+                $isPresent = $punchInTime->lessThanOrEqualTo($periods['present'][0])
+                    && $punchOutTime->greaterThanOrEqualTo($periods['present'][1]);
+            }
+        } elseif (
+            $punchInTime !== null
+            && $punchOutTime === null
+            && $this->log->user->category?->single_punch_allowed_present
+            && $punchInTime->greaterThanOrEqualTo($periods['present'][0])
+            && $punchInTime->lessThanOrEqualTo($periods['present'][1])
+        ) {
+            $isPresent = true;
+        }
+
+        $statusCode = match ([$weekOffType, $isPresent]) {
+            [2, true] => 'WOP',
+            [2, false] => 'WOA',
+            [3, true] => 'PWO',
+            [3, false] => 'AWO',
+        };
+        $statusMaster = StatusMaster::where('code', $statusCode)->firstOrFail();
+        $this->curatt->is_weekoff = true;
+        $this->curatt->is_half_day = true;
+        $this->curatt->is_absent = ! $isPresent;
+        $this->curatt->status_master_id = $statusMaster->id;
+        $this->curatt->save();
+
+        StatusMuster::where('user_id', $this->log->user->id)
+            ->where('is_locked', false)
+            ->whereDate('date', $this->curatt->date)
+            ->update([
+                'status_master_id' => $statusMaster->id,
+                'day_count' => $isPresent ? 0.5 : 0.0,
+            ]);
+
+        $this->debug('Half-day week-off attendance resolved as '.$statusCode.' with '.$presentMinutes.' minutes in the assigned working half');
+    }
+
+    private function clearHalfWeekOffTimingFlag(string $timing): bool
+    {
+        $weekOffType = $this->currentWeekOffType();
+        $isNonWorkingHalf = ($timing === 'early' && $weekOffType === 3)
+            || ($timing === 'late' && $weekOffType === 2);
+
+        if (! $isNonWorkingHalf) {
+            return false;
+        }
+
+        $flag = $timing === 'early' ? 'is_early' : 'is_late';
+        $tag = $timing === 'early' ? 'Early Going' : 'Late Coming';
+        if ($this->curatt->{$flag}) {
+            $this->curatt->{$flag} = false;
+            $this->curatt->save();
+        }
+        $this->curatt->process_tags()->where('name', $tag)->delete();
+        $this->debug('Skipping '.$tag.' because that half is assigned as week off');
+
+        return true;
+    }
+
+    /**
+     * @return array{present: array{0: Carbon, 1: Carbon}, weekoff: array{0: Carbon, 1: Carbon}}|null
+     */
+    private function halfWeekOffPeriods(): ?array
+    {
+        $weekOffType = $this->currentWeekOffType();
+        $shift = $this->curatt?->shift;
+        if (! in_array($weekOffType, [2, 3], true) || $shift === null || $this->curatt->shift_in_time === null || $this->curatt->shift_out_time === null) {
+            return null;
+        }
+
+        $shiftInTime = Carbon::parse($this->curatt->shift_in_time);
+        $shiftOutTime = Carbon::parse($this->curatt->shift_out_time);
+        if ($this->curatt->is_night_shift && $shiftOutTime->lessThanOrEqualTo($shiftInTime)) {
+            $shiftOutTime->addDay();
+        }
+
+        $shiftBoundary = static function ($time) use ($shiftInTime): ?Carbon {
+            if ($time === null) {
+                return null;
+            }
+
+            $boundary = Carbon::parse($time)
+                ->setDate($shiftInTime->year, $shiftInTime->month, $shiftInTime->day);
+            if ($boundary->lessThanOrEqualTo($shiftInTime)) {
+                $boundary->addDay();
+            }
+
+            return $boundary;
+        };
+
+        $firstHalfEnd = $shiftBoundary($shift->first_half_end_time);
+        $secondHalfStart = $shiftBoundary($shift->second_half_start_time);
+        if (
+            $firstHalfEnd === null
+            || $secondHalfStart === null
+            || ! $firstHalfEnd->greaterThan($shiftInTime)
+            || ! $firstHalfEnd->lessThan($shiftOutTime)
+            || ! $secondHalfStart->greaterThan($shiftInTime)
+            || ! $secondHalfStart->lessThan($shiftOutTime)
+            || $secondHalfStart->lessThan($firstHalfEnd)
+        ) {
+            return null;
+        }
+
+        if ($weekOffType === 2) {
+            return [
+                'present' => [$secondHalfStart, $shiftOutTime],
+                'weekoff' => [$shiftInTime, $firstHalfEnd],
+            ];
+        }
+
+        return [
+            'present' => [$shiftInTime, $firstHalfEnd],
+            'weekoff' => [$secondHalfStart, $shiftOutTime],
+        ];
+    }
+
+    /**
+     * @param  array{0: Carbon, 1: Carbon}  $period
+     */
+    private function workedMinutesWithin(Carbon $punchInTime, Carbon $punchOutTime, array $period): int
+    {
+        $minutes = $this->overlapMinutes($punchInTime, $punchOutTime, $period[0], $period[1]);
+        if ($minutes === 0 || ! $this->log->user?->category?->ignore_break_in_attendance) {
+            return $minutes;
+        }
+
+        $workStart = $punchInTime->max($period[0]);
+        $workEnd = $punchOutTime->min($period[1]);
+
+        return max(0, $minutes - $this->breakMinutesToDeduct($workStart, $workEnd));
+    }
+
     public function isMonthEnd($date)
     {
         $date = Carbon::parse($date);
@@ -2187,6 +2403,13 @@ class AttCalculator
             ->first();
 
         if ($leave_application === null && $coff === null) {
+            if ($this->curatt->is_weekoff && ! $this->curatt->is_holiday && in_array($this->currentWeekOffType(), [2, 3], true)) {
+                $this->syncHalfWeekOffAttendanceStatus();
+                $this->debug('Skipping absent rules because the attendance is a half-day week off');
+
+                return;
+            }
+
             if ($this->curatt->is_weekoff || $this->curatt->is_holiday) {
                 $this->clearSpecialDayRuleFlags();
                 $this->debug('Skipping absent rules because attendance is a week off or holiday');
@@ -2606,6 +2829,10 @@ class AttCalculator
             return;
         }
 
+        if ($this->clearHalfWeekOffTimingFlag('early')) {
+            return;
+        }
+
         if ($this->shouldBypassTimingRules()) {
             $this->debug('Skipping early-going rule because the category bypasses timing rules');
 
@@ -2731,6 +2958,10 @@ class AttCalculator
         if ($this->curatt === null || $this->log->user === null) {
             $this->debug('Skipping late coming check because attendance or user is missing');
 
+            return;
+        }
+
+        if ($this->clearHalfWeekOffTimingFlag('late')) {
             return;
         }
 
@@ -3044,7 +3275,7 @@ class AttCalculator
             ->where('date', $this->log->datetime->format('Y-m-d'))
             ->update([
                 'status_master_id' => $overtimeStatus->id,
-                'day_count' => 1,
+                'day_count' => $this->curatt->is_half_day ? 0.5 : 1,
             ]);
 
         $processTags = $this->curatt->process_tags();
@@ -3341,7 +3572,22 @@ class AttCalculator
 
     private function calculateWeekOffOvertime(?OvertimeRule $overtimeRule): void
     {
+        $weekOffType = $this->currentWeekOffType();
         $workMinutes = max(0, (int) $this->curatt->work_time);
+        if (in_array($weekOffType, [2, 3], true)) {
+            $periods = $this->halfWeekOffPeriods();
+            $punchInTime = $this->curatt->in_time ? Carbon::parse($this->curatt->in_time) : null;
+            $punchOutTime = $this->curatt->out_time ? Carbon::parse($this->curatt->out_time) : null;
+
+            if ($periods === null || $punchInTime === null || $punchOutTime === null) {
+                $this->debug('Cannot calculate half-day week-off overtime because punches or shift half boundaries are missing');
+                $workMinutes = 0;
+            } else {
+                $workMinutes = $this->workedMinutesWithin($punchInTime, $punchOutTime, $periods['weekoff']);
+                $this->debug('Week-off half work time counted as overtime: '.$workMinutes.' minutes');
+            }
+        }
+
         if ($workMinutes === 0) {
             $this->debug('No work time recorded on the week off; no overtime awarded');
             $this->handleRegularHours();

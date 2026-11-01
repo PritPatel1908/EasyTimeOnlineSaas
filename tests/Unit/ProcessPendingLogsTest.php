@@ -1819,6 +1819,109 @@ class ProcessPendingLogsTest extends TestCase
         ]);
     }
 
+    public function test_half_day_clears_the_timing_flag_for_the_absent_half(): void
+    {
+        DB::table('users')->insert(['id' => 7]);
+        foreach ([
+            ['code' => 'PA', 'alias' => 'Present + Absent'],
+            ['code' => 'AP', 'alias' => 'Absent + Present'],
+        ] as $status) {
+            StatusMaster::create([
+                'code' => $status['code'],
+                'alias' => $status['alias'],
+                'description' => 'Half-day attendance',
+            ]);
+        }
+
+        $rule = new HalfDayRule;
+        $rule->setAttribute('status', 1);
+        $rule->setAttribute('single_punch_allowed', false);
+        $rule->setAttribute('work_hr_less_than_minutes', 300);
+        $rule->setAttribute('late_coming_minutes', 0);
+        $rule->setAttribute('early_going_minutes', 0);
+        $user = new User;
+        $user->setAttribute('id', 7);
+        $user->setRelation('half_day_rule', $rule);
+
+        foreach ([
+            [
+                'date' => '2026-04-15',
+                'in' => '08:00:00',
+                'out' => '12:00:00',
+                'half_day_tag' => 'Half Day | Is First Half',
+                'cleared_flag' => 'is_early',
+                'remaining_flag' => 'is_late',
+                'cleared_tag' => 'Early Going',
+            ],
+            [
+                'date' => '2026-04-16',
+                'in' => '13:00:00',
+                'out' => '17:00:00',
+                'half_day_tag' => 'Half Day | Is Second Half',
+                'cleared_flag' => 'is_late',
+                'remaining_flag' => 'is_early',
+                'cleared_tag' => 'Late Coming',
+            ],
+        ] as $case) {
+            StatusMuster::create([
+                'date' => $case['date'],
+                'user_id' => 7,
+                'day_count' => 1,
+                'year' => 2026,
+                'is_locked' => false,
+            ]);
+
+            $log = new AttendanceLog;
+            $log->setAttribute('datetime', Carbon::parse($case['date'].' '.$case['in']));
+            $log->setRelation('user', $user);
+
+            $shift = new Shift;
+            $shift->setAttribute('first_half_end_time', '12:00:00');
+            $shift->setAttribute('second_half_start_time', '13:00:00');
+            $attendance = Attendance::year(2026);
+            $attendance->user_id = 7;
+            $attendance->date = $case['date'];
+            $attendance->shift_in_time = $case['date'].' 08:00:00';
+            $attendance->shift_out_time = $case['date'].' 17:00:00';
+            $attendance->in_time = $case['date'].' '.$case['in'];
+            $attendance->out_time = $case['date'].' '.$case['out'];
+            $attendance->is_late = true;
+            $attendance->is_early = true;
+            Schema::disableForeignKeyConstraints();
+            $attendance->save();
+            Schema::enableForeignKeyConstraints();
+            $attendance->setRelation('shift', $shift);
+            $attendance->process_tags()->create([
+                'name' => 'Late Coming',
+                'color' => 'danger',
+            ]);
+            $attendance->process_tags()->create([
+                'name' => 'Early Going',
+                'color' => 'danger',
+            ]);
+
+            $calculator = new AttCalculator($log);
+            (new \ReflectionProperty(AttCalculator::class, 'curatt'))->setValue($calculator, $attendance);
+
+            $calculator->checkHalfDayRule();
+
+            $calculatedAttendance = $attendance->fresh();
+            $this->assertTrue((bool) $calculatedAttendance->is_half_day);
+            $this->assertFalse((bool) $calculatedAttendance->{$case['cleared_flag']});
+            $this->assertTrue((bool) $calculatedAttendance->{$case['remaining_flag']});
+            $this->assertDatabaseHas('process_tags', [
+                'taggable_type' => Attendance::class,
+                'taggable_id' => $attendance->id,
+                'name' => $case['half_day_tag'],
+            ]);
+            $this->assertDatabaseMissing('process_tags', [
+                'taggable_type' => Attendance::class,
+                'taggable_id' => $attendance->id,
+                'name' => $case['cleared_tag'],
+            ]);
+        }
+    }
+
     public function test_late_occurrence_threshold_includes_current_unflagged_attendance(): void
     {
         DB::table('users')->insert(['id' => 7]);

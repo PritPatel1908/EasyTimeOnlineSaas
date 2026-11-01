@@ -22,8 +22,8 @@
                 <form id="time_card_filter_form" method="POST" action="{{ url('time-management/time-card') }}"
                     data-default-year="{{ now()->format('Y') }}"
                     data-default-employee="{{ $isSuperAdmin ? '' : auth('tenant')->id() }}"
-                    data-default-start-date="{{ now()->startOfYear()->toDateString() }}"
-                    data-default-end-date="{{ now()->endOfYear()->toDateString() }}">
+                    data-default-start-date="{{ now()->startOfMonth()->toDateString() }}"
+                    data-default-end-date="{{ now()->endOfMonth()->toDateString() }}">
                     @csrf
                     <input type="hidden" name="page" value="1">
                     <div class="row align-items-end">
@@ -144,12 +144,18 @@
         form.querySelectorAll('select, input[type="date"]').forEach(function (field) {
             field.addEventListener('change', function () {
                 if (field === year) {
-                    startDate.min = year.value + '-01-01';
-                    startDate.max = year.value + '-12-31';
-                    endDate.min = year.value + '-01-01';
-                    endDate.max = year.value + '-12-31';
-                    startDate.value = startDate.min;
-                    endDate.value = endDate.max;
+                    const selectedYear = Number(year.value);
+                    const currentMonth = new Date().getMonth() + 1;
+                    const monthStart = `${selectedYear}-${String(currentMonth).padStart(2, '0')}-01`;
+                    const monthEndDay = new Date(selectedYear, currentMonth, 0).getDate();
+                    const monthEnd = `${selectedYear}-${String(currentMonth).padStart(2, '0')}-${String(monthEndDay).padStart(2, '0')}`;
+
+                    startDate.min = `${selectedYear}-01-01`;
+                    startDate.max = `${selectedYear}-12-31`;
+                    endDate.min = `${selectedYear}-01-01`;
+                    endDate.max = `${selectedYear}-12-31`;
+                    startDate.value = monthStart;
+                    endDate.value = monthEnd;
                 }
                 form.requestSubmit();
             });

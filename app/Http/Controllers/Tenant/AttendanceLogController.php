@@ -41,6 +41,7 @@ class AttendanceLogController extends Controller
         $user = $guard->user();
         $isSuperAdmin = $guard->id() == 1 || $user?->hasRole('super_admin');
         $currentYear = (int) now()->format('Y');
+        $currentMonth = (int) now()->format('n');
         $firstLogDate = AttendanceLog::query()->min('datetime');
         $lastLogDate = AttendanceLog::query()->max('datetime');
         $firstYear = $firstLogDate ? Carbon::parse($firstLogDate)->year : $currentYear;
@@ -54,6 +55,8 @@ class AttendanceLogController extends Controller
             'employee_id' => ['nullable', 'integer', 'exists:users,id'],
         ]);
         $year = (int) ($filters['year'] ?? $currentYear);
+        $defaultMonthStart = Carbon::create($year, $currentMonth, 1)->startOfMonth()->toDateString();
+        $defaultMonthEnd = Carbon::create($year, $currentMonth, 1)->endOfMonth()->toDateString();
 
         if (! in_array($year, $years, true)) {
             throw ValidationException::withMessages([
@@ -61,8 +64,8 @@ class AttendanceLogController extends Controller
             ]);
         }
 
-        $startDate = $filters['start_date'] ?? Carbon::create($year, 1, 1)->toDateString();
-        $endDate = $filters['end_date'] ?? Carbon::create($year, 12, 31)->toDateString();
+        $startDate = $filters['start_date'] ?? $defaultMonthStart;
+        $endDate = $filters['end_date'] ?? $defaultMonthEnd;
 
         if (
             Carbon::parse($startDate)->year !== $year

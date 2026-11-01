@@ -9,6 +9,7 @@ use App\Http\Requests\Tenant\CategoryRequestRules;
 use App\Models\Tenant\Attendance;
 use App\Models\Tenant\AttendanceLog;
 use App\Models\Tenant\Category;
+use App\Models\Tenant\HalfDayRule;
 use App\Models\Tenant\OvertimeRule;
 use App\Models\Tenant\Shift;
 use App\Models\Tenant\User;
@@ -18,6 +19,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use ReflectionMethod;
+use ReflectionProperty;
 use Tests\TestCase;
 
 class AttendanceCategoryCalculationTest extends TestCase
@@ -471,6 +473,14 @@ class AttendanceCategoryCalculationTest extends TestCase
             $table->id();
             $table->unsignedBigInteger('user_id');
             $table->date('date');
+            $table->boolean('is_locked')->default(false);
+            $table->unsignedBigInteger('status_master_id')->nullable();
+            $table->decimal('day_count', 5, 2)->default(0);
+        });
+        Schema::create('status_musters', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('date');
             $table->unsignedBigInteger('status_master_id')->nullable();
             $table->decimal('day_count', 5, 2)->default(0);
             $table->boolean('is_locked')->default(false);
@@ -496,6 +506,12 @@ class AttendanceCategoryCalculationTest extends TestCase
             'date' => '2026-10-25',
             'is_locked' => false,
             'wo_type' => 3,
+        ]);
+        DB::table('status_musters')->insert([
+            'user_id' => 25,
+            'date' => '2026-10-25',
+            'is_locked' => false,
+            'day_count' => 0,
         ]);
         DB::table('status_musters')->insert([
             'user_id' => 25,
@@ -528,6 +544,278 @@ class AttendanceCategoryCalculationTest extends TestCase
             $pwoStatusId,
             DB::table('status_musters')->where('user_id', 25)->value('status_master_id'),
         );
+    }
+
+    public function test_half_day_week_off_uses_present_half_and_counts_only_week_off_half_as_overtime(): void
+    {
+        Schema::create('status_masters', function (Blueprint $table): void {
+            $table->id();
+            $table->string('code');
+        });
+        Schema::create('week_off_musters', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('date');
+            $table->boolean('is_locked')->default(false);
+            $table->unsignedTinyInteger('wo_type');
+        });
+        Schema::create('process_tags', function (Blueprint $table): void {
+            $table->id();
+            $table->morphs('taggable');
+            $table->string('name');
+            $table->string('color')->nullable();
+            $table->string('icon')->nullable();
+            $table->timestamps();
+        });
+        DB::table('status_masters')->insert([
+            ['code' => 'PWO'],
+            ['code' => 'AWO'],
+            ['code' => 'PPO'],
+        ]);
+        DB::table('week_off_musters')->insert([
+            'user_id' => 25,
+            'date' => '2026-10-25',
+            'is_locked' => false,
+            'wo_type' => 3,
+        ]);
+
+        $category = $this->category(['regular_ot_on_wo' => true]);
+        $attendance = $this->attendance([
+            'is_weekoff' => true,
+            'is_half_day' => true,
+            'work_time' => 510,
+            'in_time' => Carbon::parse('2026-10-25 08:30:00'),
+            'out_time' => Carbon::parse('2026-10-25 17:30:00'),
+        ]);
+        $shift = new Shift;
+        $shift->setAttribute('first_half_end_time', '12:00:00');
+        $shift->setAttribute('second_half_start_time', '13:00:00');
+        $attendance->setRelation('shift', $shift);
+
+        $user = new User;
+        $user->id = 25;
+        $user->setRelation('category', $category);
+        $user->setRelation('overtime_rule', null);
+        $log = new AttendanceLog;
+        $log->datetime = Carbon::parse('2026-10-25 12:00:00');
+        $log->setRelation('user', $user);
+        $calculator = new AttCalculator($log);
+        $calculator->curatt = $attendance;
+        $halfDayRule = new HalfDayRule;
+        $halfDayRule->setAttribute('status', 1);
+        $halfDayRule->setAttribute('work_hr_less_than_minutes', 300);
+        $user->setRelation('half_day_rule', $halfDayRule);
+
+        $syncStatus = new ReflectionMethod(AttCalculator::class, 'syncHalfWeekOffAttendanceStatus');
+        $syncStatus->setAccessible(true);
+        $syncStatus->invoke($calculator);
+
+        $attendance->refresh();
+        $this->assertTrue((bool) $attendance->is_weekoff);
+        $this->assertTrue((bool) $attendance->is_half_day);
+        $this->assertFalse((bool) $attendance->is_absent);
+        $this->assertSame(
+            DB::table('status_masters')->where('code', 'PWO')->value('id'),
+            $attendance->status_master_id,
+        );
+        $this->assertSame(0.5, (float) DB::table('status_musters')->where('user_id', 25)->value('day_count'));
+
+        $calculator->checkOverTimeRule();
+
+        $attendance->refresh();
+        $this->assertSame(240, $attendance->row_overtime_minutes);
+        $this->assertSame(240, $attendance->total_overtime_minutes);
+        $this->assertTrue((bool) $attendance->is_over_time);
+        $this->assertSame(0.5, (float) DB::table('status_musters')->where('user_id', 25)->value('day_count'));
+
+        $category->regular_ot_on_wo = false;
+        $calculator->checkOverTimeRule();
+        $attendance->refresh();
+        $this->assertSame(0, $attendance->row_overtime_minutes);
+        $this->assertSame(0, $attendance->total_overtime_minutes);
+        $this->assertFalse((bool) $attendance->is_over_time);
+    }
+
+    public function test_half_week_off_does_not_mark_timing_flag_during_week_off_half(): void
+    {
+        Schema::create('week_off_musters', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('date');
+            $table->boolean('is_locked')->default(false);
+            $table->unsignedTinyInteger('wo_type');
+        });
+        Schema::create('process_tags', function (Blueprint $table): void {
+            $table->id();
+            $table->morphs('taggable');
+            $table->string('name');
+            $table->string('color')->nullable();
+            $table->string('icon')->nullable();
+            $table->timestamps();
+        });
+        Schema::create('coffs', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('from_date');
+            $table->date('to_date');
+            $table->softDeletes();
+        });
+        Schema::create('short_leave_applications', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('date');
+            $table->softDeletes();
+        });
+        foreach ([
+            [
+                'date' => '2026-10-25',
+                'week_off_type' => 3,
+                'timing' => 'early',
+                'rule_relation' => 'early_going_rule',
+                'flag' => 'is_early',
+                'tag' => 'Early Going',
+                'shift_in' => '09:00:00',
+                'shift_out' => '21:00:00',
+                'punch_in' => '09:00:00',
+                'punch_out' => '17:00:00',
+            ],
+            [
+                'date' => '2026-10-26',
+                'week_off_type' => 2,
+                'timing' => 'late',
+                'rule_relation' => 'late_coming_rule',
+                'flag' => 'is_late',
+                'tag' => 'Late Coming',
+                'shift_in' => '08:00:00',
+                'shift_out' => '17:00:00',
+                'punch_in' => '13:00:00',
+                'punch_out' => '17:00:00',
+            ],
+        ] as $case) {
+            DB::table('week_off_musters')->insert([
+                'user_id' => 25,
+                'date' => $case['date'],
+                'is_locked' => false,
+                'wo_type' => $case['week_off_type'],
+            ]);
+
+            $attendance = $this->attendance([
+                'date' => $case['date'],
+                'is_weekoff' => true,
+                'is_half_day' => true,
+                'shift_in_time' => Carbon::parse($case['date'].' '.$case['shift_in']),
+                'shift_out_time' => Carbon::parse($case['date'].' '.$case['shift_out']),
+                'in_time' => Carbon::parse($case['date'].' '.$case['punch_in']),
+                'out_time' => Carbon::parse($case['date'].' '.$case['punch_out']),
+                $case['flag'] => true,
+            ]);
+            $attendance->setRelation('shift', new Shift);
+            $calculator = $this->calculator($this->category(), $attendance);
+            $calculator->log->user->setRelation($case['rule_relation'], null);
+            $attendance->process_tags()->create([
+                'name' => $case['tag'],
+                'color' => 'danger',
+            ]);
+
+            if ($case['timing'] === 'early') {
+                $calculator->checkEarlyGoingRule();
+            } else {
+                $calculator->checkLateComingRule();
+            }
+
+            $this->assertFalse((bool) $attendance->fresh()->{$case['flag']});
+            $this->assertDatabaseMissing('process_tags', [
+                'taggable_type' => Attendance::class,
+                'taggable_id' => $attendance->id,
+                'name' => $case['tag'],
+            ]);
+        }
+    }
+
+    public function test_regular_day_without_a_half_day_rule_uses_shift_boundaries_for_pa_and_ap(): void
+    {
+        Schema::create('status_masters', function (Blueprint $table): void {
+            $table->id();
+            $table->string('code');
+        });
+        Schema::create('status_musters', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('date');
+            $table->boolean('is_locked')->default(false);
+            $table->unsignedBigInteger('status_master_id')->nullable();
+            $table->decimal('day_count', 5, 2)->default(0);
+        });
+        Schema::create('process_tags', function (Blueprint $table): void {
+            $table->id();
+            $table->morphs('taggable');
+            $table->string('name');
+            $table->string('color')->nullable();
+            $table->string('icon')->nullable();
+            $table->timestamps();
+        });
+        Schema::create('coffs', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('from_date');
+            $table->date('to_date');
+            $table->softDeletes();
+        });
+        DB::table('status_masters')->insert([
+            ['code' => 'PA'],
+            ['code' => 'AP'],
+            ['code' => 'PP'],
+        ]);
+
+        foreach ([
+            ['date' => '2026-10-25', 'in' => '09:00:00', 'out' => '12:00:00', 'status' => 'PA'],
+            ['date' => '2026-10-26', 'in' => '13:00:00', 'out' => '17:00:00', 'status' => 'AP'],
+        ] as $case) {
+            $attendance = $this->attendance([
+                'date' => $case['date'],
+                'shift_in_time' => Carbon::parse($case['date'].' 09:00:00'),
+                'shift_out_time' => Carbon::parse($case['date'].' 17:00:00'),
+                'in_time' => Carbon::parse($case['date'].' '.$case['in']),
+                'out_time' => Carbon::parse($case['date'].' '.$case['out']),
+            ]);
+            $shift = new Shift;
+            $shift->setAttribute('first_half_end_time', '12:00:00');
+            $shift->setAttribute('second_half_start_time', '13:00:00');
+            $attendance->setRelation('shift', $shift);
+
+            $user = new User;
+            $user->id = 25;
+            $user->setRelation('category', $this->category());
+            $user->setRelation('half_day_rule', null);
+            $log = new AttendanceLog;
+            $log->datetime = Carbon::parse($case['date'].' 12:00:00');
+            $log->setRelation('user', $user);
+            $calculator = new AttCalculator($log);
+            $calculator->curatt = $attendance;
+            $approvedLeaveCache = new ReflectionProperty(AttCalculator::class, 'approvedLeaveApplicationsByDate');
+            $approvedLeaveCache->setAccessible(true);
+            $approvedLeaveCache->setValue($calculator, [$case['date'] => null]);
+
+            DB::table('status_musters')->insert([
+                'user_id' => 25,
+                'date' => $case['date'],
+                'is_locked' => false,
+                'day_count' => 1,
+            ]);
+
+            $calculator->checkHalfDayRule();
+
+            $attendance->refresh();
+            $this->assertTrue((bool) $attendance->is_half_day);
+            $this->assertSame(
+                DB::table('status_masters')->where('code', $case['status'])->value('id'),
+                $attendance->status_master_id,
+            );
+            $this->assertSame(
+                0.5,
+                (float) DB::table('status_musters')->where('date', $case['date'])->value('day_count'),
+            );
+        }
     }
 
     public function test_fix_work_hours_skips_week_off_overtime(): void
