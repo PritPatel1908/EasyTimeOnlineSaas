@@ -10,7 +10,7 @@
     </div>
     @if ($cloneRecord)
         <div class="alert alert-info" role="status">
-            Approval levels and approvers were copied. Employee assignments were left blank to keep existing routing unchanged.
+            Approval levels, approvers, and employee assignments were copied. Saving this clone will reassign selected employees to the new flow for those modules.
         </div>
     @endif
     @php($formDetails = old('details', $details))

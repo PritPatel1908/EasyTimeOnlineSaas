@@ -253,6 +253,24 @@
             nextIndex = Math.max(nextIndex, Number(row.dataset.index) + 1);
         });
 
+        function parseSlabTime(row, field) {
+            var input = row.querySelector('input[name$="[' + field + ']"]');
+            var match = input && input.value.trim().match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+
+            return match ? Number(match[1]) * 60 + Number(match[2]) : null;
+        }
+
+        function formatSlabTime(minutes) {
+            if (minutes < 0 || minutes >= 24 * 60) {
+                return '';
+            }
+
+            var hours = Math.floor(minutes / 60);
+            var remainingMinutes = minutes % 60;
+
+            return String(hours).padStart(2, '0') + ':' + String(remainingMinutes).padStart(2, '0');
+        }
+
         function updateSlabNumbers() {
             rows.querySelectorAll('.overtime-slab-row').forEach(function (row, index) {
                 row.querySelector('.overtime-slab-number').textContent = String(index + 1);
@@ -261,7 +279,24 @@
 
         updateSlabNumbers();
         document.getElementById('add_overtime_slab').addEventListener('click', function () {
+            var lastRow = rows.querySelector('.overtime-slab-row:last-child');
+            var lastFrom = lastRow ? parseSlabTime(lastRow, 'value_from') : null;
+            var lastTo = lastRow ? parseSlabTime(lastRow, 'value_to') : null;
+            var lastHead = lastRow ? parseSlabTime(lastRow, 'head_value') : null;
+            var interval = lastFrom !== null && lastTo !== null ? lastTo - lastFrom : 0;
+
             rows.insertAdjacentHTML('beforeend', template.innerHTML.replaceAll('__INDEX__', String(nextIndex++)));
+            var newRow = rows.querySelector('.overtime-slab-row:last-child');
+
+            if (interval > 0) {
+                newRow.querySelector('input[name$="[value_from]"]').value = formatSlabTime(lastTo);
+                newRow.querySelector('input[name$="[value_to]"]').value = formatSlabTime(lastTo + interval);
+
+                if (lastHead !== null) {
+                    newRow.querySelector('input[name$="[head_value]"]').value = formatSlabTime(lastHead + interval);
+                }
+            }
+
             updateSlabNumbers();
         });
 

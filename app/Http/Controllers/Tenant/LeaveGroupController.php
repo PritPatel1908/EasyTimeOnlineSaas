@@ -81,6 +81,14 @@ class LeaveGroupController extends Controller
     public function create(Request $request): View
     {
         $leaveGroup = $this->cloneForCreate($request, LeaveGroup::class);
+        if ($leaveGroup !== null) {
+            $leaveGroup->setRelation('grade_wise_monthly_leave_details', $leaveGroup->grade_wise_monthly_leave_details
+                ->map(function ($detail): mixed {
+                    $detail->id = null;
+                    return $detail;
+                }));
+        }
+
         $leaveGroup?->load([
             'grade_wise_monthly_leave_details.leave_type',
             'grade_wise_monthly_leave_details.sandwich_leave',

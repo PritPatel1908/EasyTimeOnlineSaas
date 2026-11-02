@@ -70,6 +70,7 @@ class ApprovalFlowModuleTest extends TestCase
 
         $html = view('employee-structure.approval-flows.form', [
             'approvalFlow' => $flow,
+            'cloneRecord' => null,
             'users' => collect(),
             'employees' => collect([$employee]),
             'details' => [['level' => 1, 'users' => []]],
@@ -93,6 +94,39 @@ class ApprovalFlowModuleTest extends TestCase
         $this->assertStringContainsString('<option value="7" selected>Test Employee', $html);
         $this->assertStringNotContainsString('name="details[0][level]"', $html);
         $this->assertStringNotContainsString('id="approval_level_0"', $html);
+    }
+
+    public function test_approval_flow_clone_form_renders_copied_employee_assignments(): void
+    {
+        view()->share('errors', new ViewErrorBag());
+        $cloneRecord = new ApprovalFlow();
+        $cloneRecord->approval_flow_code = 'source-flow';
+        $cloneRecord->status = 1;
+        $employee = (object) [
+            'id' => 7,
+            'name' => 'Test Employee',
+            'email' => 'employee@example.test',
+            'code' => 'EMP007',
+        ];
+
+        $html = view('employee-structure.approval-flows.form', [
+            'approvalFlow' => null,
+            'cloneRecord' => $cloneRecord,
+            'users' => collect(),
+            'employees' => collect([$employee]),
+            'details' => [['level' => 1, 'users' => []]],
+            'approvalModules' => [
+                'leave_approval_flow_id' => 'Leave',
+            ],
+            'employeeAssignments' => [
+                'leave_approval_flow_id' => [7],
+            ],
+            'status' => 1,
+        ])->render();
+
+        $this->assertStringContainsString('name="employee_assignments[leave_approval_flow_id][]"', $html);
+        $this->assertStringContainsString('<option value="7" selected>Test Employee', $html);
+        $this->assertStringContainsString('Saving this clone will reassign selected employees to the new flow', $html);
     }
 
     public function test_approval_flow_import_accepts_multiple_levels_and_approver_groups_in_one_row(): void

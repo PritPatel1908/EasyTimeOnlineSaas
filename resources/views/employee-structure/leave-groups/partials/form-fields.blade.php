@@ -130,7 +130,10 @@
                     $ruleLeaveType = $leaveTypes->firstWhere('id', data_get($detail, 'leave_type_id'));
                     $keepsBalance = (string) old('monthly_rules.'.$index.'.keeps_balance', data_get($detail, 'keeps_balance', 0)) === '1';
                 @endphp
-                <div class="border rounded p-3 mb-3" data-leave-rule data-monthly-rule data-rule-index="{{ $index }}" @if ($isRulePrototype) data-rule-prototype hidden @endif>
+                @if ($isRulePrototype)
+                    <template data-rule-prototype>
+                @endif
+                <div class="border rounded p-3 mb-3" data-leave-rule data-monthly-rule data-rule-index="{{ $index }}" @if ($isRulePrototype) hidden @endif>
                     <div class="d-flex align-items-center justify-content-between mb-3">
                         <h6 class="mb-0" data-rule-title>{{ $ruleLeaveType?->description ?? $ruleLeaveType?->code ?? ($isRulePrototype ? 'New Leave Rule' : 'Monthly Rule') }}</h6>
                         <button type="button" class="btn btn-outline-danger btn-sm" data-remove-leave-rule>
@@ -339,6 +342,9 @@
                         </div>
                     </div>
                 </div>
+                @if ($isRulePrototype)
+                    </template>
+                @endif
             @endforeach
             </div>
         </div>
@@ -374,19 +380,14 @@
 
     document.querySelectorAll('.leave-group-form').forEach(function (form) {
         var rulesContainer = form.querySelector('[data-leave-rules-container]');
-        var rulePrototype = rulesContainer && rulesContainer.querySelector('[data-rule-prototype]');
+        var ruleTemplate = form.querySelector('template[data-rule-prototype]');
+        var rulePrototype = ruleTemplate ? ruleTemplate.content.firstElementChild : (rulesContainer && rulesContainer.querySelector('[data-rule-prototype]'));
         var noRulesMessage = form.querySelector('[data-no-leave-rules]');
         var nextRuleIndex = rulesContainer
             ? Array.from(rulesContainer.querySelectorAll('[data-monthly-rule]')).reduce(function (nextIndex, rule) {
                 return Math.max(nextIndex, Number(rule.dataset.ruleIndex) + 1);
             }, 0)
             : 0;
-
-        if (rulePrototype) {
-            rulePrototype.querySelectorAll('input, select, textarea').forEach(function (field) {
-                field.disabled = true;
-            });
-        }
 
         function syncRuleIndexes(rule, index) {
             rule.dataset.ruleIndex = index;
@@ -424,11 +425,15 @@
         var addRuleButton = form.querySelector('[data-add-leave-rule]');
         if (addRuleButton && rulesContainer) {
             addRuleButton.addEventListener('click', function () {
-                var sourceRule = rulePrototype || rulesContainer.querySelector('[data-monthly-rule]:not([data-rule-prototype])');
+                var sourceRule = ruleTemplate
+                    ? ruleTemplate.content.firstElementChild.cloneNode(true)
+                    : (rulePrototype || rulesContainer.querySelector('[data-monthly-rule]:not([data-rule-prototype])'));
                 if (!sourceRule) return;
-                sourceRule.querySelectorAll('select').forEach(function (field) {
-                    if (field.tomselect) field.tomselect.destroy();
-                });
+                if (sourceRule.querySelectorAll) {
+                    sourceRule.querySelectorAll('select').forEach(function (field) {
+                        if (field.tomselect) field.tomselect.destroy();
+                    });
+                }
                 var rule = sourceRule.cloneNode(true);
                 rule.hidden = false;
                 rule.removeAttribute('data-rule-prototype');

@@ -97,6 +97,10 @@ class ApprovalFlowController extends Controller
                 ->values()
                 ->all();
 
+        $employeeAssignments = $cloneRecord === null
+            ? array_fill_keys(array_keys(self::EMPLOYEE_APPROVAL_MODULES), [])
+            : $this->employeeAssignmentsForFlow($cloneRecord);
+
         return view('employee-structure.approval-flows.form', [
             'approvalFlow' => null,
             'cloneRecord' => $cloneRecord,
@@ -105,7 +109,7 @@ class ApprovalFlowController extends Controller
             'details' => $details === [] ? [['level' => 1, 'users' => []]] : $details,
             'status' => $cloneRecord?->status ?? 1,
             'approvalModules' => self::EMPLOYEE_APPROVAL_MODULES,
-            'employeeAssignments' => array_fill_keys(array_keys(self::EMPLOYEE_APPROVAL_MODULES), []),
+            'employeeAssignments' => $employeeAssignments,
         ]);
     }
 
@@ -147,24 +151,6 @@ class ApprovalFlowController extends Controller
             ->values()
             ->all();
 
-        $employeeAssignments = array_fill_keys(array_keys(self::EMPLOYEE_APPROVAL_MODULES), []);
-        $employees = User::query()
-            ->where('user_type', 'employee')
-            ->where(function ($query) use ($approvalFlow): void {
-                foreach (array_keys(self::EMPLOYEE_APPROVAL_MODULES) as $moduleField) {
-                    $query->orWhere($moduleField, $approvalFlow->id);
-                }
-            })
-            ->get(['id', ...array_keys(self::EMPLOYEE_APPROVAL_MODULES)]);
-
-        foreach ($employees as $employee) {
-            foreach (array_keys(self::EMPLOYEE_APPROVAL_MODULES) as $moduleField) {
-                if ((int) $employee->{$moduleField} === (int) $approvalFlow->id) {
-                    $employeeAssignments[$moduleField][] = $employee->id;
-                }
-            }
-        }
-
         return view('employee-structure.approval-flows.form', [
             'approvalFlow' => $approvalFlow,
             'cloneRecord' => null,
@@ -173,7 +159,7 @@ class ApprovalFlowController extends Controller
             'employees' => $this->availableEmployees(),
             'details' => $details === [] ? [['level' => 1, 'users' => []]] : $details,
             'approvalModules' => self::EMPLOYEE_APPROVAL_MODULES,
-            'employeeAssignments' => $employeeAssignments,
+            'employeeAssignments' => $this->employeeAssignmentsForFlow($approvalFlow),
         ]);
     }
 
@@ -358,5 +344,29 @@ class ApprovalFlowController extends Controller
             ->where('user_type', 'employee')
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'code']);
+    }
+
+    private function employeeAssignmentsForFlow(ApprovalFlow $approvalFlow): array
+    {
+        $moduleFields = array_keys(self::EMPLOYEE_APPROVAL_MODULES);
+        $employeeAssignments = array_fill_keys($moduleFields, []);
+        $employees = User::query()
+            ->where('user_type', 'employee')
+            ->where(function ($query) use ($moduleFields, $approvalFlow): void {
+                foreach ($moduleFields as $moduleField) {
+                    $query->orWhere($moduleField, $approvalFlow->id);
+                }
+            })
+            ->get(['id', ...$moduleFields]);
+
+        foreach ($employees as $employee) {
+            foreach ($moduleFields as $moduleField) {
+                if ((int) $employee->{$moduleField} === (int) $approvalFlow->id) {
+                    $employeeAssignments[$moduleField][] = $employee->id;
+                }
+            }
+        }
+
+        return $employeeAssignments;
     }
 }

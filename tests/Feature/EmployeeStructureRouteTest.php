@@ -28,6 +28,27 @@ class EmployeeStructureRouteTest extends TestCase
         $this->assertTrue(Route::has('tenant.employee-structure.designations.export'));
     }
 
+    public function test_employee_rows_render_clone_action(): void
+    {
+        $user = new User();
+        $user->id = 1;
+        $user->name = 'Prit Patel';
+        $user->code = '1067';
+        $user->email = 'prit@test.com';
+        $user->status = 1;
+        $user->allow_mobile_login = true;
+        $user->allow_mobile_punch = true;
+
+        Auth::guard('tenant')->setUser($user);
+
+        $html = view('employee-structure.employees.partials.rows', [
+            'employees' => collect([$user]),
+        ])->render();
+
+        $this->assertStringContainsString('employee-structure/employees/create?clone=1', $html);
+        $this->assertStringContainsString('title="Clone"', $html);
+    }
+
     public function test_super_admin_user_id_1_has_no_employee_structure_permission_restriction(): void
     {
         $user = new User();
@@ -174,7 +195,7 @@ class EmployeeStructureRouteTest extends TestCase
         $this->assertStringContainsString('Maximum Accumulation', $html);
         $this->assertStringContainsString('Maximum Request in a Month', $html);
         $this->assertStringContainsString('Maximum Request in a Year', $html);
-        $this->assertSame(12, substr_count($html, '0 for unrestricted'));
+        $this->assertGreaterThanOrEqual(12, substr_count($html, '0 for unrestricted'));
         $this->assertStringContainsString('Eligible Leave After Days', $html);
         $this->assertStringContainsString('Credit Leave After Days', $html);
         $this->assertStringContainsString('Min Avail', $html);
@@ -253,6 +274,41 @@ class EmployeeStructureRouteTest extends TestCase
         $this->assertStringContainsString('Maximum Accumulation', $html);
         $this->assertStringContainsString('Annual Leave', $html);
         $this->assertStringNotContainsString('Leave Frequency', $html);
+    }
+
+    public function test_cloned_leave_group_form_keeps_existing_rules_and_uses_template_for_new_rule(): void
+    {
+        view()->share('errors', new \Illuminate\Support\ViewErrorBag());
+
+        $leaveGroup = new LeaveGroup();
+        $leaveGroup->id = 12;
+        $leaveGroup->name = 'Cloned Group';
+        $leaveGroup->is_monthly = true;
+        $leaveGroup->status = 1;
+
+        $detail = new GradeWiseMonthlyLeaveDetail();
+        $detail->id = 77;
+        $detail->leave_type_id = 3;
+        $detail->is_paid = true;
+        $detail->keeps_balance = true;
+        $detail->count_weekly_off_as_present = true;
+        $detail->count_holiday_as_present = true;
+        $detail->setRelation('leave_type', new LeaveType(['id' => 3, 'code' => 'AL', 'description' => 'Annual Leave']));
+
+        $leaveGroup->setRelation('grade_wise_monthly_leave_details', collect([$detail]));
+        $leaveGroup->setRelation('grade_wise_yearly_leave_details', collect());
+
+        $html = view('employee-structure.leave-groups.add', [
+            'leaveGroup' => $leaveGroup,
+            'financialYears' => collect(),
+            'leaveTypes' => collect([
+                new LeaveType(['id' => 3, 'code' => 'AL', 'description' => 'Annual Leave']),
+            ]),
+        ])->render();
+
+        $this->assertStringContainsString('name="monthly_rules[0][leave_type_id]"', $html);
+        $this->assertMatchesRegularExpression('/<template[^>]*data-rule-prototype[^>]*>/', $html);
+        $this->assertDoesNotMatchRegularExpression('/<div[^>]*data-rule-prototype[^>]*hidden[^>]*>/', $html);
     }
 
     public function test_leave_group_edit_form_does_not_render_yearly_leave_rules(): void

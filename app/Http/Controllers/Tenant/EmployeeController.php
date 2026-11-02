@@ -81,9 +81,11 @@ class EmployeeController extends Controller
         return response()->json(['html' => view('employee-structure.employees.partials.rows', compact('employees'))->render(), 'count' => $employees->count()]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
-        return view('employee-structure.employees.add', array_merge(['employee' => null], $this->formOptions()));
+        return view('employee-structure.employees.add', array_merge([
+            'employee' => $this->cloneForCreate($request, User::class),
+        ], $this->formOptions()));
     }
 
     public function store(StoreEmployeeRequest $request): RedirectResponse
