@@ -10,6 +10,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Carbon;
 
 class ProcessPendingLogs implements ShouldBeUnique, ShouldQueue
 {
@@ -138,6 +139,7 @@ class ProcessPendingLogs implements ShouldBeUnique, ShouldQueue
             $log->process_tags()->create([
                 'name' => 'Processed',
             ]);
+            $this->dispatchChronologicalReprocessingIfNeeded($log);
             if ($this->returnLog) {
                 $this->returningLogArray = $attCalculator->getReturnLogs();
             }
@@ -192,8 +194,49 @@ class ProcessPendingLogs implements ShouldBeUnique, ShouldQueue
         ]);
 
         $attCalculator->debug('----------------------'.'ProcessEnded for #'.$log->id.'|'.$log->user_code.'|'.$log->datetime.'| Calculated:'.$log->is_calculated.'----------------------');
+        $this->dispatchChronologicalReprocessingIfNeeded($log);
         if ($this->returnLog) {
             $this->returningLogArray = $attCalculator->getReturnLogs();
         }
+    }
+
+    private function dispatchChronologicalReprocessingIfNeeded(AttendanceLog $log): void
+    {
+        if ($log->user_id === null || $log->datetime === null) {
+            return;
+        }
+
+        $latestLaterPunch = AttendanceLog::query()
+            ->where('user_id', $log->user_id)
+            ->where('is_calculated', true)
+            ->where('is_locked', false)
+            ->where('status', '!=', 0)
+            ->where(function ($query) use ($log): void {
+                $query->where('datetime', '>', $log->datetime)
+                    ->orWhere(function ($query) use ($log): void {
+                        $query->where('datetime', '=', $log->datetime)
+                            ->where('id', '>', $log->id);
+                    });
+            })
+            ->orderByDesc('datetime')
+            ->orderByDesc('id')
+            ->value('datetime');
+
+        if ($latestLaterPunch === null) {
+            return;
+        }
+
+        $reprocessStart = $log->datetime->copy()->subDay()->startOfDay();
+        $reprocessEnd = Carbon::parse($latestLaterPunch);
+        $supportedWindowEnd = $log->datetime->copy()->addDays(35);
+        if ($reprocessEnd->greaterThan($supportedWindowEnd)) {
+            $reprocessEnd = $supportedWindowEnd;
+        }
+
+        ReprocessAttendanceLogs::dispatch(
+            $reprocessStart->toDateTimeString(),
+            $reprocessEnd->toDateTimeString(),
+            [(int) $log->user_id],
+        );
     }
 }

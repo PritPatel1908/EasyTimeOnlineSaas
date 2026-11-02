@@ -6,6 +6,7 @@ namespace Tests\Unit;
 
 use App\Attendance\AttCalculator;
 use App\Jobs\Tenant\ProcessPendingLogs;
+use App\Jobs\Tenant\ReprocessAttendanceLogs;
 use App\Models\Tenant\AbsentRule;
 use App\Models\Tenant\Attendance;
 use App\Models\Tenant\AttendanceLog;
@@ -22,6 +23,7 @@ use App\Models\Tenant\StatusMuster;
 use App\Models\Tenant\User;
 use Illuminate\Contracts\Database\ModelIdentifier;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -76,6 +78,7 @@ class ProcessPendingLogsTest extends TestCase
             $table->boolean('is_manual')->default(false);
             $table->boolean('debug_me')->default(false);
             $table->boolean('has_error')->default(false);
+            $table->boolean('is_locked')->default(false);
             $table->unsignedTinyInteger('status')->default(1);
             $table->unsignedBigInteger('created_by')->nullable();
             $table->unsignedBigInteger('updated_by')->nullable();
@@ -206,6 +209,59 @@ class ProcessPendingLogsTest extends TestCase
 
         $this->assertStringNotContainsString(ModelIdentifier::class, $serializedJob);
         $this->assertSame('42', $restoredJob->uniqueId());
+    }
+
+    public function test_late_punch_dispatches_reprocessing_for_the_employee_and_later_logs(): void
+    {
+        Bus::fake();
+
+        $latePunchId = DB::table('attendance_logs')->insertGetId([
+            'user_id' => 7,
+            'datetime' => '2026-03-10 08:00:00',
+            'is_calculated' => true,
+        ]);
+        DB::table('attendance_logs')->insert([
+            'user_id' => 7,
+            'datetime' => '2026-03-12 08:00:00',
+            'is_calculated' => true,
+        ]);
+        DB::table('attendance_logs')->insert([
+            'user_id' => 8,
+            'datetime' => '2026-03-13 08:00:00',
+            'is_calculated' => true,
+        ]);
+
+        $log = AttendanceLog::query()->findOrFail($latePunchId);
+        $method = new \ReflectionMethod(ProcessPendingLogs::class, 'dispatchChronologicalReprocessingIfNeeded');
+        $method->invoke(new ProcessPendingLogs($latePunchId), $log);
+
+        Bus::assertDispatched(ReprocessAttendanceLogs::class, static function (ReprocessAttendanceLogs $job): bool {
+            return $job->startDateTime === '2026-03-09 00:00:00'
+                && $job->endDateTime === '2026-03-12 08:00:00'
+                && $job->employeeIds === [7];
+        });
+    }
+
+    public function test_late_punch_does_not_dispatch_reprocessing_when_no_later_calculated_punch_exists(): void
+    {
+        Bus::fake();
+
+        $punchId = DB::table('attendance_logs')->insertGetId([
+            'user_id' => 7,
+            'datetime' => '2026-03-10 08:00:00',
+            'is_calculated' => true,
+        ]);
+        DB::table('attendance_logs')->insert([
+            'user_id' => 7,
+            'datetime' => '2026-03-12 08:00:00',
+            'is_calculated' => false,
+        ]);
+
+        $log = AttendanceLog::query()->findOrFail($punchId);
+        $method = new \ReflectionMethod(ProcessPendingLogs::class, 'dispatchChronologicalReprocessingIfNeeded');
+        $method->invoke(new ProcessPendingLogs($punchId), $log);
+
+        Bus::assertNotDispatched(ReprocessAttendanceLogs::class);
     }
 
     public function test_direct_processing_skips_logs_with_status_zero_without_changing_them(): void
