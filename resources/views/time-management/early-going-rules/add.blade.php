@@ -18,7 +18,7 @@
             <div class="card-body">
                 <form action="{{ url('time-management/early-going-rules') }}" method="POST">
                     @csrf
-                    @include('time-management.early-going-rules.partials.form-fields', ['earlyGoingRule' => null])
+                    @include('time-management.early-going-rules.partials.form-fields', ['earlyGoingRule' => $earlyGoingRule])
                     <div class="d-flex align-items-center justify-content-end mt-3 pt-2 border-top">
                         <a href="{{ url('time-management/early-going-rules') }}" class="btn btn-light me-2">Cancel</a>
                         <button type="submit" class="btn btn-primary"><i class="ti ti-circle-plus me-1"></i>Add Rule</button>

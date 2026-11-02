@@ -8,6 +8,11 @@
             <nav><ol class="breadcrumb mb-0"><li class="breadcrumb-item">Employee Structure</li><li class="breadcrumb-item"><a href="{{ url('employee-structure/approval-flows') }}">Approval Flows</a></li><li class="breadcrumb-item active">{{ $approvalFlow ? 'Edit Approval Flow' : 'Add Approval Flow' }}</li></ol></nav>
         </div>
     </div>
+    @if ($cloneRecord)
+        <div class="alert alert-info" role="status">
+            Approval levels and approvers were copied. Employee assignments were left blank to keep existing routing unchanged.
+        </div>
+    @endif
     @php($formDetails = old('details', $details))
     @php($employeeAssignments = old('employee_assignments', $employeeAssignments ?? []))
     <div class="card">
@@ -18,7 +23,7 @@
                 @if($approvalFlow) @method('PUT') @endif
                 <div class="mb-4">
                     <label for="approval_flow_code" class="form-label">Approval Flow Code <span class="text-danger">*</span></label>
-                    <input id="approval_flow_code" name="approval_flow_code" type="text" maxlength="255" required class="form-control @error('approval_flow_code') is-invalid @enderror" value="{{ old('approval_flow_code', $approvalFlow?->approval_flow_code) }}">
+                    <input id="approval_flow_code" name="approval_flow_code" type="text" maxlength="255" required class="form-control @error('approval_flow_code') is-invalid @enderror" value="{{ old('approval_flow_code', $approvalFlow?->approval_flow_code ?? $cloneRecord?->approval_flow_code) }}">
                     @error('approval_flow_code')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
                 <div class="mb-4">

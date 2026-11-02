@@ -17,6 +17,9 @@
                 @if (\App\Support\TenantPermissions::userCan('HalfDayRule', 'read'))
                     <a href="{{ url('time-management/half-day-rules/'.$halfDayRule->id) }}" class="me-2" title="View"><i class="ti ti-eye"></i></a>
                 @endif
+                @if (\App\Support\TenantPermissions::userCan('HalfDayRule', 'create'))
+                    @include('partials.clone-action', ['url' => url('time-management/half-day-rules/create?clone='.$halfDayRule->id)])
+                @endif
                 @if (\App\Support\TenantPermissions::userCan('HalfDayRule', 'write'))
                     <a href="{{ url('time-management/half-day-rules/'.$halfDayRule->id.'/edit') }}" class="me-2" title="Edit"><i class="ti ti-edit"></i></a>
                 @endif

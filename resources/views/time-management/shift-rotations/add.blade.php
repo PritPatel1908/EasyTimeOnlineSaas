@@ -18,7 +18,7 @@
             <div class="card-body">
                 <form action="{{ url('time-management/shift-rotations') }}" method="POST">
                     @csrf
-                    @include('time-management.shift-rotations.partials.form-fields', ['shiftRotation' => null])
+                    @include('time-management.shift-rotations.partials.form-fields', ['shiftRotation' => $shiftRotation])
                     <div class="d-flex align-items-center justify-content-end mt-3 pt-2 border-top">
                         <a href="{{ url('time-management/shift-rotations') }}" class="btn btn-light me-2">Cancel</a>
                         <button type="submit" class="btn btn-primary"><i class="ti ti-circle-plus me-1"></i>Add Shift Rotation</button>

@@ -14,6 +14,9 @@
                 @if (\App\Support\TenantPermissions::userCan('EarlyGoingRule', 'read'))
                     <a href="{{ url('time-management/early-going-rules/'.$earlyGoingRule->id) }}" class="me-2" title="View"><i class="ti ti-eye"></i></a>
                 @endif
+                @if (\App\Support\TenantPermissions::userCan('EarlyGoingRule', 'create'))
+                    @include('partials.clone-action', ['url' => url('time-management/early-going-rules/create?clone='.$earlyGoingRule->id)])
+                @endif
                 @if (\App\Support\TenantPermissions::userCan('EarlyGoingRule', 'write'))
                     <a href="{{ url('time-management/early-going-rules/'.$earlyGoingRule->id.'/edit') }}" class="me-2" title="Edit"><i class="ti ti-edit"></i></a>
                 @endif

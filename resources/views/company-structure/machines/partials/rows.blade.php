@@ -15,6 +15,7 @@
         </td>
         <td><div class="action-icon d-inline-flex">
             @if (\App\Support\TenantPermissions::userCan('Machine', 'read'))<a href="{{ url('company-structure/machines/'.$machine->id) }}" class="me-2" title="View"><i class="ti ti-eye"></i></a>@endif
+            @if (\App\Support\TenantPermissions::userCan('Machine', 'create'))@include('partials.clone-action', ['url' => url('company-structure/machines/create?clone='.$machine->id)])@endif
             @if (\App\Support\TenantPermissions::userCan('Machine', 'write'))<a href="{{ url('company-structure/machines/'.$machine->id.'/edit') }}" class="me-2" title="Edit"><i class="ti ti-edit"></i></a>@endif
             @if (\App\Support\TenantPermissions::userCan('Machine', 'delete'))<a href="javascript:void(0);" class="text-danger delete-machine-btn" data-url="{{ url('company-structure/machines/'.$machine->id) }}" data-name="{{ $machine->name }}" data-bs-toggle="modal" data-bs-target="#delete_machine_modal" title="Delete"><i class="ti ti-trash"></i></a>@endif
         </div></td>

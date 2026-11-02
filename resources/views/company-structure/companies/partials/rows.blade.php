@@ -24,6 +24,9 @@
                     <i class="ti ti-eye"></i>
                 </a>
                 @endif
+                @if (\App\Support\TenantPermissions::userCan('Company', 'create'))
+                @include('partials.clone-action', ['url' => url('company-structure/companies/create?clone='.$company->id)])
+                @endif
                 @if (\App\Support\TenantPermissions::userCan('Company', 'write'))
                 <a href="{{ url('company-structure/companies/'.$company->id.'/edit') }}"
                     class="me-2" title="Edit">

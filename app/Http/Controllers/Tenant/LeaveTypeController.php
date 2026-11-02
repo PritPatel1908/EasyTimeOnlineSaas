@@ -132,9 +132,10 @@ class LeaveTypeController extends Controller
             ->with('success', 'Leave Type import has started. You will receive a notification when the import finishes.');
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
         return view('employee-structure.leave-types.add', [
+            'leaveType' => $this->cloneForCreate($request, LeaveType::class),
             'locations' => Location::query()->orderBy('name')->get(),
         ]);
     }

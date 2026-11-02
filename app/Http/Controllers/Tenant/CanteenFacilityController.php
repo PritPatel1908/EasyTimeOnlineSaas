@@ -75,9 +75,12 @@ class CanteenFacilityController extends Controller
         return response()->json(['html' => view('company-structure.canteen-facilities.partials.rows', compact('canteenFacilities'))->render(), 'count' => $canteenFacilities->count()]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
-        return view('company-structure.canteen-facilities.add', ['canteenFacility' => null, 'locations' => $this->locations()]);
+        return view('company-structure.canteen-facilities.add', [
+            'canteenFacility' => $this->cloneForCreate($request, CanteenFacility::class),
+            'locations' => $this->locations(),
+        ]);
     }
 
     public function store(StoreCanteenFacilityRequest $request): RedirectResponse

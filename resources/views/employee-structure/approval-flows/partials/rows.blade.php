@@ -13,6 +13,7 @@
         </td>
         <td class="text-center"><div class="action-icon d-inline-flex">
             @if(\App\Support\TenantPermissions::userCan('ApprovalFlow', 'read'))<a class="me-2" href="{{ url('employee-structure/approval-flows/'.$approvalFlow->id) }}" title="View"><i class="ti ti-eye"></i></a>@endif
+            @if(\App\Support\TenantPermissions::userCan('ApprovalFlow', 'create'))@include('partials.clone-action', ['url' => url('employee-structure/approval-flows/create?clone='.$approvalFlow->id)])@endif
             @if(\App\Support\TenantPermissions::userCan('ApprovalFlow', 'write'))<a class="me-2" href="{{ url('employee-structure/approval-flows/'.$approvalFlow->id.'/edit') }}" title="Edit"><i class="ti ti-edit"></i></a>@endif
             @if(\App\Support\TenantPermissions::userCan('ApprovalFlow', 'delete'))<a href="javascript:void(0)" class="text-danger delete-approval-flow-btn" data-url="{{ url('employee-structure/approval-flows/'.$approvalFlow->id) }}" data-code="{{ $approvalFlow->approval_flow_code }}" data-bs-toggle="modal" data-bs-target="#delete_approval_flow_modal" title="Delete"><i class="ti ti-trash"></i></a>@endif
         </div></td>

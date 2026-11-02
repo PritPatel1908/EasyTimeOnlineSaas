@@ -51,10 +51,16 @@ class CategoryController extends Controller
         return response()->json(['html' => view('employee-structure.categories.partials.rows', compact('categories'))->render(), 'count' => $categories->count()]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
+        $category = $this->cloneForCreate($request, Category::class);
+        $category?->load([
+            'c_off_against_wo_hl_slabs',
+            'c_off_against_ot_slabs',
+        ]);
+
         return view('employee-structure.categories.add', [
-            'category' => null,
+            'category' => $category,
             'companies' => Company::query()->where('status', 1)->orderBy('name')->get(),
             'locations' => Location::query()->where('status', 1)->orderBy('name')->get(),
             'leaveTypes' => LeaveType::query()->where('status', 1)->orderBy('description')->get(),

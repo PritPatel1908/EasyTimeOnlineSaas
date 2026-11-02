@@ -16,6 +16,9 @@
         </td>
         <td class="text-end">
             <div class="d-flex justify-content-end align-items-center">
+                @if (\App\Support\TenantPermissions::userCan('DataPolicy', 'create'))
+                @include('partials.clone-action', ['url' => url('data-policy/create?clone='.$dataPolicy->id)])
+                @endif
                 <a href="{{ url('data-policy/'.$dataPolicy->id.'/edit') }}"
                     class="btn btn-sm btn-light me-2" title="Edit">
                     <i class="ti ti-edit"></i>

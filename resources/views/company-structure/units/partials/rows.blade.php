@@ -15,6 +15,7 @@
     </td>
     <td class="text-center"><div class="action-icon d-inline-flex">
         @if (\App\Support\TenantPermissions::userCan('Unit', 'read'))<a class="me-2" href="{{ url('company-structure/units/'.$unit->id) }}" title="View"><i class="ti ti-eye"></i></a>@endif
+        @if (\App\Support\TenantPermissions::userCan('Unit', 'create'))@include('partials.clone-action', ['url' => url('company-structure/units/create?clone='.$unit->id)])@endif
         @if (\App\Support\TenantPermissions::userCan('Unit', 'write'))<a class="me-2" href="{{ url('company-structure/units/'.$unit->id.'/edit') }}" title="Edit"><i class="ti ti-edit"></i></a>@endif
         @if (\App\Support\TenantPermissions::userCan('Unit', 'delete'))<a href="javascript:void(0)" class="text-danger delete-unit-btn" data-url="{{ url('company-structure/units/'.$unit->id) }}" data-name="{{ $unit->name }}" data-bs-toggle="modal" data-bs-target="#delete_unit_modal" title="Delete"><i class="ti ti-trash"></i></a>@endif
     </div></td>

@@ -43,7 +43,7 @@
                             @csrf
 
                             @include('company-structure.companies.partials.form-fields', [
-                                'company' => null,
+                                'company' => $company,
                                 'locations' => $locations,
                             ])
 

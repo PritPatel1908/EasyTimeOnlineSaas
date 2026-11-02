@@ -63,9 +63,11 @@ class EarlyGoingRuleController extends Controller
         ]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
-        return view('time-management.early-going-rules.add');
+        return view('time-management.early-going-rules.add', [
+            'earlyGoingRule' => $this->cloneForCreate($request, EarlyGoingRule::class),
+        ]);
     }
 
     public function store(StoreEarlyGoingRuleRequest $request): RedirectResponse

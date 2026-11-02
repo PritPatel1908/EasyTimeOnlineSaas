@@ -63,9 +63,11 @@ class HalfDayRuleController extends Controller
         ]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
-        return view('time-management.half-day-rules.add');
+        return view('time-management.half-day-rules.add', [
+            'halfDayRule' => $this->cloneForCreate($request, HalfDayRule::class),
+        ]);
     }
 
     public function store(StoreHalfDayRuleRequest $request): RedirectResponse

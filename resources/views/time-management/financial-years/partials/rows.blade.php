@@ -13,6 +13,9 @@
                 @if (\App\Support\TenantPermissions::userCan('FinancialYear', 'read'))
                     <a href="{{ url('time-management/financial-years/'.$financialYear->id) }}" class="me-2" title="View"><i class="ti ti-eye"></i></a>
                 @endif
+                @if (\App\Support\TenantPermissions::userCan('FinancialYear', 'create'))
+                    @include('partials.clone-action', ['url' => url('time-management/financial-years/create?clone='.$financialYear->id)])
+                @endif
                 @if (\App\Support\TenantPermissions::userCan('FinancialYear', 'write'))
                     <a href="{{ url('time-management/financial-years/'.$financialYear->id.'/edit') }}" class="me-2" title="Edit"><i class="ti ti-edit"></i></a>
                 @endif

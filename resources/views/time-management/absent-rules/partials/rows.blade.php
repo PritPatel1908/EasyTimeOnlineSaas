@@ -17,6 +17,9 @@
                 @if (\App\Support\TenantPermissions::userCan('AbsentRule', 'read'))
                     <a href="{{ url('time-management/absent-rules/'.$absentRule->id) }}" class="me-2" title="View"><i class="ti ti-eye"></i></a>
                 @endif
+                @if (\App\Support\TenantPermissions::userCan('AbsentRule', 'create'))
+                    @include('partials.clone-action', ['url' => url('time-management/absent-rules/create?clone='.$absentRule->id)])
+                @endif
                 @if (\App\Support\TenantPermissions::userCan('AbsentRule', 'write'))
                     <a href="{{ url('time-management/absent-rules/'.$absentRule->id.'/edit') }}" class="me-2" title="Edit"><i class="ti ti-edit"></i></a>
                 @endif

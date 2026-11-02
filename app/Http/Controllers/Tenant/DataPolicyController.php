@@ -56,9 +56,12 @@ class DataPolicyController extends Controller
         ]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
-        return view('company-structure.data-policies.add', $this->formOptions());
+        return view('company-structure.data-policies.add', [
+            ...$this->formOptions(),
+            'dataPolicy' => $this->cloneForCreate($request, DataPolicy::class),
+        ]);
     }
 
     public function store(StoreDataPolicyRequest $request): RedirectResponse

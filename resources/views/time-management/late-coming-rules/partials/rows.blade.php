@@ -14,6 +14,9 @@
                 @if (\App\Support\TenantPermissions::userCan('LateComingRule', 'read'))
                     <a href="{{ url('time-management/late-coming-rules/'.$lateComingRule->id) }}" class="me-2" title="View"><i class="ti ti-eye"></i></a>
                 @endif
+                @if (\App\Support\TenantPermissions::userCan('LateComingRule', 'create'))
+                    @include('partials.clone-action', ['url' => url('time-management/late-coming-rules/create?clone='.$lateComingRule->id)])
+                @endif
                 @if (\App\Support\TenantPermissions::userCan('LateComingRule', 'write'))
                     <a href="{{ url('time-management/late-coming-rules/'.$lateComingRule->id.'/edit') }}" class="me-2" title="Edit"><i class="ti ti-edit"></i></a>
                 @endif

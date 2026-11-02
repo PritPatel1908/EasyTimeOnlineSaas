@@ -63,9 +63,11 @@ class AbsentRuleController extends Controller
         ]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
-        return view('time-management.absent-rules.add');
+        return view('time-management.absent-rules.add', [
+            'absentRule' => $this->cloneForCreate($request, AbsentRule::class),
+        ]);
     }
 
     public function store(StoreAbsentRuleRequest $request): RedirectResponse

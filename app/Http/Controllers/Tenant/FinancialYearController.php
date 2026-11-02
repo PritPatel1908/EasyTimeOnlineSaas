@@ -68,10 +68,16 @@ class FinancialYearController extends Controller
         ]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
+        $financialYear = $this->cloneForCreate($request, FinancialYear::class);
+        if ($financialYear !== null) {
+            $financialYear->is_started = false;
+            $financialYear->is_closed = false;
+        }
+
         return view('time-management.financial-years.add', [
-            'financialYear' => null,
+            'financialYear' => $financialYear,
             ...$this->formOptions(),
         ]);
     }

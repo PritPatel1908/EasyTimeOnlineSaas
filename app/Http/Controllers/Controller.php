@@ -3,11 +3,29 @@
 namespace App\Http\Controllers;
 
 use App\Support\CsvImportTemplate;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\ValidationException;
 
 abstract class Controller
 {
+    /**
+     * @param  class-string<Model>  $modelClass
+     */
+    protected function cloneForCreate(Request $request, string $modelClass): ?Model
+    {
+        if (! $request->query->has('clone')) {
+            return null;
+        }
+
+        $sourceId = $request->validate([
+            'clone' => ['required', 'integer', 'min:1'],
+        ])['clone'];
+
+        return $modelClass::query()->findOrFail($sourceId);
+    }
+
     protected function validateImportCsv(UploadedFile $file, array $expectedColumns, string $expectedFilename): void
     {
         if ($file->getClientOriginalName() !== $expectedFilename) {

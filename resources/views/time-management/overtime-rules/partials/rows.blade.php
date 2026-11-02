@@ -27,6 +27,9 @@
                 @if (\App\Support\TenantPermissions::userCan('OvertimeRule', 'read'))
                     <a href="{{ url('time-management/overtime-rules/'.$overtimeRule->id) }}" class="me-2" title="View"><i class="ti ti-eye"></i></a>
                 @endif
+                @if (\App\Support\TenantPermissions::userCan('OvertimeRule', 'create'))
+                    @include('partials.clone-action', ['url' => url('time-management/overtime-rules/create?clone='.$overtimeRule->id)])
+                @endif
                 @if (\App\Support\TenantPermissions::userCan('OvertimeRule', 'write'))
                     <a href="{{ url('time-management/overtime-rules/'.$overtimeRule->id.'/edit') }}" class="me-2" title="Edit"><i class="ti ti-edit"></i></a>
                 @endif

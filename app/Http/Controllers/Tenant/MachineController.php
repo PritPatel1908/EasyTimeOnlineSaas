@@ -59,9 +59,12 @@ class MachineController extends Controller
         ]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
-        return view('company-structure.machines.add', $this->formOptions());
+        return view('company-structure.machines.add', [
+            ...$this->formOptions(),
+            'machine' => $this->cloneForCreate($request, Machine::class),
+        ]);
     }
 
     public function store(StoreMachineRequest $request): RedirectResponse

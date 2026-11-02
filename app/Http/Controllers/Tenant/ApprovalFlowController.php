@@ -81,14 +81,29 @@ class ApprovalFlowController extends Controller
         ]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
+        $cloneRecord = $this->cloneForCreate($request, ApprovalFlow::class);
+        $cloneRecord?->load('approval_flow_details.users');
+
+        $details = $cloneRecord === null
+            ? []
+            : $cloneRecord->approval_flow_details
+                ->sortBy('level')
+                ->map(fn ($detail): array => [
+                    'level' => $detail->level,
+                    'users' => $detail->users->pluck('id')->all(),
+                ])
+                ->values()
+                ->all();
+
         return view('employee-structure.approval-flows.form', [
             'approvalFlow' => null,
+            'cloneRecord' => $cloneRecord,
             'users' => $this->availableUsers(),
             'employees' => $this->availableEmployees(),
-            'details' => [['level' => 1, 'users' => []]],
-            'status' => 1,
+            'details' => $details === [] ? [['level' => 1, 'users' => []]] : $details,
+            'status' => $cloneRecord?->status ?? 1,
             'approvalModules' => self::EMPLOYEE_APPROVAL_MODULES,
             'employeeAssignments' => array_fill_keys(array_keys(self::EMPLOYEE_APPROVAL_MODULES), []),
         ]);
@@ -152,6 +167,7 @@ class ApprovalFlowController extends Controller
 
         return view('employee-structure.approval-flows.form', [
             'approvalFlow' => $approvalFlow,
+            'cloneRecord' => null,
             'status' => $approvalFlow->status,
             'users' => $this->availableUsers(),
             'employees' => $this->availableEmployees(),

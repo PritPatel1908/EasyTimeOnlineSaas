@@ -12,6 +12,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class RolePermissionController extends Controller
@@ -118,12 +119,67 @@ class RolePermissionController extends Controller
             'permissions.*' => ['string', 'max:150'],
         ]);
 
-        $role = Role::create([
-            'name' => $validated['name'],
-            'guard_name' => 'tenant',
-            'status' => $validated['status'],
-        ]);
-        $this->syncPermissions($role, $validated['permissions'] ?? []);
+        $connection = DB::connection('tenant');
+        $permissions = $validated['permissions'] ?? [];
+
+        $connection->transaction(function () use ($connection, $validated, $permissions): void {
+            $newRole = new Role([
+                'name' => $validated['name'],
+                'guard_name' => 'tenant',
+                'status' => $validated['status'],
+            ]);
+            $newRole->setConnection($connection->getName());
+
+            if ($connection->getDriverName() === 'sqlsrv') {
+                $grammar = $connection->getQueryGrammar();
+                $now = now();
+                $sql = sprintf(
+                    'INSERT INTO %s (%s, %s, %s, %s, %s) OUTPUT INSERTED.%s VALUES (?, ?, ?, ?, ?)',
+                    $grammar->wrapTable(config('permission.table_names.roles')),
+                    $grammar->wrap('name'),
+                    $grammar->wrap('guard_name'),
+                    $grammar->wrap('status'),
+                    $grammar->wrap('created_at'),
+                    $grammar->wrap('updated_at'),
+                    $grammar->wrap('id')
+                );
+                $insertedRole = $connection->selectOne($sql, [
+                    $validated['name'],
+                    'tenant',
+                    $validated['status'],
+                    $now,
+                    $now,
+                ], false);
+                $roleId = $insertedRole?->id;
+
+                if ($roleId === null) {
+                    throw new \RuntimeException('SQL Server did not return the ID of the newly created tenant role.');
+                }
+
+                $newRole->setRawAttributes([
+                    'id' => $roleId,
+                    'name' => $validated['name'],
+                    'guard_name' => 'tenant',
+                    'status' => $validated['status'],
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ], true);
+                $newRole->exists = true;
+                $newRole->wasRecentlyCreated = true;
+
+                ActivityLogger::log(
+                    Auth::guard('tenant')->user(),
+                    $newRole,
+                    [],
+                    $newRole->getAttributes(),
+                    'created'
+                );
+            } else {
+                $newRole->save();
+            }
+
+            $this->syncPermissions($newRole, $permissions);
+        });
 
         return redirect()->route('tenant.roles.index', ['tenant' => $tenant])->with('success', 'Role created successfully.');
     }
@@ -207,8 +263,9 @@ class RolePermissionController extends Controller
             ->unique()
             ->values();
 
-        $permissions = $permissionNames->map(function (string $name): Permission {
-            return Permission::firstOrCreate([
+        $connectionName = $role->getConnection()->getName();
+        $permissions = $permissionNames->map(function (string $name) use ($connectionName): Permission {
+            return Permission::on($connectionName)->firstOrCreate([
                 'name' => $name,
                 'guard_name' => 'tenant',
             ]);

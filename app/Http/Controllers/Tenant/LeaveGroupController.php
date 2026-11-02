@@ -78,10 +78,17 @@ class LeaveGroupController extends Controller
         ]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
+        $leaveGroup = $this->cloneForCreate($request, LeaveGroup::class);
+        $leaveGroup?->load([
+            'grade_wise_monthly_leave_details.leave_type',
+            'grade_wise_monthly_leave_details.sandwich_leave',
+        ]);
+
         return view('employee-structure.leave-groups.add', [
-            'leaveGroup' => null,
+            'leaveGroup' => $leaveGroup,
+            'isEdit' => false,
             'financialYears' => FinancialYear::query()->orderByDesc('id')->get(),
             'leaveTypes' => LeaveType::withTrashed()->orderBy('description')->get(),
         ]);

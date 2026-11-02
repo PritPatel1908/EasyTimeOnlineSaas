@@ -67,9 +67,14 @@ class OvertimeRuleController extends Controller
         ]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
-        return view('time-management.overtime-rules.add');
+        $overtimeRule = $this->cloneForCreate($request, OvertimeRule::class);
+        $overtimeRule?->load('overtime_slabs');
+
+        return view('time-management.overtime-rules.add', [
+            'overtimeRule' => $overtimeRule,
+        ]);
     }
 
     public function store(StoreOvertimeRuleRequest $request): RedirectResponse

@@ -66,9 +66,12 @@ class ShiftController extends Controller
         ]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
-        return view('time-management.shifts.add', $this->formOptions());
+        return view('time-management.shifts.add', [
+            ...$this->formOptions(),
+            'shift' => $this->cloneForCreate($request, Shift::class),
+        ]);
     }
 
     public function store(StoreShiftRequest $request): RedirectResponse

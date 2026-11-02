@@ -63,9 +63,11 @@ class LateComingRuleController extends Controller
         ]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
-        return view('time-management.late-coming-rules.add');
+        return view('time-management.late-coming-rules.add', [
+            'lateComingRule' => $this->cloneForCreate($request, LateComingRule::class),
+        ]);
     }
 
     public function store(StoreLateComingRuleRequest $request): RedirectResponse

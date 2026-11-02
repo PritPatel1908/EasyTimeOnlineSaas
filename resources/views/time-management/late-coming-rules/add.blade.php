@@ -18,7 +18,7 @@
             <div class="card-body">
                 <form action="{{ url('time-management/late-coming-rules') }}" method="POST">
                     @csrf
-                    @include('time-management.late-coming-rules.partials.form-fields', ['lateComingRule' => null])
+                    @include('time-management.late-coming-rules.partials.form-fields', ['lateComingRule' => $lateComingRule])
                     <div class="d-flex align-items-center justify-content-end mt-3 pt-2 border-top">
                         <a href="{{ url('time-management/late-coming-rules') }}" class="btn btn-light me-2">Cancel</a>
                         <button type="submit" class="btn btn-primary"><i class="ti ti-circle-plus me-1"></i>Add Rule</button>

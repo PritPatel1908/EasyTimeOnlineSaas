@@ -21,7 +21,7 @@
             <div class="card-body">
                 <form action="{{ url('company-structure/areas') }}" method="POST">
                     @csrf
-                    @include('company-structure.areas.partials.form-fields', ['area' => null, 'companies' => $companies, 'locations' => $locations])
+                    @include('company-structure.areas.partials.form-fields', ['area' => $area, 'companies' => $companies, 'locations' => $locations])
                     <div class="d-flex align-items-center justify-content-end mt-3 pt-2 border-top">
                         <a href="{{ url('company-structure/areas') }}" class="btn btn-light me-2"><i class="ti ti-arrow-left me-1"></i>Cancel</a>
                         <button type="submit" class="btn btn-primary"><i class="ti ti-circle-plus me-1"></i>Add Area</button>

@@ -58,10 +58,10 @@ class AreaController extends Controller
         ]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
         return view('company-structure.areas.add', [
-            'area' => null,
+            'area' => $this->cloneForCreate($request, Area::class),
             'companies' => Company::query()->orderBy('name')->get(),
             'locations' => Location::query()->orderBy('name')->get(),
         ]);

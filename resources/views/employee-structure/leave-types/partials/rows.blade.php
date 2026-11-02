@@ -7,6 +7,7 @@
         <td><span class="badge {{ $leaveType->status === 1 ? 'badge-success' : 'badge-danger' }} d-inline-flex align-items-center badge-xs"><i class="ti ti-point-filled me-1"></i><span>{{ $leaveType->status === 1 ? 'Active' : 'Inactive' }}</span></span></td>
         <td><div class="action-icon d-inline-flex">
             @if (\App\Support\TenantPermissions::userCan('LeaveType', 'read'))<a href="{{ url('employee-structure/leave-types/'.$leaveType->id) }}" class="me-2" title="View"><i class="ti ti-eye"></i></a>@endif
+            @if (\App\Support\TenantPermissions::userCan('LeaveType', 'create'))@include('partials.clone-action', ['url' => url('employee-structure/leave-types/create?clone='.$leaveType->id)])@endif
             @if (\App\Support\TenantPermissions::userCan('LeaveType', 'write'))<a href="{{ url('employee-structure/leave-types/'.$leaveType->id.'/edit') }}" class="me-2" title="Edit"><i class="ti ti-edit"></i></a>@endif
             @if (\App\Support\TenantPermissions::userCan('LeaveType', 'delete'))<a href="javascript:void(0);" class="text-danger delete-leave-type-btn" data-url="{{ url('employee-structure/leave-types/'.$leaveType->id) }}" data-name="{{ $leaveType->code }}" data-bs-toggle="modal" data-bs-target="#delete_leave_type_modal" title="Delete"><i class="ti ti-trash"></i></a>@endif
         </div></td>

@@ -18,7 +18,7 @@
             <div class="card-body">
                 <form action="{{ url('time-management/overtime-rules') }}" method="POST">
                     @csrf
-                    @include('time-management.overtime-rules.partials.form-fields', ['overtimeRule' => null])
+                    @include('time-management.overtime-rules.partials.form-fields', ['overtimeRule' => $overtimeRule])
                     <div class="d-flex align-items-center justify-content-end mt-3 pt-2 border-top">
                         <a href="{{ url('time-management/overtime-rules') }}" class="btn btn-light me-2">Cancel</a>
                         <button type="submit" class="btn btn-primary"><i class="ti ti-circle-plus me-1"></i>Add Rule</button>

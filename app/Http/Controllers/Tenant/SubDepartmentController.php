@@ -58,10 +58,10 @@ class SubDepartmentController extends Controller
         ]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
         return view('company-structure.sub-departments.add', [
-            'subDepartment' => null,
+            'subDepartment' => $this->cloneForCreate($request, SubDepartment::class),
             'departments' => Department::query()->where('status', 1)->orderBy('name')->get(),
             'locations' => Location::query()->where('status', 1)->orderBy('name')->get(),
         ]);

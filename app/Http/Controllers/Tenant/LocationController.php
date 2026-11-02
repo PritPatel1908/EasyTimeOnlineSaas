@@ -130,9 +130,11 @@ class LocationController extends Controller
         return redirect(url('company-structure/locations'))->with('success', 'Location import has started. You will receive a notification when the import finishes.');
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
-        return view('company-structure.locations.add');
+        return view('company-structure.locations.add', [
+            'location' => $this->cloneForCreate($request, Location::class),
+        ]);
     }
 
     public function store(StoreLocationRequest $request): RedirectResponse

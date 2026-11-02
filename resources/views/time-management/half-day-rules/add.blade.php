@@ -18,7 +18,7 @@
             <div class="card-body">
                 <form action="{{ url('time-management/half-day-rules') }}" method="POST">
                     @csrf
-                    @include('time-management.half-day-rules.partials.form-fields', ['halfDayRule' => null])
+                    @include('time-management.half-day-rules.partials.form-fields', ['halfDayRule' => $halfDayRule])
                     <div class="d-flex align-items-center justify-content-end mt-3 pt-2 border-top">
                         <a href="{{ url('time-management/half-day-rules') }}" class="btn btn-light me-2">Cancel</a>
                         <button type="submit" class="btn btn-primary"><i class="ti ti-circle-plus me-1"></i>Add Rule</button>

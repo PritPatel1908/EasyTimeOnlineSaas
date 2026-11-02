@@ -68,9 +68,15 @@ class ShiftRotationController extends Controller
         ]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
-        return view('time-management.shift-rotations.add', $this->formOptions());
+        $shiftRotation = $this->cloneForCreate($request, ShiftRotation::class);
+        $shiftRotation?->load('rotation_values');
+
+        return view('time-management.shift-rotations.add', array_merge(
+            ['shiftRotation' => $shiftRotation],
+            $this->formOptions(),
+        ));
     }
 
     public function store(StoreShiftRotationRequest $request): RedirectResponse

@@ -55,10 +55,10 @@ class UnitController extends Controller
         ]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
         return view('company-structure.units.add', [
-            'unit' => null,
+            'unit' => $this->cloneForCreate($request, Unit::class),
             'locations' => Location::query()->where('status', 1)->orderBy('name')->get(),
         ]);
     }

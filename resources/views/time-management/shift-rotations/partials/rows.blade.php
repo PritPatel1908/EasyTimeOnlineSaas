@@ -16,6 +16,9 @@
             @if (\App\Support\TenantPermissions::userCan('ShiftRotation', 'read'))
                 <a href="{{ url('time-management/shift-rotations/'.$shiftRotation->id) }}" class="me-2" title="View"><i class="ti ti-eye"></i></a>
             @endif
+            @if (\App\Support\TenantPermissions::userCan('ShiftRotation', 'create'))
+                @include('partials.clone-action', ['url' => url('time-management/shift-rotations/create?clone='.$shiftRotation->id)])
+            @endif
             @if (\App\Support\TenantPermissions::userCan('ShiftRotation', 'write'))
                 <a href="{{ url('time-management/shift-rotations/'.$shiftRotation->id.'/edit') }}" class="me-2" title="Edit"><i class="ti ti-edit"></i></a>
             @endif

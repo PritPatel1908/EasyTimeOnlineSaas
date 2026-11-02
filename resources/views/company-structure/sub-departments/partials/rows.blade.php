@@ -9,6 +9,7 @@
     <td><span class="badge {{ $subDepartment->status === 1 ? 'badge-success' : 'badge-danger' }}">{{ $subDepartment->status === 1 ? 'Active' : 'Inactive' }}</span></td>
     <td class="text-center"><div class="action-icon d-inline-flex">
         @if (\App\Support\TenantPermissions::userCan('SubDepartment', 'read'))<a class="me-2" href="{{ url('company-structure/sub-departments/'.$subDepartment->id) }}" title="View"><i class="ti ti-eye"></i></a>@endif
+        @if (\App\Support\TenantPermissions::userCan('SubDepartment', 'create'))@include('partials.clone-action', ['url' => url('company-structure/sub-departments/create?clone='.$subDepartment->id)])@endif
         @if (\App\Support\TenantPermissions::userCan('SubDepartment', 'write'))<a class="me-2" href="{{ url('company-structure/sub-departments/'.$subDepartment->id.'/edit') }}" title="Edit"><i class="ti ti-edit"></i></a>@endif
         @if (\App\Support\TenantPermissions::userCan('SubDepartment', 'delete'))<a href="javascript:void(0)" class="text-danger delete-sub-department-btn" data-url="{{ url('company-structure/sub-departments/'.$subDepartment->id) }}" data-name="{{ $subDepartment->name }}" data-bs-toggle="modal" data-bs-target="#delete_sub_department_modal" title="Delete"><i class="ti ti-trash"></i></a>@endif
     </div></td>

@@ -198,11 +198,12 @@ class CompanyController extends Controller
             ->with('success', 'Company created successfully.');
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
         $locations = Location::query()->where('status', 1)->orderBy('name')->get();
 
         return view('company-structure.companies.add', [
+            'company' => $this->cloneForCreate($request, Company::class),
             'locations' => $locations,
         ]);
     }

@@ -58,10 +58,10 @@ class DesignationController extends Controller
         ]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
         return view('employee-structure.designations.add', [
-            'designation' => null,
+            'designation' => $this->cloneForCreate($request, Designation::class),
             'companies' => Company::query()->where('status', 1)->orderBy('name')->get(),
             'locations' => Location::query()->where('status', 1)->orderBy('name')->get(),
             'categories' => Category::query()->where('status', 1)->orderBy('name')->get(),

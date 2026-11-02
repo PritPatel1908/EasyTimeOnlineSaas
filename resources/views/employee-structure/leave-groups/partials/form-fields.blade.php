@@ -1,5 +1,5 @@
 @php
-    $isEdit = $leaveGroup !== null;
+    $isEdit = $isEdit ?? $leaveGroup !== null;
 @endphp
 
 @if ($errors->any())
@@ -112,7 +112,7 @@
         <div class="card-body">
             @php
                 $monthlyRulesForView = old('monthly_rules');
-                if ($monthlyRulesForView === null && $isEdit) {
+                if ($monthlyRulesForView === null && $leaveGroup !== null) {
                     $monthlyRulesForView = $leaveGroup->grade_wise_monthly_leave_details->all();
                 }
                 $monthlyRulesForView ??= [];

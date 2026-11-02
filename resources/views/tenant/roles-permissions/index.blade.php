@@ -41,8 +41,10 @@
                         <td><span class="badge {{ $role->status ? 'badge-success' : 'badge-danger' }} d-inline-flex align-items-center badge-xs"><i class="ti ti-point-filled me-1"></i>{{ $role->status ? 'Active' : 'Inactive' }}</span></td>
                         <td class="text-end"><div class="action-icon d-inline-flex align-items-center">
                             <a href="{{ route('tenant.roles.permissions', ['tenant' => $tenant, 'role' => $role]) }}" class="me-2" data-bs-toggle="tooltip" title="Manage permissions"><i class="ti ti-key"></i></a>
+                            <a href="javascript:void(0);" class="me-2 clone-role-btn" data-bs-toggle="modal" data-bs-target="#add_role" data-role-name="{{ $role->name }} (Copy)" data-role-status="{{ $role->status ? '1' : '0' }}" data-role-permissions="{{ $role->permissions->pluck('name')->values()->toJson() }}" title="Clone role" aria-label="Clone role"><i class="ti ti-copy"></i></a>
                             <a href="#edit_role_{{ $role->id }}" class="me-2" data-bs-toggle="modal" title="Edit role"><i class="ti ti-edit"></i></a>
-                            <form method="POST" action="{{ route('tenant.roles.destroy', ['tenant' => $tenant, 'role' => $role]) }}" class="d-inline" onsubmit="return confirm('Delete this role?')">@csrf @method('DELETE')<button type="submit" class="btn btn-link p-0 text-danger" title="Delete role"><i class="ti ti-trash"></i></button></form>
+                            <a href="javascript:void(0);" class="text-danger delete-role-btn" data-form-id="delete_role_{{ $role->id }}" title="Delete"><i class="ti ti-trash"></i></a>
+                            <form id="delete_role_{{ $role->id }}" method="POST" action="{{ route('tenant.roles.destroy', ['tenant' => $tenant, 'role' => $role]) }}" class="d-none" onsubmit="return confirm('Delete this role?')">@csrf @method('DELETE')</form>
                         </div></td>
                     </tr>
                     <div class="modal fade" id="edit_role_{{ $role->id }}" data-validation-errors="{{ $errors->getBag('editRole' . $role->id)->any() ? 'true' : 'false' }}" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Edit role</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div><form method="POST" action="{{ route('tenant.roles.update', ['tenant' => $tenant, 'role' => $role]) }}" novalidate>@csrf @method('PUT')<div class="modal-body"><label for="role_name_{{ $role->id }}" class="form-label">Role name <span class="text-danger" aria-hidden="true">*</span></label><input id="role_name_{{ $role->id }}" name="name" value="{{ $role->name }}" class="form-control" required maxlength="100"><x-validation-error field="name" :bag="'editRole' . $role->id" /><label for="role_status_{{ $role->id }}" class="form-label mt-3">Status</label><select id="role_status_{{ $role->id }}" name="status" class="form-control select" required><option value="1" @selected($role->status)>Active</option><option value="0" @selected(! $role->status)>Inactive</option></select><x-validation-error field="status" :bag="'editRole' . $role->id" /></div><div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Save changes</button></div></form></div></div></div>
@@ -57,9 +59,44 @@
     @include('partials.footer')
 </div>
 
-<div class="modal fade" id="add_role" data-validation-errors="{{ $errors->getBag('createRole')->any() ? 'true' : 'false' }}" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Create role</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div><form method="POST" action="{{ route('tenant.roles.store') }}" novalidate>@csrf<div class="modal-body"><label for="role_name" class="form-label">Role name <span class="text-danger" aria-hidden="true">*</span></label><input id="role_name" name="name" class="form-control" placeholder="e.g. HR Manager" required maxlength="100"><x-validation-error field="name" bag="createRole" /><label for="role_status" class="form-label mt-3">Status</label><select id="role_status" name="status" class="form-control select" required><option value="1" selected>Active</option><option value="0">Inactive</option></select><x-validation-error field="status" bag="createRole" /><p class="text-muted fs-12 mt-2 mb-0">You can assign module permissions after creating the role.</p></div><div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Create role</button></div></form></div></div></div>
+<div class="modal fade" id="add_role" data-validation-errors="{{ $errors->getBag('createRole')->any() ? 'true' : 'false' }}" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="role_create_title">Create role</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div><form method="POST" action="{{ route('tenant.roles.store') }}" novalidate>@csrf<div id="clone_role_permissions"></div><div class="modal-body"><label for="role_name" class="form-label">Role name <span class="text-danger" aria-hidden="true">*</span></label><input id="role_name" name="name" class="form-control" placeholder="e.g. HR Manager" required maxlength="100"><x-validation-error field="name" bag="createRole" /><label for="role_status" class="form-label mt-3">Status</label><select id="role_status" name="status" class="form-control select" required><option value="1" selected>Active</option><option value="0">Inactive</option></select><x-validation-error field="status" bag="createRole" /><p class="text-muted fs-12 mt-2 mb-0" id="role_create_help">You can assign module permissions after creating the role.</p></div><div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary" id="role_create_submit">Create role</button></div></form></div></div></div>
 @push('scripts')
 <script>
+    document.addEventListener('click', function (event) {
+        var deleteButton = event.target.closest('.delete-role-btn');
+        if (!deleteButton) {
+            return;
+        }
+
+        document.getElementById(deleteButton.dataset.formId).requestSubmit();
+    });
+
+    document.getElementById('add_role').addEventListener('show.bs.modal', function (event) {
+        var source = event.relatedTarget;
+        var isClone = source && source.classList.contains('clone-role-btn');
+        var permissionsContainer = document.getElementById('clone_role_permissions');
+        var permissions = isClone ? JSON.parse(source.dataset.rolePermissions) : [];
+        permissionsContainer.replaceChildren();
+
+        document.getElementById('role_create_title').textContent = isClone ? 'Clone role' : 'Create role';
+        document.getElementById('role_create_submit').textContent = isClone ? 'Clone role' : 'Create role';
+        document.getElementById('role_name').value = isClone ? source.dataset.roleName : '';
+        document.getElementById('role_status').value = isClone ? source.dataset.roleStatus : '1';
+        document.getElementById('role_create_help').textContent = isClone
+            ? 'The ' + permissions.length + ' assigned permissions will be copied to this role.'
+            : 'You can assign module permissions after creating the role.';
+
+        if (isClone) {
+            permissions.forEach(function (permission) {
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'permissions[]';
+                input.value = permission;
+                permissionsContainer.appendChild(input);
+            });
+        }
+    });
+
     document.querySelectorAll('#add_role form, [id^="edit_role_"] form').forEach(function (form) {
         form.addEventListener('submit', function (event) {
             var invalidFields = Array.from(form.elements).filter(function (field) {

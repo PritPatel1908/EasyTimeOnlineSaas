@@ -10,6 +10,9 @@
             @if (\App\Support\TenantPermissions::userCan('Location', 'read'))
             <a href="{{ url('company-structure/locations/'.$location->id) }}" class="me-2" title="View"><i class="ti ti-eye"></i></a>
             @endif
+            @if (\App\Support\TenantPermissions::userCan('Location', 'create'))
+            @include('partials.clone-action', ['url' => url('company-structure/locations/create?clone='.$location->id)])
+            @endif
             @if (\App\Support\TenantPermissions::userCan('Location', 'write'))
             <a href="{{ url('company-structure/locations/'.$location->id.'/edit') }}" class="me-2" title="Edit"><i class="ti ti-edit"></i></a>
             @endif

@@ -10,6 +10,9 @@
 			@if (\App\Support\TenantPermissions::userCan('CanteenFacility', 'read'))
 			<a href="{{ url('company-structure/canteen-facilities/'.$canteenFacility->id) }}" class="me-2" title="View"><i class="ti ti-eye"></i></a>
 			@endif
+			@if (\App\Support\TenantPermissions::userCan('CanteenFacility', 'create'))
+			@include('partials.clone-action', ['url' => url('company-structure/canteen-facilities/create?clone='.$canteenFacility->id)])
+			@endif
 			@if (\App\Support\TenantPermissions::userCan('CanteenFacility', 'write'))
 			<a href="{{ url('company-structure/canteen-facilities/'.$canteenFacility->id.'/edit') }}" class="me-2" title="Edit"><i class="ti ti-edit"></i></a>
 			@endif
