@@ -26,7 +26,7 @@
                 <tbody>
                     @forelse ($attendanceRecords as $attendance)
                         @php
-                            $needsOvertimeApproval = $attendance->user?->category?->need_approval_for_overtime;
+                            $needsOvertimeApproval = $attendance->user?->resolvedCategory()?->need_approval_for_overtime;
                             $rawOvertimeMinutes = (int) ($attendance->total_overtime_minutes > 0
                                 ? $attendance->total_overtime_minutes
                                 : $attendance->row_overtime_minutes);

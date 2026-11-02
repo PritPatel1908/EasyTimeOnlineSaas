@@ -324,6 +324,35 @@ class User extends Authenticatable implements FilamentUser, HasTenants
         return "{$this->name} ({$this->code})";
     }
 
+    public function __get($key)
+    {
+        if ($key === 'category') {
+            return $this->resolvedCategory();
+        }
+
+        return parent::__get($key);
+    }
+
+    public function resolvedCategory(): ?Category
+    {
+        $categoryId = $this->getAttributeValue('category_id');
+
+        if (is_array($categoryId)) {
+            $categoryId = $categoryId[0] ?? null;
+        } elseif (is_string($categoryId) && $categoryId !== '') {
+            $decoded = json_decode($categoryId, true);
+            if (is_array($decoded)) {
+                $categoryId = $decoded[0] ?? null;
+            }
+        }
+
+        if (! is_numeric((string) $categoryId)) {
+            return null;
+        }
+
+        return Category::query()->find((int) $categoryId);
+    }
+
     protected $table = 'users';
 
     public function canAccessPanel(Panel $panel): bool

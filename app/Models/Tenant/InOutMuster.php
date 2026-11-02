@@ -12,11 +12,14 @@ class InOutMuster extends Model
 
     protected $table = '';
 
-    // public function __construct(array $attributes = [], ?string $year = null)
-    public function __construct(?string $year = null)
+    public function __construct($attributes = [], $year = null)
     {
-        $this->syncOriginal();
-        // $this->fill($attributes);
+        if (is_scalar($attributes) || is_null($attributes)) {
+            $year = $attributes;
+            $attributes = [];
+        }
+
+        parent::__construct($attributes);
         $this->setDynamicTable($year);
     }
 
@@ -140,6 +143,6 @@ class InOutMuster extends Model
 
     public static function year($year)
     {
-        return new static($year);
+        return new static([], $year);
     }
 }
