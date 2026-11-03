@@ -4,6 +4,8 @@ namespace App\Jobs\Tenant;
 
 use App\Attendance\AttCalculator;
 use App\Models\Tenant\AttendanceLog;
+use App\Models\Tenant\ManualPunch;
+use App\Models\Tenant\ShortLeaveApplication;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -195,8 +197,58 @@ class ProcessPendingLogs implements ShouldBeUnique, ShouldQueue
 
         $attCalculator->debug('----------------------'.'ProcessEnded for #'.$log->id.'|'.$log->user_code.'|'.$log->datetime.'| Calculated:'.$log->is_calculated.'----------------------');
         $this->dispatchChronologicalReprocessingIfNeeded($log);
+        $this->dispatchApprovedShortLeavePunches($log);
         if ($this->returnLog) {
             $this->returningLogArray = $attCalculator->getReturnLogs();
+        }
+    }
+
+    private function dispatchApprovedShortLeavePunches(AttendanceLog $log): void
+    {
+        if ($log->user_id === null || $log->datetime === null) {
+            return;
+        }
+
+        $punchDate = Carbon::parse($log->datetime);
+        $applicationIds = ShortLeaveApplication::query()
+            ->applicableToAttendance()
+            ->whereHas(
+                'approval_statuses',
+                static fn ($query) => $query->where('approval_status', 'approved'),
+            )
+            ->where('user_id', $log->user_id)
+            ->whereIn('date', [
+                $punchDate->copy()->subDay()->toDateString(),
+                $punchDate->toDateString(),
+                $punchDate->copy()->addDay()->toDateString(),
+            ])
+            ->pluck('id')
+            ->map(static fn (mixed $id): int => (int) $id);
+
+        if ($applicationIds->isEmpty()) {
+            return;
+        }
+
+        $generatedPunchReasons = $applicationIds->mapWithKeys(
+            static fn (int $applicationId): array => [
+                $applicationId => 'Approved short leave application #'.$applicationId,
+            ],
+        );
+        $alreadyAppliedIds = ManualPunch::query()
+            ->whereIn('reason', $generatedPunchReasons->values())
+            ->whereHas('Users', static fn ($query) => $query->whereKey($log->user_id))
+            ->pluck('reason')
+            ->map(static function (string $reason) use ($generatedPunchReasons): ?int {
+                $applicationId = array_search($reason, $generatedPunchReasons->all(), true);
+
+                return $applicationId === false ? null : (int) $applicationId;
+            })
+            ->filter();
+
+        foreach ($applicationIds->diff($alreadyAppliedIds) as $applicationId) {
+            ApplyApprovedShortLeavePunches::dispatch((int) $applicationId)
+                ->onConnection('database_tenant')
+                ->onQueue('processing');
         }
     }
 

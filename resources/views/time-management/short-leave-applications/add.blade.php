@@ -17,7 +17,8 @@
         <div class="card">
             <div class="card-header"><h5 class="mb-0">Application Details</h5></div>
             <div class="card-body">
-                <form action="{{ url('time-management/short-leave-applications') }}" method="POST">
+                <form action="{{ url('time-management/short-leave-applications') }}" method="POST"
+                    data-live-validation-url="{{ url('time-management/short-leave-applications/validate') }}">
                     @csrf
                     @include('time-management.short-leave-applications.partials.form-fields')
                     <div class="d-flex justify-content-end mt-3 pt-2 border-top">

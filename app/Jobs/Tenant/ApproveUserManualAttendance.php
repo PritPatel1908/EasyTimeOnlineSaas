@@ -2065,13 +2065,20 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
                 && $overtimeSlab->containsMinutes($this->curatt->row_overtime_minutes));
 
             if ($slab) {
+                if ($slab->headValueInMinutes() === 0) {
+                    $this->debug('Matching overtime slab awards zero minutes; no overtime credited');
+                    $this->handleRegularHours();
+
+                    return;
+                }
+
                 $this->handleOvertime($slab, $this->curatt->row_overtime_minutes);
                 $this->otFlag = true;
 
                 return;
             }
 
-            $this->handleRegularHours($this->curatt->row_overtime_minutes);
+            $this->handleRegularHours();
 
             return;
         }
@@ -2268,11 +2275,11 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
         $processTags->create(['name' => 'Overtime', 'success' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
     }
 
-    private function handleRegularHours(int $totalMinutes = 0)
+    private function handleRegularHours()
     {
         $this->debug('User  not get overtime | not have any overtime slab for user overtime hour');
         $this->curatt->is_over_time = false;
-        $this->curatt->total_overtime_minutes = $totalMinutes;
+        $this->curatt->total_overtime_minutes = 0;
         if ($this->user->category?->need_approval_for_overtime === false) {
             $this->curatt->approved_overtime_minutes = 0;
         }

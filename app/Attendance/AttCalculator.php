@@ -15,7 +15,6 @@ use App\Models\Tenant\OvertimeRule;
 use App\Models\Tenant\OvertimeSlab;
 use App\Models\Tenant\Shift;
 use App\Models\Tenant\ShiftMuster;
-use App\Models\Tenant\ShortLeaveApplication;
 // use App\Models\VisitorInOutMuster;
 use App\Models\Tenant\StatusMaster;
 use App\Models\Tenant\StatusMuster;
@@ -3019,31 +3018,18 @@ class AttCalculator
         }
         $date = $this->log->datetime->format('Y-m-d');
         $leaveApplication = $this->approvedLeaveApplicationForDate($date);
-        $shortLeave = ShortLeaveApplication::query()
-            ->applicableToAttendance()
-            ->where('user_id', $this->log->user->id)
-            ->where('date', $date)
-            ->first();
         $coff = Coff::where('user_id', $this->log->user->id)
             ->where('from_date', '<=', $date)
             ->where('to_date', '>=', $date)
             ->first();
 
         $statusCode = $this->presentStatusCode();
-        $approvedEarlyGoingMinutes = 0;
-
         if ($leaveApplication !== null) {
             if (! $leaveApplication->is_first_half || $leaveApplication->to_date != $date) {
                 return;
             }
 
             $statusCode = $leaveApplication->leave_type->code.'P';
-        } elseif ($shortLeave !== null) {
-            if ($shortLeave->short_leave_type != '2') {
-                return;
-            }
-
-            $approvedEarlyGoingMinutes = max(0, (int) $shortLeave->minutes);
         } elseif ($coff !== null) {
             if (! $coff->is_first_half || $coff->to_date != $date) {
                 return;
@@ -3052,7 +3038,7 @@ class AttCalculator
             $statusCode = 'COP';
         }
 
-        $updateStatusMuster = $leaveApplication === null && $shortLeave === null && $coff === null;
+        $updateStatusMuster = $leaveApplication === null && $coff === null;
         $punchInTime = $this->curatt->in_time;
         if (
             $punchInTime !== null
@@ -3069,7 +3055,7 @@ class AttCalculator
         $ruleGraceMinutes = $earlyGoingRule !== null && (int) $earlyGoingRule->status === 1
             ? max(0, (int) $earlyGoingRule->ignore_early_going_minutes)
             : 0;
-        $graceMinutes = max($ruleGraceMinutes, $approvedEarlyGoingMinutes);
+        $graceMinutes = $ruleGraceMinutes;
 
         if ($this->curatt->shift_out_time === null || $this->curatt->out_time === null) {
             $this->debug('Skipping early-going check because shift end or punch-out time is missing');
@@ -3171,36 +3157,21 @@ class AttCalculator
 
         $date = $this->log->datetime->format('Y-m-d');
         $leaveApplication = $this->approvedLeaveApplicationForDate($date);
-        $shortLeave = ShortLeaveApplication::query()
-            ->applicableToAttendance()
-            ->where('user_id', $this->log->user->id)
-            ->where('date', $date)
-            ->first();
         $coff = Coff::where('user_id', $this->log->user->id)
             ->where('from_date', '<=', $date)
             ->where('to_date', '>=', $date)
             ->first();
 
-        if ($shortLeave !== null && $shortLeave->short_leave_type != '1' && $leaveApplication === null && $coff === null) {
-            $this->debug('Short leave type does not affect late coming');
-            $this->updateLateComingStatus(false);
-
-            return;
-        }
-
         $statusCode = $this->presentStatusCode();
-        $approvedGraceMinutes = 0;
 
         if ($leaveApplication !== null) {
             $statusCode = 'P'.$leaveApplication->leave_type->code;
-        } elseif ($shortLeave !== null && $shortLeave->short_leave_type == '1') {
-            $approvedGraceMinutes = max(0, (int) $shortLeave->minutes);
         } elseif ($coff !== null) {
             $statusCode = 'PCO';
         }
 
         $ruleGraceMinutes = max(0, (int) $lateComingRule->ignore_late_coming_minutes);
-        $graceMinutes = max($ruleGraceMinutes, $approvedGraceMinutes);
+        $graceMinutes = $ruleGraceMinutes;
         $shiftInTime = Carbon::parse($this->curatt->shift_in_time);
         $punchInTime = Carbon::parse($this->curatt->in_time);
         $lateMinutes = $punchInTime->greaterThan($shiftInTime)
@@ -3380,13 +3351,20 @@ class AttCalculator
                 && $overtimeSlab->containsMinutes($this->curatt->row_overtime_minutes));
 
             if ($slab) {
+                if ($slab->headValueInMinutes() === 0) {
+                    $this->debug('Matching overtime slab awards zero minutes; no overtime credited');
+                    $this->handleRegularHours();
+
+                    return;
+                }
+
                 $this->handleOvertime($slab, $this->curatt->row_overtime_minutes);
                 $this->otFlag = true;
 
                 return;
             }
 
-            $this->handleRegularHours($this->curatt->row_overtime_minutes);
+            $this->handleRegularHours();
 
             return;
         }
@@ -3467,11 +3445,11 @@ class AttCalculator
         $processTags->create(['name' => 'Overtime', 'color' => 'danger', 'icon' => 'heroicon-o-document-duplicate']);
     }
 
-    private function handleRegularHours(int $totalMinutes = 0): void
+    private function handleRegularHours(): void
     {
         $this->debug('User does not qualify for overtime');
         $this->curatt->is_over_time = false;
-        $this->curatt->total_overtime_minutes = $totalMinutes;
+        $this->curatt->total_overtime_minutes = 0;
         if ($this->log->user?->category?->need_approval_for_overtime === false) {
             $this->curatt->approved_overtime_minutes = 0;
         }

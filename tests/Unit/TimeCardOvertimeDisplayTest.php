@@ -12,7 +12,7 @@ class TimeCardOvertimeDisplayTest extends TestCase
 {
     public function test_overtime_is_automatically_approved_when_category_does_not_require_approval(): void
     {
-        $html = $this->renderAttendanceRecord(false);
+        $html = $this->renderAttendanceRecord(false, 75, 75, 75);
 
         $this->assertSame(2, substr_count($html, '1h 15m'));
         $this->assertStringContainsString('>Approved Overtime</span>', $html);
@@ -20,14 +20,36 @@ class TimeCardOvertimeDisplayTest extends TestCase
 
     public function test_approved_overtime_remains_separate_when_category_requires_approval(): void
     {
-        $html = $this->renderAttendanceRecord(true);
+        $html = $this->renderAttendanceRecord(true, 75, 75, 30);
 
         $this->assertStringContainsString('1h 15m', $html);
         $this->assertStringContainsString('0h 30m', $html);
         $this->assertStringContainsString('>Approved Overtime</span>', $html);
     }
 
-    private function renderAttendanceRecord(bool $needsOvertimeApproval): string
+    public function test_raw_calculated_minutes_are_not_displayed_as_credited_overtime(): void
+    {
+        $html = $this->renderAttendanceRecord(false, 0, 30, 0);
+
+        $this->assertStringNotContainsString('0h 30m', $html);
+    }
+
+    public function test_attendance_date_is_a_punch_list_button(): void
+    {
+        $html = $this->renderAttendanceRecord(false, 75, 75, 75);
+
+        $this->assertStringContainsString('class="btn btn-sm btn-light border text-dark time-card-punches"', $html);
+        $this->assertStringNotContainsString('btn-link', $html);
+        $this->assertStringContainsString('data-attendance-id="1"', $html);
+    }
+
+    private function renderAttendanceRecord(
+        bool $needsOvertimeApproval,
+        int $totalOvertimeMinutes,
+        int $rowOvertimeMinutes,
+        int $approvedOvertimeMinutes,
+        bool $isOvertime = true,
+    ): string
     {
         $attendance = (object) [
             'id' => 1,
@@ -48,10 +70,10 @@ class TimeCardOvertimeDisplayTest extends TestCase
             'early_minutes' => 0,
             'is_half_day' => false,
             'is_absent' => false,
-            'is_over_time' => true,
-            'total_overtime_minutes' => 75,
-            'row_overtime_minutes' => 75,
-            'approved_overtime_minutes' => 0,
+            'is_over_time' => $isOvertime,
+            'total_overtime_minutes' => $totalOvertimeMinutes,
+            'row_overtime_minutes' => $rowOvertimeMinutes,
+            'approved_overtime_minutes' => $approvedOvertimeMinutes,
             'has_error' => false,
             'is_holiday' => false,
             'is_weekoff' => false,

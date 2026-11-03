@@ -20,7 +20,10 @@ class StoreShortLeaveApplicationRequest extends FormRequest
      */
     public function rules(): array
     {
+        $liveDateCheck = $this->boolean('live_date_check');
+
         return [
+            'live_date_check' => ['sometimes', 'boolean'],
             'users' => ['nullable', 'array'],
             'users.*' => ['required', 'integer', 'distinct', 'exists:users,id'],
             'company_ids' => ['nullable', 'array'],
@@ -48,7 +51,9 @@ class StoreShortLeaveApplicationRequest extends FormRequest
             'date' => ['required', 'date_format:Y-m-d'],
             'from_time' => ['nullable', 'date_format:H:i'],
             'to_time' => ['nullable', 'date_format:H:i'],
-            'minutes' => ['required_if:short_leave_type,1,2', 'nullable', 'integer', 'min:1', 'max:1440'],
+            'minutes' => $liveDateCheck
+                ? ['nullable', 'integer', 'min:1', 'max:1440']
+                : ['required_if:short_leave_type,1,2', 'nullable', 'integer', 'min:1', 'max:1440'],
             'short_leave_type' => ['required', 'integer', Rule::in([1, 2, 3])],
         ];
     }
@@ -70,7 +75,7 @@ class StoreShortLeaveApplicationRequest extends FormRequest
                 $validator->errors()->add('users', 'Select at least one employee or choose employee filters.');
             }
 
-            if ((int) $this->input('short_leave_type') !== 3) {
+            if ($this->boolean('live_date_check') || (int) $this->input('short_leave_type') !== 3) {
                 return;
             }
 

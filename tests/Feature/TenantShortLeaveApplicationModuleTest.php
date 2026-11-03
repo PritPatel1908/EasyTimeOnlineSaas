@@ -8,6 +8,7 @@ use App\Enums\ShortLeaveType;
 use App\Http\Controllers\Tenant\NotificationController;
 use App\Http\Controllers\Tenant\ShortLeaveApplicationController;
 use App\Http\Requests\Tenant\StoreShortLeaveApplicationRequest;
+use App\Jobs\Tenant\ApplyApprovedShortLeavePunches;
 use App\Jobs\Tenant\ApproveShortLeaveApplication;
 use App\Jobs\Tenant\CreateShortLeaveApplicationApprovals;
 use App\Jobs\Tenant\ProcessShortLeaveApplicationImport;
@@ -36,6 +37,8 @@ class TenantShortLeaveApplicationModuleTest extends TestCase
             'approval_status_details',
             'approval_statuses',
             'short_leave_applications',
+            'manual_punch_users',
+            'manual_punches',
             'approval_flow_details',
             'approval_flows',
             'bus_routes',
@@ -82,6 +85,12 @@ class TenantShortLeaveApplicationModuleTest extends TestCase
             Schema::create($tableName, function ($table) use ($tableName): void {
                 $table->id();
                 $table->string('name');
+                if ($tableName === 'categories') {
+                    $table->unsignedInteger('max_short_leave_minutes_per_month')->nullable();
+                    $table->unsignedInteger('max_short_leave_minutes_per_application')->nullable();
+                    $table->unsignedInteger('max_occurance_of_short_leave_in_month')->nullable();
+                    $table->unsignedInteger('advance_short_leave_application')->nullable();
+                }
                 if (in_array($tableName, ['companies', 'locations'], true)) {
                     $table->string('code')->nullable();
                 }
@@ -151,6 +160,24 @@ class TenantShortLeaveApplicationModuleTest extends TestCase
             $table->softDeletes();
             $table->timestamps();
         });
+        Schema::create('manual_punches', function ($table): void {
+            $table->id();
+            $table->string('punch_type');
+            $table->date('punch_date');
+            $table->time('punch_time');
+            $table->string('reason')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
+            $table->unsignedBigInteger('deleted_by')->nullable();
+            $table->softDeletes();
+            $table->timestamps();
+        });
+        Schema::create('manual_punch_users', function ($table): void {
+            $table->id();
+            $table->unsignedBigInteger('manual_punch_id');
+            $table->unsignedBigInteger('user_id');
+            $table->timestamps();
+        });
     }
 
     protected function tearDown(): void
@@ -159,6 +186,8 @@ class TenantShortLeaveApplicationModuleTest extends TestCase
         Schema::dropIfExists('approval_status_details');
         Schema::dropIfExists('approval_statuses');
         Schema::dropIfExists('short_leave_applications');
+        Schema::dropIfExists('manual_punch_users');
+        Schema::dropIfExists('manual_punches');
         Schema::dropIfExists('approval_flow_details');
         Schema::dropIfExists('approval_flows');
         Schema::dropIfExists('bus_routes');
@@ -454,6 +483,7 @@ class TenantShortLeaveApplicationModuleTest extends TestCase
 
     public function test_approval_job_credits_only_active_approved_applications(): void
     {
+        Bus::fake();
         DB::table('users')->insert([
             'id' => 101,
             'name' => 'Employee One',
@@ -479,6 +509,7 @@ class TenantShortLeaveApplicationModuleTest extends TestCase
         $application = ShortLeaveApplication::query()->findOrFail(1);
         (new ApproveShortLeaveApplication($application))->handle();
         $this->assertDatabaseHas('users', ['id' => 101, 'short_leave_minutes' => 40]);
+        Bus::assertDispatched(ApplyApprovedShortLeavePunches::class, static fn ($job): bool => $job->applicationId === 1);
 
         DB::table('short_leave_applications')->where('id', 1)->update(['status' => 0]);
         (new ApproveShortLeaveApplication($application))->handle();
@@ -519,6 +550,165 @@ class TenantShortLeaveApplicationModuleTest extends TestCase
         }
         $this->assertArrayNotHasKey('status', $rules);
         $this->assertArrayNotHasKey('approval_status', $rules);
+
+        $dateCheckRequest = StoreShortLeaveApplicationRequest::create('/', 'POST', [
+            'live_date_check' => '1',
+            'short_leave_type' => 3,
+        ]);
+        $this->assertSame(
+            ['nullable', 'integer', 'min:1', 'max:1440'],
+            $dateCheckRequest->rules()['minutes'],
+        );
+    }
+
+    public function test_category_short_leave_rules_reject_application_over_per_request_limit(): void
+    {
+        $this->createCategoryEmployee([
+            'max_short_leave_minutes_per_month' => 180,
+            'max_short_leave_minutes_per_application' => 90,
+            'max_occurance_of_short_leave_in_month' => 2,
+            'advance_short_leave_application' => 2,
+        ]);
+
+        try {
+            app(ShortLeaveApplicationWorkflow::class)->create([
+                'user_id' => 101,
+                'date' => now()->toDateString(),
+                'minutes' => 91,
+                'short_leave_type' => 1,
+            ], 101);
+            $this->fail('The per-application short leave limit should reject the request.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('minutes', $exception->errors());
+        }
+
+        try {
+            app(ShortLeaveApplicationWorkflow::class)->create([
+                'user_id' => 101,
+                'date' => now()->toDateString(),
+                'minutes' => 90,
+                'short_leave_type' => 1,
+            ], 101);
+            $this->fail('The employee has no approval flow configured.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('user_id', $exception->errors());
+        }
+    }
+
+    public function test_category_short_leave_rules_reject_monthly_minutes_and_occurrence_overages(): void
+    {
+        $this->createCategoryEmployee([
+            'max_short_leave_minutes_per_month' => 180,
+            'max_short_leave_minutes_per_application' => 90,
+            'max_occurance_of_short_leave_in_month' => 2,
+            'advance_short_leave_application' => 2,
+        ]);
+        DB::table('short_leave_applications')->insert([
+            [
+                'user_id' => 101,
+                'date' => now()->startOfMonth()->toDateString(),
+                'minutes' => 100,
+                'short_leave_type' => 1,
+                'status' => 1,
+            ],
+            [
+                'user_id' => 101,
+                'date' => now()->startOfMonth()->addDays(1)->toDateString(),
+                'minutes' => 30,
+                'short_leave_type' => 2,
+                'status' => 1,
+            ],
+        ]);
+
+        try {
+            app(ShortLeaveApplicationWorkflow::class)->create([
+                'user_id' => 101,
+                'date' => now()->toDateString(),
+                'minutes' => 60,
+                'short_leave_type' => 1,
+            ], 101);
+            $this->fail('The monthly occurrence limit should reject the request.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('date', $exception->errors());
+        }
+
+        DB::table('short_leave_applications')->where('id', '>', 0)->delete();
+        DB::table('short_leave_applications')->insert([
+            'user_id' => 101,
+            'date' => now()->toDateString(),
+            'minutes' => 130,
+            'short_leave_type' => 1,
+            'status' => 1,
+        ]);
+
+        try {
+            app(ShortLeaveApplicationWorkflow::class)->create([
+                'user_id' => 101,
+                'date' => now()->toDateString(),
+                'minutes' => 60,
+                'short_leave_type' => 1,
+            ], 101);
+            $this->fail('The monthly minutes limit should reject the request.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('minutes', $exception->errors());
+        }
+    }
+
+    public function test_live_validation_reports_monthly_occurrence_limit_without_creating_an_application(): void
+    {
+        $this->createCategoryEmployee([
+            'max_short_leave_minutes_per_month' => 180,
+            'max_short_leave_minutes_per_application' => 90,
+            'max_occurance_of_short_leave_in_month' => 2,
+            'advance_short_leave_application' => 2,
+        ]);
+        DB::table('short_leave_applications')->insert([
+            [
+                'user_id' => 101,
+                'date' => now()->startOfMonth()->toDateString(),
+                'minutes' => 30,
+                'short_leave_type' => 1,
+                'status' => 1,
+            ],
+            [
+                'user_id' => 101,
+                'date' => now()->startOfMonth()->addDay()->toDateString(),
+                'minutes' => 30,
+                'short_leave_type' => 1,
+                'status' => 1,
+            ],
+        ]);
+
+        $errors = app(ShortLeaveApplicationWorkflow::class)->liveValidationErrors([
+            'date' => now()->toDateString(),
+            'short_leave_type' => 1,
+        ], [101], dateOnly: true);
+
+        $this->assertArrayHasKey('date', $errors);
+        $this->assertStringContainsString('maximum of 2 short leave application(s)', $errors['date'][0]);
+        $this->assertSame(2, DB::table('short_leave_applications')->count());
+    }
+
+    public function test_category_short_leave_rules_reject_dates_beyond_advance_limit(): void
+    {
+        $this->createCategoryEmployee([
+            'max_short_leave_minutes_per_month' => 180,
+            'max_short_leave_minutes_per_application' => 90,
+            'max_occurance_of_short_leave_in_month' => 2,
+            'advance_short_leave_application' => 2,
+        ]);
+
+        try {
+            app(ShortLeaveApplicationWorkflow::class)->create([
+                'user_id' => 101,
+                'date' => now()->addDays(3)->toDateString(),
+                'minutes' => 30,
+                'short_leave_type' => 1,
+            ], 101);
+            $this->fail('The advance-day limit should reject the request.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('date', $exception->errors());
+        }
     }
 
     public function test_import_parser_accepts_generated_approval_status_column(): void
@@ -590,14 +780,12 @@ class TenantShortLeaveApplicationModuleTest extends TestCase
             'units' => collect(),
             'busRoutes' => collect(),
         ])->render();
-
         foreach (['users[]', 'reason', 'date', 'from_time', 'to_time', 'minutes', 'short_leave_type', 'company_ids[]', 'location_ids[]', 'employee_filters[department_id][]'] as $field) {
             $this->assertStringContainsString('name="'.$field.'"', $html);
         }
         $this->assertStringNotContainsString('Record Status', $html);
         $this->assertStringNotContainsString('name="status"', $html);
-        $this->assertStringContainsString('function syncFiltersWithEmployees()', $html);
-        $this->assertStringContainsString('employeeSelect.addEventListener(\'change\', syncFiltersWithEmployees)', $html);
+        $this->assertStringContainsString('data-short-leave-feedback-for="date"', $html);
     }
 
     public function test_notification_controller_previews_short_leave_exports(): void
@@ -618,5 +806,19 @@ class TenantShortLeaveApplicationModuleTest extends TestCase
         $this->assertNull($error);
         $this->assertSame(['employee_code', 'date', 'minutes'], $preview['headers']);
         $this->assertSame(['E001', '2026-10-24', '30'], $preview['rows'][0]);
+    }
+
+    /**
+     * @param  array<string, int>  $limits
+     */
+    private function createCategoryEmployee(array $limits): void
+    {
+        DB::table('categories')->insert(['id' => 1, 'name' => 'Short Leave Limited'] + $limits);
+        DB::table('users')->insert([
+            'id' => 101,
+            'name' => 'Employee One',
+            'code' => 'E001',
+            'category_id' => json_encode([1], JSON_THROW_ON_ERROR),
+        ]);
     }
 }

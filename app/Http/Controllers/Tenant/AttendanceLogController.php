@@ -11,6 +11,10 @@ use App\Jobs\Tenant\ReprocessAttendanceLogs;
 use App\Jobs\Tenant\RestoreAttendanceLogs;
 use App\Models\Tenant\Attendance;
 use App\Models\Tenant\AttendanceLog;
+use App\Models\Tenant\ManualAttendance;
+use App\Models\Tenant\ManualAttendanceApplication;
+use App\Models\Tenant\ManualPunch;
+use App\Models\Tenant\ManualPunchApplication;
 use App\Models\Tenant\User;
 use Carbon\Carbon;
 use Illuminate\Contracts\View\View;
@@ -30,9 +34,100 @@ class AttendanceLogController extends Controller
 
     public function filterTimeCard(Request $request): JsonResponse
     {
+        if ($request->filled('punch_attendance_id')) {
+            $filters = $request->validate([
+                'year' => ['required', 'integer', 'min:1900', 'max:2200'],
+                'punch_attendance_id' => ['required', 'integer', 'min:1'],
+            ]);
+
+            return response()->json([
+                'html' => $this->timeCardPunchesHtml(
+                    (int) $filters['year'],
+                    (int) $filters['punch_attendance_id'],
+                ),
+            ]);
+        }
+
         return response()->json([
             'html' => view('time-management.time-card.partials.records', $this->timeCardData($request))->render(),
         ]);
+    }
+
+    private function timeCardPunchesHtml(int $year, int $attendanceId): string
+    {
+        $guard = Auth::guard('tenant');
+        $user = $guard->user();
+        $isSuperAdmin = $guard->id() == 1 || $user?->hasRole('super_admin');
+        $attendance = Attendance::year($year)->findOrFail($attendanceId);
+
+        abort_unless($isSuperAdmin || (int) $attendance->user_id === (int) $guard->id(), 404);
+
+        $punches = collect();
+        $attendanceRemarks = $attendance->remarks;
+        if ($attendance->in_time !== null && $attendance->out_time !== null) {
+            $userCode = User::query()
+                ->withoutGlobalScopes()
+                ->whereKey($attendance->user_id)
+                ->value('code');
+            $punches = AttendanceLog::query()
+                ->where(function ($query) use ($attendance, $userCode): void {
+                    $query->where('user_id', $attendance->user_id);
+                    if ($userCode) {
+                        $query->orWhere('user_code', $userCode);
+                    }
+                })
+                ->whereBetween('datetime', [$attendance->in_time, $attendance->out_time])
+                ->orderBy('datetime')
+                ->orderBy('id')
+                ->get();
+        }
+
+        $machineIds = $punches->pluck('dms_device_id')->filter()->unique()->values();
+        $machines = $machineIds->isEmpty()
+            ? collect()
+            : DB::table('machines')
+                ->whereIn('dms_device_id', $machineIds)
+                ->get(['dms_device_id', 'name', 'machine_serial_number'])
+                ->keyBy('dms_device_id');
+        $areaIds = $punches->pluck('dms_area_id')->filter()->unique()->values();
+        $areas = $areaIds->isEmpty()
+            ? collect()
+            : DB::table('areas')
+                ->whereIn('dms_area_id', $areaIds)
+                ->get(['dms_area_id', 'name'])
+                ->keyBy('dms_area_id');
+
+        $referenceSources = [
+            ManualPunch::class => ['label' => 'Manual Punch', 'model' => ManualPunch::class],
+            ManualPunchApplication::class => ['label' => 'Manual Punch Application', 'model' => ManualPunchApplication::class],
+            'manual_attendance_start' => ['label' => 'Manual Attendance', 'model' => ManualAttendance::class],
+            'manual_attendance_end' => ['label' => 'Manual Attendance', 'model' => ManualAttendance::class],
+            'manual_attendance_application_start' => ['label' => 'Manual Attendance Application', 'model' => ManualAttendanceApplication::class],
+            'manual_attendance_application_end' => ['label' => 'Manual Attendance Application', 'model' => ManualAttendanceApplication::class],
+        ];
+        $referenceReasons = collect();
+        foreach ($punches->groupBy('referance_type') as $referenceType => $relatedPunches) {
+            $source = $referenceSources[$referenceType] ?? null;
+            if ($source === null) {
+                continue;
+            }
+
+            $reasons = $source['model']::query()
+                ->whereIn('id', $relatedPunches->pluck('referance_id')->filter()->unique())
+                ->pluck('reason', 'id');
+            foreach ($reasons as $id => $reason) {
+                $referenceReasons->put($referenceType.':'.$id, $reason);
+            }
+        }
+
+        return view('time-management.time-card.partials.punches', [
+            'punches' => $punches,
+            'attendanceRemarks' => $attendanceRemarks,
+            'machines' => $machines,
+            'areas' => $areas,
+            'referenceSources' => $referenceSources,
+            'referenceReasons' => $referenceReasons,
+        ])->render();
     }
 
     private function timeCardData(Request $request): array

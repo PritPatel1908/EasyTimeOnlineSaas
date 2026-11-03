@@ -73,6 +73,22 @@
         </div>
         <div id="time_card_filter_status" class="visually-hidden" role="status" aria-live="polite"></div>
     </div>
+    <div class="modal fade" id="time_card_punches_modal" tabindex="-1" aria-labelledby="time_card_punches_title" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title" id="time_card_punches_title">Attendance Punches</h5>
+                        <small class="text-muted" id="time_card_punches_subtitle"></small>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="time_card_punches_body" aria-live="polite">
+                    <p class="text-muted mb-0">Select a date to view its punches.</p>
+                </div>
+            </div>
+        </div>
+    </div>
     @include('partials.footer')
 </div>
 @push('scripts')
@@ -84,6 +100,10 @@
         const year = document.getElementById('time_card_year');
         const startDate = document.getElementById('time_card_start_date');
         const endDate = document.getElementById('time_card_end_date');
+        const punchesModalElement = document.getElementById('time_card_punches_modal');
+        const punchesBody = document.getElementById('time_card_punches_body');
+        const punchesSubtitle = document.getElementById('time_card_punches_subtitle');
+        let punchesRequest;
         let activeRequest;
 
         async function filterTimeCard() {
@@ -171,6 +191,62 @@
         });
 
         results.addEventListener('click', function (event) {
+            const punchButton = event.target.closest('.time-card-punches');
+            if (punchButton) {
+                event.preventDefault();
+                if (punchesRequest) {
+                    punchesRequest.abort();
+                }
+                const request = new AbortController();
+                punchesRequest = request;
+                punchesSubtitle.textContent = `${punchButton.dataset.employee} — ${punchButton.dataset.date}`;
+                punchesBody.innerHTML = '<p class="text-muted mb-0">Loading punches…</p>';
+                window.bootstrap.Modal.getOrCreateInstance(punchesModalElement).show();
+
+                const body = new URLSearchParams(new FormData(form));
+                body.set('punch_attendance_id', punchButton.dataset.attendanceId);
+                fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': form.querySelector('[name="_token"]').value,
+                        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+                    },
+                    body: body,
+                    signal: request.signal
+                })
+                    .then(async function (response) {
+                        const responseText = await response.text();
+                        let data;
+                        try {
+                            data = JSON.parse(responseText);
+                        } catch {
+                            throw new Error(`Unable to load punches (HTTP ${response.status}).`);
+                        }
+                        if (!response.ok) {
+                            throw new Error(data.message || `Unable to load punches (HTTP ${response.status}).`);
+                        }
+                        if (typeof data.html !== 'string') {
+                            throw new Error('The server returned an invalid punch list.');
+                        }
+                        punchesBody.innerHTML = data.html;
+                    })
+                    .catch(function (error) {
+                        if (error.name !== 'AbortError') {
+                            const alert = document.createElement('div');
+                            alert.className = 'alert alert-danger mb-0';
+                            alert.textContent = error.message || 'Unable to load punches.';
+                            punchesBody.replaceChildren(alert);
+                        }
+                    })
+                    .finally(function () {
+                        if (punchesRequest === request) {
+                            punchesRequest = null;
+                        }
+                    });
+                return;
+            }
+
             const link = event.target.closest('.pagination a');
             if (!link) {
                 return;

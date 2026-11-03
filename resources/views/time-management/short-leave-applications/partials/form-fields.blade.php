@@ -38,6 +38,7 @@
                     @endforeach
                 </select>
                 <x-validation-error field="short_leave_type" />
+                <div class="small text-danger" data-short-leave-feedback-for="short_leave_type"></div>
             </div>
             <div class="col-md-3 mb-3">
                 <label class="form-label" for="date">Date <span class="text-danger">*</span></label>
@@ -45,13 +46,15 @@
                     class="form-control @error('date') is-invalid @enderror"
                     value="{{ old('date', $application?->date?->format('Y-m-d') ?? now()->format('Y-m-d')) }}">
                 <x-validation-error field="date" />
+                <div class="small text-danger" data-short-leave-feedback-for="date"></div>
             </div>
-            <div class="col-md-3 mb-3 short-leave-minutes">
+            <div class="col-md-{{ $selectedType === '3' ? '3' : '6' }} mb-3 short-leave-minutes">
                 <label class="form-label" for="minutes">Minutes <span class="text-danger">*</span></label>
                 <input id="minutes" name="minutes" type="number" min="1" max="1440"
                     class="form-control @error('minutes') is-invalid @enderror"
                     value="{{ old('minutes', $application?->minutes) }}">
                 <x-validation-error field="minutes" />
+                <div class="small text-danger" data-short-leave-feedback-for="minutes"></div>
             </div>
             <div class="col-md-3 mb-3 short-leave-times">
                 <label class="form-label" for="from_time">From Time <span class="text-danger">*</span></label>
@@ -59,6 +62,7 @@
                     class="form-control @error('from_time') is-invalid @enderror"
                     value="{{ old('from_time', $application?->from_time?->format('H:i')) }}">
                 <x-validation-error field="from_time" />
+                <div class="small text-danger" data-short-leave-feedback-for="from_time"></div>
             </div>
             <div class="col-md-3 mb-3 short-leave-times">
                 <label class="form-label" for="to_time">To Time <span class="text-danger">*</span></label>
@@ -66,6 +70,7 @@
                     class="form-control @error('to_time') is-invalid @enderror"
                     value="{{ old('to_time', $application?->to_time?->format('H:i')) }}">
                 <x-validation-error field="to_time" />
+                <div class="small text-danger" data-short-leave-feedback-for="to_time"></div>
             </div>
             <div class="col-12 mb-3">
                 <label class="form-label" for="reason">Reason</label>
@@ -147,6 +152,7 @@
                     @endif
                 </small>
                 <x-validation-error field="users" />
+                <div class="small text-danger" data-short-leave-feedback-for="users"></div>
             </div>
         </div>
     </div>
@@ -157,19 +163,38 @@
     (function () {
         var type = document.getElementById('short_leave_type');
         if (!type) return;
+        var form = type.closest('form');
         var minutes = document.querySelector('.short-leave-minutes');
         var times = document.querySelectorAll('.short-leave-times');
         var minutesInput = document.getElementById('minutes');
         var fromInput = document.getElementById('from_time');
         var toInput = document.getElementById('to_time');
+        var dateInput = document.getElementById('date');
+        var feedbackFields = ['short_leave_type', 'date', 'minutes', 'from_time', 'to_time', 'users'];
+        var liveErrors = {};
+        var validationTimer = null;
+        var activeRequest = null;
+        var isValidating = false;
+        var dateCheckPending = false;
+        var lastCheckedSignature = null;
+        var liveStatus = document.createElement('div');
+        liveStatus.className = 'small mb-2';
+        liveStatus.setAttribute('role', 'status');
+        liveStatus.setAttribute('aria-live', 'polite');
+        form.querySelector('.card-body').prepend(liveStatus);
 
         function updateFields() {
             var isBreak = type.value === '3';
             minutes.hidden = isBreak;
+            minutes.classList.toggle('col-md-3', isBreak);
+            minutes.classList.toggle('col-md-6', !isBreak);
             times.forEach(function (field) { field.hidden = !isBreak; });
             minutesInput.required = !isBreak;
             fromInput.required = isBreak;
             toInput.required = isBreak;
+            var dateIsInvalid = (liveErrors.date || []).length > 0;
+            fromInput.disabled = isBreak && (dateIsInvalid || dateCheckPending);
+            toInput.disabled = isBreak && (dateIsInvalid || dateCheckPending);
         }
 
         type.addEventListener('change', updateFields);
@@ -261,6 +286,164 @@
         });
         employeeSelect.addEventListener('change', syncFiltersWithEmployees);
         syncFiltersWithEmployees();
+
+        function formSignature() {
+            var data = new FormData(form);
+            data.delete('_method');
+            return new URLSearchParams(data).toString();
+        }
+
+        function hasEmployeeScope() {
+            if (employeeSelect.selectedOptions.length > 0) return true;
+            return [
+                '#short_leave_application_companies',
+                '#short_leave_application_locations',
+                ...filters.map(function (filter) { return filter.selector; })
+            ].some(function (selector) {
+                var select = document.querySelector(selector);
+                return select && select.selectedOptions.length > 0;
+            });
+        }
+
+        function renderLiveErrors(errors) {
+            liveErrors = errors || {};
+            feedbackFields.forEach(function (field) {
+                var feedback = form.querySelector('[data-short-leave-feedback-for="' + field + '"]');
+                var input = field === 'users' ? employeeSelect : document.getElementById(field);
+                var messages = liveErrors[field] || (field === 'users' ? liveErrors.user_id : null) || [];
+                if (feedback) feedback.textContent = messages.join(' ');
+                if (input) input.classList.toggle('is-invalid', messages.length > 0);
+            });
+            var hasErrors = Object.keys(liveErrors).length > 0;
+            liveStatus.className = hasErrors ? 'small mb-2 text-danger' : 'small mb-2 text-success';
+            liveStatus.textContent = hasErrors ? 'Please correct the highlighted fields.' : 'Short leave details are valid.';
+            updateFields();
+        }
+
+        function clearLiveValidation() {
+            renderLiveErrors({});
+            dateCheckPending = false;
+            updateFields();
+            liveStatus.textContent = '';
+            liveStatus.className = 'small mb-2';
+            lastCheckedSignature = null;
+        }
+
+        async function validateLive(dateOnly) {
+            validationTimer = null;
+            if (!form.dataset.liveValidationUrl || !dateInput.value || !hasEmployeeScope()) {
+                clearLiveValidation();
+                return;
+            }
+
+            if (activeRequest) activeRequest.abort();
+            var controller = new AbortController();
+            activeRequest = controller;
+            isValidating = true;
+            var signature = formSignature();
+            liveErrors = {};
+            feedbackFields.forEach(function (field) {
+                var feedback = form.querySelector('[data-short-leave-feedback-for="' + field + '"]');
+                var input = field === 'users' ? employeeSelect : document.getElementById(field);
+                if (feedback) feedback.textContent = '';
+                if (input) input.classList.remove('is-invalid');
+            });
+            liveStatus.className = 'small mb-2 text-muted';
+            liveStatus.textContent = 'Checking short leave rules…';
+
+            try {
+                var body = new FormData(form);
+                body.delete('_method');
+                body.set('live_date_check', dateOnly ? '1' : '0');
+                var response = await fetch(form.dataset.liveValidationUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': form.querySelector('[name="_token"]').value
+                    },
+                    body: body,
+                    signal: controller.signal
+                });
+                var data;
+                try {
+                    data = await response.json();
+                } catch {
+                    throw new Error('Live validation is temporarily unavailable.');
+                }
+                if (!response.ok && response.status !== 422) {
+                    throw new Error(data.message || 'Live validation is temporarily unavailable.');
+                }
+                renderLiveErrors(data.errors || {});
+                lastCheckedSignature = signature;
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    liveErrors = { live: [error.message || 'Live validation is temporarily unavailable.'] };
+                    liveStatus.className = 'small mb-2 text-danger';
+                    liveStatus.textContent = liveErrors.live[0];
+                }
+            } finally {
+                if (activeRequest === controller) {
+                    activeRequest = null;
+                    isValidating = false;
+                    dateCheckPending = false;
+                    updateFields();
+                }
+            }
+        }
+
+        function scheduleLiveValidation(dateOnly) {
+            if (validationTimer) window.clearTimeout(validationTimer);
+            if (activeRequest) {
+                activeRequest.abort();
+                activeRequest = null;
+                isValidating = false;
+            }
+            liveErrors = {};
+            lastCheckedSignature = null;
+            dateCheckPending = Boolean(dateOnly);
+            feedbackFields.forEach(function (field) {
+                var feedback = form.querySelector('[data-short-leave-feedback-for="' + field + '"]');
+                var input = field === 'users' ? employeeSelect : document.getElementById(field);
+                if (feedback) feedback.textContent = '';
+                if (input) input.classList.remove('is-invalid');
+            });
+            liveStatus.className = 'small mb-2 text-muted';
+            liveStatus.textContent = dateOnly ? 'Checking date and monthly limits…' : '';
+            updateFields();
+            validationTimer = window.setTimeout(function () { validateLive(Boolean(dateOnly)); }, 350);
+        }
+
+        form.addEventListener('change', function (event) {
+            var target = event.target;
+            var isTimeOrMinutes = target === minutesInput || target === fromInput || target === toInput;
+            if (isTimeOrMinutes) {
+                scheduleLiveValidation(false);
+                return;
+            }
+            if (target === dateInput || target === type || target === employeeSelect
+                || target.matches('.short-leave-employee-filter')
+                || target.matches('#short_leave_application_companies, #short_leave_application_locations')) {
+                scheduleLiveValidation(true);
+            }
+        });
+        [minutesInput, fromInput, toInput].forEach(function (input) {
+            input.addEventListener('input', scheduleLiveValidation);
+        });
+        form.addEventListener('submit', function (event) {
+            if (validationTimer || isValidating) {
+                event.preventDefault();
+                liveStatus.className = 'small mb-2 text-muted';
+                liveStatus.textContent = 'Please wait while short leave rules are checked.';
+                return;
+            }
+            if (Object.keys(liveErrors).length > 0 && lastCheckedSignature === formSignature()) {
+                event.preventDefault();
+                var firstInvalid = form.querySelector('.is-invalid');
+                if (firstInvalid) firstInvalid.focus();
+            }
+        });
+
+        scheduleLiveValidation(true);
     })();
 </script>
 @endpush

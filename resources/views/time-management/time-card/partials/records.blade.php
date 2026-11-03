@@ -26,17 +26,8 @@
                 <tbody>
                     @forelse ($attendanceRecords as $attendance)
                         @php
-                            $needsOvertimeApproval = $attendance->user?->resolvedCategory()?->need_approval_for_overtime;
-                            $rawOvertimeMinutes = (int) ($attendance->total_overtime_minutes > 0
-                                ? $attendance->total_overtime_minutes
-                                : $attendance->row_overtime_minutes);
-                            $displayOvertimeMinutes = $rawOvertimeMinutes;
+                            $displayOvertimeMinutes = (int) $attendance->total_overtime_minutes;
                             $displayApprovedOvertimeMinutes = (int) $attendance->approved_overtime_minutes;
-                            if ($needsOvertimeApproval === false) {
-                                $displayApprovedOvertimeMinutes = $attendance->is_over_time
-                                    ? $rawOvertimeMinutes
-                                    : 0;
-                            }
                         @endphp
                         <tr>
                             <td>#{{ $attendance->id }}</td>
@@ -44,7 +35,22 @@
                                 {{ $attendance->user?->name ?? 'Unknown employee' }}
                                 <small class="d-block text-muted">{{ $attendance->user?->code ?: '—' }}</small>
                             </td>
-                            <td>{{ $attendance->date?->format('Y-m-d') ?? '—' }}</td>
+                            <td>
+                                @if ($attendance->date !== null)
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-light border text-dark time-card-punches"
+                                        data-attendance-id="{{ $attendance->id }}"
+                                        data-employee="{{ $attendance->user?->name ?? 'Unknown employee' }}"
+                                        data-date="{{ $attendance->date->format('Y-m-d') }}"
+                                        aria-label="View punches for {{ $attendance->user?->name ?? 'Unknown employee' }} on {{ $attendance->date->format('Y-m-d') }}"
+                                    >
+                                        <i class="ti ti-list me-1" aria-hidden="true"></i>{{ $attendance->date->format('Y-m-d') }}
+                                    </button>
+                                @else
+                                    —
+                                @endif
+                            </td>
                             <td>{{ $attendance->shift_code ?? $attendance->shift?->name ?? '—' }}</td>
                             <td>{{ $attendance->in_time?->format('H:i:s') ?? '—' }}</td>
                             <td>{{ $attendance->out_time?->format('H:i:s') ?? '—' }}</td>

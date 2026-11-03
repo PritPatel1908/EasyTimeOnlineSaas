@@ -242,6 +242,11 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middleware('tenant.permission:ShortLeaveApplication,import')->name('short-leave-applications.import');
                     Route::get('short-leave-applications/create', [ShortLeaveApplicationController::class, 'create'])
                         ->middleware('tenant.permission:ShortLeaveApplication,create')->name('short-leave-applications.create');
+                    Route::post('short-leave-applications/validate', [ShortLeaveApplicationController::class, 'validateLive'])
+                        ->middleware('tenant.permission:ShortLeaveApplication,create')->name('short-leave-applications.validate');
+                    Route::post('short-leave-applications/{short_leave_application}/validate', [ShortLeaveApplicationController::class, 'validateLive'])
+                        ->whereNumber('short_leave_application')
+                        ->middleware('tenant.permission:ShortLeaveApplication,write')->name('short-leave-applications.validate-update');
                     Route::get('short-leave-applications/{short_leave_application}/clone', [ShortLeaveApplicationController::class, 'clone'])
                         ->middleware([
                             'tenant.permission:ShortLeaveApplication,create',

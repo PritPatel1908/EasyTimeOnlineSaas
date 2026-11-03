@@ -24,6 +24,7 @@ use App\Models\Tenant\User;
 use App\Services\Tenant\ShortLeaveApplicationWorkflow;
 use App\Support\CsvImportTemplate;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -86,6 +87,27 @@ class ShortLeaveApplicationController extends Controller
 
         return redirect(url(self::INDEX_URL))
             ->with('success', 'Selected employees\' short leave applications submitted for approval.');
+    }
+
+    public function validateLive(
+        StoreShortLeaveApplicationRequest $request,
+        ShortLeaveApplicationWorkflow $workflow,
+    ): JsonResponse {
+        $validated = $request->validated();
+        $dateOnly = $request->boolean('live_date_check');
+        $ignoreApplicationId = $request->route('short_leave_application');
+        $ignoreApplicationId = is_numeric($ignoreApplicationId) ? (int) $ignoreApplicationId : null;
+        $errors = $workflow->liveValidationErrors(
+            $dateOnly ? $validated : $this->preparePayload($validated),
+            $this->resolveUserIds($validated),
+            $ignoreApplicationId,
+            $dateOnly,
+        );
+
+        return response()->json([
+            'valid' => $errors === [],
+            'errors' => $errors,
+        ]);
     }
 
     public function show(Request $request): View

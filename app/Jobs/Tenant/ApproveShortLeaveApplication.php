@@ -46,18 +46,26 @@ class ApproveShortLeaveApplication implements ShouldBeUnique, ShouldQueue
      */
     public function handle(): void
     {
-        DB::transaction(function (): void {
+        $applicationId = DB::transaction(function (): ?int {
             $application = ShortLeaveApplication::query()
                 ->with('approval_statuses')
                 ->lockForUpdate()
                 ->findOrFail($this->shortLeaveApplication->id);
             if ((int) $application->status !== 1 || $application->overallApprovalStatus() !== 'approved') {
-                return;
+                return null;
             }
 
             $user = User::query()->lockForUpdate()->findOrFail($application->user_id);
             $user->short_leave_minutes = (int) $user->short_leave_minutes + $application->creditMinutes();
             $user->save();
+
+            return (int) $application->id;
         });
+
+        if ($applicationId !== null) {
+            ApplyApprovedShortLeavePunches::dispatch($applicationId)
+                ->onConnection('database_tenant')
+                ->onQueue('processing');
+        }
     }
 }

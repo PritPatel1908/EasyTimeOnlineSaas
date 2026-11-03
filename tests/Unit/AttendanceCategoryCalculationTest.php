@@ -6,6 +6,7 @@ namespace Tests\Unit;
 
 use App\Attendance\AttCalculator;
 use App\Http\Requests\Tenant\CategoryRequestRules;
+use App\Jobs\Tenant\ApproveUserManualAttendance;
 use App\Models\Tenant\AbsentRule;
 use App\Models\Tenant\Attendance;
 use App\Models\Tenant\AttendanceLog;
@@ -432,6 +433,117 @@ class AttendanceCategoryCalculationTest extends TestCase
         $this->assertSame(480, $attendance->row_overtime_minutes);
         $this->assertSame(480, $attendance->total_overtime_minutes);
         $this->assertTrue($attendance->is_over_time);
+    }
+
+    public function test_zero_value_overtime_slab_does_not_credit_calculated_overtime(): void
+    {
+        Schema::create('overtime_slabs', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('overtime_rule_id');
+            $table->string('value_from')->nullable();
+            $table->string('value_to')->nullable();
+            $table->string('head_value')->nullable();
+            $table->decimal('decimal_value', 10, 2)->nullable();
+        });
+        Schema::create('process_tags', function (Blueprint $table): void {
+            $table->id();
+            $table->morphs('taggable');
+            $table->string('name');
+            $table->string('color')->nullable();
+            $table->string('icon')->nullable();
+            $table->timestamps();
+        });
+        DB::table('overtime_slabs')->insert([
+            'overtime_rule_id' => 7,
+            'value_from' => '00:01:00',
+            'value_to' => '01:00:00',
+            'head_value' => '00:00:00',
+        ]);
+
+        $attendance = $this->attendance([
+            'shift_in_time' => '2026-10-25 09:00:00',
+            'shift_out_time' => '2026-10-25 17:00:00',
+            'in_time' => '2026-10-25 08:00:00',
+            'out_time' => '2026-10-25 17:00:00',
+        ]);
+        $overtimeRule = new OvertimeRule([
+            'ignore_early_come_minutes' => 30,
+        ]);
+        $overtimeRule->id = 7;
+        $calculator = $this->calculator($this->category(), $attendance, $overtimeRule);
+
+        $calculator->checkOverTimeRule();
+
+        $attendance->refresh();
+        $this->assertSame(30, $attendance->row_overtime_minutes);
+        $this->assertSame(0, $attendance->total_overtime_minutes);
+        $this->assertFalse($attendance->is_over_time);
+        $this->assertSame(0, $attendance->process_tags()->where('name', 'Overtime')->count());
+    }
+
+    public function test_manual_attendance_zero_value_overtime_slab_does_not_credit_calculated_overtime(): void
+    {
+        Schema::create('overtime_slabs', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('overtime_rule_id');
+            $table->string('value_from')->nullable();
+            $table->string('value_to')->nullable();
+            $table->string('head_value')->nullable();
+            $table->decimal('decimal_value', 10, 2)->nullable();
+        });
+        Schema::create('process_tags', function (Blueprint $table): void {
+            $table->id();
+            $table->morphs('taggable');
+            $table->string('name');
+            $table->string('color')->nullable();
+            $table->string('icon')->nullable();
+            $table->timestamps();
+        });
+        Schema::create('status_musters', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('date');
+            $table->boolean('is_locked')->default(false);
+            $table->unsignedBigInteger('status_master_id')->nullable();
+            $table->decimal('day_count', 5, 2)->default(0);
+        });
+        DB::table('overtime_slabs')->insert([
+            'overtime_rule_id' => 7,
+            'value_from' => '00:01:00',
+            'value_to' => '01:00:00',
+            'head_value' => '00:00:00',
+        ]);
+
+        $attendance = $this->attendance([
+            'shift_in_time' => '2026-10-25 09:00:00',
+            'shift_out_time' => '2026-10-25 17:00:00',
+            'in_time' => '2026-10-25 08:00:00',
+            'out_time' => '2026-10-25 17:00:00',
+        ]);
+        $overtimeRule = new OvertimeRule([
+            'ignore_early_come_minutes' => 30,
+        ]);
+        $overtimeRule->id = 7;
+        $user = new User;
+        $user->id = 25;
+        $user->setRelation('overtime_rule', $overtimeRule);
+        $manualAttendance = (object) [
+            'id' => 1,
+            'in_time' => Carbon::parse('2026-10-25 08:00:00'),
+        ];
+        $job = new ApproveUserManualAttendance($manualAttendance);
+        $job->curatt = $attendance;
+        $userProperty = new ReflectionProperty(ApproveUserManualAttendance::class, 'user');
+        $userProperty->setAccessible(true);
+        $userProperty->setValue($job, $user);
+
+        $job->checkOverTimeRule();
+
+        $attendance->refresh();
+        $this->assertSame(30, $attendance->row_overtime_minutes);
+        $this->assertSame(0, $attendance->total_overtime_minutes);
+        $this->assertFalse($attendance->is_over_time);
+        $this->assertSame(0, $attendance->process_tags()->where('name', 'Overtime')->count());
     }
 
     public function test_week_off_work_time_is_not_overtime_when_the_category_setting_is_disabled(): void
