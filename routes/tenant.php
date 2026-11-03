@@ -16,6 +16,7 @@ use App\Http\Controllers\Tenant\ShiftController;
 use App\Http\Controllers\Tenant\ShiftRotationController;
 use App\Http\Controllers\Tenant\ManualPunchController;
 use App\Http\Controllers\Tenant\ManualPunchApplicationController;
+use App\Http\Controllers\Tenant\ShortLeaveApplicationController;
 use App\Http\Controllers\Tenant\ManualAttendanceController;
 use App\Http\Controllers\Tenant\ManualAttendanceApplicationController;
 use App\Http\Controllers\Tenant\ManualShiftChangeController;
@@ -231,6 +232,31 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:ManualPunchApplication,write')
                         ->middlewareFor('destroy', 'tenant.permission:ManualPunchApplication,delete')
                         ->names('manual-punch-applications');
+                    Route::get('short-leave-applications/export', [ShortLeaveApplicationController::class, 'export'])
+                        ->middleware('tenant.permission:ShortLeaveApplication,export')->name('short-leave-applications.export');
+                    Route::get('short-leave-applications/import/sample', [ShortLeaveApplicationController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:ShortLeaveApplication,import')->name('short-leave-applications.import-sample');
+                    Route::get('short-leave-applications/export/download/{file}', [ShortLeaveApplicationController::class, 'downloadExport'])
+                        ->middleware('tenant.permission:ShortLeaveApplication,export')->name('short-leave-applications.download-export');
+                    Route::post('short-leave-applications/import', [ShortLeaveApplicationController::class, 'import'])
+                        ->middleware('tenant.permission:ShortLeaveApplication,import')->name('short-leave-applications.import');
+                    Route::get('short-leave-applications/create', [ShortLeaveApplicationController::class, 'create'])
+                        ->middleware('tenant.permission:ShortLeaveApplication,create')->name('short-leave-applications.create');
+                    Route::get('short-leave-applications/{short_leave_application}/clone', [ShortLeaveApplicationController::class, 'clone'])
+                        ->middleware([
+                            'tenant.permission:ShortLeaveApplication,create',
+                            'tenant.permission:ShortLeaveApplication,read',
+                        ])->whereNumber('short_leave_application')->name('short-leave-applications.clone');
+                    Route::resource('short-leave-applications', ShortLeaveApplicationController::class)
+                        ->except(['create'])
+                        ->parameters(['short-leave-applications' => 'short_leave_application'])
+                        ->middlewareFor('index', 'tenant.permission:ShortLeaveApplication,read')
+                        ->middlewareFor('show', 'tenant.permission:ShortLeaveApplication,read')
+                        ->middlewareFor('store', 'tenant.permission:ShortLeaveApplication,create')
+                        ->middlewareFor('edit', 'tenant.permission:ShortLeaveApplication,write')
+                        ->middlewareFor('update', 'tenant.permission:ShortLeaveApplication,write')
+                        ->middlewareFor('destroy', 'tenant.permission:ShortLeaveApplication,delete')
+                        ->names('short-leave-applications');
                     Route::get('manual-attendance-applications/export', [ManualAttendanceApplicationController::class, 'export'])
                         ->middleware('tenant.permission:ManualAttendanceApplication,export')->name('manual-attendance-applications.export');
                     Route::get('manual-attendance-applications/import/sample', [ManualAttendanceApplicationController::class, 'downloadImportSample'])

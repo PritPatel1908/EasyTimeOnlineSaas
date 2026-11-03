@@ -691,7 +691,15 @@ class AttendanceCategoryCalculationTest extends TestCase
             $table->id();
             $table->unsignedBigInteger('user_id');
             $table->date('date');
+            $table->tinyInteger('status')->default(1);
             $table->softDeletes();
+        });
+        Schema::create('approval_statuses', function (Blueprint $table): void {
+            $table->id();
+            $table->string('approvable_type');
+            $table->unsignedBigInteger('approvable_id');
+            $table->string('approval_status');
+            $table->timestamps();
         });
         foreach ([
             [

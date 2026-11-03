@@ -13,7 +13,11 @@ enum ShortLeaveType: int implements HasLabel // , HasIcon
 
     public function getLabel(): ?string
     {
-        return $this->name;
+        return match ($this) {
+            self::LateComing => 'Late Coming',
+            self::EarlyGoing => 'Early Going',
+            self::BreakBetweenWorkingHours => 'Break Between Working Hours',
+        };
     }
 
     // public function getIcon(): ?string

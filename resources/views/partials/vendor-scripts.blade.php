@@ -203,6 +203,12 @@
     'tenant.time-management.leave-applications.edit',
     'tenant.myapp_com.tenant.time-management.leave-applications.create',
     'tenant.myapp_com.tenant.time-management.leave-applications.edit',
+    'tenant.time-management.short-leave-applications.create',
+    'tenant.time-management.short-leave-applications.edit',
+    'tenant.time-management.short-leave-applications.clone',
+    'tenant.myapp_com.tenant.time-management.short-leave-applications.create',
+    'tenant.myapp_com.tenant.time-management.short-leave-applications.edit',
+    'tenant.myapp_com.tenant.time-management.short-leave-applications.clone',
 ]))
     <script src="{{URL::asset('build/js/custom-tom-select.js')}}"></script>
 @endif

@@ -78,6 +78,7 @@ class NotificationController extends Controller
             preg_match('/\Ashifts_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'shift-exports/'.$fileName,
             preg_match('/\Amanual_punches_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'manual-punch-exports/'.$fileName,
             preg_match('/\Amanual_punch_applications_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'manual-punch-application-exports/'.$fileName,
+            preg_match('/\Ashort_leave_applications_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'short-leave-application-exports/'.$fileName,
             preg_match('/\Amanual_attendance_applications_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'manual-attendance-application-exports/'.$fileName,
             preg_match('/\Amanual_attendances_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'manual-attendance-exports/'.$fileName,
             preg_match('/\Ashift_change_applications_\d{8}_\d{6}\.csv\z/', $fileName) === 1 => 'shift-change-application-exports/'.$fileName,

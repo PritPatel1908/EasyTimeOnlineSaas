@@ -1200,7 +1200,9 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
             ->where('to_date', '>=', Carbon::parse($this->manualAttendance->in_time)->format('Y-m-d'))
             ->first();
 
-        $short_leave = ShortLeaveApplication::where('user_id', $this->user->id)
+        $short_leave = ShortLeaveApplication::query()
+            ->applicableToAttendance()
+            ->where('user_id', $this->user->id)
             ->where('date', Carbon::parse($this->manualAttendance->in_time)->format('Y-m-d'))->first();
 
         $coff = Coff::where('user_id', $this->user->id)
@@ -1894,7 +1896,9 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
             ->where('from_date', '<=', $date)
             ->where('to_date', '>=', $date)
             ->first();
-        $shortLeave = ShortLeaveApplication::where('user_id', $this->user->id)
+        $shortLeave = ShortLeaveApplication::query()
+            ->applicableToAttendance()
+            ->where('user_id', $this->user->id)
             ->where('date', $date)
             ->first();
         $coff = Coff::where('user_id', $this->user->id)

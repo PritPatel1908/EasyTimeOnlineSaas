@@ -3,12 +3,14 @@
 namespace App\Jobs\Tenant;
 
 use App\Models\Tenant\ShortLeaveApplication;
+use App\Models\Tenant\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
 
 class ApproveShortLeaveApplication implements ShouldBeUnique, ShouldQueue
 {
@@ -44,20 +46,18 @@ class ApproveShortLeaveApplication implements ShouldBeUnique, ShouldQueue
      */
     public function handle(): void
     {
-        $user = $this->shortLeaveApplication->user;
-        if ($this->shortLeaveApplication->short_leave_type == 1) {
-            $short_leave_duration = $this->shortLeaveApplication->minutes;
-        } elseif ($this->shortLeaveApplication->short_leave_type == 2) {
-            $short_leave_duration = $this->shortLeaveApplication->minutes;
-        } elseif ($this->shortLeaveApplication->short_leave_type == 3) {
-            $diff = $this->shortLeaveApplication->from_time->diffInMinutes($this->shortLeaveApplication->to_time);
-            // Convert to integer directly - diffInMinutes already returns an integer
-            $short_leave_duration = (int) $diff;
-        } else {
-            $short_leave_duration = '0';
-        }
+        DB::transaction(function (): void {
+            $application = ShortLeaveApplication::query()
+                ->with('approval_statuses')
+                ->lockForUpdate()
+                ->findOrFail($this->shortLeaveApplication->id);
+            if ((int) $application->status !== 1 || $application->overallApprovalStatus() !== 'approved') {
+                return;
+            }
 
-        $user->short_leave_minutes = $user->short_leave_minutes + $short_leave_duration;
-        $user->save();
+            $user = User::query()->lockForUpdate()->findOrFail($application->user_id);
+            $user->short_leave_minutes = (int) $user->short_leave_minutes + $application->creditMinutes();
+            $user->save();
+        });
     }
 }

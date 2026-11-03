@@ -344,6 +344,67 @@ class ApprovalProcessor
     /**
      * @param  array<int, int>  $approvalFlowIds
      */
+    public static function CreateShortLeaveApplicationApprovals(
+        ShortLeaveApplication $application,
+        array $approvalFlowIds,
+        int $actorId,
+    ): void {
+        DB::transaction(function () use ($application, $approvalFlowIds, $actorId): void {
+            $flowIds = array_values(array_unique(array_map('intval', $approvalFlowIds)));
+            if ($flowIds === []) {
+                throw new RuntimeException('At least one approval flow is required for a short leave application.');
+            }
+
+            $existingStatuses = $application->approval_statuses()
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('approval_flow_id');
+
+            foreach ($flowIds as $flowId) {
+                $flow = ApprovalFlow::query()
+                    ->with('approval_flow_details')
+                    ->findOrFail($flowId);
+                $flowDetails = $flow->approval_flow_details->sortBy('level');
+                if ($flowDetails->isEmpty()) {
+                    throw new RuntimeException("Approval flow {$flowId} has no approval levels.");
+                }
+
+                $approvalStatus = $existingStatuses->get($flowId);
+                if ($approvalStatus === null) {
+                    $approvalStatus = $application->approval_statuses()->create([
+                        'approval_flow_id' => $flowId,
+                        'approval_status' => 'pending',
+                        'created_by' => $actorId,
+                        'updated_by' => $actorId,
+                    ]);
+                } else {
+                    $approvalStatus->approval_status_details()->delete();
+                    $approvalStatus->update([
+                        'approval_status' => 'pending',
+                        'updated_by' => $actorId,
+                    ]);
+                }
+
+                foreach ($flowDetails as $flowDetail) {
+                    $approvalStatus->approval_status_details()->create([
+                        'level' => $flowDetail->level,
+                        'approval_flow_detail_id' => $flowDetail->id,
+                        'approval_status' => 'pending',
+                        'created_by' => $actorId,
+                        'updated_by' => $actorId,
+                    ]);
+                }
+            }
+
+            $application->approval_statuses()
+                ->whereNotIn('approval_flow_id', $flowIds)
+                ->delete();
+        });
+    }
+
+    /**
+     * @param  array<int, int>  $approvalFlowIds
+     */
     public static function CreateWeekOffSwapApplicationApprovals(
         WeekOffSwapApplication $application,
         array $approvalFlowIds,

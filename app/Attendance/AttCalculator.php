@@ -3019,7 +3019,9 @@ class AttCalculator
         }
         $date = $this->log->datetime->format('Y-m-d');
         $leaveApplication = $this->approvedLeaveApplicationForDate($date);
-        $shortLeave = ShortLeaveApplication::where('user_id', $this->log->user->id)
+        $shortLeave = ShortLeaveApplication::query()
+            ->applicableToAttendance()
+            ->where('user_id', $this->log->user->id)
             ->where('date', $date)
             ->first();
         $coff = Coff::where('user_id', $this->log->user->id)
@@ -3169,7 +3171,9 @@ class AttCalculator
 
         $date = $this->log->datetime->format('Y-m-d');
         $leaveApplication = $this->approvedLeaveApplicationForDate($date);
-        $shortLeave = ShortLeaveApplication::where('user_id', $this->log->user->id)
+        $shortLeave = ShortLeaveApplication::query()
+            ->applicableToAttendance()
+            ->where('user_id', $this->log->user->id)
             ->where('date', $date)
             ->first();
         $coff = Coff::where('user_id', $this->log->user->id)

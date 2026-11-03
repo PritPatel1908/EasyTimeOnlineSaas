@@ -544,18 +544,18 @@ class ApprovalInfolist
                                         })->badge()->label('Short Leave Type'),
                                     TextEntry::make('from_time')
                                         ->formatStateUsing(function ($state, $record) {
-                                            if ($record->to_date) {
+                                            if ($record->from_time) {
                                                 return Carbon::parse($state)
-                                                    ->format('H:i:s');
+                                                    ->format('H:i');
                                             } else {
                                                 return '-';
                                             }
                                         })->badge()->label('From Time'),
                                     TextEntry::make('to_time')
                                         ->formatStateUsing(function ($state, $record) {
-                                            if ($record->to_date) {
+                                            if ($record->to_time) {
                                                 return Carbon::parse($state)
-                                                    ->format('H:i:s');
+                                                    ->format('H:i');
                                             } else {
                                                 return '-';
                                             }

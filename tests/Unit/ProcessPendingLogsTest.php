@@ -161,6 +161,7 @@ class ProcessPendingLogsTest extends TestCase
             $table->id();
             $table->unsignedBigInteger('user_id');
             $table->date('date');
+            $table->tinyInteger('status')->default(1);
             $table->softDeletes();
         });
         Schema::create('process_tags', function ($table): void {

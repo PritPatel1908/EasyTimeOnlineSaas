@@ -8,6 +8,7 @@ namespace App\Models\Tenant;
 
 use App\Traits\CUDby;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -17,9 +18,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $id
  * @property int|null $user_id
  * @property string|null $reason
+ * @property Carbon|null $date
+ * @property Carbon|null $from_time
+ * @property Carbon|null $to_time
+ * @property int|null $minutes
+ * @property int|null $short_leave_type
  * @property int $status
- * @property Carbon|null $from_date_time
- * @property Carbon|null $to_date_time
  * @property int|null $created_by
  * @property int|null $updated_by
  * @property int|null $deleted_by
@@ -42,7 +46,7 @@ class ShortLeaveApplication extends Model
 
     protected $casts = [
         'user_id' => 'int',
-        'date' => 'datetime',
+        'date' => 'date',
         'from_time' => 'datetime',
         'to_time' => 'datetime',
         'minutes' => 'int',
@@ -67,6 +71,17 @@ class ShortLeaveApplication extends Model
         'deleted_by',
     ];
 
+    public const IMPORT_EXPORT_COLUMNS = [
+        'employee_code',
+        'reason',
+        'date',
+        'from_time',
+        'to_time',
+        'minutes',
+        'short_leave_type',
+        'approval_status',
+    ];
+
     public function user()
     {
         return $this->belongsTo(User::class);
@@ -80,5 +95,55 @@ class ShortLeaveApplication extends Model
     public function approval_statuses()
     {
         return $this->morphMany(ApprovalStatus::class, 'approvable');
+    }
+
+    public function creditMinutes(): int
+    {
+        if ((int) $this->short_leave_type === 3 && $this->from_time !== null && $this->to_time !== null) {
+            return max(0, (int) Carbon::parse($this->from_time)->diffInMinutes(Carbon::parse($this->to_time)));
+        }
+
+        return in_array((int) $this->short_leave_type, [1, 2], true)
+            ? max(0, (int) $this->minutes)
+            : 0;
+    }
+
+    public function scopeApplicableToAttendance(Builder $query): Builder
+    {
+        return $query
+            ->where('status', 1)
+            ->whereDoesntHave('approval_statuses', static function (Builder $query): void {
+                $query->where(static function (Builder $query): void {
+                    $query->whereNull('approval_status')
+                        ->orWhere('approval_status', '!=', 'approved');
+                });
+            });
+    }
+
+    public function overallApprovalStatus(): string
+    {
+        $statuses = $this->relationLoaded('approval_statuses')
+            ? $this->approval_statuses
+            : $this->approval_statuses()->get();
+
+        if ($statuses->isEmpty()) {
+            return 'unknown';
+        }
+
+        if ($statuses->contains('approval_status', 'rejected')) {
+            return 'rejected';
+        }
+
+        if ($statuses->contains(static fn (ApprovalStatus $status): bool => in_array(
+            $status->approval_status,
+            ['draft', 'pending'],
+            true,
+        ))) {
+            return 'pending';
+        }
+
+        return $statuses->every(
+            static fn (ApprovalStatus $status): bool => $status->approval_status === 'approved',
+        ) ? 'approved' : 'unknown';
     }
 }
