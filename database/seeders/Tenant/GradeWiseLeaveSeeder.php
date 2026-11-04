@@ -11,7 +11,6 @@ class GradeWiseLeaveSeeder extends Seeder
     {
         $gradeWiseLeave = GradeWiseLeave::create([
             'name' => 'Annual Leave',
-            'financial_year_id' => 1,
             'is_monthly' => true,
         ]);
 

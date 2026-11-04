@@ -44,7 +44,6 @@ class GenerateLeaveGroupExport implements ShouldQueue
 
         $leaveGroups = LeaveGroup::query()
             ->with([
-                'financial_year' => static fn ($query) => $query->withTrashed(),
                 'grade_wise_monthly_leave_details' => static fn ($query) => $query
                     ->with(['leave_type', 'sandwich_leave'])
                     ->orderBy('id'),
@@ -111,8 +110,6 @@ class GenerateLeaveGroupExport implements ShouldQueue
 
         $headers = [
             'name',
-            'financial_year',
-            'financial_year_code',
             'status',
             'assigned_employee_count',
             'deleted_at',
@@ -138,8 +135,6 @@ class GenerateLeaveGroupExport implements ShouldQueue
         foreach ($leaveGroups as $leaveGroup) {
             $row = [
                 'name' => $leaveGroup->name,
-                'financial_year' => $leaveGroup->financial_year?->name ?? '',
-                'financial_year_code' => $leaveGroup->financial_year?->code ?? '',
                 'status' => (int) $leaveGroup->status === 1 ? 'Active' : 'Inactive',
                 'assigned_employee_count' => $leaveGroup->users_count ?? '',
                 'deleted_at' => $leaveGroup->deleted_at?->toDateTimeString() ?? '',
@@ -303,7 +298,14 @@ class GenerateLeaveGroupExport implements ShouldQueue
                 $value = $actorColumn === null
                     ? $rule->getAttribute($column)
                     : $this->actorLabel($actors->get($rule->getAttribute($actorColumn)));
-                if ($value === null) {
+                if (in_array($column, [
+                    'leave_type',
+                    'sandwich_leave',
+                    'leave_types_not_to_be_clubbed',
+                    'include_leaves',
+                ], true)) {
+                    continue;
+                } elseif ($value === null) {
                     $row[$prefix.$column] = '';
                 } elseif (in_array($column, $booleanColumns, true)) {
                     $row[$prefix.$column] = $value ? 'Yes' : 'No';

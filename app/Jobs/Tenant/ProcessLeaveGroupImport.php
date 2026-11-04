@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Jobs\Tenant;
 
-use App\Models\Tenant\FinancialYear;
 use App\Models\Tenant\LeaveGroup;
 use App\Models\Tenant\User;
 use App\Notifications\Tenant\LeaveGroupImportExportCompleted;
@@ -40,7 +39,7 @@ class ProcessLeaveGroupImport implements ShouldQueue
         Auth::shouldUse('tenant');
         Auth::guard('tenant')->setUser($user);
         $path = Storage::disk('local')->path($this->filePath);
-        $requiredImportColumns = array_values(array_diff(LeaveGroup::IMPORT_EXPORT_COLUMNS, ['financial_year_id']));
+        $requiredImportColumns = LeaveGroup::IMPORT_EXPORT_COLUMNS;
         $headerErrors = CsvImportTemplate::validateHeaders($path, $requiredImportColumns, true);
         if ($headerErrors !== []) {
             throw new RuntimeException('Invalid Leave Group import file: '.implode(' ', $headerErrors));
@@ -52,10 +51,7 @@ class ProcessLeaveGroupImport implements ShouldQueue
         }
 
         $headers = array_map(
-            static fn (string $header): string => match (CsvImportTemplate::normalizeHeader($header)) {
-                'financial_year' => 'financial_year_id',
-                default => CsvImportTemplate::normalizeHeader($header),
-            },
+            static fn (string $header): string => CsvImportTemplate::normalizeHeader($header),
             fgetcsv($handle) ?: [],
         );
         $created = 0;
@@ -96,40 +92,18 @@ class ProcessLeaveGroupImport implements ShouldQueue
             return ['created' => 0, 'updated' => 0, 'error' => 'Leave Group name is required'];
         }
 
-        $financialYearValue = trim((string) ($row['financial_year_id'] ?? ''));
-        if ($financialYearValue === '') {
-            $financialYearValue = trim((string) ($row['financial_year_code'] ?? ''));
-        }
-        $financialYear = null;
-        if ($financialYearValue !== '') {
-            $financialYear = (ctype_digit($financialYearValue)
-                ? FinancialYear::query()->find((int) $financialYearValue)
-                : null) ?? FinancialYear::query()
-                    ->where('name', $financialYearValue)
-                    ->orWhere('code', $financialYearValue)
-                    ->first();
-
-            if ($financialYear === null) {
-                return ['created' => 0, 'updated' => 0, 'error' => 'Financial year is invalid for '.$name];
-            }
-        }
-
         $status = $this->parseStatus($row['status'] ?? '');
         if ($status === null) {
             return ['created' => 0, 'updated' => 0, 'error' => 'Status must be Active or Inactive for '.$name];
         }
 
-        $query = LeaveGroup::query()
-            ->where('name', $name)
-            ->where('financial_year_id', $financialYear?->id);
-        $leaveGroup = $query->first();
+        $leaveGroup = LeaveGroup::query()->where('name', $name)->first();
         if ($leaveGroup !== null && ! $this->updateDuplicateRecords) {
             return ['created' => 0, 'updated' => 0, 'error' => 'Duplicate Leave Group '.$name];
         }
 
         $payload = [
             'name' => $name,
-            'financial_year_id' => $financialYear?->id,
             'status' => $status,
         ];
         if ($leaveGroup !== null) {

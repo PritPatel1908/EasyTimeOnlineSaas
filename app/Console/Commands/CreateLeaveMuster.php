@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Jobs\Tenant\CreateLeaveCheckMuster;
+use App\Jobs\Tenant\CreateLeaveCheckMusterBatch;
 use App\Models\Tenant\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -28,12 +28,20 @@ class CreateLeaveMuster extends Command
      */
     public function handle()
     {
-        $users = User::where('id', '!=', 1)->where('left_date', null)->where('is_inactive', false)->get();
-        if ($users->count() > 0) {
-            foreach ($users as $user) {
-                CreateLeaveCheckMuster::dispatch($user)->onQueue('processing');
-            }
+        $hasEligibleUsers = User::query()
+            ->where('id', '!=', 1)
+            ->whereNull('left_date')
+            ->where('is_inactive', false)
+            ->exists();
+
+        if ($hasEligibleUsers) {
+            CreateLeaveCheckMusterBatch::dispatch()
+                ->onConnection('database_tenant')
+                ->onQueue('processing');
+
+            $this->info('Dispatched one leave-muster batch job to database_tenant:processing.');
         } else {
+            $this->warn('No eligible employees found; no leave-muster jobs were dispatched.');
             Log::channel('attprocess')->debug('No user found');
         }
     }

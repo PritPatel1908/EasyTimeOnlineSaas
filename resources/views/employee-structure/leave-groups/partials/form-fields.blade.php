@@ -22,16 +22,6 @@
                 <input type="text" id="{{ $isEdit ? 'edit_name' : 'add_name' }}" name="name" value="{{ old('name', $leaveGroup?->name) }}" class="form-control @error('name') is-invalid @enderror" maxlength="255" required>
                 <x-validation-error field="name" />
             </div>
-            <div class="col-md-6 mb-3">
-                <label class="form-label" for="{{ $isEdit ? 'edit_financial_year_id' : 'add_financial_year_id' }}">Financial Year</label>
-                <select id="{{ $isEdit ? 'edit_financial_year_id' : 'add_financial_year_id' }}" name="financial_year_id" class="form-control select @error('financial_year_id') is-invalid @enderror">
-                    <option value="">Select Financial Year</option>
-                    @foreach ($financialYears as $financialYear)
-                        <option value="{{ $financialYear->id }}" @selected((string) old('financial_year_id', $leaveGroup?->financial_year_id) === (string) $financialYear->id)>{{ $financialYear->name }}</option>
-                    @endforeach
-                </select>
-                <x-validation-error field="financial_year_id" />
-            </div>
         </div>
     </div>
 </div>

@@ -9,7 +9,6 @@ use App\Http\Requests\Tenant\StoreLeaveGroupRequest;
 use App\Http\Requests\Tenant\UpdateLeaveGroupRequest;
 use App\Jobs\Tenant\GenerateLeaveGroupExport;
 use App\Jobs\Tenant\ProcessLeaveGroupImport;
-use App\Models\Tenant\FinancialYear;
 use App\Models\Tenant\LeaveGroup;
 use App\Models\Tenant\LeaveType;
 use App\Models\Tenant\User;
@@ -32,7 +31,6 @@ class LeaveGroupController extends Controller
     {
         return view('employee-structure.leave-groups.index', [
             'leaveGroups' => LeaveGroup::query()
-                ->with(['financial_year'])
                 ->withCount([
                     'grade_wise_monthly_leave_details as monthly_rules_count',
                     'grade_wise_yearly_leave_details as yearly_rules_count',
@@ -47,7 +45,6 @@ class LeaveGroupController extends Controller
     {
         $leaveGroup = LeaveGroup::query()
             ->with([
-                'financial_year',
                 'grade_wise_monthly_leave_details.leave_type',
                 'grade_wise_monthly_leave_details.sandwich_leave',
                 'grade_wise_yearly_leave_details.leave_type',
@@ -61,7 +58,7 @@ class LeaveGroupController extends Controller
     public function filterStatus(Request $request): JsonResponse
     {
         $validated = $request->validate(['status' => ['nullable', 'in:all,1,0']]);
-        $query = LeaveGroup::query()->with('financial_year')->withCount([
+        $query = LeaveGroup::query()->withCount([
             'grade_wise_monthly_leave_details as monthly_rules_count',
             'grade_wise_yearly_leave_details as yearly_rules_count',
         ])->latest('id');
@@ -97,7 +94,6 @@ class LeaveGroupController extends Controller
         return view('employee-structure.leave-groups.add', [
             'leaveGroup' => $leaveGroup,
             'isEdit' => false,
-            'financialYears' => FinancialYear::query()->orderByDesc('id')->get(),
             'leaveTypes' => LeaveType::withTrashed()->orderBy('description')->get(),
         ]);
     }
@@ -218,7 +214,6 @@ class LeaveGroupController extends Controller
 
             CsvImportTemplate::write($handle, LeaveGroup::IMPORT_EXPORT_COLUMNS, [
                 'name' => 'Required; text, maximum 255 characters.',
-                'financial_year_id' => 'Optional; an existing financial year ID.',
                 'status' => 'Optional; Active or Inactive; blank defaults to Active.',
             ]);
             fclose($handle);
@@ -233,7 +228,7 @@ class LeaveGroupController extends Controller
             'update_duplicate_records' => ['nullable', 'boolean'],
         ]);
         $file = $request->file('file');
-        $requiredImportColumns = array_values(array_diff(LeaveGroup::IMPORT_EXPORT_COLUMNS, ['financial_year_id']));
+        $requiredImportColumns = LeaveGroup::IMPORT_EXPORT_COLUMNS;
         $headerErrors = CsvImportTemplate::validateHeaders($file->getPathname(), $requiredImportColumns, true);
         if ($headerErrors !== []) {
             return redirect(url(self::INDEX_URL))->withErrors(['file' => implode(' ', $headerErrors)]);

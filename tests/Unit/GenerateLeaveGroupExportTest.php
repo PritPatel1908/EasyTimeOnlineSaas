@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit;
 
 use App\Jobs\Tenant\GenerateLeaveGroupExport;
-use App\Models\Tenant\FinancialYear;
 use App\Models\Tenant\GradeWiseMonthlyLeaveDetail;
 use App\Models\Tenant\GradeWiseYearlyLeaveDetail;
 use App\Models\Tenant\LeaveGroup;
@@ -48,18 +47,13 @@ class GenerateLeaveGroupExportTest extends TestCase
         ], true);
         $yearlyRule->setRelation('leave_type', $annualLeave);
 
-        $financialYear = new FinancialYear();
-        $financialYear->setRawAttributes(['id' => 3, 'name' => 'FY 2026-27', 'code' => 'FY26-27'], true);
-
         $leaveGroup = new LeaveGroup();
         $leaveGroup->setRawAttributes([
             'id' => 5,
             'name' => 'Annual Leave Group',
-            'financial_year_id' => 3,
             'status' => 1,
         ], true);
         $leaveGroup->setAttribute('users_count', 4);
-        $leaveGroup->setRelation('financial_year', $financialYear);
         $leaveGroup->setRelation('grade_wise_monthly_leave_details', collect([$monthlyRule]));
         $leaveGroup->setRelation('grade_wise_yearly_leave_details', collect([$yearlyRule]));
 
@@ -83,8 +77,8 @@ class GenerateLeaveGroupExportTest extends TestCase
         $this->assertIsArray($values);
         $row = array_combine($headers, $values);
 
-        $this->assertSame('FY 2026-27', $row['financial_year']);
-        $this->assertSame('FY26-27', $row['financial_year_code']);
+        $this->assertArrayNotHasKey('financial_year', $row);
+        $this->assertArrayNotHasKey('financial_year_code', $row);
         $this->assertArrayNotHasKey('is_monthly', $row);
         $this->assertSame('4', $row['assigned_employee_count']);
         $this->assertSame('AL - Annual Leave', $row['monthly_rule_1_leave_type']);

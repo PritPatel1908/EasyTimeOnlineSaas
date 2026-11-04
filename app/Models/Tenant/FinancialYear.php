@@ -85,6 +85,16 @@ class FinancialYear extends Model
         return ['code'];
     }
 
+    public static function forDate(Carbon $date): ?self
+    {
+        return static::query()
+            ->whereDate('start_date', '<=', $date->toDateString())
+            ->whereDate('end_date', '>=', $date->toDateString())
+            ->orderByDesc('start_date')
+            ->orderByDesc('id')
+            ->first();
+    }
+
     public function getLocationRecordsAttribute(): Collection
     {
         return Location::query()
@@ -109,11 +119,6 @@ class FinancialYear extends Model
     public function company()
     {
         return $this->belongsTo(Company::class);
-    }
-
-    public function grade_wise_leaves()
-    {
-        return $this->hasMany(LeaveGroup::class, 'financial_year_id');
     }
 
     /**

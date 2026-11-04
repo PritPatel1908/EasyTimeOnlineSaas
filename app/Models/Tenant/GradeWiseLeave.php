@@ -13,7 +13,6 @@ use Carbon\Carbon;
  *
  * @property int $id
  * @property string $name
- * @property int $financial_year_id
  * @property bool|null $is_monthly
  * @property bool|null $allow_leave_encashment
  * @property bool|null $allow_leave_lapse

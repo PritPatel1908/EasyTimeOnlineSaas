@@ -7,7 +7,6 @@
         @if(\App\Support\TenantPermissions::userCan('LeaveGroup', 'write'))<a class="btn btn-primary" href="{{ url('employee-structure/leave-groups/'.$leaveGroup->id.'/edit') }}"><i class="ti ti-edit me-1"></i>Edit</a>@endif
     </div>
     <div class="card mb-4"><div class="card-header"><h5 class="mb-0">Leave Group Details</h5></div><div class="card-body"><div class="row">
-        <div class="col-md-4 mb-3"><small class="text-muted d-block">Financial Year</small>{{ $leaveGroup->financial_year?->name ?? '—' }}</div>
         <div class="col-md-4 mb-3"><small class="text-muted d-block">Status</small>{{ $leaveGroup->status === 1 ? 'Active' : 'Inactive' }}</div>
         <div class="col-md-4 mb-3"><small class="text-muted d-block">Assigned Employees</small>{{ $leaveGroup->users()->count() }}</div>
     </div></div></div>

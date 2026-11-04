@@ -19,7 +19,6 @@ class LeaveGroupMonthlyRulePersistenceTest extends TestCase
         Schema::create('grade_wise_leaves', function (Blueprint $table): void {
             $table->id();
             $table->string('name');
-            $table->unsignedBigInteger('financial_year_id')->nullable();
             $table->boolean('is_monthly')->default(true);
             $table->unsignedTinyInteger('status')->default(1);
             $table->softDeletes();
@@ -32,6 +31,7 @@ class LeaveGroupMonthlyRulePersistenceTest extends TestCase
             $table->unsignedBigInteger('leave_type_id');
             $table->json('leave_types_not_to_be_clubbed')->nullable();
             $table->json('include_leaves')->nullable();
+            $table->string('new_joiner_based_on_credit')->nullable();
             $table->timestamps();
         });
     }
@@ -48,7 +48,6 @@ class LeaveGroupMonthlyRulePersistenceTest extends TestCase
     {
         $leaveGroup = LeaveGroup::query()->create([
             'name' => 'Test Leave Group',
-            'financial_year_id' => null,
             'is_monthly' => true,
             'status' => 1,
         ]);
@@ -58,7 +57,6 @@ class LeaveGroupMonthlyRulePersistenceTest extends TestCase
         $request = Mockery::mock(UpdateLeaveGroupRequest::class);
         $request->shouldReceive('validated')->once()->andReturn([
             'name' => 'Test Leave Group',
-            'financial_year_id' => null,
             'is_monthly' => true,
             'status' => 1,
             'monthly_rules_present' => '1',

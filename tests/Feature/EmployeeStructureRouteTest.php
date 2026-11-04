@@ -162,11 +162,9 @@ class EmployeeStructureRouteTest extends TestCase
         $detail->setRelation('leave_type', new LeaveType(['description' => 'Annual Leave']));
         $leaveGroup->setRelation('grade_wise_monthly_leave_details', collect([$detail]));
         $leaveGroup->setRelation('grade_wise_yearly_leave_details', collect());
-        $leaveGroup->financial_year_id = null;
 
         $html = view('employee-structure.leave-groups.edit', [
             'leaveGroup' => $leaveGroup,
-            'financialYears' => collect(),
             'leaveTypes' => collect([
                 new LeaveType(['id' => 3, 'code' => 'AL', 'description' => 'Annual Leave']),
                 new LeaveType(['id' => 6, 'code' => 'SL', 'description' => 'Sick Leave']),
@@ -174,6 +172,7 @@ class EmployeeStructureRouteTest extends TestCase
         ])->render();
 
         $this->assertStringContainsString('Annual Leave', $html);
+        $this->assertStringNotContainsString('name="financial_year_id"', $html);
         $this->assertStringNotContainsString('Leave Frequency', $html);
         $this->assertStringNotContainsString('name="is_monthly"', $html);
         $this->assertStringContainsString('data-add-leave-rule', $html);
@@ -274,7 +273,6 @@ class EmployeeStructureRouteTest extends TestCase
 
         $html = view('employee-structure.leave-groups.add', [
             'leaveGroup' => null,
-            'financialYears' => collect(),
             'leaveTypes' => collect([
                 new LeaveType(['id' => 3, 'code' => 'AL', 'description' => 'Annual Leave']),
             ]),
@@ -312,7 +310,6 @@ class EmployeeStructureRouteTest extends TestCase
 
         $html = view('employee-structure.leave-groups.add', [
             'leaveGroup' => $leaveGroup,
-            'financialYears' => collect(),
             'leaveTypes' => collect([
                 new LeaveType(['id' => 3, 'code' => 'AL', 'description' => 'Annual Leave']),
             ]),
@@ -340,7 +337,6 @@ class EmployeeStructureRouteTest extends TestCase
 
         $html = view('employee-structure.leave-groups.edit', [
             'leaveGroup' => $leaveGroup,
-            'financialYears' => collect(),
             'leaveTypes' => collect([
                 new LeaveType(['id' => 3, 'code' => 'AL', 'description' => 'Annual Leave']),
                 new LeaveType(['id' => 6, 'code' => 'SL', 'description' => 'Sick Leave']),

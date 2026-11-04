@@ -37,10 +37,7 @@ class UpdateLeaveGroupRequest extends FormRequest
     {
         $leaveGroupId = (int) $this->route('leave_group');
         return array_merge(
-            LeaveGroupRequestRules::rules(
-                $leaveGroupId,
-                $this->integer('financial_year_id') ?: null,
-            ),
+            LeaveGroupRequestRules::rules($leaveGroupId),
             LeaveGroupMonthlyRuleRules::rules($leaveGroupId),
             ['monthly_rules_present' => ['sometimes', 'accepted']],
         );
