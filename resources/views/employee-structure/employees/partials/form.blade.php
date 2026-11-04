@@ -130,6 +130,7 @@
         'manual_attendance_approval_flow_id' => 'Manual Attendance',
         'leave_approval_flow_id' => 'Leave',
         'short_leave_approval_flow_id' => 'Short Leave',
+        'overtime_approval_flow_id' => 'Overtime',
         'coff_approval_flow_id' => 'COFF',
         'od_approval_flow_id' => 'OD',
     ];
@@ -144,6 +145,7 @@
         'Leave & Other Approvals' => [
             'leave_approval_flow_id',
             'short_leave_approval_flow_id',
+            'overtime_approval_flow_id',
             'coff_approval_flow_id',
             'od_approval_flow_id',
         ],
@@ -540,7 +542,9 @@
                         <div class="card-body">
                             <div class="row">
                                 @foreach ($fields as $field)
-                                    @php($columnClass = $groupLabel === 'Leave & Other Approvals' ? 'col-md-3' : (in_array($field, ['manual_punch_approval_flow_id', 'manual_attendance_approval_flow_id'], true) ? 'col-md-6' : 'col-md-4'))
+                                    @php($columnClass = $groupLabel === 'Leave & Other Approvals'
+                                        ? (in_array($field, ['leave_approval_flow_id', 'short_leave_approval_flow_id'], true) ? 'col-md-6' : 'col-md-4')
+                                        : (in_array($field, ['manual_punch_approval_flow_id', 'manual_attendance_approval_flow_id'], true) ? 'col-md-6' : 'col-md-4'))
                                     <div class="{{ $columnClass }} mb-3">
                                         <label class="form-label"
                                             for="{{ $field }}">{{ $approvalFlowFields[$field] }} Approval

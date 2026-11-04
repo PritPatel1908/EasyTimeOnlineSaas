@@ -16,6 +16,7 @@ use App\Http\Controllers\Tenant\ShiftController;
 use App\Http\Controllers\Tenant\ShiftRotationController;
 use App\Http\Controllers\Tenant\ManualPunchController;
 use App\Http\Controllers\Tenant\ManualPunchApplicationController;
+use App\Http\Controllers\Tenant\OvertimeApplicationController;
 use App\Http\Controllers\Tenant\ShortLeaveApplicationController;
 use App\Http\Controllers\Tenant\ManualAttendanceController;
 use App\Http\Controllers\Tenant\ManualAttendanceApplicationController;
@@ -232,6 +233,28 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:ManualPunchApplication,write')
                         ->middlewareFor('destroy', 'tenant.permission:ManualPunchApplication,delete')
                         ->names('manual-punch-applications');
+                    Route::get('overtime-applications/export', [OvertimeApplicationController::class, 'export'])
+                        ->middleware('tenant.permission:OvertimeApplication,export')->name('overtime-applications.export');
+                    Route::get('overtime-applications/import/sample', [OvertimeApplicationController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:OvertimeApplication,import')->name('overtime-applications.import-sample');
+                    Route::get('overtime-applications/export/download/{file}', [OvertimeApplicationController::class, 'downloadExport'])
+                        ->middleware('tenant.permission:OvertimeApplication,export')->name('overtime-applications.download-export');
+                    Route::post('overtime-applications/import', [OvertimeApplicationController::class, 'import'])
+                        ->middleware('tenant.permission:OvertimeApplication,import')->name('overtime-applications.import');
+                    Route::get('overtime-applications/attendance-overtime', [OvertimeApplicationController::class, 'attendanceOvertime'])
+                        ->name('overtime-applications.attendance-overtime');
+                    Route::get('overtime-applications/create', [OvertimeApplicationController::class, 'create'])
+                        ->middleware('tenant.permission:OvertimeApplication,create')->name('overtime-applications.create');
+                    Route::resource('overtime-applications', OvertimeApplicationController::class)
+                        ->except(['create'])
+                        ->parameters(['overtime-applications' => 'overtime_application'])
+                        ->middlewareFor('index', 'tenant.permission:OvertimeApplication,read')
+                        ->middlewareFor('show', 'tenant.permission:OvertimeApplication,read')
+                        ->middlewareFor('store', 'tenant.permission:OvertimeApplication,create')
+                        ->middlewareFor('edit', 'tenant.permission:OvertimeApplication,write')
+                        ->middlewareFor('update', 'tenant.permission:OvertimeApplication,write')
+                        ->middlewareFor('destroy', 'tenant.permission:OvertimeApplication,delete')
+                        ->names('overtime-applications');
                     Route::get('short-leave-applications/export', [ShortLeaveApplicationController::class, 'export'])
                         ->middleware('tenant.permission:ShortLeaveApplication,export')->name('short-leave-applications.export');
                     Route::get('short-leave-applications/import/sample', [ShortLeaveApplicationController::class, 'downloadImportSample'])

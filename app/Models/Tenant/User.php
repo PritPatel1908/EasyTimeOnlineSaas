@@ -454,6 +454,7 @@ class User extends Authenticatable implements FilamentUser, HasTenants
         'manual_attendance_approval_flow_id' => 'int',
         'leave_approval_flow_id' => 'int',
         'short_leave_approval_flow_id' => 'int',
+        'overtime_approval_flow_id' => 'int',
     ];
 
     protected $fillable = [
@@ -542,6 +543,7 @@ class User extends Authenticatable implements FilamentUser, HasTenants
         'manual_attendance_approval_flow_id',
         'leave_approval_flow_id',
         'short_leave_approval_flow_id',
+        'overtime_approval_flow_id',
         'shift_status',
         'short_leave_minutes',
         'aadhar_number',
@@ -838,6 +840,11 @@ class User extends Authenticatable implements FilamentUser, HasTenants
     public function short_leave_approval_flow()
     {
         return $this->belongsTo(ApprovalFlow::class, 'short_leave_approval_flow_id', 'id');
+    }
+
+    public function overtime_approval_flow()
+    {
+        return $this->belongsTo(ApprovalFlow::class, 'overtime_approval_flow_id', 'id');
     }
 
     public function coff_approval_flow()

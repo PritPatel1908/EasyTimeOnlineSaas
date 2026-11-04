@@ -29,7 +29,7 @@
 	$attendanceLogStructureActive = request()->is('time-management/attendance-logs*', 'time-management/time-card*');
 	$attendanceLogsActive = request()->is('time-management/attendance-logs*');
 	$manualStructureActive = request()->is('time-management/manual-punches*', 'time-management/manual-attendances*', 'time-management/manual-shift-changes*', 'time-management/week-off-changes*', 'time-management/week-off-swaps*');
-	$applicationStructureActive = request()->is('time-management/manual-punch-applications*', 'time-management/manual-attendance-applications*', 'time-management/shift-change-applications*', 'time-management/leave-applications*', 'time-management/short-leave-applications*', 'time-management/week-off-change-applications*', 'time-management/week-off-swap-applications*');
+	$applicationStructureActive = request()->is('time-management/manual-punch-applications*', 'time-management/manual-attendance-applications*', 'time-management/overtime-applications*', 'time-management/shift-change-applications*', 'time-management/leave-applications*', 'time-management/short-leave-applications*', 'time-management/week-off-change-applications*', 'time-management/week-off-swap-applications*');
 	$timingRuleStructureActive = request()->is('time-management/late-coming-rules*', 'time-management/early-going-rules*', 'time-management/half-day-rules*', 'time-management/overtime-rules*', 'time-management/absent-rules*');
 	$requestManagementStructureActive = request()->is('requests/pending*');
 	$categoryActive = request()->is('employee-structure/categories*');
@@ -46,6 +46,7 @@
 	$canViewManualPunches = \App\Support\TenantPermissions::userCan('ManualPunch', 'read');
 	$canViewAttendanceLogs = \App\Support\TenantPermissions::userCan('AttendanceLog', 'read');
 	$canViewManualPunchApplications = \App\Support\TenantPermissions::userCan('ManualPunchApplication', 'read');
+	$canViewOvertimeApplications = \App\Support\TenantPermissions::userCan('OvertimeApplication', 'read');
 	$canViewManualAttendanceApplications = \App\Support\TenantPermissions::userCan('ManualAttendanceApplication', 'read');
 	$canViewShiftChangeApplications = \App\Support\TenantPermissions::userCan('ShiftChangeApplication', 'read');
 	$canViewLeaveApplications = \App\Support\TenantPermissions::userCan('LeaveApplication', 'read');
@@ -58,7 +59,7 @@
 	$canViewWeekOffChanges = \App\Support\TenantPermissions::userCan('WeekOffChange', 'read');
 	$canViewWeekOffSwaps = \App\Support\TenantPermissions::userCan('WeekOffSwap', 'read');
 	$canViewManualStructure = $canViewManualPunches || $canViewManualAttendances || $canViewManualShiftChanges || $canViewWeekOffChanges || $canViewWeekOffSwaps;
-	$canViewApplicationStructure = $canViewManualPunchApplications || $canViewManualAttendanceApplications || $canViewShiftChangeApplications || $canViewLeaveApplications || $canViewShortLeaveApplications || $canViewWeekOffChangeApplications || $canViewWeekOffSwapApplications;
+	$canViewApplicationStructure = $canViewManualPunchApplications || $canViewManualAttendanceApplications || $canViewOvertimeApplications || $canViewShiftChangeApplications || $canViewLeaveApplications || $canViewShortLeaveApplications || $canViewWeekOffChangeApplications || $canViewWeekOffSwapApplications;
 	$canViewCompanyStructure =
 		\App\Support\TenantPermissions::userCan('Company', 'read') ||
 		\App\Support\TenantPermissions::userCan('Location', 'read') ||
@@ -386,6 +387,10 @@
 								@if ($canViewManualPunchApplications)
 								<li><a href="{{ url('time-management/manual-punch-applications') }}"
 									class="{{ request()->is('time-management/manual-punch-applications*') ? 'active' : '' }}">Manual Punch Application</a></li>
+								@endif
+								@if ($canViewOvertimeApplications)
+								<li><a href="{{ url('time-management/overtime-applications') }}"
+									class="{{ request()->is('time-management/overtime-applications*') ? 'active' : '' }}">Overtime Applications</a></li>
 								@endif
 								@if ($canViewManualAttendanceApplications)
 								<li><a href="{{ url('time-management/manual-attendance-applications') }}"

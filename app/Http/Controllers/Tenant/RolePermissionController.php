@@ -65,6 +65,7 @@ class RolePermissionController extends Controller
             'MonthlyReport',
             'OutDuty',
             'Overtime',
+            'OvertimeApplication',
             'OvertimeReason',
             'OvertimeRule',
             'PasswordPolicy',

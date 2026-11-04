@@ -10,17 +10,20 @@ use App\Models\Tenant\LeaveApplication;
 use App\Models\Tenant\ManualAttendanceApplication;
 use App\Models\Tenant\ManualPunchApplication;
 use App\Models\Tenant\OutDuty;
-use App\Models\Tenant\ShortLeaveApplication;
+use App\Models\Tenant\OvertimeApplication;
 use App\Models\Tenant\ShiftChangeApplication;
+use App\Models\Tenant\ShortLeaveApplication;
 use App\Models\Tenant\WeekOffChangeApplication;
 use App\Models\Tenant\WeekOffSwapApplication;
 use App\Services\Tenant\LeaveAttendanceWriter;
+use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 
 class FinalizeApprovedApplication implements ShouldQueue
@@ -35,6 +38,7 @@ class FinalizeApprovedApplication implements ShouldQueue
         Coff::class,
         ManualAttendanceApplication::class,
         ManualPunchApplication::class,
+        OvertimeApplication::class,
         OutDuty::class,
         ShortLeaveApplication::class,
         ShiftChangeApplication::class,
@@ -63,6 +67,25 @@ class FinalizeApprovedApplication implements ShouldQueue
         if ($statuses->isEmpty() || $statuses->contains(
             static fn (ApprovalStatus $status): bool => $status->approval_status !== 'approved',
         )) {
+            return;
+        }
+
+        if ($application instanceof OvertimeApplication) {
+            $date = Carbon::parse($application->date)->toDateString();
+            $table = 'attendances'.Carbon::parse($date)->format('Y');
+            if (! Schema::hasTable($table)) {
+                throw new RuntimeException("Attendance table {$table} does not exist.");
+            }
+
+            $attendance = DB::table($table)
+                ->where('user_id', $application->user_id)
+                ->whereDate('date', $date);
+            if (! $attendance->exists()) {
+                throw new RuntimeException('The attendance record for this overtime application could not be found.');
+            }
+
+            $attendance->update(['approved_overtime_minutes' => $application->overtime_minutes]);
+
             return;
         }
 

@@ -12,6 +12,7 @@ use App\Models\Tenant\Coff;
 use App\Models\Tenant\LeaveApplication;
 use App\Models\Tenant\ManualAttendanceApplication;
 use App\Models\Tenant\ManualPunchApplication;
+use App\Models\Tenant\OvertimeApplication;
 use App\Models\Tenant\OutDuty;
 use App\Models\Tenant\ShortLeaveApplication;
 use App\Models\Tenant\Scopes\DataPolicyFilter;
@@ -36,6 +37,7 @@ class PendingApprovalController extends Controller
         Coff::class,
         ManualAttendanceApplication::class,
         ManualPunchApplication::class,
+        OvertimeApplication::class,
         OutDuty::class,
         ShortLeaveApplication::class,
         ShiftChangeApplication::class,
@@ -57,6 +59,7 @@ class PendingApprovalController extends Controller
                         Coff::class => ['user'],
                         ManualAttendanceApplication::class => ['Users'],
                         ManualPunchApplication::class => ['Users', 'user'],
+                        OvertimeApplication::class => ['user'],
                         OutDuty::class => ['user'],
                         ShortLeaveApplication::class => ['user'],
                         ShiftChangeApplication::class => ['Users' => $pendingEmployeeUsers],
@@ -135,6 +138,7 @@ class PendingApprovalController extends Controller
             LeaveApplication::class => ['users', 'leave_type', 'leave_reason', 'approval_statuses.approval_flow', 'approval_statuses.approval_status_details.user'],
             Coff::class => ['user', 'location', 'company', 'approval_statuses.approval_flow', 'approval_statuses.approval_status_details.user'],
             ManualAttendanceApplication::class, ManualPunchApplication::class, WeekOffSwapApplication::class => ['Users', 'approval_statuses.approval_flow', 'approval_statuses.approval_status_details.user'],
+            OvertimeApplication::class => ['user', 'approval_statuses.approval_flow', 'approval_statuses.approval_status_details.user'],
             OutDuty::class => ['user', 'location', 'company', 'approval_statuses.approval_flow', 'approval_statuses.approval_status_details.user'],
             ShortLeaveApplication::class => ['user', 'approval_statuses.approval_flow', 'approval_statuses.approval_status_details.user'],
             ShiftChangeApplication::class => [
@@ -415,6 +419,10 @@ class PendingApprovalController extends Controller
                 \App\Models\Tenant\ManualPunch::punchTypeLabel($record->punch_type),
                 $record->punch_date?->format('Y-m-d'),
                 $record->punch_time?->format('H:i:s'),
+            ]),
+            $record instanceof OvertimeApplication => collect([
+                $record->date?->format('Y-m-d'),
+                $record->overtime_minutes.' minutes',
             ]),
             $record instanceof ShiftChangeApplication => collect([
                 Str::headline((string) $record->shift_type),

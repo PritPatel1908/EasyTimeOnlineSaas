@@ -37,6 +37,7 @@ class ApprovalFlowController extends Controller
         'short_leave_approval_flow_id' => 'Short Leave',
         'coff_approval_flow_id' => 'COFF',
         'od_approval_flow_id' => 'OD',
+        'overtime_approval_flow_id' => 'Overtime',
     ];
 
     public function index(Request $request): View

@@ -3,6 +3,7 @@
 namespace App\Helpers;
 
 use App\Jobs\Tenant\DebitLeaveApplication;
+use App\Jobs\Tenant\FinalizeApprovedApplication;
 use App\Models\Tenant\ApprovalFlow;
 use App\Models\Tenant\ApprovalStatus;
 use App\Models\Tenant\ApprovalStatusDetails;
@@ -11,11 +12,11 @@ use App\Models\Tenant\LeaveApplication;
 use App\Models\Tenant\ManualAttendanceApplication;
 use App\Models\Tenant\ManualPunchApplication;
 use App\Models\Tenant\OutDuty;
-use App\Models\Tenant\ShortLeaveApplication;
+use App\Models\Tenant\OvertimeApplication;
 use App\Models\Tenant\ShiftChangeApplication;
-use App\Models\Tenant\WeekOffSwapApplication;
+use App\Models\Tenant\ShortLeaveApplication;
 use App\Models\Tenant\WeekOffChangeApplication;
-use App\Jobs\Tenant\FinalizeApprovedApplication;
+use App\Models\Tenant\WeekOffSwapApplication;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -45,6 +46,7 @@ class ApprovalProcessor
                 && ! $approvable instanceof Coff
                 && ! $approvable instanceof ManualAttendanceApplication
                 && ! $approvable instanceof ManualPunchApplication
+                && ! $approvable instanceof OvertimeApplication
                 && ! $approvable instanceof OutDuty
                 && ! $approvable instanceof ShortLeaveApplication
                 && ! $approvable instanceof ShiftChangeApplication
@@ -292,6 +294,67 @@ class ApprovalProcessor
             $flowIds = array_values(array_unique(array_map('intval', $approvalFlowIds)));
             if ($flowIds === []) {
                 throw new RuntimeException('At least one approval flow is required for a manual punch application.');
+            }
+
+            $existingStatuses = $application->approval_statuses()
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('approval_flow_id');
+
+            foreach ($flowIds as $flowId) {
+                $flow = ApprovalFlow::query()
+                    ->with('approval_flow_details')
+                    ->findOrFail($flowId);
+                $flowDetails = $flow->approval_flow_details->sortBy('level');
+                if ($flowDetails->isEmpty()) {
+                    throw new RuntimeException("Approval flow {$flowId} has no approval levels.");
+                }
+
+                $approvalStatus = $existingStatuses->get($flowId);
+                if ($approvalStatus === null) {
+                    $approvalStatus = $application->approval_statuses()->create([
+                        'approval_flow_id' => $flowId,
+                        'approval_status' => 'pending',
+                        'created_by' => $actorId,
+                        'updated_by' => $actorId,
+                    ]);
+                } else {
+                    $approvalStatus->approval_status_details()->delete();
+                    $approvalStatus->update([
+                        'approval_status' => 'pending',
+                        'updated_by' => $actorId,
+                    ]);
+                }
+
+                foreach ($flowDetails as $flowDetail) {
+                    $approvalStatus->approval_status_details()->create([
+                        'level' => $flowDetail->level,
+                        'approval_flow_detail_id' => $flowDetail->id,
+                        'approval_status' => 'pending',
+                        'created_by' => $actorId,
+                        'updated_by' => $actorId,
+                    ]);
+                }
+            }
+
+            $application->approval_statuses()
+                ->whereNotIn('approval_flow_id', $flowIds)
+                ->delete();
+        });
+    }
+
+    /**
+     * @param  array<int, int>  $approvalFlowIds
+     */
+    public static function CreateOvertimeApplicationApprovals(
+        OvertimeApplication $application,
+        array $approvalFlowIds,
+        int $actorId,
+    ): void {
+        DB::transaction(function () use ($application, $approvalFlowIds, $actorId): void {
+            $flowIds = array_values(array_unique(array_map('intval', $approvalFlowIds)));
+            if ($flowIds === []) {
+                throw new RuntimeException('At least one approval flow is required for an overtime application.');
             }
 
             $existingStatuses = $application->approval_statuses()

@@ -77,10 +77,12 @@ class ApprovalFlowModuleTest extends TestCase
             'approvalModules' => [
                 'leave_approval_flow_id' => 'Leave',
                 'manual_punch_approval_flow_id' => 'Manual Punch',
+                'overtime_approval_flow_id' => 'Overtime',
             ],
             'employeeAssignments' => [
                 'leave_approval_flow_id' => [7],
                 'manual_punch_approval_flow_id' => [],
+                'overtime_approval_flow_id' => [7],
             ],
         ])->render();
 
@@ -91,6 +93,8 @@ class ApprovalFlowModuleTest extends TestCase
         $this->assertStringContainsString('name="details[0][users][]"', $html);
         $this->assertStringContainsString('name="employee_assignments[leave_approval_flow_id][]"', $html);
         $this->assertStringContainsString('name="employee_assignments[manual_punch_approval_flow_id][]"', $html);
+        $this->assertStringContainsString('name="employee_assignments[overtime_approval_flow_id][]"', $html);
+        $this->assertStringContainsString('>Overtime Employees</label>', $html);
         $this->assertStringContainsString('<option value="7" selected>Test Employee', $html);
         $this->assertStringNotContainsString('name="details[0][level]"', $html);
         $this->assertStringNotContainsString('id="approval_level_0"', $html);
