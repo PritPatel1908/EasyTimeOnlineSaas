@@ -58,7 +58,7 @@ final class LeaveGroupMonthlyRuleRules
             'monthly_rules.*.max_avail' => ['present', 'nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'monthly_rules.*.leave_types_not_to_be_clubbed' => ['sometimes', 'array'],
             'monthly_rules.*.leave_types_not_to_be_clubbed.*' => ['integer', 'distinct', 'exists:leave_types,id'],
-            'monthly_rules.*.leave_credit_type' => ['required', Rule::in(['manual', 'monthly', 'yearly', 'based_on_present', 'based_on_working_hours'])],
+            'monthly_rules.*.leave_credit_type' => ['required', Rule::in(['manual', 'monthly', 'yearly'])],
             'monthly_rules.*.is_paid' => ['required', 'boolean'],
             'monthly_rules.*.keeps_balance' => ['required', 'boolean'],
             'monthly_rules.*.allow_negative_balance' => ['required', 'boolean'],

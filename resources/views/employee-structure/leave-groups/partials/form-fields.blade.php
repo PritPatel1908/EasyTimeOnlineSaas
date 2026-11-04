@@ -195,7 +195,7 @@
                                     </select>
                                 @elseif ($field['type'] === 'leave_credit_type')
                                     <select id="{{ $inputId }}" name="{{ $inputName }}" class="form-control select @error($errorKey) is-invalid @enderror" data-monthly-credit-type required>
-                                        @foreach (['manual' => 'Manual', 'monthly' => 'Monthly', 'yearly' => 'Yearly', 'based_on_present' => 'Based On Present', 'based_on_working_hours' => 'Based On Working Hrs'] as $creditType => $creditTypeLabel)
+                                        @foreach (['manual' => 'Manual', 'monthly' => 'Monthly', 'yearly' => 'Yearly'] as $creditType => $creditTypeLabel)
                                             <option value="{{ $creditType }}" @selected($value === $creditType)>{{ $creditTypeLabel }}</option>
                                         @endforeach
                                     </select>

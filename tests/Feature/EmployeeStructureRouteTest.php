@@ -220,7 +220,11 @@ class EmployeeStructureRouteTest extends TestCase
             $this->assertStringContainsString('name="monthly_rules[0]['.$month.']"', $html);
         }
 
-        $this->assertStringContainsString('Based On Working Hrs', $html);
+        $this->assertStringContainsString('<option value="manual"', $html);
+        $this->assertStringContainsString('<option value="monthly"', $html);
+        $this->assertStringContainsString('<option value="yearly"', $html);
+        $this->assertStringNotContainsString('<option value="based_on_present"', $html);
+        $this->assertStringNotContainsString('<option value="based_on_working_hours"', $html);
         $this->assertStringNotContainsString('Yearly Leave Rules', $html);
         $this->assertStringContainsString('name="monthly_rules[0][allow_leave_encashment]"', $html);
         $this->assertStringContainsString('Allow Leave Lapse?', $html);
