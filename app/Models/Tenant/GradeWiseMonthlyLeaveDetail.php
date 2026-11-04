@@ -105,6 +105,7 @@ class GradeWiseMonthlyLeaveDetail extends Model
         'then_credit_balance_days',
         'include_leaves',
         'leave_credit_type',
+        'new_joiner_based_on_credit',
         'increment',
         'proportionate',
         'count_weekly_off_as_present',

@@ -114,6 +114,7 @@ class LeaveGroupController extends Controller
             foreach ($monthlyRules as $rule) {
                 $rule['leave_types_not_to_be_clubbed'] ??= [];
                 $rule['include_leaves'] ??= [];
+                $rule['new_joiner_based_on_credit'] ??= null;
                 $leaveGroup->grade_wise_monthly_leave_details()->create($rule);
             }
         });
@@ -158,6 +159,7 @@ class LeaveGroupController extends Controller
                 $values = array_diff_key($rule, ['id' => true]);
                 $values['leave_types_not_to_be_clubbed'] ??= [];
                 $values['include_leaves'] ??= [];
+                $values['new_joiner_based_on_credit'] ??= null;
                 if (isset($rule['id'])) {
                     $leaveGroup->grade_wise_monthly_leave_details()
                         ->whereKey($rule['id'])

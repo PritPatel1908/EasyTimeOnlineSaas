@@ -205,6 +205,14 @@ class EmployeeStructureRouteTest extends TestCase
         $this->assertStringContainsString('name="monthly_rules[0][leave_credit_type]"', $html);
         $this->assertStringContainsString('data-monthly-credit-type', $html);
         $this->assertStringContainsString('data-monthly-credit-fields', $html);
+        $this->assertStringContainsString('data-new-joiner-credit-fields', $html);
+        $this->assertMatchesRegularExpression('/<div class="col-12 "\s+data-new-joiner-credit-fields/', $html);
+        $this->assertStringContainsString('name="monthly_rules[0][new_joiner_based_on_credit]"', $html);
+        $this->assertStringContainsString('>Present Base</option>', $html);
+        $this->assertStringContainsString('>Day Base</option>', $html);
+        $this->assertStringContainsString('>Monthly Base</option>', $html);
+        $this->assertStringContainsString('>Fortnightly</option>', $html);
+        $this->assertStringContainsString('>Cutoff Mid</option>', $html);
         $this->assertMatchesRegularExpression('/name="monthly_rules\[0\]\[jan\]"\s+value="1\.50?"/', $html);
         $this->assertMatchesRegularExpression('/name="monthly_rules\[0\]\[feb\]"\s+value="0"/', $html);
         $this->assertStringContainsString('data-annual-quota-field', $html);

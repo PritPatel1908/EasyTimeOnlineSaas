@@ -223,6 +223,7 @@
                         @endforeach
                         @php
                             $monthlyCreditType = old('monthly_rules.'.$index.'.leave_credit_type', $detail->leave_credit_type ?? 'monthly');
+                            $newJoinerBasedOnCredit = old('monthly_rules.'.$index.'.new_joiner_based_on_credit', data_get($detail, 'new_joiner_based_on_credit'));
                         @endphp
                         <div class="col-12 {{ $monthlyCreditType === 'monthly' && $keepsBalance ? '' : 'd-none' }}" data-monthly-credit-fields data-balance-dependent>
                             <div class="row">
@@ -291,7 +292,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-12 {{ $monthlyCreditType === 'based_on_present' && $keepsBalance ? '' : 'd-none' }}" data-based-on-present-fields data-balance-dependent>
+                        <div class="col-12 {{ $monthlyCreditType === 'monthly' && $newJoinerBasedOnCredit === 'present_base' && $keepsBalance ? '' : 'd-none' }}" data-based-on-present-fields data-balance-dependent>
                             @php
                                 $presentCountPerErrorKey = 'monthly_rules.'.$index.'.present_count_per';
                                 $presentCountPerInputName = 'monthly_rules['.$index.'][present_count_per]';
@@ -337,6 +338,30 @@
                                         @endforeach
                                     </select>
                                     <x-validation-error :field="$includeLeavesErrorKey" />
+                                </div>
+                            </div>
+                            </div>
+                            <div class="col-12 {{ in_array($monthlyCreditType, ['monthly', 'yearly'], true) && $keepsBalance ? '' : 'd-none' }}" data-new-joiner-credit-fields data-balance-dependent>
+                                <div class="row">
+                                    <div class="col-12 {{ $monthlyCreditType === 'monthly' && $keepsBalance ? '' : 'd-none' }}" data-new-joiner-credit-monthly-field>
+                                        <label class="form-label" for="monthly_{{ $index }}_new_joiner_based_on_credit_monthly">New Joiner Based On Credit</label>
+                                        <select id="monthly_{{ $index }}_new_joiner_based_on_credit_monthly" name="monthly_rules[{{ $index }}][new_joiner_based_on_credit]" class="form-control select @error('monthly_rules.'.$index.'.new_joiner_based_on_credit') is-invalid @enderror" data-new-joiner-credit-monthly @disabled(!$keepsBalance || $monthlyCreditType !== 'monthly')>
+                                            <option value="">Select Based On Credit</option>
+                                            <option value="present_base" @selected($newJoinerBasedOnCredit === 'present_base')>Present Base</option>
+                                        </select>
+                                        <x-validation-error field="monthly_rules.{{ $index }}.new_joiner_based_on_credit" />
+                                    </div>
+                                    <div class="col-12 {{ $monthlyCreditType === 'yearly' && $keepsBalance ? '' : 'd-none' }}" data-new-joiner-credit-yearly-field>
+                                        <label class="form-label" for="monthly_{{ $index }}_new_joiner_based_on_credit_yearly">New Joiner Based On Credit</label>
+                                        <select id="monthly_{{ $index }}_new_joiner_based_on_credit_yearly" name="monthly_rules[{{ $index }}][new_joiner_based_on_credit]" class="form-control select @error('monthly_rules.'.$index.'.new_joiner_based_on_credit') is-invalid @enderror" data-new-joiner-credit-yearly @disabled(!$keepsBalance || $monthlyCreditType !== 'yearly')>
+                                            <option value="">Select Based On Credit</option>
+                                            <option value="day_based" @selected($newJoinerBasedOnCredit === 'day_based')>Day Base</option>
+                                            <option value="monthly_based" @selected($newJoinerBasedOnCredit === 'monthly_based')>Monthly Base</option>
+                                            <option value="fortnightly" @selected($newJoinerBasedOnCredit === 'fortnightly')>Fortnightly</option>
+                                            <option value="cutoff_mid" @selected($newJoinerBasedOnCredit === 'cutoff_mid')>Cutoff Mid</option>
+                                        </select>
+                                        <x-validation-error field="monthly_rules.{{ $index }}.new_joiner_based_on_credit" />
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -473,9 +498,34 @@
             var monthlyFields = rule.querySelector('[data-monthly-credit-fields]');
             var annualQuotaField = rule.querySelector('[data-annual-quota-field]');
             var basedOnPresentFields = rule.querySelector('[data-based-on-present-fields]');
+            var newJoinerCreditFields = rule.querySelector('[data-new-joiner-credit-fields]');
+            var monthlyNewJoinerField = rule.querySelector('[data-new-joiner-credit-monthly-field]');
+            var yearlyNewJoinerField = rule.querySelector('[data-new-joiner-credit-yearly-field]');
+            var monthlyNewJoinerSelect = rule.querySelector('[data-new-joiner-credit-monthly]');
+            var yearlyNewJoinerSelect = rule.querySelector('[data-new-joiner-credit-yearly]');
             if (monthlyFields) monthlyFields.classList.toggle('d-none', !hasBalance || select.value !== 'monthly');
             if (annualQuotaField) annualQuotaField.classList.toggle('d-none', !hasBalance || select.value !== 'yearly');
-            if (basedOnPresentFields) basedOnPresentFields.classList.toggle('d-none', !hasBalance || select.value !== 'based_on_present');
+            if (newJoinerCreditFields) newJoinerCreditFields.classList.toggle('d-none', !hasBalance || !['monthly', 'yearly'].includes(select.value));
+            if (monthlyNewJoinerField) monthlyNewJoinerField.classList.toggle('d-none', !hasBalance || select.value !== 'monthly');
+            if (yearlyNewJoinerField) yearlyNewJoinerField.classList.toggle('d-none', !hasBalance || select.value !== 'yearly');
+            [monthlyNewJoinerSelect, yearlyNewJoinerSelect].forEach(function (newJoinerSelect) {
+                if (!newJoinerSelect) return;
+                var active = hasBalance && (
+                    (select.value === 'monthly' && newJoinerSelect === monthlyNewJoinerSelect)
+                    || (select.value === 'yearly' && newJoinerSelect === yearlyNewJoinerSelect)
+                );
+                newJoinerSelect.required = active;
+                if (newJoinerSelect.tomselect) {
+                    if (active) newJoinerSelect.tomselect.enable();
+                    else newJoinerSelect.tomselect.disable();
+                } else {
+                    newJoinerSelect.disabled = !active;
+                }
+            });
+            if (basedOnPresentFields) {
+                var basedOnCredit = select.value === 'monthly' && monthlyNewJoinerSelect ? monthlyNewJoinerSelect.value : null;
+                basedOnPresentFields.classList.toggle('d-none', !hasBalance || basedOnCredit !== 'present_base');
+            }
         }
 
         function syncBalanceDependentFields(checkbox) {
@@ -511,6 +561,12 @@
                 syncMonthlyCreditFields(select);
                 select.addEventListener('change', function () {
                     syncMonthlyCreditFields(select);
+                });
+            });
+            rule.querySelectorAll('[data-new-joiner-credit-monthly], [data-new-joiner-credit-yearly]').forEach(function (select) {
+                select.addEventListener('change', function () {
+                    var creditType = rule.querySelector('[data-monthly-credit-type]');
+                    if (creditType) syncMonthlyCreditFields(creditType);
                 });
             });
 
