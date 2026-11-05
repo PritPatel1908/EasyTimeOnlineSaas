@@ -17,7 +17,7 @@
     <div class="card-header"><h5 class="card-title mb-0">Basic Information</h5></div>
     <div class="card-body">
         <div class="row">
-            <div class="col-md-6 mb-3">
+            <div class="col-12 mb-3">
                 <label class="form-label" for="{{ $isEdit ? 'edit_name' : 'add_name' }}">Leave Group Name <span class="text-danger">*</span></label>
                 <input type="text" id="{{ $isEdit ? 'edit_name' : 'add_name' }}" name="name" value="{{ old('name', $leaveGroup?->name) }}" class="form-control @error('name') is-invalid @enderror" maxlength="255" required>
                 <x-validation-error field="name" />
