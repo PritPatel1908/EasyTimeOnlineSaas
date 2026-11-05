@@ -7,6 +7,8 @@ use Carbon\Carbon;
 
 class YearlyLeaveCredit
 {
+    private const FORTNIGHTLY_PORTION_END_DAY = 15;
+
     public static function getScheduledCreditDate(
         Carbon $date,
         ?FinancialYear $financialYear,
@@ -139,7 +141,7 @@ class YearlyLeaveCredit
             return round($annualQuota, 2);
         }
 
-        if (! in_array($newJoinerBasedOnCredit, ['day_based', 'monthly_based'], true)
+        if (! in_array($newJoinerBasedOnCredit, ['day_based', 'monthly_based', 'fortnightly', 'cutoff_mid'], true)
             || $joinDate === null
             || $joinDate->gt($checkDate)) {
             return null;
@@ -163,20 +165,36 @@ class YearlyLeaveCredit
                 return null;
             }
 
-            $totalMonths = (($financialYearEnd->year - $financialYearStart->year) * 12)
-                + $financialYearEnd->month
-                - $financialYearStart->month
-                + 1;
-            $remainingMonths = (($financialYearEnd->year - $joinDate->year) * 12)
-                + $financialYearEnd->month
-                - $joinDate->month
-                + 1;
+            $totalMonths = self::countMonthlyPeriods($financialYearStart, $financialYearEnd);
+            $remainingMonths = self::countMonthlyPeriods($joinDate, $financialYearEnd);
 
             if ($totalMonths <= 0 || $remainingMonths <= 0) {
                 return null;
             }
 
             return round(($annualQuota / $totalMonths) * $remainingMonths, 2);
+        }
+
+        if (in_array($newJoinerBasedOnCredit, ['fortnightly', 'cutoff_mid'], true)) {
+            if ($joinDate->lt($financialYearStart)) {
+                return round($annualQuota, 2);
+            }
+
+            if ($joinDate->gt($financialYearEnd)) {
+                return null;
+            }
+
+            $remainingPeriodStart = $newJoinerBasedOnCredit === 'cutoff_mid'
+                && $joinDate->day > self::FORTNIGHTLY_PORTION_END_DAY
+                ? $joinDate->copy()->addMonthNoOverflow()->startOfMonth()
+                : $joinDate;
+            $totalPortions = self::countFortnightlyPeriods($financialYearStart, $financialYearEnd);
+            $remainingPortions = self::countFortnightlyPeriods($remainingPeriodStart, $financialYearEnd);
+            if ($totalPortions <= 0 || $remainingPortions <= 0) {
+                return null;
+            }
+
+            return round(($annualQuota / $totalPortions) * $remainingPortions, 2);
         }
 
         $periodDays = $financialYearStart->diffInDays($financialYearEnd) + 1;
@@ -190,5 +208,53 @@ class YearlyLeaveCredit
         $remainingDays = max(0, $periodDays - $elapsedDays);
 
         return round(($annualQuota / $periodDays) * $remainingDays, 2);
+    }
+
+    private static function countMonthlyPeriods(Carbon $periodStart, Carbon $periodEnd): int
+    {
+        $periodStart = $periodStart->copy()->startOfDay();
+        $periodEnd = $periodEnd->copy()->startOfDay();
+        if ($periodStart->gt($periodEnd)) {
+            return 0;
+        }
+
+        $count = 0;
+        $month = $periodStart->copy()->startOfMonth();
+        while ($month->lte($periodEnd)) {
+            $count++;
+            $month->addMonthNoOverflow();
+        }
+
+        return $count;
+    }
+
+    private static function countFortnightlyPeriods(Carbon $periodStart, Carbon $periodEnd): int
+    {
+        $periodStart = $periodStart->copy()->startOfDay();
+        $periodEnd = $periodEnd->copy()->startOfDay();
+        if ($periodStart->gt($periodEnd)) {
+            return 0;
+        }
+
+        $count = 0;
+        $month = $periodStart->copy()->startOfMonth();
+        while ($month->lte($periodEnd)) {
+            $firstPortionEnd = $month->copy()
+                ->day(min(self::FORTNIGHTLY_PORTION_END_DAY, $month->daysInMonth))
+                ->endOfDay();
+            $secondPortionStart = $firstPortionEnd->copy()->addDay()->startOfDay();
+            $monthEnd = $month->copy()->endOfMonth()->endOfDay();
+
+            if ($firstPortionEnd->gte($periodStart) && $month->lte($periodEnd)) {
+                $count++;
+            }
+            if ($monthEnd->gte($periodStart) && $secondPortionStart->lte($periodEnd)) {
+                $count++;
+            }
+
+            $month->addMonthNoOverflow();
+        }
+
+        return $count;
     }
 }

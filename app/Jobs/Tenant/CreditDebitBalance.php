@@ -101,8 +101,18 @@ class CreditDebitBalance implements ShouldBeUnique, ShouldQueue
                 if ($this->user?->grade_wise_leave?->is_monthly) {
                     if ($this->user?->grade_wise_leave?->grade_wise_monthly_leave_details != null && count($this->user?->grade_wise_leave?->grade_wise_monthly_leave_details) > 0) {
                         $checkDate = Carbon::parse($user_leave_check_muster->check_date);
+                        $financialYear = FinancialYear::forDate($checkDate);
 
                         foreach ($this->user?->grade_wise_leave?->grade_wise_monthly_leave_details as $grade_wise_detail) {
+                            if ($financialYear === null || ! $financialYear->is_started) {
+                                Log::channel('attprocess')->warning(
+                                    'Leave credit skipped: financial year is not started for user '
+                                    .$this->user->id.' on '.$checkDate->format('Y-m-d')
+                                );
+
+                                break;
+                            }
+
                             $leaveCreditType = $grade_wise_detail->leave_credit_type ?? 'monthly';
 
                             if ($leaveCreditType === 'manual') {
@@ -192,9 +202,10 @@ class CreditDebitBalance implements ShouldBeUnique, ShouldQueue
                                 $user_leave_check_muster->check_date ?? $this->user?->join_date
                             );
                             $financialYear = FinancialYear::forDate($checkDate);
-                            if ($financialYear === null) {
+                            if ($financialYear === null || ! $financialYear->is_started) {
                                 Log::channel('attprocess')->warning(
-                                    'No financial year covers leave check date '.$checkDate->format('Y-m-d')
+                                    'Leave credit skipped: no started financial year covers leave check date '
+                                    .$checkDate->format('Y-m-d')
                                     .' for user '.$this->user->id
                                 );
 
@@ -357,9 +368,9 @@ class CreditDebitBalance implements ShouldBeUnique, ShouldQueue
         }
 
         $financialYear = FinancialYear::forDate($yearlyCheckDate);
-        if ($financialYear === null) {
+        if ($financialYear === null || ! $financialYear->is_started) {
             Log::channel('attprocess')->warning(
-                'Yearly leave credit skipped: no financial year for user '.$this->user->id
+                'Yearly leave credit skipped: no started financial year for user '.$this->user->id
                 .' on '.$yearlyCheckDate->format('Y-m-d')
             );
 
@@ -376,7 +387,7 @@ class CreditDebitBalance implements ShouldBeUnique, ShouldQueue
             }
 
             if ($gradeWiseDetail->new_joiner_based_on_credit !== null
-                && ! in_array($gradeWiseDetail->new_joiner_based_on_credit, ['day_based', 'monthly_based'], true)) {
+                && ! in_array($gradeWiseDetail->new_joiner_based_on_credit, ['day_based', 'monthly_based', 'fortnightly', 'cutoff_mid'], true)) {
                 Log::channel('attprocess')->warning(
                     'Unsupported yearly leave credit mode '.$gradeWiseDetail->new_joiner_based_on_credit
                     .' for user '.$this->user->id.' and leave rule '.$gradeWiseDetail->id

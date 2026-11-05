@@ -308,6 +308,96 @@ class YearlyLeaveCreditTest extends TestCase
         $this->assertSame(24.0, $credit);
     }
 
+    public function test_fortnightly_new_joiner_receives_credit_for_joining_portion_through_financial_year_end(): void
+    {
+        $credit = YearlyLeaveCredit::calculateCredit(
+            24,
+            'fortnightly',
+            Carbon::parse('2026-06-21'),
+            Carbon::parse('2026-06-25'),
+            Carbon::parse('2026-04-01'),
+            Carbon::parse('2027-03-31'),
+            0,
+        );
+
+        $this->assertSame(19.0, $credit);
+    }
+
+    public function test_fortnightly_joiner_on_fifteenth_receives_credit_for_first_half_month_portion(): void
+    {
+        $credit = YearlyLeaveCredit::calculateCredit(
+            24,
+            'fortnightly',
+            Carbon::parse('2026-06-15'),
+            Carbon::parse('2026-06-25'),
+            Carbon::parse('2026-04-01'),
+            Carbon::parse('2027-03-31'),
+            0,
+        );
+
+        $this->assertSame(20.0, $credit);
+    }
+
+    public function test_fortnightly_credit_uses_financial_year_month_count(): void
+    {
+        $credit = YearlyLeaveCredit::calculateCredit(
+            24,
+            'fortnightly',
+            Carbon::parse('2026-06-21'),
+            Carbon::parse('2026-06-25'),
+            Carbon::parse('2026-04-01'),
+            Carbon::parse('2026-12-31'),
+            0,
+        );
+
+        $this->assertSame(17.33, $credit);
+    }
+
+    public function test_cutoff_mid_joiner_after_fifteenth_starts_credit_from_next_month(): void
+    {
+        $credit = YearlyLeaveCredit::calculateCredit(
+            24,
+            'cutoff_mid',
+            Carbon::parse('2026-06-21'),
+            Carbon::parse('2026-06-25'),
+            Carbon::parse('2026-04-01'),
+            Carbon::parse('2027-03-31'),
+            0,
+        );
+
+        $this->assertSame(18.0, $credit);
+    }
+
+    public function test_based_credits_count_only_periods_that_overlap_financial_year_dates(): void
+    {
+        $financialYearStart = Carbon::parse('2026-04-20');
+        $financialYearEnd = Carbon::parse('2026-12-20');
+        $joinDate = Carbon::parse('2026-06-21');
+        $checkDate = Carbon::parse('2026-06-25');
+
+        $monthlyCredit = YearlyLeaveCredit::calculateCredit(
+            24,
+            'monthly_based',
+            $joinDate,
+            $checkDate,
+            $financialYearStart,
+            $financialYearEnd,
+            0,
+        );
+        $fortnightlyCredit = YearlyLeaveCredit::calculateCredit(
+            24,
+            'fortnightly',
+            $joinDate,
+            $checkDate,
+            $financialYearStart,
+            $financialYearEnd,
+            0,
+        );
+
+        $this->assertSame(18.67, $monthlyCredit);
+        $this->assertSame(18.35, $fortnightlyCredit);
+    }
+
     public function test_employee_past_first_anniversary_receives_full_quota(): void
     {
         $credit = YearlyLeaveCredit::calculateCredit(
