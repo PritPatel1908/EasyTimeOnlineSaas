@@ -74,6 +74,9 @@ QUEUE_NAMES=notifications,import,export,activity-log,processing,low bash queue-w
 
 php artisan queue:work database_tenant --queue=tenant,notifications,import,export,activity-log,processing,low --sleep=3 --tries=3
 
+php artisan tenants:run app:create-leave-muster
+php artisan tenants:run app:check-leave-balance
+
 Queue tables are stored in the central database. Tenant jobs must not be stored in an
 individual tenant database: a shared worker reads the central queue first, then initializes
 the tenant from the job payload. Restart queue workers after changing queue configuration.
