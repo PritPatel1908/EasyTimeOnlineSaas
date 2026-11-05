@@ -30,6 +30,8 @@
                         $canStart = ! $isStarted && ! $isClosed && $startedFinancialYearId === null;
                         $canStop = $isStarted && ! $isClosed && $isCurrentStartedYear;
                         $canClose = ! $isStarted && ! $isClosed && $startedFinancialYearId === null;
+                        $canRetrySettlement = $isClosed;
+                        $canCloseAction = $canClose || $canRetrySettlement;
                         $canChangeLifecycle = $canStart || $canStop;
                     @endphp
                     <a href="javascript:void(0);"
@@ -41,11 +43,11 @@
                             <i class="ti {{ $isStarted ? 'ti-player-stop' : ($isClosed ? 'ti-circle-check' : 'ti-player-play') }}"></i>
                     </a>
                     <a href="javascript:void(0);"
-                        class="me-2 financial-year-flag-action {{ $canClose ? '' : 'disabled text-muted pe-none' }}"
-                        @if ($canClose) data-form="financial-year-closed-{{ $financialYear->id }}" @endif
-                        title="{{ $isClosed ? 'Financial year is permanently closed' : 'Close financial year permanently' }}"
-                        aria-label="{{ $isClosed ? 'Financial year is permanently closed' : 'Close financial year permanently' }}"
-                        @if (! $canClose) aria-disabled="true" tabindex="-1" @endif>
+                        class="me-2 financial-year-flag-action {{ $canCloseAction ? '' : 'disabled text-muted pe-none' }}"
+                        @if ($canCloseAction) data-form="financial-year-closed-{{ $financialYear->id }}" @endif
+                        title="{{ $isClosed ? 'Retry leave balance settlement' : 'Close financial year permanently' }}"
+                        aria-label="{{ $isClosed ? 'Retry leave balance settlement' : 'Close financial year permanently' }}"
+                        @if (! $canCloseAction) aria-disabled="true" tabindex="-1" @endif>
                         <i class="ti {{ $isClosed ? 'ti-lock' : 'ti-lock-open' }}"></i>
                     </a>
                     <form id="financial-year-started-{{ $financialYear->id }}" method="POST" action="{{ url('time-management/financial-years/'.$financialYear->id.'/flags') }}" class="d-none">

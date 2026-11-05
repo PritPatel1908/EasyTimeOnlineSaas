@@ -8,6 +8,7 @@ use App\Helpers\GeneralHelper;
 use App\Models\Tenant\LeaveAccount;
 use App\Models\Tenant\LeaveApplication;
 use App\Models\Tenant\ManualLeaveBalance;
+use App\Models\Tenant\Transaction;
 use App\Models\Tenant\User;
 use Carbon\Carbon;
 use Illuminate\Database\Schema\Blueprint;
@@ -26,10 +27,12 @@ class LeaveAccountDetailBalanceTest extends TestCase
         Schema::create('users', function (Blueprint $table): void {
             $table->id();
             $table->string('code')->nullable();
+            $table->softDeletes();
         });
         Schema::create('leave_types', function (Blueprint $table): void {
             $table->id();
             $table->string('code');
+            $table->softDeletes();
         });
         Schema::create('leave_accounts', function (Blueprint $table): void {
             $table->id();
@@ -181,5 +184,41 @@ class LeaveAccountDetailBalanceTest extends TestCase
             (int) $detail->type_id,
         ])->all());
         $this->assertSame(['2026', '2026', '2026'], $details->pluck('transaction_year')->all());
+
+        $previousYearBalance = (float) DB::table('transactions2026')
+            ->orderByDesc('trx_datetime')
+            ->orderByDesc('id')
+            ->value('balance');
+        new Transaction(year: '2027');
+
+        $createNextYearCredit = static function () use ($account): void {
+            GeneralHelper::createOrUpdateTransaction(
+                '2027',
+                LeaveAccount::class,
+                (int) $account->id,
+                LeaveApplication::class,
+                1,
+                3,
+                User::class,
+                10,
+                Carbon::parse('2027-04-04 00:00:04'),
+                10,
+                24,
+                0,
+                'Annual Credit',
+                10,
+                10,
+                false,
+            );
+        };
+
+        $createNextYearCredit();
+        $createNextYearCredit();
+
+        $nextYearTransaction = DB::table('transactions2027')->first();
+        $this->assertSame(3, DB::table('transactions2026')->count());
+        $this->assertSame(1, DB::table('transactions2027')->count());
+        $this->assertSame($previousYearBalance, (float) $nextYearTransaction->opening_balance);
+        $this->assertSame($previousYearBalance + 24, (float) $nextYearTransaction->balance);
     }
 }

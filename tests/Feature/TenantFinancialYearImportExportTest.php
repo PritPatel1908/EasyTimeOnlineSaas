@@ -91,9 +91,22 @@ class TenantFinancialYearImportExportTest extends TestCase
     {
         $this->createFinancialYearsTable();
         DB::table('financial_years')->insert([
-            ['id' => 1, 'is_started' => true, 'is_closed' => false],
-            ['id' => 2, 'is_started' => false, 'is_closed' => false],
+            [
+                'id' => 1,
+                'start_date' => '2026-04-01',
+                'end_date' => '2027-03-31',
+                'is_started' => true,
+                'is_closed' => false,
+            ],
+            [
+                'id' => 2,
+                'start_date' => '2027-04-01',
+                'end_date' => '2028-03-31',
+                'is_started' => false,
+                'is_closed' => false,
+            ],
         ]);
+        Bus::fake();
 
         $blockedStart = $this->updateFinancialYearFlags(2, 1, 0);
         $this->assertSame(302, $blockedStart->getStatusCode());
@@ -103,6 +116,14 @@ class TenantFinancialYearImportExportTest extends TestCase
         $this->assertSame(302, $stop->getStatusCode());
         $this->assertDatabaseHas('financial_years', ['id' => 1, 'is_started' => false, 'is_closed' => true]);
 
+        $retrySettlement = $this->updateFinancialYearFlags(1, 0, 1);
+        $this->assertSame(302, $retrySettlement->getStatusCode());
+        $this->assertSame(
+            'Financial Year leave balance settlement has been queued.',
+            $retrySettlement->getSession()->get('success'),
+        );
+        Bus::assertDispatched(\App\Jobs\Tenant\ProcessFinancialYearLeaveBalances::class, 2);
+
         $reopen = $this->updateFinancialYearFlags(1, 1, 0);
         $this->assertSame(302, $reopen->getStatusCode());
         $this->assertDatabaseHas('financial_years', ['id' => 1, 'is_started' => false, 'is_closed' => true]);
@@ -110,6 +131,30 @@ class TenantFinancialYearImportExportTest extends TestCase
         $startNext = $this->updateFinancialYearFlags(2, 1, 0);
         $this->assertSame(302, $startNext->getStatusCode());
         $this->assertDatabaseHas('financial_years', ['id' => 2, 'is_started' => true, 'is_closed' => false]);
+        Bus::assertDispatched(\App\Jobs\Tenant\ProcessFinancialYearLeaveBalances::class, 2);
+    }
+
+    public function test_financial_year_cannot_be_closed_without_the_immediately_following_year(): void
+    {
+        $this->createFinancialYearsTable();
+        DB::table('financial_years')->insert([
+            'id' => 1,
+            'start_date' => '2026-04-01',
+            'end_date' => '2027-03-31',
+            'is_started' => false,
+            'is_closed' => false,
+        ]);
+        Bus::fake();
+
+        $response = $this->updateFinancialYearFlags(1, 0, 1);
+
+        $this->assertSame(302, $response->getStatusCode());
+        $this->assertSame(
+            'Create the next Financial Year before closing this one.',
+            $response->getSession()->get('error'),
+        );
+        $this->assertDatabaseHas('financial_years', ['id' => 1, 'is_closed' => false]);
+        Bus::assertNotDispatched(\App\Jobs\Tenant\ProcessFinancialYearLeaveBalances::class);
     }
 
     public function test_started_financial_year_dates_and_status_are_kept_unchanged_during_update(): void

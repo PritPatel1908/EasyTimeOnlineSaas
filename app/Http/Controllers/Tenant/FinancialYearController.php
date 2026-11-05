@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Tenant\StoreFinancialYearRequest;
 use App\Http\Requests\Tenant\UpdateFinancialYearRequest;
 use App\Jobs\Tenant\GenerateFinancialYearExport;
+use App\Jobs\Tenant\ProcessFinancialYearLeaveBalances;
 use App\Jobs\Tenant\ProcessFinancialYearImport;
 use App\Models\Tenant\Company;
 use App\Models\Tenant\FinancialYear;
@@ -121,6 +122,20 @@ class FinancialYearController extends Controller
             ->whereKeyNot($financialYear->getKey())
             ->exists();
 
+        if ($financialYear->is_closed && $isClosed && ! $isStarted) {
+            if (! FinancialYear::query()
+                ->whereDate('start_date', $financialYear->end_date->copy()->addDay()->toDateString())
+                ->exists()) {
+                return redirect(url(self::INDEX_URL))
+                    ->with('error', 'Create the next Financial Year before processing this one.');
+            }
+
+            $this->dispatchLeaveBalanceSettlement($financialYear);
+
+            return redirect(url(self::INDEX_URL))
+                ->with('success', 'Financial Year leave balance settlement has been queued.');
+        }
+
         if ($financialYear->is_closed) {
             return redirect(url(self::INDEX_URL))
                 ->with('error', 'A stopped or closed Financial Year cannot be reopened.');
@@ -144,10 +159,21 @@ class FinancialYearController extends Controller
                 ->with('error', 'Choose Start or permanently Close for this Financial Year.');
         }
 
+        if ($isClosed && ! FinancialYear::query()
+            ->whereDate('start_date', $financialYear->end_date->copy()->addDay()->toDateString())
+            ->exists()) {
+            return redirect(url(self::INDEX_URL))
+                ->with('error', 'Create the next Financial Year before closing this one.');
+        }
+
         $financialYear->update([
             'is_started' => $isStarted,
             'is_closed' => $isClosed,
         ]);
+
+        if ($isClosed) {
+            $this->dispatchLeaveBalanceSettlement($financialYear);
+        }
 
         return redirect(url(self::INDEX_URL))->with('success', 'Financial Year actions updated successfully.');
     }
@@ -276,5 +302,14 @@ class FinancialYearController extends Controller
             ->first(['id']);
 
         return $startedFinancialYear?->id;
+    }
+
+    private function dispatchLeaveBalanceSettlement(FinancialYear $financialYear): void
+    {
+        $authUserId = Auth::guard('tenant')->id();
+        ProcessFinancialYearLeaveBalances::dispatch(
+            $financialYear,
+            $authUserId === null ? null : (int) $authUserId,
+        )->onConnection('database_tenant')->onQueue('processing');
     }
 }

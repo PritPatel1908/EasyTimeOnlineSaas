@@ -13,6 +13,7 @@ use App\Models\Tenant\User;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Session;
 use InvalidArgumentException;
 
@@ -91,7 +92,8 @@ class GeneralHelper
         $remarks,
         $created_by,
         $updated_by,
-        bool $is_lapse
+        bool $is_lapse,
+        ?float $lapse_count = null
     ) {
         if ($accountable_type == null) {
             // dd('accountable_type is null');
@@ -110,10 +112,20 @@ class GeneralHelper
             ->where('referenceable_type', $referenceable_type)
             ->where('referenceable_id', $referenceable_id);
         $transaction = $transaction->limit(1)->first();
+        $opening_balance = self::getOpeningBalance(
+            $year,
+            $accountable_type,
+            $accountable_id,
+            $leave_type_id,
+            $authable_type,
+            $authable_id,
+            $trx_datetime,
+        );
 
         if ($transaction) {
             // Update the existing transaction
             $transaction->update([
+                'opening_balance' => $opening_balance,
                 'credit' => $credit,
                 'debit' => $debit,
                 'remarks' => $remarks,
@@ -124,23 +136,6 @@ class GeneralHelper
             $transaction->balance = $transaction->opening_balance + $transaction->credit - $transaction->debit;
             $transaction->save();
         } else {
-            // Get the latest transaction before the given datetime
-            $transactionModel = (new Transaction(year: $year));
-            $previousTransaction = $transactionModel->where('trx_datetime', '<', $trx_datetime)
-                ->where('accountable_type', $accountable_type)
-                ->where('accountable_id', $accountable_id)
-                // ->where('referenceable_type', $referenceable_type)
-                // ->where('referenceable_id', $referenceable_id)
-                ->where('leave_type_id', $leave_type_id)
-                ->where('authable_type', $authable_type)
-                ->where('authable_id', $authable_id)
-                ->orderBy('trx_datetime', 'desc')
-                ->orderBy('id', 'desc')
-                ->first();
-
-            // Calculate the opening balance for the new transaction
-            $opening_balance = $previousTransaction ? $previousTransaction->balance : 0.00;
-
             // Create a new transaction
             $transaction = (new Transaction(year: $year));
             $transaction->setDynamicTable($year);
@@ -164,22 +159,23 @@ class GeneralHelper
                 'updated_by' => $updated_by,
             ]);
 
-            if ($is_lapse) {
-                $transaction->lapse = $debit;
-                $transaction->save();
+        }
 
-                $leave_detail = $referenceable_type::find($referenceable_id);
-                LeaveLapse::updateOrCreate(
-                    [
-                        'date' => $trx_datetime,
-                        'user_id' => $authable_id,
-                        'leave_type_id' => $leave_detail->leave_type_id,
-                    ],
-                    [
-                        'lapse_count' => $debit,
-                    ]
-                );
-            }
+        if ($is_lapse) {
+            $lapse_count ??= $debit;
+            $transaction->lapse = $lapse_count;
+            $transaction->save();
+
+            LeaveLapse::updateOrCreate(
+                [
+                    'date' => Carbon::parse($trx_datetime)->toDateString(),
+                    'user_id' => $authable_id,
+                    'leave_type_id' => $leave_type_id,
+                ],
+                [
+                    'lapse_count' => $lapse_count,
+                ]
+            );
         }
 
         // Calculate the new balance
@@ -212,6 +208,48 @@ class GeneralHelper
 
         $account = $accountable_type::findOrFail($accountable_id);
         self::syncLeaveAccountDetails($account, $year, $leave_type_id);
+    }
+
+    private static function getOpeningBalance(
+        string $year,
+        string $accountableType,
+        int $accountableId,
+        int $leaveTypeId,
+        string $authableType,
+        int $authableId,
+        $trxDatetime,
+    ): float {
+        $previousTransaction = (new Transaction(year: $year))
+            ->where('trx_datetime', '<', $trxDatetime)
+            ->where('accountable_type', $accountableType)
+            ->where('accountable_id', $accountableId)
+            ->where('leave_type_id', $leaveTypeId)
+            ->where('authable_type', $authableType)
+            ->where('authable_id', $authableId)
+            ->orderByDesc('trx_datetime')
+            ->orderByDesc('id')
+            ->first();
+
+        if ($previousTransaction !== null) {
+            return (float) $previousTransaction->balance;
+        }
+
+        $previousYear = (string) ((int) $year - 1);
+        if (! Schema::hasTable('transactions'.$previousYear)) {
+            return 0.0;
+        }
+
+        $previousYearTransaction = (new Transaction(year: $previousYear))
+            ->where('accountable_type', $accountableType)
+            ->where('accountable_id', $accountableId)
+            ->where('leave_type_id', $leaveTypeId)
+            ->where('authable_type', $authableType)
+            ->where('authable_id', $authableId)
+            ->orderByDesc('trx_datetime')
+            ->orderByDesc('id')
+            ->first();
+
+        return (float) ($previousYearTransaction?->balance ?? 0);
     }
 
     private static function syncLeaveAccountDetails(
