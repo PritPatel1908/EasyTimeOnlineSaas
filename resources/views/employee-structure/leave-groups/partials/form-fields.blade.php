@@ -334,7 +334,7 @@
                             <div class="col-12 {{ in_array($monthlyCreditType, ['monthly', 'yearly'], true) && $keepsBalance ? '' : 'd-none' }}" data-new-joiner-credit-fields data-balance-dependent>
                                 <div class="row">
                                     <div class="col-12 {{ $monthlyCreditType === 'monthly' && $keepsBalance ? '' : 'd-none' }}" data-new-joiner-credit-monthly-field>
-                                        <label class="form-label" for="monthly_{{ $index }}_new_joiner_based_on_credit_monthly">New Joiner Based On Credit</label>
+                                        <label class="form-label" for="monthly_{{ $index }}_new_joiner_based_on_credit_monthly">Credit Calculation Basis</label>
                                         <select id="monthly_{{ $index }}_new_joiner_based_on_credit_monthly" name="monthly_rules[{{ $index }}][new_joiner_based_on_credit]" class="form-control select @error('monthly_rules.'.$index.'.new_joiner_based_on_credit') is-invalid @enderror" data-new-joiner-credit-monthly @disabled(!$keepsBalance || $monthlyCreditType !== 'monthly')>
                                             <option value="">Select Based On Credit</option>
                                             <option value="present_base" @selected($newJoinerBasedOnCredit === 'present_base')>Present Base</option>
@@ -342,7 +342,7 @@
                                         <x-validation-error field="monthly_rules.{{ $index }}.new_joiner_based_on_credit" />
                                     </div>
                                     <div class="col-12 {{ $monthlyCreditType === 'yearly' && $keepsBalance ? '' : 'd-none' }}" data-new-joiner-credit-yearly-field>
-                                        <label class="form-label" for="monthly_{{ $index }}_new_joiner_based_on_credit_yearly">New Joiner Based On Credit</label>
+                                        <label class="form-label" for="monthly_{{ $index }}_new_joiner_based_on_credit_yearly">Credit Calculation Basis</label>
                                         <select id="monthly_{{ $index }}_new_joiner_based_on_credit_yearly" name="monthly_rules[{{ $index }}][new_joiner_based_on_credit]" class="form-control select @error('monthly_rules.'.$index.'.new_joiner_based_on_credit') is-invalid @enderror" data-new-joiner-credit-yearly @disabled(!$keepsBalance || $monthlyCreditType !== 'yearly')>
                                             <option value="">Select Based On Credit</option>
                                             <option value="day_based" @selected($newJoinerBasedOnCredit === 'day_based')>Day Base</option>
