@@ -47,6 +47,9 @@ class CreateLeaveMuster extends Command
                     $startedFinancialYearId === null ? null : (int) $startedFinancialYearId,
                 ),
                 new CreditDebitBalanceBatch,
+                new CreateLeaveCheckMusterBatch(
+                    $startedFinancialYearId === null ? null : (int) $startedFinancialYearId,
+                ),
             ])
                 ->onConnection('database_tenant')
                 ->onQueue('processing')

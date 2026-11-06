@@ -27,6 +27,7 @@ use App\Models\Tenant\Unit;
 use App\Models\Tenant\User;
 use App\Services\Tenant\LeaveApplicationApprovalWorkflow;
 use App\Support\CsvImportTemplate;
+use App\Support\LeaveAccountBalance;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -315,11 +316,9 @@ class LeaveApplicationController extends Controller
                 'grade_id', 'grade_wise_leave_id', 'unit_id', 'bus_route_id',
             ]);
         $leaveBalancesByUser = $users->mapWithKeys(static function (User $user): array {
-            $balances = $user->leave_account?->leave_account_details
-                ->mapWithKeys(static fn ($detail): array => [
-                    (string) $detail->leave_type_id => (float) $detail->balance,
-                ])
-                ->all() ?? [];
+            $balances = LeaveAccountBalance::all(
+                $user->leave_account?->leave_account_details ?? [],
+            );
 
             return [(string) $user->id => $balances];
         })->all();
@@ -556,8 +555,10 @@ class LeaveApplicationController extends Controller
             }
 
             if ($policy->keeps_balance) {
-                $accountBalance = (float) ($user?->leave_account?->leave_account_details
-                    ?->firstWhere('leave_type_id', $leaveTypeId)?->balance ?? 0);
+                $accountBalance = LeaveAccountBalance::forLeaveType(
+                    $user?->leave_account?->leave_account_details ?? [],
+                    (int) $leaveTypeId,
+                );
                 $availableBalance = $accountBalance;
                 $balanceLeaveCount = $leaveCount;
                 if (! ($validated['is_only_half'] ?? false)

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Jobs\Tenant\CreateLeaveCheckMusterBatch;
+use Carbon\Carbon;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -73,6 +74,75 @@ class CreateLeaveCheckMusterBatchTest extends TestCase
             $table->boolean('is_checked')->default(false);
             $table->timestamps();
         });
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+
+        parent::tearDown();
+    }
+
+    public function test_monthly_credit_creates_the_current_and_next_month_musters_once_each(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-07'));
+        DB::table('grade_wise_leaves')->insert([
+            'id' => 1,
+            'name' => 'Monthly leave',
+            'is_monthly' => true,
+        ]);
+        DB::table('grade_wise_monthly_leave_details')->insert([
+            'grade_wise_leave_id' => 1,
+            'leave_credit_type' => 'monthly',
+        ]);
+        DB::table('general_configurations')->insert([
+            'key' => 'monthly_leave_check_date',
+            'value' => '7',
+        ]);
+        DB::table('users')->insert([
+            'id' => 2,
+            'name' => 'Monthly User',
+            'code' => 'M1',
+            'join_date' => '2026-06-06',
+            'grade_wise_leave_id' => 1,
+            'last_check_date' => '2026-06-06',
+            'last_check_id' => 1,
+        ]);
+        DB::table('leave_check_musters')->insert([
+            'id' => 1,
+            'user_id' => 2,
+            'check_date' => '2026-06-06',
+            'is_checked' => true,
+        ]);
+
+        (new CreateLeaveCheckMusterBatch)->handle();
+
+        $this->assertSame(
+            2,
+            DB::table('leave_check_musters')->where('user_id', 2)->count(),
+        );
+        $this->assertTrue(DB::table('leave_check_musters')
+            ->where('user_id', 2)
+            ->whereDate('check_date', '2026-06-07')
+            ->where('is_checked', false)
+            ->exists());
+
+        (new CreateLeaveCheckMusterBatch)->handle();
+        $this->assertSame(2, DB::table('leave_check_musters')->where('user_id', 2)->count());
+
+        DB::table('leave_check_musters')
+            ->where('user_id', 2)
+            ->whereDate('check_date', '2026-06-07')
+            ->update(['is_checked' => true]);
+
+        (new CreateLeaveCheckMusterBatch)->handle();
+
+        $this->assertTrue(DB::table('leave_check_musters')
+            ->where('user_id', 2)
+            ->whereDate('check_date', '2026-07-07')
+            ->where('is_checked', false)
+            ->exists());
+        $this->assertSame(3, DB::table('leave_check_musters')->where('user_id', 2)->count());
     }
 
     public function test_started_financial_year_gets_a_yearly_muster_for_each_eligible_yearly_leave_user(): void

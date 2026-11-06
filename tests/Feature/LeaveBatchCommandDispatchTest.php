@@ -74,6 +74,7 @@ class LeaveBatchCommandDispatchTest extends TestCase
         Bus::assertChained([
             CreateLeaveCheckMusterBatch::class,
             CreditDebitBalanceBatch::class,
+            CreateLeaveCheckMusterBatch::class,
         ]);
         Bus::assertDispatched(CreateLeaveCheckMusterBatch::class, fn (CreateLeaveCheckMusterBatch $job): bool => $job->financialYearId === 7
             && $job->connection === 'database_tenant'
@@ -104,5 +105,9 @@ class LeaveBatchCommandDispatchTest extends TestCase
             $payload['displayName'],
         );
         $this->assertStringContainsString(CreditDebitBalanceBatch::class, $payload['data']['command']);
+        $this->assertSame(
+            2,
+            substr_count($payload['data']['command'], CreateLeaveCheckMusterBatch::class),
+        );
     }
 }

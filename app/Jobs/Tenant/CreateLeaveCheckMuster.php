@@ -140,23 +140,18 @@ class CreateLeaveCheckMuster implements ShouldBeUnique, ShouldQueue
                             $today = Carbon::today();
                             $monthlyCheckDateConfig = GeneralConfiguration::where('key', 'monthly_leave_check_date')->value('value');
                             $monthlyCheckDate = $hasMonthlyRules
-                                ? MonthlyLeaveCheckDate::getScheduledDate($today, $monthlyCheckDateConfig)
+                                ? MonthlyLeaveCheckDate::getNextScheduledDate(
+                                    $user_leave_check_muster->check_date,
+                                    $today,
+                                    $monthlyCheckDateConfig,
+                                )
                                 : null;
-                            if ($monthlyCheckDate !== null
-                                && ($user_leave_check_muster->check_date === null
-                                    || $monthlyCheckDate->gt($user_leave_check_muster->check_date->copy()->startOfDay()))) {
+                            if ($monthlyCheckDate !== null) {
                                 LeaveCheckMuster::create([
                                     'user_id' => $user->id,
                                     'check_date' => $monthlyCheckDate->format('Y-m-d'),
                                 ]);
                                 Log::channel('attprocess')->debug('Create monthly leave muster for | '.$user->name.'('.$user->code.')');
-                            } elseif ($hasMonthlyRules && $monthlyCheckDateConfig === null) {
-                                $new_check_date = $user_leave_check_muster->check_date->modify('+1 month')->format('Y-m-d');
-                                LeaveCheckMuster::create([
-                                    'user_id' => $user?->id,
-                                    'check_date' => $new_check_date,
-                                ]);
-                                Log::channel('attprocess')->debug('Crete Leave Muster For | '.$user?->name.'('.$user?->code.')');
                             }
                         }
                     } else {

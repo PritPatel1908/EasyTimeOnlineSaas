@@ -3,18 +3,19 @@
 namespace App\Jobs\Tenant;
 
 use App\Enums\BasedOnEnumn;
-use App\Enums\YesNoEnumn;
 use App\Helpers\GeneralHelper;
+use App\Models\Tenant\Attendance;
 use App\Models\Tenant\FinancialYear;
 use App\Models\Tenant\GeneralConfiguration;
+use App\Models\Tenant\GradeWiseMonthlyLeaveDetail;
 use App\Models\Tenant\LeaveAccount;
 use App\Models\Tenant\LeaveAccountDetail;
 use App\Models\Tenant\LeaveCheckMuster;
-use App\Models\Tenant\StatusMaster;
-use App\Models\Tenant\StatusMuster;
+use App\Models\Tenant\LeaveType;
 use App\Models\Tenant\User;
 use App\Support\ActivityLogger;
 use App\Support\LeaveRuleCadence;
+use App\Support\PresentBasedLeaveCredit;
 use App\Support\YearlyLeaveCredit;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
@@ -124,33 +125,34 @@ class CreditDebitBalance implements ShouldBeUnique, ShouldQueue
                             }
 
                             $joinDate = Carbon::parse($this->user?->join_date);
-                            $currentDate = Carbon::now();
-                            $dayDiff = $joinDate->diffInDays($currentDate);
-                            if ($dayDiff > $grade_wise_detail->credit_after_days || $grade_wise_detail->credit_after_days == 0) {
-                                if ($grade_wise_detail->proportionate == YesNoEnumn::Yes->value) {
-                                    $eligible = $grade_wise_detail->increment;
-                                    $previousMonth = Carbon::today()->subMonth();
-                                    $totalDaysInPreviousMonth = $previousMonth->daysInMonth;
+                            $dayDiff = $joinDate->diffInDays($checkDate);
+                            if ($joinDate->lte($checkDate)
+                                && ($dayDiff > $grade_wise_detail->credit_after_days || $grade_wise_detail->credit_after_days == 0)) {
+                                $monthField = strtolower($checkDate->format('M'));
+                                $monthlyCredit = (float) ($grade_wise_detail->{$monthField} ?? $grade_wise_detail->increment ?? 0);
+                                $total_leave_balance = $monthlyCredit;
 
-                                    $statuses = [];
-                                    if ($grade_wise_detail->count_weekly_off_as_present) {
-                                        $statuses[] = StatusMaster::where('code', 'WO')->first()->id;
-                                    }
-                                    if ($grade_wise_detail->count_holiday_as_present) {
-                                        $statuses[] = StatusMaster::where('code', 'HL')->first()->id;
-                                    }
-
-                                    $day_count = StatusMuster::where('user_id', $this->user?->id)
-                                        ->where('status_master_id', StatusMaster::where('code', 'PP')->first()->id)
-                                        ->orWhereIn('status_master_id', $statuses)
-                                        ->whereBetween('date', [$previousMonth->startOfMonth()->format('Y-m-d'), $previousMonth->endOfMonth()->format('Y-m-d')])
-                                        ->count();
-
-                                    $total_leave_balance = ($eligible) / ($totalDaysInPreviousMonth) * ($day_count);
-                                    // $total_leave_balance = ($eligible) / ($totalDaysInPreviousMonth) * (20);
-                                } else {
-                                    $eligible = $grade_wise_detail->increment;
-                                    $total_leave_balance = $eligible;
+                                if ($grade_wise_detail->new_joiner_based_on_credit === 'present_base') {
+                                    [$periodStart, $periodEnd] = PresentBasedLeaveCredit::getAttendancePeriod(
+                                        $grade_wise_detail->present_count_per ?? 'monthly',
+                                        $checkDate,
+                                        $financialYear->start_date,
+                                    );
+                                    $presentDays = $this->countPresentDaysForMonthlyLeaveCredit(
+                                        $grade_wise_detail,
+                                        $periodStart,
+                                        $periodEnd,
+                                    );
+                                    $total_leave_balance = PresentBasedLeaveCredit::calculate(
+                                        $monthlyCredit,
+                                        $presentDays,
+                                        $periodStart,
+                                        $periodEnd,
+                                        $grade_wise_detail->if_total_present_count,
+                                        $grade_wise_detail->then_credit_balance_days === null
+                                            ? null
+                                            : (float) $grade_wise_detail->then_credit_balance_days,
+                                    );
                                 }
 
                                 GeneralHelper::createOrUpdateTransaction(
@@ -475,5 +477,86 @@ class CreditDebitBalance implements ShouldBeUnique, ShouldQueue
                 false
             );
         }
+    }
+
+    private function countPresentDaysForMonthlyLeaveCredit(
+        GradeWiseMonthlyLeaveDetail $gradeWiseDetail,
+        Carbon $periodStart,
+        Carbon $periodEnd,
+    ): float {
+        $includedLeaveTypeIds = (array) ($gradeWiseDetail->include_leaves ?? []);
+        if ($gradeWiseDetail->is_paid) {
+            $includedLeaveTypeIds[] = $gradeWiseDetail->leave_type_id;
+        }
+        $includedLeaveTypeIds = array_values(array_unique(array_filter(
+            array_map('intval', $includedLeaveTypeIds),
+            fn (int $id): bool => $id > 0,
+        )));
+
+        $leaveTypeCodes = $includedLeaveTypeIds === []
+            ? collect()
+            : LeaveType::query()
+                ->whereIn('id', $includedLeaveTypeIds)
+                ->pluck('code');
+
+        $statusCodes = $this->presentAttendanceStatusCodes(
+            $gradeWiseDetail,
+            $leaveTypeCodes->all(),
+        );
+        $attendanceRows = collect();
+        for ($year = $periodStart->year; $year <= $periodEnd->year; $year++) {
+            $attendance = Attendance::year($year);
+            $attendanceTable = $attendance->getTable();
+            $attendanceRows = $attendanceRows->merge(
+                $attendance->newQuery()
+                    ->join('status_masters', 'status_masters.id', '=', $attendanceTable.'.status_master_id')
+                    ->where($attendanceTable.'.user_id', $this->user->id)
+                    ->whereBetween($attendanceTable.'.date', [
+                        max($periodStart->toDateString(), Carbon::create($year, 1, 1)->toDateString()),
+                        min($periodEnd->toDateString(), Carbon::create($year, 12, 31)->toDateString()),
+                    ])
+                    ->whereIn('status_masters.code', $statusCodes)
+                    ->get([
+                        'status_masters.code',
+                        $attendanceTable.'.is_half_day',
+                    ]),
+            );
+        }
+
+        return PresentBasedLeaveCredit::countPresentAttendanceDays(
+            $attendanceRows,
+            $leaveTypeCodes->all(),
+            (bool) $gradeWiseDetail->count_weekly_off_as_present,
+            (bool) $gradeWiseDetail->count_holiday_as_present,
+        );
+    }
+
+    /**
+     * @param  array<int, string>  $leaveTypeCodes
+     * @return array<int, string>
+     */
+    private function presentAttendanceStatusCodes(
+        GradeWiseMonthlyLeaveDetail $gradeWiseDetail,
+        array $leaveTypeCodes,
+    ): array {
+        $codes = ['PP', 'PA', 'AP'];
+        if ($gradeWiseDetail->count_weekly_off_as_present) {
+            $codes = array_merge($codes, ['WOP', 'PWO', 'WHP']);
+        }
+        if ($gradeWiseDetail->count_holiday_as_present) {
+            $codes[] = 'WHP';
+        }
+
+        foreach ($leaveTypeCodes as $leaveTypeCode) {
+            $codes = array_merge($codes, [
+                $leaveTypeCode,
+                'A'.$leaveTypeCode,
+                $leaveTypeCode.'A',
+                'P'.$leaveTypeCode,
+                $leaveTypeCode.'P',
+            ]);
+        }
+
+        return array_values(array_unique($codes));
     }
 }

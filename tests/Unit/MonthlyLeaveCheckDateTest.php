@@ -47,4 +47,26 @@ class MonthlyLeaveCheckDateTest extends TestCase
             'not-a-day',
         ));
     }
+
+    public function test_next_scheduled_date_advances_after_a_muster_on_the_configured_day(): void
+    {
+        $nextDate = MonthlyLeaveCheckDate::getNextScheduledDate(
+            Carbon::parse('2026-06-07'),
+            Carbon::parse('2026-06-07'),
+            '7',
+        );
+
+        $this->assertSame('2026-07-07', $nextDate?->toDateString());
+    }
+
+    public function test_next_scheduled_date_uses_this_month_when_it_is_after_last_check(): void
+    {
+        $nextDate = MonthlyLeaveCheckDate::getNextScheduledDate(
+            Carbon::parse('2026-06-06'),
+            Carbon::parse('2026-06-07'),
+            '7',
+        );
+
+        $this->assertSame('2026-06-07', $nextDate?->toDateString());
+    }
 }

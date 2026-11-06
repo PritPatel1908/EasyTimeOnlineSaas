@@ -503,7 +503,6 @@
                     (select.value === 'monthly' && newJoinerSelect === monthlyNewJoinerSelect)
                     || (select.value === 'yearly' && newJoinerSelect === yearlyNewJoinerSelect)
                 );
-                newJoinerSelect.required = active;
                 if (newJoinerSelect.tomselect) {
                     if (active) newJoinerSelect.tomselect.enable();
                     else newJoinerSelect.tomselect.disable();
