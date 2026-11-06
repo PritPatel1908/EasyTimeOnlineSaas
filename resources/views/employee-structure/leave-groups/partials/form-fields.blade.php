@@ -282,56 +282,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-12 {{ $monthlyCreditType === 'monthly' && $newJoinerBasedOnCredit === 'present_base' && $keepsBalance ? '' : 'd-none' }}" data-based-on-present-fields data-balance-dependent>
-                            @php
-                                $presentCountPerErrorKey = 'monthly_rules.'.$index.'.present_count_per';
-                                $presentCountPerInputName = 'monthly_rules['.$index.'][present_count_per]';
-                                $presentCountPerInputId = 'monthly_'.$index.'_present_count_per';
-                                $presentCountPerValue = old($presentCountPerErrorKey, data_get($detail, 'present_count_per', 'monthly'));
-                                $totalPresentErrorKey = 'monthly_rules.'.$index.'.if_total_present_count';
-                                $totalPresentInputName = 'monthly_rules['.$index.'][if_total_present_count]';
-                                $totalPresentInputId = 'monthly_'.$index.'_if_total_present_count';
-                                $totalPresentValue = old($totalPresentErrorKey, data_get($detail, 'if_total_present_count', 0));
-                                $creditDaysErrorKey = 'monthly_rules.'.$index.'.then_credit_balance_days';
-                                $creditDaysInputName = 'monthly_rules['.$index.'][then_credit_balance_days]';
-                                $creditDaysInputId = 'monthly_'.$index.'_then_credit_balance_days';
-                                $creditDaysValue = old($creditDaysErrorKey, data_get($detail, 'then_credit_balance_days', 0));
-                                $includeLeavesErrorKey = 'monthly_rules.'.$index.'.include_leaves';
-                                $includeLeavesInputName = 'monthly_rules['.$index.'][include_leaves]';
-                                $includeLeavesInputId = 'monthly_'.$index.'_include_leaves';
-                                $includeLeavesValue = old($includeLeavesErrorKey, data_get($detail, 'include_leaves', []));
-                            @endphp
-                            <div class="row">
-                                <div class="col-lg-3 col-md-4 col-sm-6 mb-3">
-                                    <label class="form-label" for="{{ $presentCountPerInputId }}">Present Count Per</label>
-                                    <select id="{{ $presentCountPerInputId }}" name="{{ $presentCountPerInputName }}" class="form-control select @error($presentCountPerErrorKey) is-invalid @enderror" required>
-                                        <option value="monthly" @selected($presentCountPerValue === 'monthly')>Monthly</option>
-                                        <option value="yearly" @selected($presentCountPerValue === 'yearly')>Yearly</option>
-                                    </select>
-                                    <x-validation-error :field="$presentCountPerErrorKey" />
-                                </div>
-                                <div class="col-lg-3 col-md-4 col-sm-6 mb-3">
-                                    <label class="form-label" for="{{ $totalPresentInputId }}">If Total Present Count</label>
-                                    <input id="{{ $totalPresentInputId }}" type="number" name="{{ $totalPresentInputName }}" value="{{ $totalPresentValue }}" class="form-control @error($totalPresentErrorKey) is-invalid @enderror" min="0" step="1">
-                                    <x-validation-error :field="$totalPresentErrorKey" />
-                                </div>
-                                <div class="col-lg-3 col-md-4 col-sm-6 mb-3">
-                                    <label class="form-label" for="{{ $creditDaysInputId }}">Then Credit Balance Days</label>
-                                    <input id="{{ $creditDaysInputId }}" type="number" name="{{ $creditDaysInputName }}" value="{{ $creditDaysValue }}" class="form-control @error($creditDaysErrorKey) is-invalid @enderror" min="0" step="0.01">
-                                    <x-validation-error :field="$creditDaysErrorKey" />
-                                </div>
-                                <div class="col-lg-3 col-md-4 col-sm-6 mb-3">
-                                    <label class="form-label" for="{{ $includeLeavesInputId }}">Include Leaves</label>
-                                    <select id="{{ $includeLeavesInputId }}" name="{{ $includeLeavesInputName }}[]" class="form-control select @error($includeLeavesErrorKey) is-invalid @enderror" multiple>
-                                        @foreach ($leaveTypes as $leaveType)
-                                            <option value="{{ $leaveType->id }}" @selected(in_array((string) $leaveType->id, array_map('strval', (array) $includeLeavesValue), true))>{{ $leaveType->code }} - {{ $leaveType->description }}</option>
-                                        @endforeach
-                                    </select>
-                                    <x-validation-error :field="$includeLeavesErrorKey" />
-                                </div>
-                            </div>
-                            </div>
-                            <div class="col-12 {{ in_array($monthlyCreditType, ['monthly', 'yearly'], true) && $keepsBalance ? '' : 'd-none' }}" data-new-joiner-credit-fields data-balance-dependent>
+                        <div class="col-12 {{ in_array($monthlyCreditType, ['monthly', 'yearly'], true) && $keepsBalance ? '' : 'd-none' }}" data-new-joiner-credit-fields data-balance-dependent>
                                 <div class="row">
                                     <div class="col-12 {{ $monthlyCreditType === 'monthly' && $keepsBalance ? '' : 'd-none' }}" data-new-joiner-credit-monthly-field>
                                         <label class="form-label" for="monthly_{{ $index }}_new_joiner_based_on_credit_monthly">Credit Calculation Basis</label>
@@ -340,6 +291,55 @@
                                             <option value="present_base" @selected($newJoinerBasedOnCredit === 'present_base')>Present Base</option>
                                         </select>
                                         <x-validation-error field="monthly_rules.{{ $index }}.new_joiner_based_on_credit" />
+                                        <div class="col-12 {{ $newJoinerBasedOnCredit === 'present_base' && $keepsBalance ? '' : 'd-none' }}" data-based-on-present-fields data-balance-dependent>
+                                            @php
+                                                $presentCountPerErrorKey = 'monthly_rules.'.$index.'.present_count_per';
+                                                $presentCountPerInputName = 'monthly_rules['.$index.'][present_count_per]';
+                                                $presentCountPerInputId = 'monthly_'.$index.'_present_count_per';
+                                                $presentCountPerValue = old($presentCountPerErrorKey, data_get($detail, 'present_count_per', 'monthly'));
+                                                $totalPresentErrorKey = 'monthly_rules.'.$index.'.if_total_present_count';
+                                                $totalPresentInputName = 'monthly_rules['.$index.'][if_total_present_count]';
+                                                $totalPresentInputId = 'monthly_'.$index.'_if_total_present_count';
+                                                $totalPresentValue = old($totalPresentErrorKey, data_get($detail, 'if_total_present_count', 0));
+                                                $creditDaysErrorKey = 'monthly_rules.'.$index.'.then_credit_balance_days';
+                                                $creditDaysInputName = 'monthly_rules['.$index.'][then_credit_balance_days]';
+                                                $creditDaysInputId = 'monthly_'.$index.'_then_credit_balance_days';
+                                                $creditDaysValue = old($creditDaysErrorKey, data_get($detail, 'then_credit_balance_days', 0));
+                                                $includeLeavesErrorKey = 'monthly_rules.'.$index.'.include_leaves';
+                                                $includeLeavesInputName = 'monthly_rules['.$index.'][include_leaves]';
+                                                $includeLeavesInputId = 'monthly_'.$index.'_include_leaves';
+                                                $includeLeavesValue = old($includeLeavesErrorKey, data_get($detail, 'include_leaves', []));
+                                            @endphp
+                                            <div class="row">
+                                                <div class="col-lg-3 col-md-4 col-sm-6 mb-3">
+                                                    <label class="form-label" for="{{ $presentCountPerInputId }}">Present Count Per</label>
+                                                    <select id="{{ $presentCountPerInputId }}" name="{{ $presentCountPerInputName }}" class="form-control select @error($presentCountPerErrorKey) is-invalid @enderror" required>
+                                                        <option value="monthly" @selected($presentCountPerValue === 'monthly')>Monthly</option>
+                                                        <option value="yearly" @selected($presentCountPerValue === 'yearly')>Yearly</option>
+                                                    </select>
+                                                    <x-validation-error :field="$presentCountPerErrorKey" />
+                                                </div>
+                                                <div class="col-lg-3 col-md-4 col-sm-6 mb-3">
+                                                    <label class="form-label" for="{{ $totalPresentInputId }}">If Total Present Count</label>
+                                                    <input id="{{ $totalPresentInputId }}" type="number" name="{{ $totalPresentInputName }}" value="{{ $totalPresentValue }}" class="form-control @error($totalPresentErrorKey) is-invalid @enderror" min="0" step="1">
+                                                    <x-validation-error :field="$totalPresentErrorKey" />
+                                                </div>
+                                                <div class="col-lg-3 col-md-4 col-sm-6 mb-3">
+                                                    <label class="form-label" for="{{ $creditDaysInputId }}">Then Credit Balance Days</label>
+                                                    <input id="{{ $creditDaysInputId }}" type="number" name="{{ $creditDaysInputName }}" value="{{ $creditDaysValue }}" class="form-control @error($creditDaysErrorKey) is-invalid @enderror" min="0" step="0.01">
+                                                    <x-validation-error :field="$creditDaysErrorKey" />
+                                                </div>
+                                                <div class="col-lg-3 col-md-4 col-sm-6 mb-3">
+                                                    <label class="form-label" for="{{ $includeLeavesInputId }}">Include Leaves</label>
+                                                    <select id="{{ $includeLeavesInputId }}" name="{{ $includeLeavesInputName }}[]" class="form-control select @error($includeLeavesErrorKey) is-invalid @enderror" multiple>
+                                                        @foreach ($leaveTypes as $leaveType)
+                                                            <option value="{{ $leaveType->id }}" @selected(in_array((string) $leaveType->id, array_map('strval', (array) $includeLeavesValue), true))>{{ $leaveType->code }} - {{ $leaveType->description }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                    <x-validation-error :field="$includeLeavesErrorKey" />
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div class="col-12 {{ $monthlyCreditType === 'yearly' && $keepsBalance ? '' : 'd-none' }}" data-new-joiner-credit-yearly-field>
                                         <label class="form-label" for="monthly_{{ $index }}_new_joiner_based_on_credit_yearly">Credit Calculation Basis</label>

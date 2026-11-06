@@ -148,6 +148,7 @@ class EmployeeStructureRouteTest extends TestCase
         $detail->max_avail = 365;
         $detail->leave_types_not_to_be_clubbed = [6];
         $detail->leave_credit_type = 'monthly';
+        $detail->new_joiner_based_on_credit = 'present_base';
         $detail->annual_quota = 12;
         $detail->jan = 1.5;
         $detail->allow_negative_balance = true;
@@ -191,6 +192,7 @@ class EmployeeStructureRouteTest extends TestCase
         $this->assertStringContainsString('Keeps Balance?', $html);
         $this->assertMatchesRegularExpression('/name="monthly_rules\[0\]\[keeps_balance\]"[^>]*type="checkbox"[^>]*checked/', $html);
         $this->assertMatchesRegularExpression('/<div class="(?![^"]*d-none)[^"]*mb-3[^"]*"[^>]*>\s*<label class="form-label" for="monthly_0_is_paid">/s', $html);
+        $this->assertMatchesRegularExpression('/<div class="col-12 "\s+data-based-on-present-fields/', $html);
         $this->assertStringContainsString('Maximum Accumulation', $html);
         $this->assertStringContainsString('Maximum Request in a Month', $html);
         $this->assertStringContainsString('Maximum Request in a Year', $html);
@@ -222,6 +224,20 @@ class EmployeeStructureRouteTest extends TestCase
         $this->assertStringContainsString('name="monthly_rules[0][if_total_present_count]"', $html);
         $this->assertStringContainsString('name="monthly_rules[0][then_credit_balance_days]"', $html);
         $this->assertStringContainsString('name="monthly_rules[0][include_leaves][]"', $html);
+        $creditCalculationBasisPosition = strpos($html, '>Credit Calculation Basis</label>');
+        $presentCountPerPosition = strpos($html, '>Present Count Per</label>');
+        $totalPresentCountPosition = strpos($html, '>If Total Present Count</label>');
+        $creditBalanceDaysPosition = strpos($html, '>Then Credit Balance Days</label>');
+        $includeLeavesPosition = strpos($html, '>Include Leaves</label>');
+        $this->assertNotFalse($creditCalculationBasisPosition);
+        $this->assertNotFalse($presentCountPerPosition);
+        $this->assertNotFalse($totalPresentCountPosition);
+        $this->assertNotFalse($creditBalanceDaysPosition);
+        $this->assertNotFalse($includeLeavesPosition);
+        $this->assertLessThan($presentCountPerPosition, $creditCalculationBasisPosition);
+        $this->assertLessThan($totalPresentCountPosition, $presentCountPerPosition);
+        $this->assertLessThan($creditBalanceDaysPosition, $totalPresentCountPosition);
+        $this->assertLessThan($includeLeavesPosition, $creditBalanceDaysPosition);
         $this->assertStringContainsString('Count Week Off As Present?', $html);
         $this->assertStringContainsString('Count Holiday As Present?', $html);
         foreach (['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'] as $month) {
