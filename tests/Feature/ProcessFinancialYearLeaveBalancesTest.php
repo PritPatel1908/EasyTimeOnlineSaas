@@ -217,13 +217,13 @@ class ProcessFinancialYearLeaveBalancesTest extends TestCase
             ->where('authable_id', 11)
             ->where('trx_datetime', '2027-04-25 14:30:33')
             ->first();
-        $yearlyNextYearTransaction = DB::table('transactions2027')
+        $yearlyNextYearTransaction = DB::table('transactions2028')
             ->where('authable_id', 10)
-            ->where('trx_datetime', '2027-04-25 14:30:34')
+            ->where('trx_datetime', '2028-04-25 14:30:33')
             ->first();
-        $monthlyNextYearTransaction = DB::table('transactions2027')
+        $monthlyNextYearTransaction = DB::table('transactions2028')
             ->where('authable_id', 11)
-            ->where('trx_datetime', '2027-04-25 14:30:34')
+            ->where('trx_datetime', '2028-04-25 14:30:33')
             ->first();
 
         $this->assertSame(0.0, (float) $yearlyCloseTransaction->balance);
@@ -238,7 +238,7 @@ class ProcessFinancialYearLeaveBalancesTest extends TestCase
         $this->assertSame(3.0, (float) $monthlyNextYearTransaction->balance);
         $this->assertSame(2, DB::table('leave_lapses')->count());
         $this->assertSame(10.0, (float) DB::table('leave_lapses')->sum('lapse_count'));
-        $this->assertSame(6, DB::table('transactions2027')->count());
-        $this->assertSame(0, DB::table('transactions2028')->count());
+        $this->assertSame(4, DB::table('transactions2027')->count());
+        $this->assertSame(2, DB::table('transactions2028')->count());
     }
 }

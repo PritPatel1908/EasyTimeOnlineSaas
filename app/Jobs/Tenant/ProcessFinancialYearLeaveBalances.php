@@ -37,8 +37,9 @@ class ProcessFinancialYearLeaveBalances implements ShouldQueue
         $financialYear = FinancialYear::query()->findOrFail($this->financialYearId);
         $closeDate = Carbon::parse($financialYear->end_date)->setTime(23, 59, 59);
         $activityDate = $financialYear->updated_at?->copy() ?? Carbon::now();
-        $nextYearCreditDate = $activityDate->copy()->addSecond();
+        $nextYearCreditDate = $activityDate->copy()->addYear();
         $transactionYear = $activityDate->format('Y');
+        $nextYearTransactionYear = $nextYearCreditDate->format('Y');
         $settlementRemarkPrefix = 'Financial year close #'.$financialYear->id.': ';
 
         User::query()
@@ -53,6 +54,7 @@ class ProcessFinancialYearLeaveBalances implements ShouldQueue
                 $closeDate,
                 $activityDate,
                 $nextYearCreditDate,
+                $nextYearTransactionYear,
                 $transactionYear,
                 $settlementRemarkPrefix,
             ): void {
@@ -75,6 +77,7 @@ class ProcessFinancialYearLeaveBalances implements ShouldQueue
                         $closeDate,
                         $activityDate,
                         $nextYearCreditDate,
+                        $nextYearTransactionYear,
                         $transactionYear,
                         $settlementRemarkPrefix,
                     ): void {
@@ -134,7 +137,7 @@ class ProcessFinancialYearLeaveBalances implements ShouldQueue
 
                             if ($carryForward > 0) {
                                 GeneralHelper::createOrUpdateTransaction(
-                                    $transactionYear,
+                                    $nextYearTransactionYear,
                                     LeaveAccount::class,
                                     (int) $account->id,
                                     $leaveRule::class,
