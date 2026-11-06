@@ -33,6 +33,7 @@ class LeaveAccount extends Model
 
     protected $fillable = [
         'user_id',
+        'code',
     ];
 
     public function user()

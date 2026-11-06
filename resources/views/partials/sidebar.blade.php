@@ -19,7 +19,9 @@
 	$leaveStructureActive = request()->is(
 		'employee-structure/leave-types*',
 		'employee-structure/leave-groups*',
-		'employee-structure/manual-leave-balances*'
+		'employee-structure/manual-leave-balances*',
+		'employee-structure/leave-accounts*',
+		'employee-structure/leave-account-details*'
 	);
 	$timeManagementStructureActive = request()->is(
 		'time-management/financial-years*',
@@ -280,6 +282,14 @@
 								@endif
 								@if (\App\Support\TenantPermissions::userCan('LeaveGroup', 'read'))<li><a href="{{url('employee-structure/leave-groups')}}"
 									class="{{ Request::is('employee-structure/leave-groups*') ? 'active' : '' }}">Leave Group</a></li>
+								@endif
+								@if (\App\Support\TenantPermissions::userCan('LeaveAccount', 'read'))
+								<li><a href="{{url('employee-structure/leave-accounts')}}"
+									class="{{ Request::is('employee-structure/leave-accounts*') ? 'active' : '' }}">Leave Accounts</a></li>
+								@endif
+								@if (\App\Support\TenantPermissions::userCan('LeaveAccountDetail', 'read'))
+								<li><a href="{{url('employee-structure/leave-account-details')}}"
+									class="{{ Request::is('employee-structure/leave-account-details*') ? 'active' : '' }}">Leave Account Details</a></li>
 								@endif
 								@if (\App\Support\TenantPermissions::userCan('ManualLeaveBalance', 'read'))
 								<li><a href="{{url('employee-structure/manual-leave-balances')}}"

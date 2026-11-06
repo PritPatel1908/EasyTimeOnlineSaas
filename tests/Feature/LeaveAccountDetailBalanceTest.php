@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Helpers\GeneralHelper;
+use App\Http\Controllers\Tenant\LeaveAccountController;
+use App\Http\Controllers\Tenant\LeaveAccountDetailController;
 use App\Models\Tenant\LeaveAccount;
 use App\Models\Tenant\LeaveApplication;
 use App\Models\Tenant\ManualLeaveBalance;
@@ -220,5 +222,15 @@ class LeaveAccountDetailBalanceTest extends TestCase
         $this->assertSame(1, DB::table('transactions2027')->count());
         $this->assertSame($previousYearBalance, (float) $nextYearTransaction->opening_balance);
         $this->assertSame($previousYearBalance + 24, (float) $nextYearTransaction->balance);
+
+        $accountList = (new LeaveAccountController())->index()->getData()['accounts'];
+        $this->assertSame($previousYearBalance + 24, $accountList->first()->final_balance_total);
+        $this->assertSame($previousYearBalance + 24, $accountList->first()->final_leave_balances[0]['balance']);
+
+        $transactionList = (new LeaveAccountDetailController())->index()->getData()['transactions'];
+        $this->assertSame(4, $transactionList->total());
+        $this->assertSame('2027', $transactionList->first()->transaction_year);
+        $this->assertSame(24.0, (float) $transactionList->first()->credit);
+        $this->assertSame($previousYearBalance + 24, (float) $transactionList->first()->balance);
     }
 }

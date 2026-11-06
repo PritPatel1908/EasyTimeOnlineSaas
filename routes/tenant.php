@@ -36,6 +36,8 @@ use App\Http\Controllers\Tenant\SubDepartmentController;
 use App\Http\Controllers\Tenant\DataPolicyController;
 use App\Http\Controllers\Tenant\LocationController;
 use App\Http\Controllers\Tenant\LeaveTypeController;
+use App\Http\Controllers\Tenant\LeaveAccountController;
+use App\Http\Controllers\Tenant\LeaveAccountDetailController;
 use App\Http\Controllers\Tenant\ManualLeaveBalanceController;
 use App\Http\Controllers\Tenant\NotificationController;
 use App\Http\Controllers\Tenant\PendingApprovalController;
@@ -727,6 +729,21 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:LeaveType,write')
                         ->middlewareFor('destroy', 'tenant.permission:LeaveType,delete')
                         ->names('leave-types');
+                    Route::get('leave-accounts/create', [LeaveAccountController::class, 'create'])
+                        ->middleware('tenant.permission:LeaveAccount,create')
+                        ->name('leave-accounts.create');
+                    Route::resource('leave-accounts', LeaveAccountController::class)
+                        ->except(['create', 'show'])
+                        ->parameters(['leave-accounts' => 'leave_account'])
+                        ->middlewareFor('index', 'tenant.permission:LeaveAccount,read')
+                        ->middlewareFor('store', 'tenant.permission:LeaveAccount,create')
+                        ->middlewareFor('edit', 'tenant.permission:LeaveAccount,write')
+                        ->middlewareFor('update', 'tenant.permission:LeaveAccount,write')
+                        ->middlewareFor('destroy', 'tenant.permission:LeaveAccount,delete')
+                        ->names('leave-accounts');
+                    Route::get('leave-account-details', [LeaveAccountDetailController::class, 'index'])
+                        ->middleware('tenant.permission:LeaveAccountDetail,read')
+                        ->name('leave-account-details.index');
                     Route::get('manual-leave-balances/export', [ManualLeaveBalanceController::class, 'export'])
                         ->middleware('tenant.permission:ManualLeaveBalance,export')
                         ->name('manual-leave-balances.export');

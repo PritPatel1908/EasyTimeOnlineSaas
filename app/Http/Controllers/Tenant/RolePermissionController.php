@@ -50,6 +50,7 @@ class RolePermissionController extends Controller
             'InOutMuster',
             'LateComingRule',
             'LeaveAccount',
+            'LeaveAccountDetail',
             'LeaveApplication',
             'LeaveEncashment',
             'LeaveReason',
