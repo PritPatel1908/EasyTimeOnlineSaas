@@ -291,9 +291,10 @@
     <script src="{{URL::asset('build/js/popover.js')}}"></script>
 @endif
 
-@if (Route::is('ui-sweetalerts'))
-    <!-- Sweet Alerts js -->
+    <!-- SweetAlert2 JS -->
     <script src="{{URL::asset('build/plugins/sweetalert2/sweetalert2.min.js')}}"></script>
+
+@if (Route::is('ui-sweetalerts'))
     <script src="{{URL::asset('build/js/sweetalerts.js')}}"></script>
 @endif
 

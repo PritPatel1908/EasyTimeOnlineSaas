@@ -33,6 +33,7 @@
 <head>
     @include('partials.title-meta')
     @include('partials.head-css')
+    <script>window.__validationErrors = @json($errors->toArray());</script>
     @vite(['resources/js/admin.js'])
 </head>
 

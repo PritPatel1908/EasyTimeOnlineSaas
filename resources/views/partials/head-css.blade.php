@@ -179,9 +179,7 @@
     <link rel="stylesheet" href="{{URL::asset('build/plugins/simplebar/simplebar.min.css')}}">
 @endif
 
-@if (Route::is('ui-sweetalerts'))
     <!-- Sweetalert2 CSS -->
     <link rel="stylesheet" href="{{URL::asset('build/plugins/sweetalert2/sweetalert2.min.css')}}">
-@endif
 
     <link rel="stylesheet" href="{{URL::asset('build/css/style.css')}}">

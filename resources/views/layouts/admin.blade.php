@@ -19,7 +19,9 @@
     <link rel="stylesheet" href="{{ asset('admin-dist/vendors/fontawesome/css/all.min.css') }}">
     <link rel="stylesheet" href="{{ asset('admin-dist/vendors/ionicons/css/ionicons.min.css') }}">
     <link rel="stylesheet" href="{{ asset('admin-dist/css/main.css') }}">
+    <link rel="stylesheet" href="{{ asset('build/plugins/sweetalert2/sweetalert2.min.css') }}">
     @vite(['resources/css/admin.css', 'resources/js/admin.js'])
+    <script>window.__validationErrors = @json($errors->toArray());</script>
     @stack('styles')
 </head>
 <body id="main-container" class="default">
@@ -37,6 +39,7 @@
     <script src="{{ asset('admin-dist/vendors/slimscroll/jquery.slimscroll.min.js') }}"></script>
     <script src="{{ asset('admin-dist/vendors/flag-select/js/jquery.flagstrap.min.js') }}"></script>
     <script src="{{ asset('admin-dist/js/app.js') }}"></script>
+    <script src="{{ asset('build/plugins/sweetalert2/sweetalert2.min.js') }}"></script>
     @stack('scripts')
 </body>
 </html>

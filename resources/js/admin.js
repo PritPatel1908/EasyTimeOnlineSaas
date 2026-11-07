@@ -7,6 +7,174 @@ function getValidationError(field) {
 		.find((error) => error.dataset.validationErrorFor === field.name);
 }
 
+function getFieldLabel(field) {
+	const label = field.labels?.[0]?.textContent.replace(/\s+/g, ' ').trim();
+
+	return label?.replace(/\s*\*\s*$/, '') || field.name
+		.replace(/\[\]$/, '')
+		.replace(/[_\[\]]+/g, ' ')
+		.replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function showValidationToast(title, message) {
+	if (typeof window.Swal?.fire !== 'function') {
+		console.error('SweetAlert2 is unavailable; form validation feedback could not be displayed.');
+		return;
+	}
+
+	window.Swal.fire({
+		toast: true,
+		position: 'top',
+		icon: 'error',
+		title,
+		text: message,
+		showConfirmButton: false,
+		timer: 3000,
+		timerProgressBar: true,
+	});
+}
+
+function showValidationSummary(errors, title) {
+	if (typeof window.Swal?.fire !== 'function') {
+		console.error('SweetAlert2 is unavailable; form validation feedback could not be displayed.');
+		return;
+	}
+
+	const content = document.createElement('div');
+	content.className = 'validation-summary';
+
+	const description = document.createElement('p');
+	description.className = 'validation-summary-description';
+	description.textContent = 'Please fix these items and try again.';
+	content.append(description);
+
+	const list = document.createElement('div');
+	list.className = 'validation-summary-list';
+
+	errors.forEach(({ field, label, message }) => {
+		const item = document.createElement(field ? 'button' : 'div');
+		item.className = 'validation-summary-item';
+
+		if (field) {
+			item.type = 'button';
+			item.addEventListener('click', () => {
+				window.Swal.close();
+				window.setTimeout(() => {
+					field.focus();
+					field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+				}, 150);
+			});
+		}
+
+		const itemLabel = document.createElement('span');
+		itemLabel.className = 'validation-summary-label';
+		itemLabel.textContent = label;
+
+		const itemMessage = document.createElement('span');
+		itemMessage.className = 'validation-summary-message';
+		itemMessage.textContent = message;
+
+		item.append(itemLabel, itemMessage);
+		list.append(item);
+	});
+
+	content.append(list);
+
+	window.Swal.fire({
+		title,
+		html: content,
+		icon: 'error',
+		width: 560,
+		showCloseButton: true,
+		confirmButtonText: 'Got it',
+		customClass: {
+			popup: 'validation-summary-popup',
+			htmlContainer: 'validation-summary-container',
+		},
+	});
+}
+
+function initializeFormValidation() {
+	document.querySelectorAll('.alert.alert-danger').forEach((alert) => {
+		if (/please correct the highlighted fields/i.test(alert.textContent)) {
+			alert.remove();
+		}
+	});
+
+	const serverErrors = Object.entries(window.__validationErrors || {}).flatMap(([name, messages]) => {
+		const normalizedName = name.replace(/\[\d+\]/g, '').replace(/\[\]$/, '');
+		const field = Array.from(document.forms).flatMap((form) => Array.from(form.elements))
+			.find((element) => element.name?.replace(/\[\d+\]/g, '').replace(/\[\]$/, '') === normalizedName);
+		const label = field ? getFieldLabel(field) : name.replace(/[_\[\]]+/g, ' ');
+
+		return (Array.isArray(messages) ? messages : [messages]).map((message) => ({ field, label, message }));
+	});
+
+	if (serverErrors.length) {
+		showValidationSummary(serverErrors, 'Please review the form');
+	}
+
+	document.querySelectorAll('form:not([data-skip-live-validation])').forEach((form) => {
+		form.noValidate = true;
+		const lastShownErrors = new WeakMap();
+
+		const validateField = (field, notify = false) => {
+			if (!field.willValidate) {
+				return null;
+			}
+
+			if (field.checkValidity()) {
+				field.classList.remove('is-invalid');
+				field.removeAttribute('aria-invalid');
+				lastShownErrors.delete(field);
+				return null;
+			}
+
+			const message = field.validationMessage;
+			field.classList.add('is-invalid');
+			field.setAttribute('aria-invalid', 'true');
+
+			if (notify && lastShownErrors.get(field) !== message) {
+				showValidationToast(getFieldLabel(field), message);
+				lastShownErrors.set(field, message);
+			}
+
+			return { field, label: getFieldLabel(field), message };
+		};
+
+		form.addEventListener('input', (event) => {
+			if (event.target.matches('input, select, textarea')) {
+				validateField(event.target, true);
+			}
+		});
+
+		form.addEventListener('change', (event) => {
+			if (event.target.matches('input, select, textarea')) {
+				validateField(event.target, true);
+			}
+		});
+
+		form.addEventListener('focusout', (event) => {
+			if (event.target.matches('input, select, textarea')) {
+				validateField(event.target, true);
+			}
+		});
+		form.addEventListener('submit', (event) => {
+			const invalidFields = Array.from(form.querySelectorAll('input, select, textarea'))
+				.map((field) => validateField(field))
+				.filter(Boolean);
+			const uniqueErrors = Array.from(new Map(
+				invalidFields.map((error) => [error.field.name || error.label, error]),
+			).values());
+
+			if (uniqueErrors.length) {
+				event.preventDefault();
+				showValidationSummary(uniqueErrors, 'Please check the form');
+			}
+		}, true);
+	});
+}
+
 function getSidebarMenuPages() {
 	const menu = document.querySelector('#sidebar-menu');
 
@@ -448,6 +616,8 @@ function refreshNotifications() {
 	}
 
 document.addEventListener('DOMContentLoaded', () => {
+	initializeFormValidation();
+
 	const panel = document.querySelector('[data-notification-panel]');
 
 	if (!panel) {
