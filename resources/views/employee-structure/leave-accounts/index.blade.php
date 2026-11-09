@@ -31,9 +31,6 @@
                             </td>
                             <td>{{ $account->created_at?->format('d-m-Y h:i A') ?? '—' }}</td>
                             <td><div class="action-icon d-inline-flex">
-                                @if (\App\Support\TenantPermissions::userCan('LeaveAccount', 'write'))
-                                    <a href="{{ url('employee-structure/leave-accounts/'.$account->id.'/edit') }}" class="me-2" title="Edit"><i class="ti ti-edit"></i></a>
-                                @endif
                                 @if (\App\Support\TenantPermissions::userCan('LeaveAccount', 'delete'))
                                     <form method="POST" action="{{ url('employee-structure/leave-accounts/'.$account->id) }}" onsubmit="return confirm('Delete this leave account? Accounts with linked details cannot be deleted.')">
                                         @csrf @method('DELETE')
