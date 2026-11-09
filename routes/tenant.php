@@ -44,6 +44,7 @@ use App\Http\Controllers\Tenant\PendingApprovalController;
 use App\Http\Controllers\Tenant\DashboardController;
 use App\Http\Controllers\Tenant\LicenseController;
 use App\Http\Controllers\Tenant\RolePermissionController;
+use App\Http\Controllers\Tenant\SettingsController;
 use App\Http\Controllers\Tenant\WeekOffChangeController;
 use App\Http\Controllers\Tenant\WeekOffChangeApplicationController;
 use App\Http\Controllers\Tenant\WeekOffSwapController;
@@ -98,6 +99,15 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                 });
 
                 Route::get('/dashboard', [DashboardController::class, 'index'])->name('tenant.dashboard');
+                Route::get('/index', function () {
+                    return redirect()->route('tenant.dashboard', ['tenant' => request()->route('tenant')]);
+                })->name('tenant.index.legacy');
+                Route::prefix('settings')->name('tenant.settings.')->controller(SettingsController::class)->group(function (): void {
+                    Route::get('/', 'index')->name('index');
+                    Route::get('/{page}', 'show')
+                        ->whereIn('page', array_keys(SettingsController::pages()))
+                        ->name('show');
+                });
                 Route::get('/notifications/poll', [\App\Http\Controllers\Central\AdminNotificationController::class, 'poll'])->name('tenant.notifications.poll');
                 Route::post('/notifications/mark-read', [\App\Http\Controllers\Central\AdminNotificationController::class, 'markRead'])->name('tenant.notifications.mark-read');
                 Route::get('/notifications', [NotificationController::class, 'index'])->name('tenant.notifications.index');
@@ -981,6 +991,10 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         return redirect('data-policy');
                     })->name('data-policies.legacy');
                 });
+
+                Route::get('/{page}', [SettingsController::class, 'show'])
+                    ->whereIn('page', array_keys(SettingsController::pages()))
+                    ->name('tenant.settings.page');
 
                 Route::post('/logout', [AuthController::class, 'logout'])->name('tenant.logout');
             });

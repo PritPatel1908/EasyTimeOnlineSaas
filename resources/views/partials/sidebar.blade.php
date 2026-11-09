@@ -34,6 +34,8 @@
 	$applicationStructureActive = request()->is('time-management/manual-punch-applications*', 'time-management/manual-attendance-applications*', 'time-management/overtime-applications*', 'time-management/shift-change-applications*', 'time-management/leave-applications*', 'time-management/short-leave-applications*', 'time-management/week-off-change-applications*', 'time-management/week-off-swap-applications*');
 	$timingRuleStructureActive = request()->is('time-management/late-coming-rules*', 'time-management/early-going-rules*', 'time-management/half-day-rules*', 'time-management/overtime-rules*', 'time-management/absent-rules*');
 	$requestManagementStructureActive = request()->is('requests/pending*');
+	$settingsActive = request()->is('settings', 'settings/*') ||
+		in_array(request()->segment(1), array_keys(\App\Http\Controllers\Tenant\SettingsController::pages()), true);
 	$categoryActive = request()->is('employee-structure/categories*');
 	$approvalFlowsActive = request()->is('employee-structure/approval-flows*');
 	$employeeActive = request()->is('employee-structure/employees*');
@@ -470,6 +472,43 @@
 					</ul>
 				</li>
 				@endif
+				<li class="menu-title"><span>SETTINGS STRUCTURE</span></li>
+				<li>
+					<ul>
+						<li class="submenu">
+							<a href="javascript:void(0);" class="{{ $settingsActive ? 'active subdrop' : '' }}">
+								<i class="ti ti-settings"></i><span>Settings</span>
+								<span class="menu-arrow"></span>
+							</a>
+							<ul>
+								<li><a href="{{ url('settings') }}"
+									class="{{ request()->is('settings') ? 'active' : '' }}">All Settings</a></li>
+								@foreach (\App\Http\Controllers\Tenant\SettingsController::sections() as $section => $pages)
+									@php
+										$sectionActive = collect(array_keys($pages))->contains(
+											fn (string $page): bool => request()->is($page, $page.'/*', 'settings/'.$page)
+										);
+									@endphp
+									<li class="submenu submenu-two">
+										<a href="javascript:void(0);" class="{{ $sectionActive ? 'active subdrop' : '' }}">
+											{{ $section }}<span class="menu-arrow inside-submenu"></span>
+										</a>
+										<ul>
+											@foreach ($pages as $page => $label)
+												<li>
+													<a href="{{ url($page) }}"
+														class="{{ request()->is($page, $page.'/*', 'settings/'.$page) ? 'active' : '' }}">
+														{{ $label }}
+													</a>
+												</li>
+											@endforeach
+										</ul>
+									</li>
+								@endforeach
+							</ul>
+						</li>
+					</ul>
+				</li>
 				@if (false)
 				<li class="menu-title"><span>MAIN MENU</span></li>
 				<li>
