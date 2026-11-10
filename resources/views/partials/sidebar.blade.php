@@ -31,7 +31,7 @@
 	$attendanceLogStructureActive = request()->is('time-management/attendance-logs*', 'time-management/time-card*');
 	$attendanceLogsActive = request()->is('time-management/attendance-logs*');
 	$manualStructureActive = request()->is('time-management/manual-punches*', 'time-management/manual-attendances*', 'time-management/manual-shift-changes*', 'time-management/week-off-changes*', 'time-management/week-off-swaps*');
-	$applicationStructureActive = request()->is('time-management/manual-punch-applications*', 'time-management/manual-attendance-applications*', 'time-management/overtime-applications*', 'time-management/shift-change-applications*', 'time-management/leave-applications*', 'time-management/short-leave-applications*', 'time-management/week-off-change-applications*', 'time-management/week-off-swap-applications*');
+	$applicationStructureActive = request()->is('time-management/manual-punch-applications*', 'time-management/manual-attendance-applications*', 'time-management/overtime-applications*', 'time-management/shift-change-applications*', 'time-management/leave-applications*', 'time-management/short-leave-applications*', 'time-management/coff-applications*', 'time-management/week-off-change-applications*', 'time-management/week-off-swap-applications*');
 	$timingRuleStructureActive = request()->is('time-management/late-coming-rules*', 'time-management/early-going-rules*', 'time-management/half-day-rules*', 'time-management/overtime-rules*', 'time-management/absent-rules*');
 	$requestManagementStructureActive = request()->is('requests/pending*');
 	$settingsActive = request()->is('settings', 'settings/*') ||
@@ -55,6 +55,7 @@
 	$canViewShiftChangeApplications = \App\Support\TenantPermissions::userCan('ShiftChangeApplication', 'read');
 	$canViewLeaveApplications = \App\Support\TenantPermissions::userCan('LeaveApplication', 'read');
 	$canViewShortLeaveApplications = \App\Support\TenantPermissions::userCan('ShortLeaveApplication', 'read');
+	$canViewCoffApplications = \App\Support\TenantPermissions::userCan('CoffApplication', 'read');
 	$canViewWeekOffChangeApplications = \App\Support\TenantPermissions::userCan('WeekOffChangeApplication', 'read');
 	$canViewWeekOffSwapApplications = \App\Support\TenantPermissions::userCan('WeekOffSwapApplication', 'read');
 	$canViewPendingRequests = \App\Support\TenantPermissions::userCan('PendingRequest', 'read');
@@ -63,7 +64,7 @@
 	$canViewWeekOffChanges = \App\Support\TenantPermissions::userCan('WeekOffChange', 'read');
 	$canViewWeekOffSwaps = \App\Support\TenantPermissions::userCan('WeekOffSwap', 'read');
 	$canViewManualStructure = $canViewManualPunches || $canViewManualAttendances || $canViewManualShiftChanges || $canViewWeekOffChanges || $canViewWeekOffSwaps;
-	$canViewApplicationStructure = $canViewManualPunchApplications || $canViewManualAttendanceApplications || $canViewOvertimeApplications || $canViewShiftChangeApplications || $canViewLeaveApplications || $canViewShortLeaveApplications || $canViewWeekOffChangeApplications || $canViewWeekOffSwapApplications;
+	$canViewApplicationStructure = $canViewManualPunchApplications || $canViewManualAttendanceApplications || $canViewOvertimeApplications || $canViewShiftChangeApplications || $canViewLeaveApplications || $canViewShortLeaveApplications || $canViewCoffApplications || $canViewWeekOffChangeApplications || $canViewWeekOffSwapApplications;
 	$canViewCompanyStructure =
 		\App\Support\TenantPermissions::userCan('Company', 'read') ||
 		\App\Support\TenantPermissions::userCan('Location', 'read') ||
@@ -419,6 +420,10 @@
 								@if ($canViewShortLeaveApplications)
 								<li><a href="{{ url('time-management/short-leave-applications') }}"
 									class="{{ request()->is('time-management/short-leave-applications*') ? 'active' : '' }}">Short Leave Application</a></li>
+								@endif
+								@if ($canViewCoffApplications)
+								<li><a href="{{ url('time-management/coff-applications') }}"
+									class="{{ request()->is('time-management/coff-applications*') ? 'active' : '' }}">COFF Application</a></li>
 								@endif
 								@if ($canViewWeekOffChangeApplications)
 								<li><a href="{{ url('time-management/week-off-change-applications') }}"

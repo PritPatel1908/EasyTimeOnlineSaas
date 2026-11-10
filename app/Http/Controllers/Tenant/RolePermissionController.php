@@ -33,6 +33,7 @@ class RolePermissionController extends Controller
             'Category',
             'CanteenFacility',
             'Coff',
+            'CoffApplication',
             'Company',
             'DailyReport',
             'DataPolicy',

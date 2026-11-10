@@ -6,6 +6,7 @@ namespace App\Jobs\Tenant;
 
 use App\Models\Tenant\ApprovalStatus;
 use App\Models\Tenant\Coff;
+use App\Models\Tenant\CoffApplication;
 use App\Models\Tenant\LeaveApplication;
 use App\Models\Tenant\ManualAttendanceApplication;
 use App\Models\Tenant\ManualPunchApplication;
@@ -16,6 +17,7 @@ use App\Models\Tenant\ShortLeaveApplication;
 use App\Models\Tenant\WeekOffChangeApplication;
 use App\Models\Tenant\WeekOffSwapApplication;
 use App\Services\Tenant\LeaveAttendanceWriter;
+use App\Services\Tenant\CoffAttendanceWriter;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -36,6 +38,7 @@ class FinalizeApprovedApplication implements ShouldQueue
     private const APPROVABLE_TYPES = [
         LeaveApplication::class,
         Coff::class,
+        CoffApplication::class,
         ManualAttendanceApplication::class,
         ManualPunchApplication::class,
         OvertimeApplication::class,
@@ -146,6 +149,15 @@ class FinalizeApprovedApplication implements ShouldQueue
             app(LeaveAttendanceWriter::class)->createForApprovedApplication($application);
 
             ApproveLeaveApplication::dispatch($application)->onConnection('database_tenant')->onQueue('processing');
+
+            return;
+        }
+
+        if ($application instanceof CoffApplication) {
+            DB::transaction(function () use ($application): void {
+                app(CoffAttendanceWriter::class)->createForApprovedApplication($application);
+                $application->update(['status' => 'approved']);
+            });
 
             return;
         }

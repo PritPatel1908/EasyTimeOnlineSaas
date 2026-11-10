@@ -9,6 +9,7 @@ use App\Helpers\ApprovalProcessor;
 use App\Http\Controllers\Controller;
 use App\Models\Tenant\ApprovalStatusDetails;
 use App\Models\Tenant\Coff;
+use App\Models\Tenant\CoffApplication;
 use App\Models\Tenant\LeaveApplication;
 use App\Models\Tenant\ManualAttendanceApplication;
 use App\Models\Tenant\ManualPunchApplication;
@@ -35,6 +36,7 @@ class PendingApprovalController extends Controller
     private const APPROVABLE_TYPES = [
         LeaveApplication::class,
         Coff::class,
+        CoffApplication::class,
         ManualAttendanceApplication::class,
         ManualPunchApplication::class,
         OvertimeApplication::class,
@@ -57,6 +59,7 @@ class PendingApprovalController extends Controller
                     $morphTo->morphWith([
                         LeaveApplication::class => ['users', 'leave_type', 'leave_reason'],
                         Coff::class => ['user'],
+                        CoffApplication::class => ['user'],
                         ManualAttendanceApplication::class => ['Users'],
                         ManualPunchApplication::class => ['Users', 'user'],
                         OvertimeApplication::class => ['user'],
@@ -137,6 +140,7 @@ class PendingApprovalController extends Controller
         $relations = match ($record::class) {
             LeaveApplication::class => ['users', 'leave_type', 'leave_reason', 'approval_statuses.approval_flow', 'approval_statuses.approval_status_details.user'],
             Coff::class => ['user', 'location', 'company', 'approval_statuses.approval_flow', 'approval_statuses.approval_status_details.user'],
+            CoffApplication::class => ['user', 'approval_statuses.approval_flow', 'approval_statuses.approval_status_details.user'],
             ManualAttendanceApplication::class, ManualPunchApplication::class, WeekOffSwapApplication::class => ['Users', 'approval_statuses.approval_flow', 'approval_statuses.approval_status_details.user'],
             OvertimeApplication::class => ['user', 'approval_statuses.approval_flow', 'approval_statuses.approval_status_details.user'],
             OutDuty::class => ['user', 'location', 'company', 'approval_statuses.approval_flow', 'approval_statuses.approval_status_details.user'],
@@ -446,6 +450,11 @@ class PendingApprovalController extends Controller
                 'Against: '.$record->coff_against_date?->format('Y-m-d'),
                 $record->from_date?->format('Y-m-d'),
                 $record->to_date?->format('Y-m-d'),
+            ]),
+            $record instanceof CoffApplication => collect([
+                'Against: '.$record->coff_against_date?->format('Y-m-d'),
+                $record->coff_from_date?->format('Y-m-d'),
+                $record->coff_to_date?->format('Y-m-d'),
             ]),
             $record instanceof OutDuty => collect([
                 $record->from_date_time?->format('Y-m-d H:i'),

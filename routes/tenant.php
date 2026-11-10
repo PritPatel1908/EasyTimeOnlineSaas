@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Tenant\AuthController;
 use App\Http\Controllers\Tenant\CategoryController;
+use App\Http\Controllers\Tenant\CoffApplicationController;
 use App\Http\Controllers\Tenant\LeaveApplicationController;
 use App\Http\Controllers\Tenant\LeaveGroupController;
 use App\Http\Controllers\Tenant\ApprovalFlowController;
@@ -297,6 +298,36 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                         ->middlewareFor('update', 'tenant.permission:ShortLeaveApplication,write')
                         ->middlewareFor('destroy', 'tenant.permission:ShortLeaveApplication,delete')
                         ->names('short-leave-applications');
+                    Route::get('coff-applications/export', [CoffApplicationController::class, 'export'])
+                        ->middleware('tenant.permission:CoffApplication,export')->name('coff-applications.export');
+                    Route::get('coff-applications/import/sample', [CoffApplicationController::class, 'downloadImportSample'])
+                        ->middleware('tenant.permission:CoffApplication,import')->name('coff-applications.import-sample');
+                    Route::get('coff-applications/export/download/{file}', [CoffApplicationController::class, 'downloadExport'])
+                        ->middleware('tenant.permission:CoffApplication,export')->name('coff-applications.download-export');
+                    Route::post('coff-applications/import', [CoffApplicationController::class, 'import'])
+                        ->middleware('tenant.permission:CoffApplication,import')->name('coff-applications.import');
+                    Route::post('coff-applications/eligible-dates', [CoffApplicationController::class, 'eligibleDates'])
+                        ->middleware('tenant.permission:CoffApplication,create')->name('coff-applications.eligible-dates');
+                    Route::post('coff-applications/validate', [CoffApplicationController::class, 'validateLive'])
+                        ->middleware('tenant.permission:CoffApplication,create')->name('coff-applications.validate');
+                    Route::post('coff-applications/{coff_application}/eligible-dates', [CoffApplicationController::class, 'eligibleDates'])
+                        ->whereNumber('coff_application')
+                        ->middleware('tenant.permission:CoffApplication,write')->name('coff-applications.eligible-dates-update');
+                    Route::post('coff-applications/{coff_application}/validate', [CoffApplicationController::class, 'validateLive'])
+                        ->whereNumber('coff_application')
+                        ->middleware('tenant.permission:CoffApplication,write')->name('coff-applications.validate-update');
+                    Route::get('coff-applications/create', [CoffApplicationController::class, 'create'])
+                        ->middleware('tenant.permission:CoffApplication,create')->name('coff-applications.create');
+                    Route::resource('coff-applications', CoffApplicationController::class)
+                        ->except(['create'])
+                        ->parameters(['coff-applications' => 'coff_application'])
+                        ->middlewareFor('index', 'tenant.permission:CoffApplication,read')
+                        ->middlewareFor('show', 'tenant.permission:CoffApplication,read')
+                        ->middlewareFor('store', 'tenant.permission:CoffApplication,create')
+                        ->middlewareFor('edit', 'tenant.permission:CoffApplication,write')
+                        ->middlewareFor('update', 'tenant.permission:CoffApplication,write')
+                        ->middlewareFor('destroy', 'tenant.permission:CoffApplication,delete')
+                        ->names('coff-applications');
                     Route::get('manual-attendance-applications/export', [ManualAttendanceApplicationController::class, 'export'])
                         ->middleware('tenant.permission:ManualAttendanceApplication,export')->name('manual-attendance-applications.export');
                     Route::get('manual-attendance-applications/import/sample', [ManualAttendanceApplicationController::class, 'downloadImportSample'])

@@ -191,6 +191,15 @@
 @endif
 
 @if (Route::is([
+    'tenant.time-management.coff-applications.create',
+    'tenant.time-management.coff-applications.edit',
+    'tenant.myapp_com.tenant.time-management.coff-applications.create',
+    'tenant.myapp_com.tenant.time-management.coff-applications.edit',
+]))
+    <script src="{{URL::asset('build/plugins/flatpickr/flatpickr.js')}}"></script>
+@endif
+
+@if (Route::is([
     'tenant.time-management.manual-attendance-applications.create',
     'tenant.time-management.manual-attendance-applications.edit',
     'tenant.myapp_com.tenant.time-management.manual-attendance-applications.create',
@@ -203,6 +212,10 @@
     'tenant.time-management.leave-applications.edit',
     'tenant.myapp_com.tenant.time-management.leave-applications.create',
     'tenant.myapp_com.tenant.time-management.leave-applications.edit',
+    'tenant.time-management.coff-applications.create',
+    'tenant.time-management.coff-applications.edit',
+    'tenant.myapp_com.tenant.time-management.coff-applications.create',
+    'tenant.myapp_com.tenant.time-management.coff-applications.edit',
     'tenant.time-management.short-leave-applications.create',
     'tenant.time-management.short-leave-applications.edit',
     'tenant.time-management.short-leave-applications.clone',
