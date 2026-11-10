@@ -41,6 +41,8 @@ use Illuminate\Support\Facades\Schema;
  * @property int $row_overtime_minutes
  * @property int $total_overtime_minutes
  * @property int $approved_overtime_minutes
+ * @property bool $is_coff
+ * @property float $coff_credit_dayes
  * @property bool $is_manual
  * @property bool $has_error
  * @property string|null $remarks
@@ -55,7 +57,7 @@ class Attendance extends Model
 {
     use HasDynamicTable;
 
-    private static array $dynamicTablesWithCoffDays = [];
+    private static array $dynamicTablesWithCoffFields = [];
 
     protected $table = '';
 
@@ -96,17 +98,28 @@ class Attendance extends Model
         $connection = $this->getConnection();
         $schema = Schema::connection($connection->getName());
         $cacheKey = $connection->getName().':'.$connection->getDatabaseName().':'.$tablename;
-        if (isset(self::$dynamicTablesWithCoffDays[$cacheKey])) {
+        if (isset(self::$dynamicTablesWithCoffFields[$cacheKey])) {
             return;
         }
 
-        if (! $schema->hasColumn($tablename, 'c_off_days')) {
-            $schema->table($tablename, function (Blueprint $table): void {
-                $table->decimal('c_off_days', 10, 2)->default(0);
+        $hasCoffDays = $schema->hasColumn($tablename, 'c_off_days');
+        $hasIsCoff = $schema->hasColumn($tablename, 'is_coff');
+        $hasCoffCreditDays = $schema->hasColumn($tablename, 'coff_credit_dayes');
+        if (! $hasCoffDays || ! $hasIsCoff || ! $hasCoffCreditDays) {
+            $schema->table($tablename, function (Blueprint $table) use ($hasCoffDays, $hasIsCoff, $hasCoffCreditDays): void {
+                if (! $hasCoffDays) {
+                    $table->decimal('c_off_days', 10, 2)->default(0);
+                }
+                if (! $hasIsCoff) {
+                    $table->boolean('is_coff')->default(false);
+                }
+                if (! $hasCoffCreditDays) {
+                    $table->decimal('coff_credit_dayes', 10, 2)->default(0);
+                }
             });
         }
 
-        self::$dynamicTablesWithCoffDays[$cacheKey] = true;
+        self::$dynamicTablesWithCoffFields[$cacheKey] = true;
     }
 
     protected function defineSchema(Blueprint $table, $year)
@@ -142,6 +155,8 @@ class Attendance extends Model
         $table->boolean('is_over_time')->default(false);
         $table->unsignedInteger('work_time')->default(0);
         $table->decimal('c_off_days', 10, 2)->default(0);
+        $table->boolean('is_coff')->default(false);
+        $table->decimal('coff_credit_dayes', 10, 2)->default(0);
         $table->unsignedInteger('row_overtime_minutes')->default(0);
         $table->unsignedInteger('total_overtime_minutes')->default(0);
         $table->unsignedInteger('approved_overtime_minutes')->default(0);
@@ -183,6 +198,8 @@ class Attendance extends Model
         'is_over_time',
         'work_time',
         'c_off_days',
+        'is_coff',
+        'coff_credit_dayes',
         'row_overtime_minutes',
         'total_overtime_minutes',
         'approved_overtime_minutes',
@@ -220,6 +237,8 @@ class Attendance extends Model
         'is_over_time' => 'boolean',
         'work_time' => 'int',
         'c_off_days' => 'decimal:2',
+        'is_coff' => 'boolean',
+        'coff_credit_dayes' => 'decimal:2',
         'row_overtime_minutes' => 'int',
         'total_overtime_minutes' => 'int',
         'approved_overtime_minutes' => 'int',

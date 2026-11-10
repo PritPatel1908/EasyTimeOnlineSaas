@@ -38,6 +38,23 @@ class OvertimeSlabTest extends TestCase
         $this->assertFalse($slab->containsMinutes(5999));
     }
 
+    public function test_it_formats_and_matches_durations_after_twenty_three_hours(): void
+    {
+        $slab = new OvertimeSlab([
+            'value_from' => '24:00',
+            'value_to' => '25:00',
+            'head_value' => '24:30',
+        ]);
+
+        $this->assertTrue($slab->containsMinutes(1440));
+        $this->assertTrue($slab->containsMinutes(1500));
+        $this->assertFalse($slab->containsMinutes(1439));
+        $this->assertSame('24:00', $slab->formattedValueFrom());
+        $this->assertSame('25:00', $slab->formattedValueTo());
+        $this->assertSame(1470, $slab->headValueInMinutes());
+        $this->assertSame('24:30', $slab->formattedHeadValue());
+    }
+
     public function test_it_accepts_sql_server_time_values_with_fractional_seconds(): void
     {
         $slab = new OvertimeSlab([

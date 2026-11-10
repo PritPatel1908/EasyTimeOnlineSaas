@@ -73,9 +73,9 @@
                             @forelse ($overtimeRule->overtime_slabs as $index => $slab)
                                 <tr>
                                     <td>{{ $index + 1 }}</td>
-                                    <td>{{ $formatTime($slab->value_from) }}</td>
-                                    <td>{{ $formatTime($slab->value_to) }}</td>
-                                    <td>{{ $formatTime($slab->head_value) }}</td>
+                                    <td>{{ $slab->formattedValueFrom() ?: '—' }}</td>
+                                    <td>{{ $slab->formattedValueTo() ?: '—' }}</td>
+                                    <td>{{ $slab->headValueInMinutes() === null ? '—' : $slab->formattedHeadValue() }}</td>
                                     <td>{{ $slab->decimal_value ?? '—' }}</td>
                                 </tr>
                             @empty

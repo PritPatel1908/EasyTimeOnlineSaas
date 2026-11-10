@@ -13,9 +13,9 @@
         return sprintf('%02d:%02d', intdiv($totalMinutes, 60), $totalMinutes % 60);
     };
     $savedSlabs = $overtimeRule?->overtime_slabs?->map(static fn ($slab): array => [
-        'value_from' => $timeInputValue($slab->value_from),
-        'value_to' => $timeInputValue($slab->value_to),
-        'head_value' => $timeInputValue($slab->head_value),
+        'value_from' => $slab->formattedValueFrom(),
+        'value_to' => $slab->formattedValueTo(),
+        'head_value' => $slab->headValueInMinutes() === null ? '' : $slab->formattedHeadValue(),
         'decimal_value' => $slab->decimal_value,
     ])->all() ?? [[]];
     $slabs = old('slabs', $savedSlabs);
@@ -121,7 +121,7 @@
         <button type="button" class="btn btn-sm btn-primary" id="add_overtime_slab"><i class="ti ti-plus me-1"></i>Add Slab</button>
     </div>
     <div class="card-body">
-        <p class="text-muted">Enter time ranges and optional head/decimal values for each overtime slab.</p>
+        <p class="text-muted">Enter overtime-duration ranges in HH:mm format, including durations over 24 hours.</p>
         <div id="overtime_slab_rows">
             @foreach ($slabs as $index => $slab)
                 <div class="overtime-slab-row border rounded p-3 mb-3" data-index="{{ $index }}">
@@ -140,7 +140,7 @@
                                 <label class="form-label" for="slabs_{{ $index }}_{{ $field }}">{{ $label }}</label>
                                 <input id="slabs_{{ $index }}_{{ $field }}"
                                     name="slabs[{{ $index }}][{{ $field }}]" type="{{ $type === 'time' ? 'text' : $type }}"
-                                    @if ($type === 'time') placeholder="HH:mm" maxlength="5" pattern="(?:[01][0-9]|2[0-3]):[0-5][0-9]" @else min="0" max="999999.99" step="0.01" @endif
+                                    @if ($type === 'time') placeholder="HH:mm" maxlength="6" pattern="(?:[0-9]{2}|[1-7][0-9]{2}|8[0-2][0-9]|83[0-8]):[0-5][0-9]" @else min="0" max="999999.99" step="0.01" @endif
                                     class="form-control @error('slabs.'.$index.'.'.$field) is-invalid @enderror"
                                     value="{{ $type === 'time' ? $timeInputValue(old('slabs.'.$index.'.'.$field, $slab[$field] ?? '')) : old('slabs.'.$index.'.'.$field, $slab[$field] ?? '') }}">
                                 <x-validation-error :field="'slabs.'.$index.'.'.$field" />
@@ -159,15 +159,15 @@
                 <div class="row align-items-end">
                     <div class="col-lg-3 col-md-6 mb-2">
                         <label class="form-label" for="slabs___INDEX___value_from">From</label>
-                        <input id="slabs___INDEX___value_from" name="slabs[__INDEX__][value_from]" type="text" placeholder="HH:mm" maxlength="5" pattern="(?:[01][0-9]|2[0-3]):[0-5][0-9]" class="form-control">
+                        <input id="slabs___INDEX___value_from" name="slabs[__INDEX__][value_from]" type="text" placeholder="HH:mm" maxlength="6" pattern="(?:[0-9]{2}|[1-7][0-9]{2}|8[0-2][0-9]|83[0-8]):[0-5][0-9]" class="form-control">
                     </div>
                     <div class="col-lg-3 col-md-6 mb-2">
                         <label class="form-label" for="slabs___INDEX___value_to">To</label>
-                        <input id="slabs___INDEX___value_to" name="slabs[__INDEX__][value_to]" type="text" placeholder="HH:mm" maxlength="5" pattern="(?:[01][0-9]|2[0-3]):[0-5][0-9]" class="form-control">
+                        <input id="slabs___INDEX___value_to" name="slabs[__INDEX__][value_to]" type="text" placeholder="HH:mm" maxlength="6" pattern="(?:[0-9]{2}|[1-7][0-9]{2}|8[0-2][0-9]|83[0-8]):[0-5][0-9]" class="form-control">
                     </div>
                     <div class="col-lg-3 col-md-6 mb-2">
                         <label class="form-label" for="slabs___INDEX___head_value">Head Value</label>
-                        <input id="slabs___INDEX___head_value" name="slabs[__INDEX__][head_value]" type="text" placeholder="HH:mm" maxlength="5" pattern="(?:[01][0-9]|2[0-3]):[0-5][0-9]" class="form-control">
+                        <input id="slabs___INDEX___head_value" name="slabs[__INDEX__][head_value]" type="text" placeholder="HH:mm" maxlength="6" pattern="(?:[0-9]{2}|[1-7][0-9]{2}|8[0-2][0-9]|83[0-8]):[0-5][0-9]" class="form-control">
                     </div>
                     <div class="col-lg-3 col-md-6 mb-2">
                         <label class="form-label" for="slabs___INDEX___decimal_value">Decimal Value</label>
@@ -221,9 +221,9 @@
                 return;
             }
 
-            var digits = input.value.replace(/\D/g, '').slice(0, 4);
+            var digits = input.value.replace(/\D/g, '').slice(0, 5);
             if (digits.length > 2) {
-                input.value = digits.slice(0, 2) + ':' + digits.slice(2);
+                input.value = digits.slice(0, -2) + ':' + digits.slice(-2);
             } else if (digits.length === 2) {
                 input.value = digits + ':';
             } else {
@@ -255,13 +255,13 @@
 
         function parseSlabTime(row, field) {
             var input = row.querySelector('input[name$="[' + field + ']"]');
-            var match = input && input.value.trim().match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+            var match = input && input.value.trim().match(/^(\d{1,3}):([0-5]\d)$/);
 
             return match ? Number(match[1]) * 60 + Number(match[2]) : null;
         }
 
         function formatSlabTime(minutes) {
-            if (minutes < 0 || minutes >= 24 * 60) {
+            if (minutes < 0 || minutes > 838 * 60 + 59) {
                 return '';
             }
 

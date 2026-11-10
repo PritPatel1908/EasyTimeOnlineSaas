@@ -51,6 +51,7 @@ class AttendanceCategoryCalculationTest extends TestCase
         Schema::dropIfExists('attendances2026');
         Schema::dropIfExists('attendance_logs');
         Schema::dropIfExists('c_off_against_wo_hl_slabs');
+        Schema::dropIfExists('c_off_against_ot_slabs');
         Schema::dropIfExists('overtime_slabs');
         Schema::dropIfExists('status_masters');
         Schema::dropIfExists('status_musters');
@@ -70,6 +71,14 @@ class AttendanceCategoryCalculationTest extends TestCase
             $table->decimal('credit_days', 10, 2)->nullable();
             $table->time('from_time')->nullable();
             $table->time('to_time')->nullable();
+            $table->timestamps();
+        });
+        Schema::create('c_off_against_ot_slabs', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('category_id');
+            $table->decimal('credit_days', 10, 2)->nullable();
+            $table->decimal('from_hours', 10, 2)->nullable();
+            $table->decimal('to_hours', 10, 2)->nullable();
             $table->timestamps();
         });
     }
@@ -107,7 +116,11 @@ class AttendanceCategoryCalculationTest extends TestCase
 
         $this->assertSame(480, $attendance->fresh()->work_time);
         $this->assertSame('1.25', $attendance->fresh()->c_off_days);
+        $this->assertTrue($attendance->fresh()->is_coff);
+        $this->assertSame('1.25', $attendance->fresh()->coff_credit_dayes);
         $this->assertTrue(Schema::hasColumn('attendances2026', 'c_off_days'));
+        $this->assertTrue(Schema::hasColumn('attendances2026', 'is_coff'));
+        $this->assertTrue(Schema::hasColumn('attendances2026', 'coff_credit_dayes'));
     }
 
     public function test_public_holiday_c_off_slab_credit_is_doubled_when_enabled(): void
@@ -336,8 +349,17 @@ class AttendanceCategoryCalculationTest extends TestCase
         ]);
 
         $category = $this->category([
+            'is_eligible_for_c_off' => true,
+            'is_week_off_paid' => true,
+            'is_holiday_paid' => true,
             'regular_ot_on_wo' => true,
             'give_double_ot_in_public_holiday' => true,
+        ]);
+        DB::table('c_off_against_wo_hl_slabs')->insert([
+            'category_id' => $category->id,
+            'credit_days' => 0.25,
+            'from_time' => '04:00:00',
+            'to_time' => '08:00:00',
         ]);
         $attendance = $this->attendance([
             'is_weekoff' => true,
@@ -352,6 +374,55 @@ class AttendanceCategoryCalculationTest extends TestCase
         $this->assertSame(480, $attendance->row_overtime_minutes);
         $this->assertSame(960, $attendance->total_overtime_minutes);
         $this->assertTrue($attendance->is_over_time);
+        $this->assertTrue($attendance->is_coff);
+        $this->assertSame('0.50', $attendance->coff_credit_dayes);
+    }
+
+    public function test_regular_overtime_awards_c_off_from_the_matching_category_slab(): void
+    {
+        Schema::create('status_masters', function (Blueprint $table): void {
+            $table->id();
+            $table->string('code');
+        });
+        Schema::create('status_musters', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('date');
+            $table->unsignedBigInteger('status_master_id')->nullable();
+            $table->decimal('day_count', 5, 2)->default(0);
+            $table->boolean('is_locked')->default(false);
+        });
+        Schema::create('process_tags', function (Blueprint $table): void {
+            $table->id();
+            $table->morphs('taggable');
+            $table->string('name');
+            $table->string('color')->nullable();
+            $table->string('icon')->nullable();
+            $table->timestamps();
+        });
+        DB::table('status_masters')->insert(['code' => 'PPO']);
+
+        $category = $this->category(['is_eligible_for_c_off' => true]);
+        DB::table('c_off_against_ot_slabs')->insert([
+            'category_id' => $category->id,
+            'credit_days' => 0.5,
+            'from_hours' => 1,
+            'to_hours' => 2,
+        ]);
+        $attendance = $this->attendance([
+            'in_time' => '2026-10-25 09:00:00',
+            'out_time' => '2026-10-25 18:00:00',
+        ]);
+        $calculator = $this->calculator($category, $attendance);
+
+        $calculator->checkOverTimeRule();
+
+        $attendance->refresh();
+        $this->assertSame(60, $attendance->row_overtime_minutes);
+        $this->assertSame(60, $attendance->total_overtime_minutes);
+        $this->assertTrue($attendance->is_over_time);
+        $this->assertTrue($attendance->is_coff);
+        $this->assertSame('0.50', $attendance->coff_credit_dayes);
     }
 
     public function test_week_off_overtime_uses_all_work_minutes_with_and_without_slabs(): void

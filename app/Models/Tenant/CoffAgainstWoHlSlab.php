@@ -40,8 +40,6 @@ class CoffAgainstWoHlSlab extends Model
     protected $casts = [
         'category_id' => 'int',
         'credit_days' => 'decimal:2',
-        'from_time' => 'datetime',
-        'to_time' => 'datetime',
     ];
 
     protected $fillable = [

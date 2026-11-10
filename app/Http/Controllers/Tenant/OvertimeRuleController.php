@@ -167,9 +167,9 @@ class OvertimeRuleController extends Controller
                 'ignore_overtime' => 'Optional; overtime duration in HH:MM format, zero or greater; blank defaults to 00:00. Legacy decimal minutes are also accepted.',
                 'ignore_late_going_overtime' => 'Optional; late-going overtime duration in HH:MM format, zero or greater; blank defaults to 00:00. Legacy decimal minutes are also accepted.',
                 'status' => 'Optional; Active, Inactive, 1, or 0; blank defaults to Active.',
-                'slab_value_from' => 'Optional; comma-separated slab start times in HH:MM format, in slab order.',
-                'slab_value_to' => 'Optional; comma-separated slab end times in HH:MM format, in slab order.',
-                'slab_head_value' => 'Optional; comma-separated slab head times in HH:MM format, in slab order.',
+                'slab_value_from' => 'Optional; comma-separated slab start durations in HH:MM format (up to 838:59), in slab order.',
+                'slab_value_to' => 'Optional; comma-separated slab end durations in HH:MM format (up to 838:59), in slab order.',
+                'slab_head_value' => 'Optional; comma-separated slab head durations in HH:MM format (up to 838:59), in slab order.',
                 'slab_decimal_value' => 'Optional; comma-separated decimal values from 0 to 999999.99, in slab order.',
             ]);
             fclose($handle);

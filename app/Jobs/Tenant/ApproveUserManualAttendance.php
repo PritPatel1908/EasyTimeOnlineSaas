@@ -2044,8 +2044,9 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
             $this->debug('Final row overtime after all rule deductions: '.$this->curatt->row_overtime_minutes);
 
             $slabs = $overtimeRule->overtime_slabs()
-                ->orderByDesc('value_from')
-                ->get();
+                ->get()
+                ->sortByDesc(static fn (OvertimeSlab $slab): ?int => $slab->valueFromMinutes())
+                ->values();
 
             if ($slabs->isEmpty()) {
                 $this->debug('No overtime slabs configured; using final row overtime as total overtime');

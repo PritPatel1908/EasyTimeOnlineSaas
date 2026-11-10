@@ -13,9 +13,9 @@ return new class extends Migration
     {
         Schema::create('overtime_slabs', function (Blueprint $table) {
             $table->id();
-            $table->time('value_from')->nullable();
-            $table->time('value_to')->nullable();
-            $table->time('head_value')->nullable();
+            $table->string('value_from', 32)->nullable();
+            $table->string('value_to', 32)->nullable();
+            $table->string('head_value', 32)->nullable();
             $table->decimal('decimal_value')->nullable();
             $table->foreignId('overtime_rule_id')->constrained();
             $table->timestamps();

@@ -127,9 +127,9 @@ class ProcessOvertimeRuleImport implements ShouldQueue
                 'ignore_late_going_overtime' => ['required', 'numeric', 'min:0', 'max:999999.99'],
                 'status' => ['nullable', 'in:active,inactive,1,0'],
                 'slabs' => ['array'],
-                'slabs.*.value_from' => ['nullable', 'date_format:H:i,H:i:s'],
-                'slabs.*.value_to' => ['nullable', 'date_format:H:i,H:i:s'],
-                'slabs.*.head_value' => ['nullable', 'date_format:H:i,H:i:s'],
+                'slabs.*.value_from' => ['nullable', 'regex:/^(?:[0-9]{2}|[1-7][0-9]{2}|8[0-2][0-9]|83[0-8]):[0-5][0-9](?::[0-5][0-9](?:\.\d{1,7})?)?$/'],
+                'slabs.*.value_to' => ['nullable', 'regex:/^(?:[0-9]{2}|[1-7][0-9]{2}|8[0-2][0-9]|83[0-8]):[0-5][0-9](?::[0-5][0-9](?:\.\d{1,7})?)?$/'],
+                'slabs.*.head_value' => ['nullable', 'regex:/^(?:[0-9]{2}|[1-7][0-9]{2}|8[0-2][0-9]|83[0-8]):[0-5][0-9](?::[0-5][0-9](?:\.\d{1,7})?)?$/'],
                 'slabs.*.decimal_value' => ['nullable', 'numeric', 'min:0', 'max:999999.99'],
             ]);
 

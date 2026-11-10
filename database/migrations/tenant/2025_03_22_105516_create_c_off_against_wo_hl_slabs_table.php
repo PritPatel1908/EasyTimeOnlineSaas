@@ -14,8 +14,8 @@ return new class extends Migration
         Schema::create('c_off_against_wo_hl_slabs', function (Blueprint $table) {
             $table->id();
             $table->decimal('credit_days', 10, 2)->nullable();
-            $table->time('from_time')->nullable();
-            $table->time('to_time')->nullable();
+            $table->string('from_time', 32)->nullable();
+            $table->string('to_time', 32)->nullable();
             $table->foreignId('category_id')->constrained('categories');
             $table->timestamps();
         });

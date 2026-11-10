@@ -1535,6 +1535,7 @@ class AttCalculator
     public function retriveAssignedShift(): void
     {
         $this->debug('~~~Retriving assigned shift');
+        $automaticShiftMatched = false;
         if ($this->punchAttendanceDate !== null && $this->curatt === null) {
             $this->attendance_date = $this->log->datetime->format('Y-m-d');
             $this->attendance_changed = false;
@@ -1573,6 +1574,7 @@ class AttCalculator
                     if ($this->log->datetime->between($autoFrom, $autoTo->copy()->addDay())) {
                         $this->debug('Auto Night Shift Assigned : '.$shift->id.'|'.$shift->code);
                         $this->shift = $shift;
+                        $automaticShiftMatched = true;
                         break 2;
                     }
 
@@ -1583,16 +1585,39 @@ class AttCalculator
                         $this->attendance_changed = true;
                         $this->debug('Attendance date changed to '.$this->attendance_date);
                         $this->shift = $shift;
+                        $automaticShiftMatched = true;
                         break 2;
                     }
                 } elseif ($this->log->datetime->between($autoFrom, $autoTo)) {
                     $this->debug('Auto Shift Assigned : '.$shift->id.'|'.$shift->code);
                     $this->shift = $shift;
+                    $automaticShiftMatched = true;
                     break 2;
                 }
 
                 $this->debug('Shift #'.$shift->code.' is not matched');
                 $this->debug('BOOL'.$this->log->datetime.'|'.$autoFrom.'|'.$autoTo);
+            }
+        }
+
+        if (
+            ($this->shift === null || $automaticShiftMatched)
+            && $this->punchAttendanceDate !== null
+            && $this->log->is_out
+        ) {
+            $cutoffYear = Carbon::parse($this->punchAttendanceDate)->year;
+            $cutoffAttendance = Attendance::year($cutoffYear)
+                ->where('user_id', $this->log->user->id)
+                ->where('date', $this->punchAttendanceDate)
+                ->where('is_locked', false)
+                ->first();
+
+            if ($cutoffAttendance?->shift !== null) {
+                $this->shift = $cutoffAttendance->shift;
+                $this->attendance_date = $this->punchAttendanceDate;
+                $this->attendance_changed = false;
+                $this->f_years = $cutoffYear;
+                $this->debug('Reusing shift #'.$this->shift->id.' from cutoff-window attendance #'.$cutoffAttendance->id);
             }
         }
 
@@ -3330,8 +3355,9 @@ class AttCalculator
             $this->debug('Final row overtime after all rule deductions: '.$this->curatt->row_overtime_minutes);
 
             $slabs = $overtimeRule->overtime_slabs()
-                ->orderByDesc('value_from')
-                ->get();
+                ->get()
+                ->sortByDesc(static fn (OvertimeSlab $slab): ?int => $slab->valueFromMinutes())
+                ->values();
 
             if ($slabs->isEmpty()) {
                 $this->debug('No overtime slabs configured; using final row overtime as total overtime');
@@ -3423,6 +3449,14 @@ class AttCalculator
             $this->debug('Doubled final overtime because the category doubles overtime on public holidays');
         }
 
+        if ($this->curatt->is_weekoff || $this->curatt->is_holiday) {
+            $coffDays = $this->calculateWeekOffHolidayCOffDays((int) $this->curatt->work_time);
+            $this->curatt->c_off_days = $coffDays;
+        } else {
+            $coffDays = $this->calculateOvertimeCOffDays($totalMinutes);
+        }
+        $this->setCoffCreditDays($coffDays);
+
         $overtimeStatus = StatusMaster::where('code', 'PPO')->firstOrFail();
         $this->curatt->status_master_id = $overtimeStatus->id;
         $this->curatt->is_over_time = true;
@@ -3448,6 +3482,13 @@ class AttCalculator
     private function handleRegularHours(): void
     {
         $this->debug('User does not qualify for overtime');
+        if ($this->curatt->is_weekoff || $this->curatt->is_holiday) {
+            $coffDays = $this->calculateWeekOffHolidayCOffDays((int) $this->curatt->work_time);
+            $this->curatt->c_off_days = $coffDays;
+        } else {
+            $coffDays = 0.0;
+        }
+        $this->setCoffCreditDays($coffDays);
         $this->curatt->is_over_time = false;
         $this->curatt->total_overtime_minutes = 0;
         if ($this->log->user?->category?->need_approval_for_overtime === false) {
@@ -3516,7 +3557,9 @@ class AttCalculator
 
         $workTime = $this->fixedWorkTime($workTime);
         $this->curatt->work_time = $workTime;
-        $this->curatt->c_off_days = $this->calculateWeekOffHolidayCOffDays($workTime);
+        $coffDays = $this->calculateWeekOffHolidayCOffDays($workTime);
+        $this->curatt->c_off_days = $coffDays;
+        $this->setCoffCreditDays($coffDays);
         $this->curatt->save();
         $this->debug('Updated attendance work time to '.$this->curatt->work_time.' minutes');
     }
@@ -3773,6 +3816,38 @@ class AttCalculator
         return $creditDays;
     }
 
+    private function calculateOvertimeCOffDays(int $overtimeMinutes): float
+    {
+        $category = $this->log->user?->category;
+        if (! $category?->is_eligible_for_c_off || $overtimeMinutes <= 0) {
+            return 0.0;
+        }
+
+        foreach ($category->c_off_against_ot_slabs()->orderBy('id')->get() as $slab) {
+            $fromMinutes = $this->durationValueToMinutes($slab->getRawOriginal('from_hours'));
+            $toMinutes = $this->durationValueToMinutes($slab->getRawOriginal('to_hours'));
+            if (
+                ($fromMinutes === null || $overtimeMinutes >= $fromMinutes)
+                && ($toMinutes === null || $overtimeMinutes <= $toMinutes)
+            ) {
+                $creditDays = (float) ($slab->credit_days ?? 0);
+                $this->debug('Calculated '.$creditDays.' C-Off credit days from '.$overtimeMinutes.' credited overtime minutes');
+
+                return $creditDays;
+            }
+        }
+
+        $this->debug('No C-Off overtime slab matched '.$overtimeMinutes.' credited overtime minutes');
+
+        return 0.0;
+    }
+
+    private function setCoffCreditDays(float $creditDays): void
+    {
+        $this->curatt->is_coff = $creditDays > 0;
+        $this->curatt->coff_credit_dayes = $creditDays;
+    }
+
     private function timeValueToMinutes(mixed $value): ?int
     {
         if ($value === null || $value === '') {
@@ -3837,7 +3912,10 @@ class AttCalculator
         $this->debug('Week-off work time counted as overtime: '.$workMinutes.' minutes');
 
         if ($overtimeRule !== null) {
-            $slabs = $overtimeRule->overtime_slabs()->orderByDesc('value_from')->get();
+            $slabs = $overtimeRule->overtime_slabs()
+                ->get()
+                ->sortByDesc(static fn (OvertimeSlab $slab): ?int => $slab->valueFromMinutes())
+                ->values();
             if ($slabs->isEmpty()) {
                 $this->handleOvertime(null, $workMinutes);
                 $this->otFlag = true;

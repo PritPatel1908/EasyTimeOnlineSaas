@@ -36,16 +36,63 @@ final class CategoryRequestRules
         $fields['leave_type_id'] = ['nullable', 'array'];
         $fields['leave_type_id.*'] = ['integer', 'exists:leave_types,id'];
         $fields['c_off_against_wo_hl_slabs'] = ['nullable', 'array'];
-        $fields['c_off_against_wo_hl_slabs.*.from_time'] = ['nullable', 'date_format:H:i'];
-        $fields['c_off_against_wo_hl_slabs.*.to_time'] = ['nullable', 'date_format:H:i', 'after_or_equal:c_off_against_wo_hl_slabs.*.from_time'];
+        $fields['c_off_against_wo_hl_slabs.*.from_time'] = ['nullable', 'regex:/^\d{1,3}:[0-5]\d$/'];
+        $fields['c_off_against_wo_hl_slabs.*.to_time'] = [
+            'nullable',
+            'regex:/^\d{1,3}:[0-5]\d$/',
+            static function (string $attribute, mixed $value, \Closure $fail): void {
+                if (! is_string($value)) {
+                    return;
+                }
+
+                $fromAttribute = preg_replace('/\.to_time$/', '.from_time', $attribute);
+                $from = is_string($fromAttribute) ? request()->input($fromAttribute) : null;
+                if (! is_string($from)
+                    || preg_match('/^\d{1,3}:[0-5]\d$/', $from) !== 1
+                    || preg_match('/^\d{1,3}:[0-5]\d$/', $value) !== 1) {
+                    return;
+                }
+
+                if (self::durationToMinutes($value) < self::durationToMinutes($from)) {
+                    $fail('The to time must be greater than or equal to the from time.');
+                }
+            },
+        ];
         $fields['c_off_against_wo_hl_slabs.*.credit_days'] = ['nullable', 'numeric', 'min:0'];
         $fields['c_off_against_ot_slabs'] = ['nullable', 'array'];
-        $fields['c_off_against_ot_slabs.*.from_hours'] = ['nullable', 'date_format:H:i'];
-        $fields['c_off_against_ot_slabs.*.to_hours'] = ['nullable', 'date_format:H:i', 'after_or_equal:c_off_against_ot_slabs.*.from_hours'];
+        $fields['c_off_against_ot_slabs.*.from_hours'] = ['nullable', 'regex:/^\d{1,3}:[0-5]\d$/'];
+        $fields['c_off_against_ot_slabs.*.to_hours'] = [
+            'nullable',
+            'regex:/^\d{1,3}:[0-5]\d$/',
+            static function (string $attribute, mixed $value, \Closure $fail): void {
+                if (! is_string($value)) {
+                    return;
+                }
+
+                $fromAttribute = preg_replace('/\.to_hours$/', '.from_hours', $attribute);
+                $from = is_string($fromAttribute) ? request()->input($fromAttribute) : null;
+                if (! is_string($from)
+                    || preg_match('/^\d{1,3}:[0-5]\d$/', $from) !== 1
+                    || preg_match('/^\d{1,3}:[0-5]\d$/', $value) !== 1) {
+                    return;
+                }
+
+                if (self::durationToMinutes($value) < self::durationToMinutes($from)) {
+                    $fail('The to hours must be greater than or equal to the from hours.');
+                }
+            },
+        ];
         $fields['c_off_against_ot_slabs.*.credit_days'] = ['nullable', 'numeric', 'min:0'];
         $fields['min_avail'] = ['nullable', 'numeric', 'min:0'];
         $fields['max_avail'] = ['nullable', 'numeric', 'min:0', 'gte:min_avail'];
         $fields['skip_overtime'] = ['nullable', 'date_format:H:i'];
         return $fields;
+    }
+
+    private static function durationToMinutes(string $duration): int
+    {
+        [$hours, $minutes] = array_map('intval', explode(':', $duration));
+
+        return $hours * 60 + $minutes;
     }
 }

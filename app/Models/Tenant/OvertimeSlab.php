@@ -48,19 +48,35 @@ class OvertimeSlab extends Model
 
     public function containsMinutes(int $minutes): bool
     {
-        $from = $this->timeValueInMinutes($this->value_from);
-        $to = $this->timeValueInMinutes($this->value_to);
+        $from = $this->valueFromMinutes();
+        $to = $this->valueToMinutes();
 
         return $from !== null && $to !== null && $minutes >= $from && $minutes <= $to;
     }
 
+    public function valueFromMinutes(): ?int
+    {
+        return $this->timeValueInMinutes($this->value_from);
+    }
+
+    public function valueToMinutes(): ?int
+    {
+        return $this->timeValueInMinutes($this->value_to);
+    }
+
+    public function formattedValueFrom(): string
+    {
+        return $this->formattedDuration($this->valueFromMinutes());
+    }
+
+    public function formattedValueTo(): string
+    {
+        return $this->formattedDuration($this->valueToMinutes());
+    }
+
     public function formattedHeadValue(): string
     {
-        $minutes = $this->headValueInMinutes();
-
-        return $minutes === null
-            ? '00:00'
-            : sprintf('%02d:%02d', intdiv($minutes, 60), $minutes % 60);
+        return $this->formattedDuration($this->headValueInMinutes()) ?: '00:00';
     }
 
     public function headValueInMinutes(): ?int
@@ -83,5 +99,12 @@ class OvertimeSlab extends Model
         }
 
         return ((int) $matches[1] * 60) + (int) $matches[2];
+    }
+
+    private function formattedDuration(?int $minutes): string
+    {
+        return $minutes === null
+            ? ''
+            : sprintf('%02d:%02d', intdiv($minutes, 60), $minutes % 60);
     }
 }

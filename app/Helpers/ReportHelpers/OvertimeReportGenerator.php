@@ -502,8 +502,8 @@ class OvertimeReportGenerator
                                             $totalDiff = $overtimeRule->qualifyingOvertimeMinutes($out_diff);
                                             $overtimerule_slabs = $overtimeRule->overtime_slabs()->get();
                                             foreach ($overtimerule_slabs as $overtimerule_slab) {
-                                                if (sprintf('%02d:%02d', floor($totalDiff / 60), $totalDiff % 60) > '00:00' && sprintf('%02d:%02d', floor($totalDiff / 60), $totalDiff % 60) >= $overtimerule_slab->value_from->format('H:i') && sprintf('%02d:%02d', floor($totalDiff / 60), $totalDiff % 60) <= $overtimerule_slab->value_to->format('H:i')) {
-                                                    $overTime = $overtimerule_slab->head_value->format('H:i');
+                                                if ($totalDiff > 0 && $overtimerule_slab->containsMinutes((int) $totalDiff)) {
+                                                    $overTime = $overtimerule_slab->formattedHeadValue();
                                                 }
                                             }
                                         }

@@ -777,6 +777,96 @@ class ProcessPendingLogsTest extends TestCase
         $this->assertSame('2026-01-01', (new \ReflectionProperty(AttCalculator::class, 'punchAttendanceDate'))->getValue($calculator));
     }
 
+    public function test_out_punch_reuses_cutoff_attendance_shift_when_automatic_window_does_not_match(): void
+    {
+        $shift = Shift::create([
+            'in_time' => '09:00:00',
+            'out_time' => '18:00:00',
+            'auto_from' => '09:00:00',
+            'auto_to' => '18:00:00',
+            'set_cutoff' => true,
+            'cutoff_time' => '06:00:00',
+            'is_night_shift' => false,
+        ]);
+        DB::table('shift_musters')->insert([
+            'user_id' => 7,
+            'date' => '2026-01-01',
+            'is_locked' => false,
+            'is_auto' => true,
+            'shift' => json_encode([$shift->id], JSON_THROW_ON_ERROR),
+        ]);
+
+        $calculator = $this->calculatorWithPreviousPunch(
+            '2026-01-01 09:30:00',
+            false,
+            '2026-01-01 23:00:00',
+        );
+        $log = $this->getCalculatorLog($calculator);
+        $log->setAttribute('is_manual', true);
+        $log->setAttribute('punch_type', 2);
+        $this->createPreviousAttendanceForPunch($calculator, $shift, '2026-01-01');
+
+        $calculator->checkInOrOut();
+        $calculator->retriveAssignedShift();
+
+        $this->assertSame($shift->id, $calculator->shift?->id, implode(PHP_EOL, $calculator->getReturnLogs()));
+        $this->assertSame('2026-01-01', $calculator->attendance_date);
+        $this->assertStringContainsString('Reusing shift #'.$shift->id.' from cutoff-window attendance', implode(PHP_EOL, $calculator->getReturnLogs()));
+    }
+
+    public function test_36_hour_cutoff_takes_precedence_over_an_automatic_shift_on_punch_date(): void
+    {
+        $previousShift = Shift::create([
+            'in_time' => '09:00:00',
+            'out_time' => '21:00:00',
+            'set_cutoff' => true,
+            'cutoff_time' => '36:00:00',
+            'is_night_shift' => false,
+        ]);
+        $automaticShift = Shift::create([
+            'in_time' => '07:00:00',
+            'out_time' => '16:00:00',
+            'auto_from' => '07:00:00',
+            'auto_to' => '16:00:00',
+            'is_night_shift' => false,
+        ]);
+        DB::table('shift_musters')->insert([
+            'user_id' => 7,
+            'date' => '2026-11-11',
+            'is_locked' => false,
+            'is_auto' => true,
+            'shift' => json_encode([$automaticShift->id], JSON_THROW_ON_ERROR),
+        ]);
+
+        $calculator = $this->calculatorWithPreviousPunch(
+            '2026-11-10 23:49:48',
+            true,
+            '2026-11-11 13:32:28',
+        );
+        $log = $this->getCalculatorLog($calculator);
+        $log->setAttribute('id', 2007);
+        $log->setAttribute('is_manual', true);
+        $log->setAttribute('punch_type', 2);
+        $this->createPreviousAttendanceForPunch($calculator, $previousShift, '2026-11-10');
+
+        $calculator->checkInOrOut();
+        $calculator->retriveAssignedShift();
+
+        $this->assertSame($previousShift->id, $calculator->shift?->id, implode(PHP_EOL, $calculator->getReturnLogs()));
+        $this->assertSame('2026-11-10', $calculator->attendance_date);
+        $this->assertSame(
+            '2026-11-10',
+            (new \ReflectionProperty(AttCalculator::class, 'punchAttendanceDate'))->getValue($calculator),
+        );
+        $this->assertStringContainsString('Reusing shift #'.$previousShift->id.' from cutoff-window attendance', implode(PHP_EOL, $calculator->getReturnLogs()));
+
+        $calculator->curatt = $calculator->queryCrrAttendance(2026);
+        $calculator->handleCutoffTime();
+
+        $this->assertSame('2026-11-11 13:32:28', $calculator->curatt->fresh()->out_time->format('Y-m-d H:i:s'));
+        $this->assertSame(2007, (int) $calculator->curatt->fresh()->out_log_id);
+    }
+
     public function test_cutoff_duration_also_keeps_night_shift_punches_in_previous_shift_window(): void
     {
         $shift = Shift::create([
@@ -2381,9 +2471,12 @@ class ProcessPendingLogsTest extends TestCase
                 $table->unsignedBigInteger('shift_id')->nullable();
                 $table->dateTime('shift_in_time')->nullable();
                 $table->dateTime('shift_out_time')->nullable();
+                $table->dateTime('out_time')->nullable();
+                $table->unsignedBigInteger('out_log_id')->nullable();
+                $table->unsignedInteger('late_minutes')->default(0);
+                $table->unsignedInteger('early_minutes')->default(0);
                 $table->boolean('is_night_shift')->default(false);
                 $table->unsignedBigInteger('in_log_id')->nullable();
-                $table->unsignedBigInteger('out_log_id')->nullable();
                 $table->boolean('is_locked')->default(false);
             });
         }

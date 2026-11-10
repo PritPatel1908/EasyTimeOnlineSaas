@@ -36,6 +36,10 @@
             return '-';
         }
 
+        if (is_string($value) && preg_match('/^\d{1,3}:[0-5]\d(?::[0-5]\d)?$/', $value) === 1) {
+            return substr($value, 0, 5);
+        }
+
         if (is_numeric($value)) {
             $totalMinutes = (int) round((float) $value * 60);
             return sprintf('%02d:%02d', intdiv($totalMinutes, 60), $totalMinutes % 60);
@@ -139,8 +143,8 @@
                         @foreach($woHlSlabs as $index => $slab)
                             <div class="col-md-4 mb-3">
                                 <small class="text-muted d-block">Slab {{ $index + 1 }}</small>
-                                <div>From Time: {{ $formatTimeValue($slab->from_time ?? null) }}</div>
-                                <div>To Time: {{ $formatTimeValue($slab->to_time ?? null) }}</div>
+                                <div>From Hours: {{ $formatTimeValue($slab->from_time ?? null) }}</div>
+                                <div>To Hours: {{ $formatTimeValue($slab->to_time ?? null) }}</div>
                                 <div>Credit Days: {{ $slab->credit_days ?? '-' }}</div>
                             </div>
                         @endforeach

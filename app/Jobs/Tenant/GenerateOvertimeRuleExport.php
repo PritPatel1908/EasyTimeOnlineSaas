@@ -65,9 +65,9 @@ class GenerateOvertimeRuleExport implements ShouldQueue
                 $this->formatDuration($rule->ignore_overtime),
                 $this->formatDuration($rule->ignore_late_going_overtime),
                 (int) $rule->status === 1 ? 'Active' : 'Inactive',
-                $slabs->pluck('value_from')->map(fn (?string $value): string => $this->formatTime($value))->implode(','),
-                $slabs->pluck('value_to')->map(fn (?string $value): string => $this->formatTime($value))->implode(','),
-                $slabs->pluck('head_value')->map(fn (?string $value): string => $this->formatTime($value))->implode(','),
+                $slabs->map(static fn ($slab): string => $slab->formattedValueFrom())->implode(','),
+                $slabs->map(static fn ($slab): string => $slab->formattedValueTo())->implode(','),
+                $slabs->map(static fn ($slab): string => $slab->headValueInMinutes() === null ? '' : $slab->formattedHeadValue())->implode(','),
                 $slabs->pluck('decimal_value')->map(static fn ($value): string => $value === null ? '' : (string) $value)->implode(','),
             ]);
         }
