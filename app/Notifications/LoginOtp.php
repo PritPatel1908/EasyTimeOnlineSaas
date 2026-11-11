@@ -22,7 +22,7 @@ class LoginOtp extends Notification
         return (new MailMessage)
             ->subject('Your EasyTime Online verification code')
             ->greeting('Verify your sign in')
-            ->line('Use the verification code below to finish signing in to the central administration panel.')
+            ->line('Use the verification code below to finish signing in to your account.')
             ->line($this->code)
             ->line('This code expires in 10 minutes. If you did not try to sign in, you can ignore this email.');
     }

@@ -94,7 +94,10 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
 
             Route::middleware('guest:tenant')->group(function (): void {
                 Route::get('/login', [AuthController::class, 'showLogin'])->name('tenant.login');
-                Route::post('/login', [AuthController::class, 'login'])->name('tenant.login.submit');
+                Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1')->name('tenant.login.submit');
+                Route::get('/login/otp', [AuthController::class, 'showOtp'])->name('tenant.login.otp');
+                Route::post('/login/otp', [AuthController::class, 'verifyOtp'])->middleware('throttle:10,1')->name('tenant.login.otp.verify');
+                Route::post('/login/otp/resend', [AuthController::class, 'resendOtp'])->middleware('throttle:5,1')->name('tenant.login.otp.resend');
             });
 
             Route::middleware('auth:tenant')->group(function () {
@@ -115,6 +118,7 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                     Route::put('/profile-settings', 'updateProfile')->name('profile.update');
                     Route::put('/email', 'updateEmail')->name('email.update');
                     Route::delete('/email', 'removeEmail')->name('email.remove');
+                    Route::put('/two-factor', 'toggleTwoFactorAuthentication')->name('two-factor.toggle');
                     Route::put('/password', 'updatePassword')->name('password.update');
                     Route::get('/{page}', 'show')
                         ->whereIn('page', array_keys(SettingsController::pages()))

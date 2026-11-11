@@ -209,7 +209,13 @@
 										<p>Receive codes via SMS or email every time you login</p>
 									</div>
 									<div class="mb-3">
-										<a href="#" class="btn btn-dark btn-sm">Enable</a>
+										<form method="POST" action="{{ url('/settings/two-factor') }}">
+											@csrf
+											@method('PUT')
+											<button type="submit" class="btn btn-dark btn-sm">
+												{{ $securityUser->two_factor_enabled ? 'Disable' : 'Enable' }}
+											</button>
+										</form>
 									</div>
 								</div>
 								<div

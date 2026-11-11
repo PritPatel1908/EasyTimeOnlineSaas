@@ -416,6 +416,7 @@ class User extends Authenticatable implements FilamentUser, HasTenants
         'unit_id' => 'array',
         'bus_route_id' => 'array',
         'is_locked' => 'bool',
+        'two_factor_enabled' => 'bool',
         'allow_mobile_login' => 'bool',
         'allow_mobile_punch' => 'bool',
         'blood_group_id' => 'int',

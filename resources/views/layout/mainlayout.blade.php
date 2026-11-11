@@ -37,7 +37,7 @@
     @vite(['resources/js/admin.js'])
 </head>
 
-@if (Route::is(['login', 'login-2', 'register', 'register-2', 'forgot-password', 'forgot-password-2', 'reset-password', 'reset-password-2', 'email-verification', 'email-verification-2', 'two-step-verification', 'two-step-verification-2', 'success', 'success-2', 'tenant.login']))
+@if (Route::is(['login', 'login-2', 'register', 'register-2', 'forgot-password', 'forgot-password-2', 'reset-password', 'reset-password-2', 'email-verification', 'email-verification-2', 'two-step-verification', 'two-step-verification-2', 'success', 'success-2', 'tenant.login', 'tenant.login.otp', '*.tenant.login.otp']))
    <body class="bg-white">
 @elseif (($errorPage ?? false) || Route::is(['login-3', 'register-3', 'forgot-password-3', 'reset-password-3', 'email-verification-3', 'two-step-verification-3', 'success-3', 'lock-screen', 'error-404', 'error-500', 'under-maintenance', 'under-construction']))
    <body class="bg-linear-gradiant">
@@ -57,7 +57,7 @@
    <body>
 @endif
 
-@if (($errorPage ?? false) || Route::is(['login', 'login-2', 'login-3', 'register', 'register-2', 'register-3', 'forgot-password', 'forgot-password-2', 'forgot-password-3', 'reset-password', 'reset-password-2', 'reset-password-3', 'email-verification', 'email-verification-2', 'email-verification-3', 'lock-screen', 'error-404', 'error-500', 'coming-soon', 'under-maintenance', 'under-construction', 'success', 'success-2', 'success-3', 'two-step-verification', 'two-step-verification-2', 'two-step-verification-3', 'job-grid-2', 'job-list-2', 'job-details', 'tenant.login']))
+@if (($errorPage ?? false) || Route::is(['login', 'login-2', 'login-3', 'register', 'register-2', 'register-3', 'forgot-password', 'forgot-password-2', 'forgot-password-3', 'reset-password', 'reset-password-2', 'reset-password-3', 'email-verification', 'email-verification-2', 'email-verification-3', 'lock-screen', 'error-404', 'error-500', 'coming-soon', 'under-maintenance', 'under-construction', 'success', 'success-2', 'success-3', 'two-step-verification', 'two-step-verification-2', 'two-step-verification-3', 'job-grid-2', 'job-list-2', 'job-details', 'tenant.login', 'tenant.login.otp', '*.tenant.login.otp']))
 	<div id="global-loader" style="display: none;">
 		<div class="page-loader"></div>
 	</div>
@@ -70,7 +70,7 @@
 	<!-- Main Wrapper -->
 	<div class="main-wrapper">
 
-		@if (!(($errorPage ?? false) || Route::is(['login', 'login-2', 'login-3', 'register', 'register-2', 'register-3', 'forgot-password', 'forgot-password-2', 'forgot-password-3', 'reset-password', 'reset-password-2', 'reset-password-3', 'email-verification', 'email-verification-2', 'email-verification-3', 'lock-screen', 'error-404', 'error-500', 'coming-soon', 'under-maintenance', 'under-construction', 'success', 'success-2', 'success-3', 'two-step-verification', 'two-step-verification-2', 'two-step-verification-3', 'job-grid-2', 'job-list-2', 'job-details', 'tenant.login'])))
+		@if (!(($errorPage ?? false) || Route::is(['login', 'login-2', 'login-3', 'register', 'register-2', 'register-3', 'forgot-password', 'forgot-password-2', 'forgot-password-3', 'reset-password', 'reset-password-2', 'reset-password-3', 'email-verification', 'email-verification-2', 'email-verification-3', 'lock-screen', 'error-404', 'error-500', 'coming-soon', 'under-maintenance', 'under-construction', 'success', 'success-2', 'success-3', 'two-step-verification', 'two-step-verification-2', 'two-step-verification-3', 'job-grid-2', 'job-list-2', 'job-details', 'tenant.login', 'tenant.login.otp', '*.tenant.login.otp'])))
 			@include('partials.topbar')
 			@include('partials.sidebar')
 			@include('partials.horizontal-sidebar')

@@ -244,6 +244,27 @@ class SettingsController extends Controller
         return back()->with('success', 'Email address removed successfully.');
     }
 
+    public function toggleTwoFactorAuthentication(): RedirectResponse
+    {
+        $user = $this->profileUser();
+
+        if (! $user->two_factor_enabled
+            && (! is_string($user->email) || filter_var($user->email, FILTER_VALIDATE_EMAIL) === false)) {
+            return back()->withErrors([
+                'email' => 'Add a valid email address before enabling two-factor authentication.',
+            ]);
+        }
+
+        $user->two_factor_enabled = ! $user->two_factor_enabled;
+        $user->save();
+
+        $message = $user->two_factor_enabled
+            ? 'Two-factor authentication enabled successfully.'
+            : 'Two-factor authentication disabled successfully.';
+
+        return back()->with('success', $message);
+    }
+
     public function verifyEmail(Request $request): RedirectResponse
     {
         $user = User::query()->findOrFail($request->route('id'));
