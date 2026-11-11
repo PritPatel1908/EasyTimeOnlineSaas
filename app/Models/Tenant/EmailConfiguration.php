@@ -10,6 +10,7 @@ use App\Traits\CUDby;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Class EmailConfiguration
@@ -45,4 +46,32 @@ class EmailConfiguration extends Model
         'key',
         'value',
     ];
+
+    /**
+     * @return array<string, string|null>
+     */
+    public static function settings(): array
+    {
+        return static::query()->pluck('value', 'key')->all();
+    }
+
+    /**
+     * @param array<string, string|null> $settings
+     */
+    public static function saveSettings(array $settings): void
+    {
+        DB::transaction(static function () use ($settings): void {
+            foreach ($settings as $key => $value) {
+                static::query()->updateOrCreate(
+                    ['key' => $key],
+                    ['value' => $value],
+                );
+            }
+        });
+    }
+
+    public static function deleteSettings(): void
+    {
+        static::query()->forceDelete();
+    }
 }

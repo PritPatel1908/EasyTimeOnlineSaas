@@ -155,7 +155,8 @@
                                             </div>
                                             <div class="col-md-6 mb-3">
                                                 <label class="form-label">Email</label>
-                                                <input type="email" name="email" class="form-control" value="{{ $value('email') }}" autocomplete="email">
+                                                <input type="email" class="form-control" value="{{ $employee->email }}" autocomplete="email" readonly>
+                                                <small class="text-muted">Change your email from <a href="{{ url('settings/security-settings') }}">Security Settings</a> and verify the new address.</small>
                                             </div>
                                             <div class="col-md-4 mb-3">
                                                 <label class="form-label">First Name <span class="text-danger">*</span></label>
@@ -175,7 +176,7 @@
                                             </div>
                                             <div class="col-md-6 mb-3">
                                                 <label class="form-label">Gender</label>
-                                                <select name="gender" class="form-select">
+                                                <select name="gender" class="form-select select">
                                                     <option value="">Select gender</option>
                                                     @if ($gender && ! in_array(strtolower($gender), ['male', 'female', 'other'], true))
                                                         <option value="{{ $gender }}" selected>{{ $gender }}</option>
@@ -191,7 +192,7 @@
                                             </div>
                                             <div class="col-md-6 mb-3">
                                                 <label class="form-label">Blood Group</label>
-                                                <select name="blood_group_id" class="form-select">
+                                                <select name="blood_group_id" class="form-select select">
                                                     <option value="">Select blood group</option>
                                                     @foreach ($bloodGroups as $bloodGroup)
                                                         <option value="{{ $bloodGroup->id }}" @selected((string) $value('blood_group_id') === (string) $bloodGroup->id)>{{ $bloodGroup->name }}</option>

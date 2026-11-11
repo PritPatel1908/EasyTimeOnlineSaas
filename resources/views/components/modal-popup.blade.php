@@ -29319,7 +29319,7 @@
 	<!-- /Compose Mail -->
 @endif
 
-@if(Route::is('email-settings'))
+@if (Route::is('email-settings') || (Route::is(['tenant.settings.page', 'tenant.settings.show']) && request()->route('page') === 'email-settings'))
 	<!-- Add php mailer -->
 	<div class="modal fade" id="phpmailersettings">
 		<div class="modal-dialog modal-dialog-centered">
@@ -29333,32 +29333,35 @@
 					</button>
 				</div>
 				<div class="modal-body">
-					<form action="{{url('email-settings')}}">
+					<form method="POST" action="{{ url('email-settings') }}">
+						@csrf
+						@method('PUT')
+						<input type="hidden" name="transport" value="mail">
 						<div class="row">
 
 							<div class="col-md-12">
 								<div class="mb-3">
-									<label class="form-label">From Email Address</label>
-									<input class="form-control" type="text">
+									<label class="form-label" for="phpmailer_from_address">From Email Address</label>
+									<input id="phpmailer_from_address" name="from_address" class="form-control" type="email" value="{{ old('from_address', $emailConfiguration['from_address'] ?? '') }}" required>
 								</div>
 							</div>
 							<div class="col-md-12">
 								<div class="mb-3">
-									<label class="form-label">Email Password</label>
-									<input class="form-control" type="text">
+									<label class="form-label" for="phpmailer_password">Email Password</label>
+									<input id="phpmailer_password" name="password" class="form-control" type="password" autocomplete="new-password" placeholder="Leave blank to keep the current password">
 								</div>
 							</div>
 
 							<div class="col-md-12">
 								<div class="mb-3">
-									<label class="form-label">From Email Name</label>
-									<input class="form-control" type="text">
+									<label class="form-label" for="phpmailer_from_name">From Email Name</label>
+									<input id="phpmailer_from_name" name="from_name" class="form-control" type="text" value="{{ old('from_name', $emailConfiguration['from_name'] ?? '') }}" required>
 								</div>
 							</div>
 
 						</div>
 						<div class="d-flex align-items-center justify-content-end">
-							<button type="button" class="btn btn-outline-light border me-3">Cancel</button>
+							<button type="button" class="btn btn-outline-light border me-3" data-bs-dismiss="modal">Cancel</button>
 							<button type="submit" class="btn btn-primary">Save</button>
 						</div>
 					</form>
@@ -29381,38 +29384,64 @@
 					</button>
 				</div>
 				<div class="modal-body">
-					<form action="{{url('email-settings')}}">
+					<form method="POST" action="{{ url('email-settings') }}">
+						@csrf
+						@method('PUT')
+						<input type="hidden" name="transport" value="smtp">
 						<div class="row">
 
 							<div class="col-md-12">
 								<div class="mb-3">
-									<label class="form-label">From Email Address</label>
-									<input class="form-control" type="text">
+									<label class="form-label" for="smtp_from_address">From Email Address</label>
+									<input id="smtp_from_address" name="from_address" class="form-control" type="email" value="{{ old('from_address', $emailConfiguration['from_address'] ?? '') }}" required>
 								</div>
 							</div>
 							<div class="col-md-12">
 								<div class="mb-3">
-									<label class="form-label">Email Password</label>
-									<input class="form-control" type="text">
+									<label class="form-label" for="smtp_username">SMTP Username (optional)</label>
+									<input id="smtp_username" name="username" class="form-control" type="text" value="{{ old('username', $emailConfiguration['username'] ?? '') }}" autocomplete="username">
 								</div>
 							</div>
 
 							<div class="col-md-12">
 								<div class="mb-3">
-									<label class="form-label">Email Host</label>
-									<input class="form-control" type="text">
+									<label class="form-label" for="smtp_password">SMTP Password</label>
+									<input id="smtp_password" name="password" class="form-control" type="password" autocomplete="new-password" placeholder="Leave blank to keep the current password">
+									<small class="text-muted">For Gmail, use a Google App Password (not your regular Gmail password). Spaces in pasted App Passwords are removed automatically.</small>
 								</div>
 							</div>
 							<div class="col-md-12">
 								<div class="mb-3">
-									<label class="form-label">Port</label>
-									<input class="form-control" type="text">
+									<label class="form-label" for="smtp_host">SMTP Host</label>
+									<input id="smtp_host" name="host" class="form-control" type="text" value="{{ old('host', $emailConfiguration['host'] ?? '') }}" required>
+								</div>
+							</div>
+							<div class="col-md-12">
+								<div class="mb-3">
+									<label class="form-label" for="smtp_port">Port</label>
+									<input id="smtp_port" name="port" class="form-control" type="number" min="1" max="65535" value="{{ old('port', $emailConfiguration['port'] ?? '') }}" required>
+								</div>
+							</div>
+							<div class="col-md-12">
+								<div class="mb-3">
+									<label class="form-label" for="smtp_encryption">Encryption</label>
+									<select id="smtp_encryption" name="encryption" class="form-control select">
+										<option value="" @selected(old('encryption', $emailConfiguration['encryption'] ?? '') === '')>None</option>
+										<option value="tls" @selected(old('encryption', $emailConfiguration['encryption'] ?? '') === 'tls')>TLS / STARTTLS</option>
+										<option value="ssl" @selected(old('encryption', $emailConfiguration['encryption'] ?? '') === 'ssl')>SSL</option>
+									</select>
+								</div>
+							</div>
+							<div class="col-md-12">
+								<div class="mb-3">
+									<label class="form-label" for="smtp_from_name">From Email Name</label>
+									<input id="smtp_from_name" name="from_name" class="form-control" type="text" value="{{ old('from_name', $emailConfiguration['from_name'] ?? '') }}" required>
 								</div>
 							</div>
 
 						</div>
 						<div class="d-flex align-items-center justify-content-end">
-							<button type="button" class="btn btn-outline-light border me-3">Cancel</button>
+							<button type="button" class="btn btn-outline-light border me-3" data-bs-dismiss="modal">Cancel</button>
 							<button type="submit" class="btn btn-primary">Save</button>
 						</div>
 					</form>
@@ -29421,6 +29450,16 @@
 		</div>
 	</div>
 	<!-- /Add  SMTP -->
+	@if ($errors->any() && old('transport'))
+		<script>
+			document.addEventListener('DOMContentLoaded', function () {
+				const modal = document.getElementById(@json(old('transport') === 'smtp' ? 'smtpsettings' : 'phpmailersettings'));
+				if (modal) {
+					bootstrap.Modal.getOrCreateInstance(modal).show();
+				}
+			});
+		</script>
+	@endif
 @endif
 
 @if(Route::is('email-template'))
@@ -63522,49 +63561,6 @@
 	</div>
 	<!-- /Change Password -->
 
-	<!-- Change Email -->
-	<div class="modal fade custom-modal" id="change-email">
-		<div class="modal-dialog modal-dialog-centered">
-			<div class="modal-content doctor-profile">
-				<div class="modal-header d-flex align-items-center justify-content-between border-bottom">
-					<h5 class="modal-title">Change Email</h5>
-					<a href="javascript:void(0);" data-bs-dismiss="modal" aria-label="Close"><i
-							class="ti ti-circle-x-filled fs-20"></i></a>
-				</div>
-				<div class="modal-body p-4">
-					<form action="{{url('security-settings')}}">
-						<div class="wallet-add">
-							<div class="mb-3">
-								<label class="form-label">Current Email Address</label>
-								<input type="email" class="form-control">
-							</div>
-							<div class="mb-3">
-								<label class="form-label">New Email Address <span
-										class="text-danger">*</span></label>
-								<input type="email" class="form-control">
-							</div>
-							<div class="mb-3">
-								<label class="form-label">Confirm New Password<span
-										class="text-danger">*</span></label>
-								<div class="pass-group">
-									<input type="password" class="form-control pass-inputa">
-									<span class="ti toggle-passworda ti-eye-off"></span>
-								</div>
-							</div>
-						</div>
-					</form>
-				</div>
-				<div class="modal-footer border-top">
-					<div class="acc-submit">
-						<a href="javascript:void(0);" class="btn btn-light me-2" data-bs-dismiss="modal">Cancel</a>
-						<button class="btn btn-primary" type="submit">Save Change</button>
-					</div>
-				</div>
-			</div>
-		</div>
-	</div>
-	<!-- /Change Email -->
-
 	<!-- Change Phone -->
 	<div class="modal fade custom-modal" id="change-phone">
 		<div class="modal-dialog modal-dialog-centered">
@@ -63778,6 +63774,69 @@
 		</div>
 	</div>
 	<!-- /Delete Account -->
+@endif
+
+@if (request()->is('security-settings', 'settings/security-settings'))
+	<!-- Change Email -->
+	<div class="modal fade custom-modal" id="change-email" tabindex="-1" aria-labelledby="change-email-label"
+		aria-hidden="true">
+		<div class="modal-dialog modal-dialog-centered">
+			<div class="modal-content doctor-profile">
+				<div class="modal-header d-flex align-items-center justify-content-between border-bottom">
+					<h5 class="modal-title" id="change-email-label">Change Email</h5>
+					<a href="javascript:void(0);" data-bs-dismiss="modal" aria-label="Close"><i
+							class="ti ti-circle-x-filled fs-20"></i></a>
+				</div>
+				<form id="change-email-form" method="POST" action="{{ url('settings/email') }}">
+						@csrf
+						@method('PUT')
+					<div class="modal-body p-4">
+						<div class="wallet-add">
+							<div class="mb-3">
+								<label for="current_email" class="form-label">Current Email Address</label>
+								<input id="current_email" name="current_email" type="email"
+									class="form-control @error('current_email') is-invalid @enderror"
+									value="{{ old('current_email', auth('tenant')->user()?->email ?? '') }}"
+									autocomplete="email" readonly>
+								@error('current_email')
+									<div class="invalid-feedback">{{ $message }}</div>
+								@enderror
+							</div>
+							<div class="mb-3">
+								<label for="new_email" class="form-label">New Email Address <span
+										class="text-danger">*</span></label>
+								<input id="new_email" name="new_email" type="email"
+									class="form-control @error('new_email') is-invalid @enderror"
+									value="{{ old('new_email') }}" autocomplete="email" maxlength="150" required>
+								@error('new_email')
+									<div class="invalid-feedback">{{ $message }}</div>
+								@enderror
+							</div>
+						</div>
+					</div>
+					<div class="modal-footer border-top">
+						<div class="acc-submit">
+							<a href="javascript:void(0);" class="btn btn-light me-2"
+								data-bs-dismiss="modal">Cancel</a>
+							<button class="btn btn-primary" type="submit">Save Change</button>
+						</div>
+					</div>
+				</form>
+					@if ($errors->hasAny(['current_email', 'new_email']))
+						<script>
+							document.addEventListener('DOMContentLoaded', function () {
+								const modal = document.getElementById('change-email');
+								if (modal) {
+									bootstrap.Modal.getOrCreateInstance(modal).show();
+								}
+							});
+						</script>
+					@endif
+				</div>
+			</div>
+		</div>
+	</div>
+	<!-- /Change Email -->
 @endif
 
 @if(Route::is('shift-swap-requests'))

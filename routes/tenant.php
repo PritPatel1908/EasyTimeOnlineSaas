@@ -88,6 +88,9 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
             EnsureValidTenantLicense::class,
         ])->group(function () {
             Route::post('/license', [LicenseController::class, 'update'])->name('tenant.license.update');
+            Route::get('/email/verify/{id}/{hash}', [SettingsController::class, 'verifyEmail'])
+                ->middleware('signed')
+                ->name('tenant.email.verify');
 
             Route::middleware('guest:tenant')->group(function (): void {
                 Route::get('/login', [AuthController::class, 'showLogin'])->name('tenant.login');
@@ -103,9 +106,15 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                 Route::get('/index', function () {
                     return redirect()->route('tenant.dashboard', ['tenant' => request()->route('tenant')]);
                 })->name('tenant.index.legacy');
+                Route::put('/email-settings', [SettingsController::class, 'updateEmailSettings'])
+                    ->name('tenant.settings.email.update.legacy');
+                Route::delete('/email-settings', [SettingsController::class, 'deleteEmailSettings'])
+                    ->name('tenant.settings.email.delete.legacy');
                 Route::prefix('settings')->name('tenant.settings.')->controller(SettingsController::class)->group(function (): void {
                     Route::get('/', 'index')->name('index');
                     Route::put('/profile-settings', 'updateProfile')->name('profile.update');
+                    Route::put('/email', 'updateEmail')->name('email.update');
+                    Route::delete('/email', 'removeEmail')->name('email.remove');
                     Route::put('/password', 'updatePassword')->name('password.update');
                     Route::get('/{page}', 'show')
                         ->whereIn('page', array_keys(SettingsController::pages()))

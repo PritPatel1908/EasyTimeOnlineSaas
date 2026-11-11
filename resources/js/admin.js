@@ -324,6 +324,8 @@ const menuSearches = Array.from(document.querySelectorAll('[data-search-shortcut
 			closeMenuSearch(search);
 		}
 	});
+
+	return search;
 });
 
 document.addEventListener('keydown', (event) => {

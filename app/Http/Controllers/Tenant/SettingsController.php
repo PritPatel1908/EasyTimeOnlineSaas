@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\Tenant\SendTenantEmailVerification;
 use App\Models\Tenant\BloodGroup;
+use App\Models\Tenant\EmailConfiguration;
 use App\Models\Tenant\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -13,8 +15,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class SettingsController extends Controller
 {
@@ -93,19 +97,170 @@ class SettingsController extends Controller
                 ]),
                 'bloodGroups' => BloodGroup::query()->orderBy('name')->get(),
             ];
+        } elseif ($page === 'email-settings') {
+            $data['emailConfiguration'] = EmailConfiguration::settings();
         } elseif ($page === 'security-settings') {
-            $passwordHistories = $this->profileUser()
+            $securityUser = $this->profileUser();
+            $passwordHistories = $securityUser
                 ->password_histories()
                 ->latest()
                 ->limit(3)
                 ->get(['id', 'created_at']);
             $data = [
+                'securityUser' => $securityUser,
                 'passwordHistories' => $passwordHistories,
                 'lastPasswordChangedAt' => $passwordHistories->first()?->created_at,
             ];
         }
 
         return view($this->viewPath($page), $data);
+    }
+
+    public function updateEmailSettings(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'transport' => ['required', Rule::in(['mail', 'smtp'])],
+            'from_address' => ['required', 'email', 'max:255'],
+            'from_name' => ['required', 'string', 'max:255'],
+            'password' => ['nullable', 'string', 'max:255'],
+            'host' => ['required_if:transport,smtp', 'nullable', 'string', 'max:255'],
+            'port' => ['required_if:transport,smtp', 'nullable', 'integer', 'min:1', 'max:65535'],
+            'username' => ['nullable', 'string', 'max:255'],
+            'encryption' => ['nullable', Rule::in(['tls', 'ssl'])],
+        ]);
+
+        $settings = [];
+        foreach ([
+            'transport',
+            'from_address',
+            'from_name',
+            'host',
+            'port',
+            'username',
+            'encryption',
+        ] as $key) {
+            if (array_key_exists($key, $validated)) {
+                $settings[$key] = $validated[$key] === null ? null : (string) $validated[$key];
+            }
+        }
+
+        if (($validated['password'] ?? '') !== '') {
+            $settings['password'] = $validated['transport'] === 'smtp'
+                ? $this->normalizeSmtpPassword((string) ($validated['host'] ?? ''), $validated['password'])
+                : $validated['password'];
+        }
+
+        EmailConfiguration::saveSettings($settings);
+
+        return back()->with('success', 'Email settings updated successfully.');
+    }
+
+    public function deleteEmailSettings(): RedirectResponse
+    {
+        EmailConfiguration::deleteSettings();
+
+        return back()->with('success', 'Email configuration deleted successfully.');
+    }
+
+    public function updateEmail(Request $request): RedirectResponse
+    {
+        $user = $this->profileUser();
+        $validated = $request->validate([
+            'new_email' => [
+                'required',
+                'email',
+                'max:150',
+                Rule::unique('users', 'email')->ignore($user->getKey()),
+            ],
+        ]);
+        $newEmail = strtolower(trim($validated['new_email']));
+
+        if ($user->email !== null && strcasecmp($newEmail, $user->email) === 0) {
+            throw ValidationException::withMessages([
+                'new_email' => 'Enter an email address different from your current address.',
+            ]);
+        }
+
+        $settings = EmailConfiguration::settings();
+
+        if (empty($settings['from_address']) || empty($settings['from_name'])) {
+            throw ValidationException::withMessages([
+                'new_email' => 'Configure your email transport before changing your email address.',
+            ]);
+        }
+
+        if (($settings['transport'] ?? 'mail') === 'smtp') {
+            if (empty($settings['host']) || empty($settings['port'])) {
+                throw ValidationException::withMessages([
+                    'new_email' => 'Complete your SMTP host and port settings before changing your email address.',
+                ]);
+            }
+        }
+
+        $routeName = (string) $request->route()?->getName();
+        $settingsRouteSuffix = 'tenant.settings.email.update';
+        $routePrefix = str_ends_with($routeName, $settingsRouteSuffix)
+            ? substr($routeName, 0, -strlen($settingsRouteSuffix))
+            : '';
+        $verificationUrl = URL::temporarySignedRoute(
+            $routePrefix.'tenant.email.verify',
+            now()->addHour(),
+            [
+                'tenant' => $request->route('tenant'),
+                'id' => $user->getKey(),
+                'hash' => sha1($newEmail),
+            ],
+        );
+
+        DB::transaction(function () use ($user, $newEmail, $verificationUrl): void {
+            $user->email = $newEmail;
+            $user->email_verified_at = null;
+            $user->save();
+
+            SendTenantEmailVerification::dispatch(
+                (int) $user->getKey(),
+                $newEmail,
+                $verificationUrl,
+                (string) ($user->name ?? ''),
+            )
+                ->onConnection('database_tenant')
+                ->onQueue('notifications')
+                ->afterCommit();
+        });
+
+        return back()->with('success', 'Email address updated. A verification email has been queued for your new email address.');
+    }
+
+    public function removeEmail(): RedirectResponse
+    {
+        $user = $this->profileUser();
+
+        DB::transaction(function () use ($user): void {
+            $user->email = null;
+            $user->email_verified_at = null;
+            $user->save();
+        });
+
+        return back()->with('success', 'Email address removed successfully.');
+    }
+
+    public function verifyEmail(Request $request): RedirectResponse
+    {
+        $user = User::query()->findOrFail($request->route('id'));
+        $hash = (string) $request->route('hash');
+
+        abort_unless(
+            is_string($user->email) && hash_equals(sha1($user->email), $hash),
+            403,
+        );
+
+        if ($user->email_verified_at === null) {
+            $user->email_verified_at = now();
+            $user->save();
+        }
+
+        return redirect('/settings/security-settings')
+            ->with('success', 'Your email address has been verified successfully.');
     }
 
     public function updatePassword(Request $request): RedirectResponse
@@ -164,7 +319,6 @@ class SettingsController extends Controller
             'fname' => ['required', 'string', 'max:100'],
             'mname' => ['nullable', 'string', 'max:100'],
             'lname' => ['nullable', 'string', 'max:100'],
-            'email' => ['nullable', 'email', 'max:150', Rule::unique('users', 'email')->ignore($user->getKey())],
             'number' => ['nullable', 'string', 'max:30'],
             'aadhar_number' => ['nullable', 'string', 'max:255'],
             'uan_number' => ['nullable', 'string', 'max:255'],
@@ -236,7 +390,6 @@ class SettingsController extends Controller
                     trim($validated['mname'] ?? ''),
                     trim($validated['lname'] ?? ''),
                 ]))),
-                'email' => $validated['email'] ?? null,
                 'number' => $validated['number'] ?? null,
                 'aadhar_number' => $validated['aadhar_number'] ?? null,
                 'uan_number' => $validated['uan_number'] ?? null,
@@ -381,5 +534,12 @@ class SettingsController extends Controller
         abort_unless($user instanceof User, 403);
 
         return $user;
+    }
+
+    private function normalizeSmtpPassword(string $host, string $password): string
+    {
+        return strtolower(trim($host)) === 'smtp.gmail.com'
+            ? (preg_replace('/\s+/', '', $password) ?? $password)
+            : $password;
     }
 }

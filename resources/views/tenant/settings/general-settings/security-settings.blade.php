@@ -86,7 +86,23 @@
 								<h4>Security Settings</h4>
 							</div>
 							@if (session('success'))
-								<div class="alert alert-success" role="alert">{{ session('success') }}</div>
+								@push('scripts')
+									<script>
+										window.addEventListener('load', function () {
+											if (typeof window.Swal?.fire !== 'function') {
+												console.error('SweetAlert2 is unavailable; success feedback could not be displayed.');
+												return;
+											}
+
+											window.Swal.fire({
+												icon: 'success',
+												title: 'Success',
+												text: @json(session('success')),
+												confirmButtonText: 'OK',
+											});
+										}, { once: true });
+									</script>
+								@endpush
 							@endif
 							<div>
 								<div
@@ -123,6 +139,68 @@
 									@else
 										<p class="text-muted mb-0">No password changes have been recorded.</p>
 									@endif
+								</div>
+								<div
+									class="d-flex justify-content-between align-items-center flex-wrap border-bottom mb-3">
+									<div class="mb-3">
+										<h5 class="fw-medium d-flex align-items-center mb-1">Email Verification
+											@if ($securityUser->email_verified_at)
+												<span><i
+														class="ti ti-discount-check-filled text-success ms-2"></i></span>
+											@elseif ($securityUser->email)
+												<span class="badge badge-xs ms-2 bg-outline-warning rounded-pill">Not
+													Verified</span>
+											@else
+												<span class="badge badge-xs ms-2 bg-outline-secondary rounded-pill">Not
+													Set</span>
+											@endif
+										</h5>
+										<div class="d-flex align-items-center">
+											<p class="mb-0 me-2 pe-2 border-end">The email address associated with
+												the account</p>
+											<p class="mb-0">
+												{{ $securityUser->email_verified_at ? 'Verified Email :' : 'Email :' }}
+												{{ $securityUser->email ?? 'No email address is set.' }}
+											</p>
+										</div>
+									</div>
+									<div class="mb-3">
+										@if ($securityUser->email)
+											<form id="remove-email-form" action="{{ url('/settings/email') }}" method="POST" class="d-inline">
+												@csrf
+												@method('DELETE')
+												<button type="submit" class="btn btn-outline-light btn-sm border me-2">Remove</button>
+											</form>
+											@push('scripts')
+												<script>
+													document.getElementById('remove-email-form')?.addEventListener('submit', function (event) {
+														event.preventDefault();
+														const form = event.currentTarget;
+
+														if (typeof window.Swal?.fire !== 'function') {
+															console.error('SweetAlert2 is unavailable; email removal was cancelled.');
+															return;
+														}
+
+														window.Swal.fire({
+															icon: 'warning',
+															title: 'Remove email address?',
+															text: 'The email address and its verification status will be cleared.',
+															showCancelButton: true,
+															confirmButtonText: 'Yes, remove it',
+															cancelButtonText: 'Cancel',
+														}).then((result) => {
+															if (result.isConfirmed) {
+																form.submit();
+															}
+														});
+													});
+												</script>
+											@endpush
+										@endif
+										<a href="#" class="btn btn-dark btn-sm" data-bs-toggle="modal"
+											data-bs-target="#change-email">Change </a>
+									</div>
 								</div>
 								<div
 									class="d-flex justify-content-between align-items-center flex-wrap border-bottom mb-3">
@@ -169,25 +247,6 @@
 										<a href="#" class="btn btn-outline-light btn-sm border me-2">Remove</a>
 										<a href="#" class="btn btn-dark btn-sm" data-bs-toggle="modal"
 											data-bs-target="#change-phone">Change </a>
-									</div>
-								</div>
-								<div
-									class="d-flex justify-content-between align-items-center flex-wrap border-bottom mb-3">
-									<div class="mb-3">
-										<h5 class="fw-medium d-flex align-items-center mb-1">Email Verification
-											<span><i
-													class="ti ti-discount-check-filled text-success ms-2"></i></span>
-										</h5>
-										<div class="d-flex align-items-center">
-											<p class="mb-0 me-2 pe-2 border-end">The email address associated with
-												the account</p>
-											<p>Verified Email : info@example.com</p>
-										</div>
-									</div>
-									<div class="mb-3">
-										<a href="#" class="btn btn-outline-light btn-sm border me-2">Remove</a>
-										<a href="#" class="btn btn-dark btn-sm" data-bs-toggle="modal"
-											data-bs-target="#change-email">Change </a>
 									</div>
 								</div>
 								<div

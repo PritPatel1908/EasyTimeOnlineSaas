@@ -104,6 +104,33 @@
 								<div
 									class="d-flex justify-content-between align-items-center flex-wrap border-bottom mb-3">
 									<div class="mb-3">
+										<h5 class="fw-medium d-flex align-items-center mb-1">Email Verification
+											@if (auth()->user()?->email_verified_at)
+												<span><i
+														class="ti ti-discount-check-filled text-success ms-2"></i></span>
+											@else
+												<span class="badge badge-xs ms-2 bg-outline-warning rounded-pill">Not
+													Verified</span>
+											@endif
+										</h5>
+										<div class="d-flex align-items-center">
+											<p class="mb-0 me-2 pe-2 border-end">The email address associated with
+												the account</p>
+											<p class="mb-0">
+												{{ auth()->user()?->email_verified_at ? 'Verified Email :' : 'Email :' }}
+												{{ auth()->user()?->email }}
+											</p>
+										</div>
+									</div>
+									<div class="mb-3">
+										<a href="#" class="btn btn-outline-light btn-sm border me-2">Remove</a>
+										<a href="#" class="btn btn-dark btn-sm" data-bs-toggle="modal"
+											data-bs-target="#change-email">Change </a>
+									</div>
+								</div>
+								<div
+									class="d-flex justify-content-between align-items-center flex-wrap border-bottom mb-3">
+									<div class="mb-3">
 										<h5 class="fw-medium mb-1">Two Factor Authentication</h5>
 										<p>Receive codes via SMS or email every time you login</p>
 									</div>
@@ -146,25 +173,6 @@
 										<a href="#" class="btn btn-outline-light btn-sm border me-2">Remove</a>
 										<a href="#" class="btn btn-dark btn-sm" data-bs-toggle="modal"
 											data-bs-target="#change-phone">Change </a>
-									</div>
-								</div>
-								<div
-									class="d-flex justify-content-between align-items-center flex-wrap border-bottom mb-3">
-									<div class="mb-3">
-										<h5 class="fw-medium d-flex align-items-center mb-1">Email Verification
-											<span><i
-													class="ti ti-discount-check-filled text-success ms-2"></i></span>
-										</h5>
-										<div class="d-flex align-items-center">
-											<p class="mb-0 me-2 pe-2 border-end">The email address associated with
-												the account</p>
-											<p>Verified Email : info@example.com</p>
-										</div>
-									</div>
-									<div class="mb-3">
-										<a href="#" class="btn btn-outline-light btn-sm border me-2">Remove</a>
-										<a href="#" class="btn btn-dark btn-sm" data-bs-toggle="modal"
-											data-bs-target="#change-email">Change </a>
 									</div>
 								</div>
 								<div

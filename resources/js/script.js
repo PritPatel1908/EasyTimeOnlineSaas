@@ -444,8 +444,8 @@ Template Name: Smarthr - Bootstrap Admin Template
 	// Select -> Tom Select
 	// (bare `.select2` init lives in custom-tom-select.js — not duplicated here)
 
-	if (document.querySelector('.select')) {
-		document.querySelectorAll('.select').forEach(function (el) {
+	if (document.querySelector('select.select')) {
+		document.querySelectorAll('select.select').forEach(function (el) {
 			if (!el.tomselect) new TomSelect(el, { width: '100%', controlInput: null });
 		});
 	}

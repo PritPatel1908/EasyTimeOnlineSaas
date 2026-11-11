@@ -1,5 +1,8 @@
 @extends('layout.mainlayout')
 @section('content')
+	@php
+		$activeTransport = old('transport', $emailConfiguration['transport'] ?? 'mail');
+	@endphp
 
     <!-- ========================
         Start Page Content
@@ -91,7 +94,16 @@
 							<div class="border-bottom mb-3 pb-3">
 								<h4>Email Settings</h4>
 							</div>
-							<form action="{{url('email-settings')}}">
+							<form id="email-transport-form" method="POST" action="{{url('email-settings')}}">
+								@csrf
+								@method('PUT')
+								<input type="hidden" name="transport" id="email-transport-value" value="{{ $activeTransport }}">
+								<input type="hidden" name="from_address" value="{{ $emailConfiguration['from_address'] ?? '' }}">
+								<input type="hidden" name="from_name" value="{{ $emailConfiguration['from_name'] ?? '' }}">
+								<input type="hidden" name="host" value="{{ $emailConfiguration['host'] ?? '' }}">
+								<input type="hidden" name="port" value="{{ $emailConfiguration['port'] ?? '' }}">
+								<input type="hidden" name="username" value="{{ $emailConfiguration['username'] ?? '' }}">
+								<input type="hidden" name="encryption" value="{{ $emailConfiguration['encryption'] ?? '' }}">
 								<div class="border-bottom mb-3">
 									<div class="row">
 
@@ -113,17 +125,14 @@
 															</div>
 															<div class="form-check form-switch">
 																<input class="form-check-input" type="checkbox"
-																	role="switch" id="flexSwitchCheckDefault">
+																	role="switch" id="flexSwitchCheckDefault"
+																	@checked($activeTransport === 'mail')>
 															</div>
 														</div>
 														<p>Used to send emails safely and easily via PHP code from a
 															web server.</p>
 													</div>
 													<div class="d-flex align-items-center justify-content-between">
-														<span
-															class="btn btn-sm d-inline-flex align-items-center btn-dark">
-															<i class="ti ti-checks me-1"></i>Connected
-														</span>
 														<a href="#" data-bs-toggle="modal"
 															data-bs-target="#phpmailersettings"
 															class="btn btn-icon btn-sm text-gray-5 fs-20"><i
@@ -149,17 +158,14 @@
 															</div>
 															<div class="form-check form-switch">
 																<input class="form-check-input" type="checkbox"
-																	role="switch" id="flexSwitchCheckDefault2">
+																	role="switch" id="flexSwitchCheckDefault2"
+																	@checked($activeTransport === 'smtp')>
 															</div>
 														</div>
 														<p>SMTP is used to send, relay or forward messages from a
 															mail client.</p>
 													</div>
 													<div class="d-flex align-items-center justify-content-between">
-														<span
-															class="btn btn-sm d-inline-flex align-items-center btn-dark">
-															<i class="ti ti-checks me-1"></i>Connected
-														</span>
 														<a href="#" data-bs-toggle="modal"
 															data-bs-target="#smtpsettings"
 															class="btn btn-icon btn-sm text-gray-5 fs-20"><i
@@ -173,11 +179,10 @@
 									</div>
 								</div>
 
-								<div class="d-flex align-items-center justify-content-end">
-									<button type="button" class="btn btn-outline-light border me-3">Cancel</button>
-									<button type="submit" class="btn btn-primary">Save</button>
-								</div>
 							</form>
+							<div class="d-flex align-items-center justify-content-end">
+								<button type="submit" form="delete-email-settings-form" class="btn btn-outline-danger">Delete Configuration</button>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -188,6 +193,34 @@
 		@include('partials.footer')
 
 	</div>
+	<script>
+		(function () {
+			const phpMailerSwitch = document.getElementById('flexSwitchCheckDefault');
+			const smtpSwitch = document.getElementById('flexSwitchCheckDefault2');
+			const transportInput = document.getElementById('email-transport-value');
+
+			function selectTransport(selectedSwitch, otherSwitch, transport) {
+				selectedSwitch.addEventListener('change', function () {
+					if (!selectedSwitch.checked && !otherSwitch.checked) {
+						selectedSwitch.checked = true;
+						return;
+					}
+
+					if (selectedSwitch.checked) {
+						otherSwitch.checked = false;
+						transportInput.value = transport;
+					}
+				});
+			}
+
+			selectTransport(phpMailerSwitch, smtpSwitch, 'mail');
+			selectTransport(smtpSwitch, phpMailerSwitch, 'smtp');
+		})();
+	</script>
+	<form id="delete-email-settings-form" method="POST" action="{{url('email-settings')}}" onsubmit="return confirm('Delete the saved email configuration?')">
+		@csrf
+		@method('DELETE')
+	</form>
 
     <!-- ========================
         End Page Content

@@ -87,7 +87,7 @@
 	</div>
 	<!-- /Main Wrapper -->
 
-	@component('components.modal-popup')
+	@component('components.modal-popup', ['emailConfiguration' => $emailConfiguration ?? []])
 	@endcomponent
 
 	@stack('scripts')

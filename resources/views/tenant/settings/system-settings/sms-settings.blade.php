@@ -67,7 +67,7 @@
 						<div class="card-body">
 							<div class="d-flex flex-column list-group settings-list">
 								<a href="{{url('email-settings')}}"
-									class="d-inline-flex align-items-center rounded  py-2 px-3">Salary Settings</a>
+									class="d-inline-flex align-items-center rounded py-2 px-3">Email Settings</a>
 								<a href="{{url('email-template')}}"
 									class="d-inline-flex align-items-center rounded   py-2 px-3">Email Templates</a>
 								<a href="{{url('sms-settings')}}"

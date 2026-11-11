@@ -182,6 +182,22 @@
 @endif
 
 @if (Route::is([
+    'tenant.settings.show',
+    'tenant.*.tenant.settings.show',
+    'tenant.settings.page',
+    'tenant.*.tenant.settings.page',
+]))
+    <script src="{{URL::asset('build/js/custom-tom-select.js')}}"></script>
+    <script>
+        document.querySelectorAll('.page-wrapper select, #phpmailersettings select, #smtpsettings select').forEach(function (select) {
+            if (!select.tomselect) {
+                new TomSelect(select, { width: '100%', controlInput: null });
+            }
+        });
+    </script>
+@endif
+
+@if (Route::is([
     'tenant.time-management.week-off-swap-applications.create',
     'tenant.time-management.week-off-swap-applications.edit',
     'tenant.myapp_com.tenant.time-management.week-off-swap-applications.create',
