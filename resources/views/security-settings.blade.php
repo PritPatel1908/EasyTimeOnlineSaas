@@ -138,6 +138,7 @@
 										<a href="#" class="btn btn-dark btn-sm">Enable</a>
 									</div>
 								</div>
+								{{--
 								<div
 									class="d-flex justify-content-between align-items-center flex-wrap border-bottom mb-3">
 									<div class="mb-3">
@@ -218,6 +219,7 @@
 											data-bs-target="#del-account">Delete</a>
 									</div>
 								</div>
+								--}}
 							</div>
 						</div>
 					</div>
