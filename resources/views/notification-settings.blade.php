@@ -73,8 +73,8 @@
 								<a href="{{url('notification-settings')}}"
 									class="d-inline-flex align-items-center rounded active py-2 px-3"><i
 										class="ti ti-arrow-badge-right me-2"></i>Notifications</a>
-								<a href="{{url('connected-apps')}}"
-									class="d-inline-flex align-items-center rounded py-2 px-3">Connected Apps</a>
+								{{-- <a href="{{url('connected-apps')}}"
+									class="d-inline-flex align-items-center rounded py-2 px-3">Connected Apps</a> --}}
 							</div>
 						</div>
 					</div>
