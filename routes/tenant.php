@@ -105,6 +105,8 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                 })->name('tenant.index.legacy');
                 Route::prefix('settings')->name('tenant.settings.')->controller(SettingsController::class)->group(function (): void {
                     Route::get('/', 'index')->name('index');
+                    Route::put('/profile-settings', 'updateProfile')->name('profile.update');
+                    Route::put('/password', 'updatePassword')->name('password.update');
                     Route::get('/{page}', 'show')
                         ->whereIn('page', array_keys(SettingsController::pages()))
                         ->name('show');
@@ -1026,6 +1028,9 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                 Route::get('/{page}', [SettingsController::class, 'show'])
                     ->whereIn('page', array_keys(SettingsController::pages()))
                     ->name('tenant.settings.page');
+
+                Route::put('/profile-settings', [SettingsController::class, 'updateProfile'])
+                    ->name('tenant.settings.profile.legacy-update');
 
                 Route::post('/logout', [AuthController::class, 'logout'])->name('tenant.logout');
             });

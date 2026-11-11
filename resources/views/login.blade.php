@@ -48,6 +48,9 @@
 											<h2 class="mb-2">Sign In</h2>
 											<p class="mb-0">Please enter your details to sign in</p>
 										</div>
+										@if (session('success'))
+											<div class="alert alert-success" role="alert">{{ session('success') }}</div>
+										@endif
 										<div class="mb-3">
 											<label class="form-label">Email Address / User Code</label>
 											<div class="input-group">

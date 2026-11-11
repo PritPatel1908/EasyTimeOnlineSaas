@@ -85,6 +85,9 @@
 							<div class="border-bottom mb-3 pb-3">
 								<h4>Security Settings</h4>
 							</div>
+							@if (session('success'))
+								<div class="alert alert-success" role="alert">{{ session('success') }}</div>
+							@endif
 							<div>
 								<div
 									class="d-flex justify-content-between align-items-center flex-wrap border-bottom mb-3">
@@ -93,13 +96,33 @@
 										<div class="d-flex align-items-center">
 											<p class="mb-0 me-2 pe-2 border-end">Set a unique password to protect
 												the account</p>
-											<p>Last Changed 03 Jan 2024, 09:00 AM</p>
+											<p class="mb-0">
+												Last Changed
+												{{ isset($lastPasswordChangedAt) ? $lastPasswordChangedAt->format('d M Y, h:i A') : 'Never' }}
+											</p>
 										</div>
 									</div>
 									<div class="mb-3">
 										<a href="#" class="btn btn-dark btn-sm" data-bs-toggle="modal"
-											data-bs-target="#change-password">Change Pasword</a>
+											data-bs-target="#change-password">Change Password</a>
 									</div>
+								</div>
+								<div class="border-bottom mb-3 pb-3">
+									<h5 class="fw-medium mb-3">Password Change History</h5>
+									@if (isset($passwordHistories) && $passwordHistories->isNotEmpty())
+										<ul class="list-group list-group-flush">
+											@foreach ($passwordHistories as $passwordHistory)
+												<li class="list-group-item px-0">
+													Password changed
+													<span class="text-muted">
+														{{ $passwordHistory->created_at->format('d M Y, h:i A') }}
+													</span>
+												</li>
+											@endforeach
+										</ul>
+									@else
+										<p class="text-muted mb-0">No password changes have been recorded.</p>
+									@endif
 								</div>
 								<div
 									class="d-flex justify-content-between align-items-center flex-wrap border-bottom mb-3">
@@ -217,6 +240,57 @@
 			</div>
 		</div>
 		<!-- End Content -->
+
+		<div class="modal fade" id="change-password" tabindex="-1" aria-labelledby="change-password-label"
+			aria-hidden="true">
+			<div class="modal-dialog modal-dialog-centered">
+				<div class="modal-content">
+					<form method="POST" action="{{ url('/settings/password') }}">
+						@csrf
+						@method('PUT')
+						<div class="modal-header">
+							<h5 class="modal-title" id="change-password-label">Change Password</h5>
+							<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+						</div>
+						<div class="modal-body">
+							<div class="mb-3">
+								<label for="current_password" class="form-label">Current Password</label>
+								<input type="password" class="form-control @error('current_password') is-invalid @enderror"
+									id="current_password" name="current_password" autocomplete="current-password" required>
+								@error('current_password')
+									<div class="invalid-feedback">{{ $message }}</div>
+								@enderror
+							</div>
+							<div class="mb-3">
+								<label for="new_password" class="form-label">New Password</label>
+								<input type="password" class="form-control @error('new_password') is-invalid @enderror"
+									id="new_password" name="new_password" autocomplete="new-password" minlength="8" required>
+								@error('new_password')
+									<div class="invalid-feedback">{{ $message }}</div>
+								@enderror
+							</div>
+							<div>
+								<label for="new_password_confirmation" class="form-label">Confirm New Password</label>
+								<input type="password" class="form-control" id="new_password_confirmation"
+									name="new_password_confirmation" autocomplete="new-password" minlength="8" required>
+							</div>
+						</div>
+						<div class="modal-footer">
+							<button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancel</button>
+							<button type="submit" class="btn btn-dark">Update Password</button>
+						</div>
+					</form>
+				</div>
+			</div>
+		</div>
+
+		@if ($errors->hasAny(['current_password', 'new_password']))
+			<script>
+				document.addEventListener('DOMContentLoaded', function () {
+					bootstrap.Modal.getOrCreateInstance(document.getElementById('change-password')).show();
+				});
+			</script>
+		@endif
 
 		@include('partials.footer')
 
