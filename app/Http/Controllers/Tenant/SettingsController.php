@@ -32,8 +32,21 @@ class SettingsController extends Controller
             'notification-settings' => 'Notifications',
             'connected-apps' => 'Connected Apps',
         ],
-        'Website Settings' => [
-            'business-settings' => 'Business Settings',
+        'App Settings' => [
+            'salary-settings' => 'Salary Settings',
+            'leave-settings' => 'Leave Settings',
+            'approval-settings' => 'Approval Settings',
+            'invoice-settings' => 'Invoice Settings',
+        ],
+        'System Settings' => [
+            'business-settings' => 'Default Settings',
+            'email-settings' => 'Email Settings',
+            'email-template' => 'Email Template',
+            'sms-settings' => 'SMS Settings',
+            'sms-template' => 'SMS Template',
+            'otp-settings' => 'OTP Settings',
+            'gdpr' => 'GDPR',
+            'maintenance-mode' => 'Maintenance Mode',
             'seo-settings' => 'SEO Settings',
             'localization-settings' => 'Localization',
             'prefixes' => 'Prefixes',
@@ -42,21 +55,6 @@ class SettingsController extends Controller
             'language' => 'Language',
             'authentication-settings' => 'Authentication Settings',
             'ai-settings' => 'AI Settings',
-        ],
-        'App Settings' => [
-            'salary-settings' => 'Salary Settings',
-            'leave-settings' => 'Leave Settings',
-            'approval-settings' => 'Approval Settings',
-            'invoice-settings' => 'Invoice Settings',
-        ],
-        'System Settings' => [
-            'email-settings' => 'Email Settings',
-            'email-template' => 'Email Template',
-            'sms-settings' => 'SMS Settings',
-            'sms-template' => 'SMS Template',
-            'otp-settings' => 'OTP Settings',
-            'gdpr' => 'GDPR',
-            'maintenance-mode' => 'Maintenance Mode',
         ],
         'Financial Settings' => [
             'payment-gateways' => 'Payment Gateways',
@@ -537,6 +535,22 @@ class SettingsController extends Controller
 
     private function viewPath(string $page): string
     {
+        $directories = [
+            'general-settings',
+            'app-settings',
+            'system-settings',
+            'website-settings',
+            'financial-settings',
+            'other-settings',
+        ];
+
+        foreach ($directories as $directory) {
+            $candidate = 'tenant.settings.'.$directory.'.'.$page;
+            if (view()->exists($candidate)) {
+                return $candidate;
+            }
+        }
+
         foreach (self::SECTIONS as $section => $pages) {
             if (array_key_exists($page, $pages)) {
                 $sectionDirectory = strtolower(str_replace(' ', '-', $section));

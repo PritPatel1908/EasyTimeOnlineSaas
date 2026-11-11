@@ -43,10 +43,10 @@
 					<a class="nav-link " href="{{url('profile-settings')}}"><i class="ti ti-settings me-2"></i>General
 						Settings</a>
 				</li>
-				<li class="nav-item">
+				<!-- <li class="nav-item">
 					<a class="nav-link" href="{{url('business-settings')}}"><i class="ti ti-world-cog me-2"></i>Website
 						Settings</a>
-				</li>
+				</li> -->
 				<li class="nav-item">
 					<a class="nav-link" href="{{url('salary-settings')}}"><i
 							class="ti ti-device-ipad-horizontal-cog me-2"></i>App Settings</a>
@@ -69,10 +69,11 @@
 					<div class="card">
 						<div class="card-body">
 							<div class="d-flex flex-column list-group settings-list">
-								<a href="{{url('email-settings')}}"
+								<a href="{{url('business-settings')}}"
+									class="d-inline-flex align-items-center rounded py-2 px-3">Default Settings</a>
+									<a href="{{url('email-settings')}}"
 									class="d-inline-flex align-items-center rounded active py-2 px-3"><i
-										class="ti ti-arrow-badge-right me-2"></i>Email Settings</a>
-								<a href="{{url('email-template')}}"
+										class="ti ti-arrow-badge-right me-2"></i>Email Settings</a>								<a href="{{url('email-template')}}"
 									class="d-inline-flex align-items-center rounded   py-2 px-3">Email Templates</a>
 								<a href="{{url('sms-settings')}}"
 									class="d-inline-flex align-items-center rounded py-2 px-3">SMS Settings</a>
