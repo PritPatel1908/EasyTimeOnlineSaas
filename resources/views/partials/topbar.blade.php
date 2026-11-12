@@ -612,7 +612,7 @@
                                 </li>
                                 <li class="submenu">
                                     <a href="#"
-                                        class="{{ Request::is('estimates', 'invoice', 'payments', 'expenses', 'provident-fund', 'taxes', 'categories', 'budgets', 'budget-expenses', 'budget-revenues', 'employee-salary', 'payslip', 'payroll', 'payroll-overtime', 'payroll-deduction', 'assets', 'asset-categories', 'knowledgebase', 'knowledgebase-details', 'knowledgebase-view', 'users', 'roles-permissions', 'permission', 'expenses-report', 'invoice-report', 'payment-report', 'project-report', 'task-report', 'user-report', 'employee-report', 'payslip-report', 'attendance-report', 'leave-report', 'daily-report', 'profile-settings', 'security-settings', 'notification-settings', 'project-report', 'connected-apps', 'business-settings', 'seo-settings', 'localization-settings', 'prefixes', 'preferences', 'appearance', 'language', 'add-language', 'language-web', 'authentication-settings', 'ai-settings', 'salary-settings', 'approval-settings', 'invoice-settings', 'leave-type', 'custom-fields', 'email-settings', 'email-template', 'sms-settings', 'sms-template', 'otp-settings', 'gdpr', 'maintenance-mode', 'payment-gateways', 'tax-rates', 'currencies', 'custom-css', 'custom-js', 'cronjob', 'storage-settings', 'ban-ip-address', 'backup', 'clear-cache') ? 'active subdrop' : '' }}">
+                                        class="{{ Request::is('estimates', 'invoice', 'payments', 'expenses', 'provident-fund', 'taxes', 'categories', 'budgets', 'budget-expenses', 'budget-revenues', 'employee-salary', 'payslip', 'payroll', 'payroll-overtime', 'payroll-deduction', 'assets', 'asset-categories', 'knowledgebase', 'knowledgebase-details', 'knowledgebase-view', 'users', 'roles-permissions', 'permission', 'expenses-report', 'invoice-report', 'payment-report', 'project-report', 'task-report', 'user-report', 'employee-report', 'payslip-report', 'attendance-report', 'leave-report', 'daily-report', 'profile-settings', 'security-settings', 'notification-settings', 'project-report', 'connected-apps', 'default-settings', 'seo-settings', 'localization-settings', 'prefixes', 'preferences', 'appearance', 'language', 'add-language', 'language-web', 'authentication-settings', 'ai-settings', 'salary-settings', 'approval-settings', 'invoice-settings', 'leave-type', 'custom-fields', 'email-settings', 'email-template', 'sms-settings', 'sms-template', 'otp-settings', 'gdpr', 'maintenance-mode', 'payment-gateways', 'tax-rates', 'currencies', 'custom-css', 'custom-js', 'cronjob', 'storage-settings', 'ban-ip-address', 'backup', 'clear-cache') ? 'active subdrop' : '' }}">
                                         <i class="ti ti-user-star"></i><span>Administration</span>
                                         <span class="menu-arrow"></span>
                                     </a>
@@ -765,7 +765,7 @@
                                         </li>
                                         <li class="submenu">
                                             <a href="javascript:void(0);"
-                                                class="{{ Request::is('profile-settings', 'security-settings', 'notification-settings', 'project-report', 'connected-apps', 'business-settings', 'seo-settings', 'localization-settings', 'prefixes', 'preferences', 'appearance', 'language', 'add-language', 'language-web', 'authentication-settings', 'ai-settings', 'salary-settings', 'approval-settings', 'invoice-settings', 'leave-type', 'custom-fields', 'email-settings', 'email-template', 'sms-settings', 'sms-template', 'otp-settings', 'gdpr', 'maintenance-mode', 'payment-gateways', 'tax-rates', 'currencies', 'custom-css', 'custom-js', 'cronjob', 'storage-settings', 'ban-ip-address', 'backup', 'clear-cache') ? 'active subdrop' : '' }}"><span>Settings</span>
+                                                class="{{ Request::is('profile-settings', 'security-settings', 'notification-settings', 'project-report', 'connected-apps', 'default-settings', 'seo-settings', 'localization-settings', 'prefixes', 'preferences', 'appearance', 'language', 'add-language', 'language-web', 'authentication-settings', 'ai-settings', 'salary-settings', 'approval-settings', 'invoice-settings', 'leave-type', 'custom-fields', 'email-settings', 'email-template', 'sms-settings', 'sms-template', 'otp-settings', 'gdpr', 'maintenance-mode', 'payment-gateways', 'tax-rates', 'currencies', 'custom-css', 'custom-js', 'cronjob', 'storage-settings', 'ban-ip-address', 'backup', 'clear-cache') ? 'active subdrop' : '' }}"><span>Settings</span>
                                                 <span class="menu-arrow"></span>
                                             </a>
                                             <ul>
@@ -1686,7 +1686,7 @@
                                         <i class="ti ti-user-circle me-1"></i>My Profile
                                     </a>
                                     <a class="dropdown-item d-inline-flex align-items-center p-0 py-2"
-                                        href="{{url('business-settings')}}">
+                                        href="{{url('default-settings')}}">
                                         <i class="ti ti-settings me-1"></i>Settings
                                     </a>
 

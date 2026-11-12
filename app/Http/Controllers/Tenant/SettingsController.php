@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\Tenant\SendTenantEmailVerification;
 use App\Models\Tenant\BloodGroup;
 use App\Models\Tenant\EmailConfiguration;
+use App\Models\Tenant\GeneralConfiguration;
 use App\Models\Tenant\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -25,6 +26,33 @@ class SettingsController extends Controller
     /**
      * @var array<string, array<string, string>>
      */
+    private const FORMAT_PRESETS = [
+        'datetime_format' => [
+            'd/m/Y H:i' => 'd/m/Y H:i',
+            'm/d/Y h:i A' => 'm/d/Y h:i A',
+            'Y-m-d H:i' => 'Y-m-d H:i',
+            'd M Y, h:i A' => 'd M Y, h:i A',
+            'd-m-Y h:i A' => 'd-m-Y h:i A',
+        ],
+        'date_format' => [
+            'Y-m-d' => 'Y-m-d',
+            'm/d/Y' => 'm/d/Y',
+            'd/m/Y' => 'd/m/Y',
+            'Y/m/d' => 'Y/m/d',
+            'd M Y' => 'd M Y',
+            'd-m-Y' => 'd-m-Y',
+        ],
+        'time_format' => [
+            'H:i' => 'H:i',
+            'h:i A' => 'h:i A',
+            'H:i:s' => 'H:i:s',
+            'h:i:s A' => 'h:i:s A',
+        ],
+    ];
+
+    /**
+     * @var array<string, array<string, string>>
+     */
     private const SECTIONS = [
         'General Settings' => [
             'profile-settings' => 'Profile Settings',
@@ -39,7 +67,7 @@ class SettingsController extends Controller
             'invoice-settings' => 'Invoice Settings',
         ],
         'System Settings' => [
-            'business-settings' => 'Default Settings',
+            'default-settings' => 'Default Settings',
             'email-settings' => 'Email Settings',
             'email-template' => 'Email Template',
             'sms-settings' => 'SMS Settings',
@@ -97,6 +125,12 @@ class SettingsController extends Controller
             ];
         } elseif ($page === 'email-settings') {
             $data['emailConfiguration'] = EmailConfiguration::settings();
+        } elseif ($page === 'default-settings') {
+            $data['formatPresets'] = self::FORMAT_PRESETS;
+            $data['formatSettings'] = GeneralConfiguration::withTrashed()
+                ->whereIn('key', array_keys(self::FORMAT_PRESETS))
+                ->pluck('value', 'key')
+                ->all();
         } elseif ($page === 'security-settings') {
             $securityUser = $this->profileUser();
             $passwordHistories = $securityUser
@@ -112,6 +146,41 @@ class SettingsController extends Controller
         }
 
         return view($this->viewPath($page), $data);
+    }
+
+    public function updateDefaultFormats(Request $request): RedirectResponse
+    {
+        $rules = [];
+        foreach (self::FORMAT_PRESETS as $key => $presets) {
+            $rules[$key] = ['required', 'string', Rule::in([...array_keys($presets), 'custom'])];
+            $rules['custom_'.$key] = [
+                'required_if:'.$key.',custom',
+                'nullable',
+                'string',
+                'max:100',
+            ];
+        }
+
+        $validated = $request->validate($rules);
+
+        DB::transaction(function () use ($validated): void {
+            foreach (array_keys(self::FORMAT_PRESETS) as $key) {
+                $value = $validated[$key] === 'custom'
+                    ? trim((string) $validated['custom_'.$key])
+                    : $validated[$key];
+
+                $configuration = GeneralConfiguration::withTrashed()->firstOrNew(['key' => $key]);
+                $configuration->value = $value;
+
+                if ($configuration->trashed()) {
+                    $configuration->restore();
+                } else {
+                    $configuration->save();
+                }
+            }
+        });
+
+        return back()->with('success', 'Date and time formats updated successfully.');
     }
 
     public function updateEmailSettings(Request $request): RedirectResponse

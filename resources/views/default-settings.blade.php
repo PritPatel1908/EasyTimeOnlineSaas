@@ -45,7 +45,7 @@
 							class="ti ti-device-ipad-horizontal-cog me-2"></i>App Settings</a>
 				</li>
 				<li class="nav-item">
-					<a class="nav-link" href="{{url('business-settings')}}"><i class="ti ti-server-cog me-2"></i>System
+					<a class="nav-link" href="{{url('default-settings')}}"><i class="ti ti-server-cog me-2"></i>System
 						Settings</a>
 				</li>
 				<li class="nav-item">
@@ -62,9 +62,9 @@
 					<div class="card">
 						<div class="card-body">
 							<div class="d-flex flex-column list-group settings-list">
-								<a href="{{url('business-settings')}}"
+								<a href="{{url('default-settings')}}"
 									class="d-inline-flex align-items-center rounded active py-2 px-3"><i
-										class="ti ti-arrow-badge-right me-2"></i>Business Settings</a>
+										class="ti ti-arrow-badge-right me-2"></i>Default Settings</a>
 								<a href="{{url('seo-settings')}}"
 									class="d-inline-flex align-items-center rounded py-2 px-3">SEO Settings</a>
 								<a href="{{url('localization-settings')}}"
@@ -90,9 +90,9 @@
 					<div class="card">
 						<div class="card-body">
 							<div class="border-bottom mb-3 pb-3">
-								<h4>Business Settings</h4>
+								<h4>Default Settings</h4>
 							</div>
-							<form action="{{url('business-settings')}}">
+							<form action="{{url('default-settings')}}">
 								<div class="border-bottom mb-3">
 									<div class="row">
 										<div class="col-md-12">

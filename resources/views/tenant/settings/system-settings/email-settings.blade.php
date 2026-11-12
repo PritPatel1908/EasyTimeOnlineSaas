@@ -48,7 +48,7 @@
 							class="ti ti-device-ipad-horizontal-cog me-2"></i>App Settings</a>
 				</li>
 				<li class="nav-item">
-					<a class="nav-link active" href="{{url('business-settings')}}"><i
+					<a class="nav-link active" href="{{url('default-settings')}}"><i
 							class="ti ti-server-cog me-2"></i>System Settings</a>
 				</li>
 				<li class="nav-item">
@@ -65,7 +65,7 @@
 					<div class="card">
 						<div class="card-body">
 							<div class="d-flex flex-column list-group settings-list">
-								<a href="{{url('business-settings')}}"
+								<a href="{{url('default-settings')}}"
 									class="d-inline-flex align-items-center rounded py-2 px-3">Default Settings</a>
 									<a href="{{url('email-settings')}}"
 									class="d-inline-flex align-items-center rounded active py-2 px-3"><i

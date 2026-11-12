@@ -1228,7 +1228,7 @@ class="{{ $areasActive ? 'active' : '' }}">Areas</a></li>@endif
 						</li>
 						<li class="submenu">
 							<a href="javascript:void(0);"
-								class="{{ Request::is('profile-settings', 'security-settings', 'notification-settings', 'connected-apps', 'business-settings', 'seo-settings', 'localization-settings', 'prefixes', 'preferences', 'appearance', 'language', 'add-language', 'language-web', 'authentication-settings', 'ai-settings', 'salary-settings', 'approval-settings', 'invoice-settings', 'leave-type', 'custom-fields', 'email-settings', 'email-template', 'sms-settings', 'sms-template', 'otp-settings', 'gdpr', 'maintenance-mode', 'payment-gateways', 'tax-rates', 'currencies', 'custom-css', 'custom-js', 'cronjob', 'storage-settings', 'ban-ip-address', 'backup', 'clear-cache') ? 'active subdrop' : '' }}">
+								class="{{ Request::is('profile-settings', 'security-settings', 'notification-settings', 'connected-apps', 'default-settings', 'seo-settings', 'localization-settings', 'prefixes', 'preferences', 'appearance', 'language', 'add-language', 'language-web', 'authentication-settings', 'ai-settings', 'salary-settings', 'approval-settings', 'invoice-settings', 'leave-type', 'custom-fields', 'email-settings', 'email-template', 'sms-settings', 'sms-template', 'otp-settings', 'gdpr', 'maintenance-mode', 'payment-gateways', 'tax-rates', 'currencies', 'custom-css', 'custom-js', 'cronjob', 'storage-settings', 'ban-ip-address', 'backup', 'clear-cache') ? 'active subdrop' : '' }}">
 								<i class="ti ti-settings"></i><span>Settings</span>
 								<span class="menu-arrow"></span>
 							</a>

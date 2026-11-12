@@ -1038,6 +1038,11 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                     })->name('data-policies.legacy');
                 });
 
+                Route::put('/default-settings', [SettingsController::class, 'updateDefaultFormats'])
+                    ->name('tenant.settings.default.update');
+                Route::redirect('/business-settings', '/default-settings', 301)
+                    ->name('tenant.settings.default.legacy');
+
                 Route::get('/{page}', [SettingsController::class, 'show'])
                     ->whereIn('page', array_keys(SettingsController::pages()))
                     ->name('tenant.settings.page');

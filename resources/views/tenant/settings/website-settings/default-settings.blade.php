@@ -45,7 +45,7 @@
 							class="ti ti-device-ipad-horizontal-cog me-2"></i>App Settings</a>
 				</li>
 				<li class="nav-item">
-					<a class="nav-link active" href="{{url('business-settings')}}"><i class="ti ti-server-cog me-2"></i>System
+					<a class="nav-link active" href="{{url('default-settings')}}"><i class="ti ti-server-cog me-2"></i>System
 						Settings</a>
 				</li>
 				<li class="nav-item">
@@ -62,7 +62,7 @@
 					<div class="card">
 						<div class="card-body">
 							<div class="d-flex flex-column list-group settings-list">
-								<a href="{{url('business-settings')}}"
+								<a href="{{url('default-settings')}}"
 									class="d-inline-flex align-items-center rounded active py-2 px-3"><i
 									class="ti ti-arrow-badge-right me-2"></i>Default Settings</a>
 								<a href="{{url('email-settings')}}"
@@ -87,12 +87,13 @@
 					<div class="card">
 						<div class="card-body">
 							<div class="border-bottom mb-3 pb-3">
-								<h4>Business Settings</h4>
+								<h4>Default Settings</h4>
 							</div>
 							<div class="business-tab-set" data-business-tab-set>
 								<div class="profile-tabs-wrap mb-3">
-									<div class="nav nav-tabs profile-tabs" role="tablist" aria-label="Business settings sections">
-										<button type="button" class="nav-link active" id="business-default-general-tab" role="tab" aria-controls="business-default-general-panel" aria-selected="true" data-business-tab="general" data-business-form="default">General</button>
+									<div class="nav nav-tabs profile-tabs" role="tablist" aria-label="Default settings sections">
+										<button type="button" class="nav-link active" id="business-default-general-tab" role="tab" aria-controls="business-default-general-panel" aria-selected="true" data-business-tab="general" data-business-form="default">Default Formats</button>
+										<button type="button" class="nav-link" id="business-default-attendance-tab" role="tab" aria-controls="business-default-attendance-panel" aria-selected="false" data-business-tab="attendance" data-business-form="default">Default Attendance Configuration</button>
 										<button type="button" class="nav-link" id="business-default-currency-tab" role="tab" aria-controls="business-default-currency-panel" aria-selected="false" data-business-tab="currency" data-business-form="default">Currency</button>
 										<button type="button" class="nav-link" id="business-default-country-tab" role="tab" aria-controls="business-default-country-panel" aria-selected="false" data-business-tab="country" data-business-form="default">Country &amp; Files</button>
 										<button type="button" class="nav-link" id="business-company-details-tab" role="tab" aria-controls="business-company-details-panel" aria-selected="false" data-business-tab="details" data-business-form="company">Basic Information</button>
@@ -101,10 +102,29 @@
 									</div>
 								</div>
 								<div class="profile-tab-panels">
-							<form action="{{url('business-settings')}}" data-business-tab-form="default">
+							@php
+								$datetimeFormatValue = old('datetime_format', $formatSettings['datetime_format'] ?? '');
+								$dateFormatValue = old('date_format', $formatSettings['date_format'] ?? '');
+								$timeFormatValue = old('time_format', $formatSettings['time_format'] ?? '');
+								$datetimeFormatValue = is_string($datetimeFormatValue) ? $datetimeFormatValue : '';
+								$dateFormatValue = is_string($dateFormatValue) ? $dateFormatValue : '';
+								$timeFormatValue = is_string($timeFormatValue) ? $timeFormatValue : '';
+								$datetimeFormatSelection = array_key_exists($datetimeFormatValue, $formatPresets['datetime_format']) ? $datetimeFormatValue : ($datetimeFormatValue === '' ? '' : 'custom');
+								$dateFormatSelection = array_key_exists($dateFormatValue, $formatPresets['date_format']) ? $dateFormatValue : ($dateFormatValue === '' ? '' : 'custom');
+								$timeFormatSelection = array_key_exists($timeFormatValue, $formatPresets['time_format']) ? $timeFormatValue : ($timeFormatValue === '' ? '' : 'custom');
+								$customDatetimeFormatValue = old('custom_datetime_format', $datetimeFormatSelection === 'custom' && $datetimeFormatValue !== 'custom' ? $datetimeFormatValue : '');
+								$customDateFormatValue = old('custom_date_format', $dateFormatSelection === 'custom' && $dateFormatValue !== 'custom' ? $dateFormatValue : '');
+								$customTimeFormatValue = old('custom_time_format', $timeFormatSelection === 'custom' && $timeFormatValue !== 'custom' ? $timeFormatValue : '');
+								$customDatetimeFormatValue = is_string($customDatetimeFormatValue) ? $customDatetimeFormatValue : '';
+								$customDateFormatValue = is_string($customDateFormatValue) ? $customDateFormatValue : '';
+								$customTimeFormatValue = is_string($customTimeFormatValue) ? $customTimeFormatValue : '';
+							@endphp
+							<form action="{{url('default-settings')}}" method="POST" data-business-tab-form="default">
+								@csrf
+								@method('PUT')
 								<section class="profile-tab-panel" id="business-default-general-panel" role="tabpanel" aria-labelledby="business-default-general-tab" data-business-panel="general">
 									<div class="row">
-										<div class="col-md-6">
+										{{-- <div class="col-md-6">
 											<div class="row align-items-center mb-3">
 												<div class="col-md-5">
 													<label class="form-label mb-md-0">Language</label>
@@ -121,89 +141,71 @@
 													</p>
 												</div>
 											</div>
-										</div>
-										<div class="col-md-6">
+										</div> --}}
+										<div class="col-12">
 											<div class="row align-items-center mb-3">
-												<div class="col-md-5">
-													<label class="form-label mb-md-0">Timezone</label>
+												<div class="col-12 col-md-2">
+													<label class="form-label mb-md-0" for="datetime-format-select">DateTime Format</label>
 												</div>
-												<div class="col-md-7">
-													<select class="select">
-														<option>Select</option>
-														<option>(UTC +5:30)</option>
-														<option>(UTC+11:00) INR</option>
+												<div class="col-12 col-md-10" id="datetime-format-select-column">
+													<select class="select" id="datetime-format-select" name="datetime_format">
+														<option value="" @selected($datetimeFormatSelection === '')>Select</option>
+														@foreach ($formatPresets['datetime_format'] as $formatValue => $formatLabel)
+															<option value="{{ $formatValue }}" @selected($datetimeFormatSelection === $formatValue)>{{ $formatLabel }}</option>
+														@endforeach
+														<option value="custom" @selected($datetimeFormatSelection === 'custom')>Custom</option>
 													</select>
+												</div>
+												<div class="col-12 col-md-5" id="custom-datetime-format-field" hidden>
+													<label class="visually-hidden" for="custom-datetime-format">Custom DateTime Format</label>
+													<input class="form-control" id="custom-datetime-format" name="custom_datetime_format" type="text" placeholder="e.g. d/m/Y H:i" value="{{ $customDatetimeFormatValue }}">
 												</div>
 											</div>
 										</div>
-										<div class="col-md-6">
+										<div class="col-12">
 											<div class="row align-items-center mb-3">
-												<div class="col-md-5">
-													<label class="form-label mb-md-0">Date Format</label>
+												<div class="col-12 col-md-2">
+													<label class="form-label mb-md-0" for="time-format-select">Time Format</label>
 												</div>
-												<div class="col-md-7">
-													<select class="select">
-														<option>Select</option>
-														<option>YYYY-MM-DD</option>
-														<option>MM/DD/YYYY</option>
-														<option>DD/MM/YYYY</option>
-														<option>YYYY/MM/DD</option>
+												<div class="col-12 col-md-10" id="time-format-select-column">
+													<select class="select" id="time-format-select" name="time_format">
+														<option value="" @selected($timeFormatSelection === '')>Select</option>
+														@foreach ($formatPresets['time_format'] as $formatValue => $formatLabel)
+															<option value="{{ $formatValue }}" @selected($timeFormatSelection === $formatValue)>{{ $formatLabel }}</option>
+														@endforeach
+														<option value="custom" @selected($timeFormatSelection === 'custom')>Custom</option>
 													</select>
+												</div>
+												<div class="col-12 col-md-5" id="custom-time-format-field" hidden>
+													<label class="visually-hidden" for="custom-time-format">Custom Time Format</label>
+													<input class="form-control" id="custom-time-format" name="custom_time_format" type="text" placeholder="e.g. H:i" value="{{ $customTimeFormatValue }}">
 												</div>
 											</div>
 										</div>
-										<div class="col-md-6">
+										<div class="col-12">
 											<div class="row align-items-center mb-3">
-												<div class="col-md-5">
-													<label class="form-label mb-md-0">Time Format</label>
+												<div class="col-12 col-md-2">
+													<label class="form-label mb-md-0" for="date-format-select">Date Format</label>
 												</div>
-												<div class="col-md-7">
-													<select class="select">
-														<option>Select</option>
-														<option>12 Hours</option>
-														<option>24 Hours</option>
+												<div class="col-12 col-md-10" id="date-format-select-column">
+													<select class="select" id="date-format-select" name="date_format">
+														<option value="" @selected($dateFormatSelection === '')>Select</option>
+														@foreach ($formatPresets['date_format'] as $formatValue => $formatLabel)
+															<option value="{{ $formatValue }}" @selected($dateFormatSelection === $formatValue)>{{ $formatLabel }}</option>
+														@endforeach
+														<option value="custom" @selected($dateFormatSelection === 'custom')>Custom</option>
 													</select>
 												</div>
-											</div>
-										</div>
-										<div class="col-md-6">
-											<div class="row align-items-center mb-3">
-												<div class="col-md-5">
-													<label class="form-label mb-md-0">Financial Year</label>
-												</div>
-												<div class="col-md-7">
-													<select class="select">
-														<option>Select</option>
-														<option>2024</option>
-														<option>2023</option>
-													</select>
-												</div>
-											</div>
-										</div>
-										<div class="col-md-6">
-											<div class="row align-items-center mb-3">
-												<div class="col-md-5">
-													<label class="form-label mb-md-0">Starting Month</label>
-												</div>
-												<div class="col-md-7">
-													<select class="select">
-														<option>Select</option>
-														<option>January</option>
-														<option>February</option>
-														<option>March</option>
-														<option>April</option>
-														<option>June</option>
-														<option>July</option>
-														<option>August</option>
-														<option>September</option>
-														<option>October</option>
-														<option>November</option>
-														<option>December</option>
-													</select>
+												<div class="col-12 col-md-5" id="custom-date-format-field" hidden>
+													<label class="visually-hidden" for="custom-date-format">Custom Date Format</label>
+													<input class="form-control" id="custom-date-format" name="custom_date_format" type="text" placeholder="e.g. d/m/Y" value="{{ $customDateFormatValue }}">
 												</div>
 											</div>
 										</div>
 									</div>
+								</section>
+								<section class="profile-tab-panel" id="business-default-attendance-panel" role="tabpanel" aria-labelledby="business-default-attendance-tab" data-business-panel="attendance" hidden>
+									<h6 class="mb-3">Default Attendance Configuration</h6>
 								</section>
 								<section class="profile-tab-panel" id="business-default-currency-panel" role="tabpanel" aria-labelledby="business-default-currency-tab" data-business-panel="currency" hidden>
 									<h6 class="mb-3">Currency Information</h6>
@@ -334,7 +336,7 @@
 									<button type="submit" class="btn btn-primary">Save</button>
 								</div>
 							</form>
-							<form action="{{url('business-settings')}}" data-business-tab-form="company" hidden>
+							<form action="{{url('default-settings')}}" data-business-tab-form="company" hidden>
 								<section class="profile-tab-panel" id="business-company-details-panel" role="tabpanel" aria-labelledby="business-company-details-tab" data-business-panel="details">
 									<div class="row">
 										<div class="col-md-12">
@@ -701,6 +703,30 @@
 				setActiveBusinessTab(buttons[0].dataset.businessTab, buttons[0].dataset.businessForm);
 			}
 		});
+
+		[
+			['datetime-format-select', 'datetime-format-select-column', 'custom-datetime-format-field', 'custom-datetime-format'],
+			['time-format-select', 'time-format-select-column', 'custom-time-format-field', 'custom-time-format'],
+			['date-format-select', 'date-format-select-column', 'custom-date-format-field', 'custom-date-format']
+		].forEach(function (ids) {
+			const formatSelect = document.getElementById(ids[0]);
+			const formatSelectColumn = document.getElementById(ids[1]);
+			const customFormatField = document.getElementById(ids[2]);
+			const customFormatInput = document.getElementById(ids[3]);
+
+			if (formatSelect && formatSelectColumn && customFormatField && customFormatInput) {
+				function toggleCustomFormat() {
+					const isCustom = formatSelect.value === 'custom';
+					customFormatField.hidden = !isCustom;
+					customFormatInput.required = isCustom;
+					formatSelectColumn.classList.toggle('col-md-10', !isCustom);
+					formatSelectColumn.classList.toggle('col-md-5', isCustom);
+				}
+
+				formatSelect.addEventListener('change', toggleCustomFormat);
+				toggleCustomFormat();
+			}
+		});
 	</script>
 	<style>
 		.business-tab-set .profile-tabs-wrap {
@@ -709,15 +735,15 @@
 
 		.business-tab-set .profile-tabs {
 			display: flex;
-			flex-wrap: nowrap;
+			flex-wrap: wrap;
 			gap: 0.35rem;
 			border-bottom: 1px solid #dee2e6;
-			overflow-x: auto;
+			overflow: visible;
 		}
 
 		.business-tab-set .profile-tabs .nav-link {
-			flex: 0 0 auto;
-			white-space: nowrap;
+			flex: 0 1 auto;
+			white-space: normal;
 			border-radius: 0.375rem 0.375rem 0 0;
 		}
 
