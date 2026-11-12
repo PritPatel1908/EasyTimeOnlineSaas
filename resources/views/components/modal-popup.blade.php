@@ -29465,38 +29465,83 @@
 @if(Route::is('email-template') || request()->route('page') === 'email-template' || request()->is('email-template', 'settings/email-template'))
 	<!-- Add Promotion -->
 	<div class="modal fade" id="addtemplate">
-		<div class="modal-dialog modal-dialog-centered modal-md">
-			<div class="modal-content">
+		<div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl">
+			<div class="modal-content" style="height: 100%;">
 				<div class="modal-header">
-					<h4 class="modal-title">Add Template</h4>
+					<div>
+						<h4 class="modal-title mb-1">Add Template</h4>
+						<small class="text-muted">Build the email and insert the variables it needs.</small>
+					</div>
 					<button type="button" class="btn-close custom-btn-close" data-bs-dismiss="modal"
 						aria-label="Close">
 						<i class="ti ti-x"></i>
 					</button>
 				</div>
-				<form action="{{url('email-template')}}">
-					<div class="modal-body pb-0">
-						<div class="row">
-							<div class="col-md-12">
+				<form action="{{ url('email-template') }}" method="POST">
+					@csrf
+					<input type="hidden" name="email_template_form" value="add">
+					<div class="modal-body pb-0" style="min-height: 0;">
+						<div class="row g-3">
+							<div class="col-lg-5">
 								<div class="mb-3">
-									<label class="form-label">Title</label>
-									<input type="text" class="form-control">
+									<label class="form-label" for="email_template_title">Title</label>
+									<input id="email_template_title" name="title" type="text" class="form-control"
+										value="{{ old('title') }}" required>
+									@error('title')
+										<div class="text-danger small mt-1">{{ $message }}</div>
+									@enderror
 								</div>
 							</div>
-							<div class="col-md-12">
+							<div class="col-lg-7">
 								<div class="mb-3">
-									<label class="form-label">Template Content</label>
-									<div class="summernote"></div>
+									<label class="form-label" for="email_template_type">Type</label>
+									<select id="email_template_type" name="template_type" class="select" data-template-type required>
+										@foreach (\App\Models\Tenant\EmailTemplate::TEMPLATE_TYPES as $templateType)
+											<option value="{{ $templateType }}" @selected(old('template_type') === $templateType)>{{ \Illuminate\Support\Str::headline(str_replace('_approve_reject', '', $templateType)) }}</option>
+										@endforeach
+									</select>
+									@error('template_type')
+										<div class="text-danger small mt-1">{{ $message }}</div>
+									@enderror
+								</div>
+							</div>
+							<div class="col-12">
+								<div class="row g-3">
+									<div class="col-12 col-lg-3 d-none" data-template-variable-panel>
+										<div class="card mb-3 d-flex flex-column" style="height: clamp(174px, calc(100vh - 454px), 344px);">
+											<div class="card-header d-flex align-items-center justify-content-between gap-2 py-0">
+												<div>
+													<h6 class="mb-0 small text-nowrap">Available variables</h6>
+												</div>
+												<span class="badge bg-light text-dark" data-template-variable-count></span>
+											</div>
+											<div class="card-body p-2 overflow-auto flex-grow-1" data-template-variable-list style="min-height: 0;"></div>
+										</div>
+									</div>
+									<div class="col-12 col-lg-12" data-template-content-column>
+										<div class="mb-3">
+											<div class="d-flex align-items-center justify-content-between mb-2">
+												<label class="form-label mb-0" for="email_template_content">Template Content</label>
+												<small class="text-muted">Use the variable list to personalize the email.</small>
+											</div>
+											<textarea id="email_template_content" name="email_content" class="form-control" rows="10" style="height: clamp(150px, calc(100vh - 478px), 320px); resize: none;" required>{{ old('email_content') }}</textarea>
+											@error('email_content')
+												<div class="text-danger small mt-1">{{ $message }}</div>
+											@enderror
+										</div>
+									</div>
 								</div>
 							</div>
 							<div class="col-md-12">
 								<div class="mb-3">
 									<label class="form-label">Status</label>
-									<select class="select">
-										<option>Active</option>
-										<option>Active</option>
-										<option>Inactive</option>
+									<select name="status" class="select" required>
+										<option value="active" @selected(old('status', 'active') === 'active')>Active</option>
+										<option value="inactive" @selected(old('status') === 'inactive')>Inactive</option>
 									</select>
+									@error('status')
+										<div class="text-danger small mt-1">{{ $message }}</div>
+									@enderror
 								</div>
 							</div>
 
@@ -29515,38 +29560,85 @@
 
 	<!-- Edit Promotion -->
 	<div class="modal fade" id="edittemplate">
-		<div class="modal-dialog modal-dialog-centered modal-md">
-			<div class="modal-content">
+		<div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl">
+			<div class="modal-content" style="height: 100%;">
 				<div class="modal-header">
-					<h4 class="modal-title">Edit Template</h4>
+					<div>
+						<h4 class="modal-title mb-1">Edit Template</h4>
+						<small class="text-muted">Update the email and its available variables.</small>
+					</div>
 					<button type="button" class="btn-close custom-btn-close" data-bs-dismiss="modal"
 						aria-label="Close">
 						<i class="ti ti-x"></i>
 					</button>
 				</div>
-				<form action="{{url('email-template')}}">
-					<div class="modal-body pb-0">
-						<div class="row">
-							<div class="col-md-12">
+				<form action="{{ url('email-template') }}" method="POST" data-template-edit-form>
+					@csrf
+					@method('PUT')
+					<input type="hidden" name="email_template_form" value="edit">
+					<input type="hidden" name="email_template_id" value="{{ old('email_template_id') }}">
+					<div class="modal-body pb-0" style="min-height: 0;">
+						<div class="row g-3">
+							<div class="col-lg-5">
 								<div class="mb-3">
-									<label class="form-label">Title</label>
-									<input type="text" class="form-control" value="Email Verification">
+									<label class="form-label" for="edit_email_template_title">Title</label>
+									<input id="edit_email_template_title" name="title" type="text" class="form-control"
+										value="{{ old('title') }}" required>
+									@error('title')
+										<div class="text-danger small mt-1">{{ $message }}</div>
+									@enderror
 								</div>
 							</div>
-							<div class="col-md-12">
+							<div class="col-lg-7">
 								<div class="mb-3">
-									<label class="form-label">Template Content</label>
-									<div class="summernote"></div>
+									<label class="form-label" for="edit_email_template_type">Type</label>
+									<select id="edit_email_template_type" name="template_type" class="select" data-template-type required>
+										@foreach (\App\Models\Tenant\EmailTemplate::TEMPLATE_TYPES as $templateType)
+											<option value="{{ $templateType }}" @selected(old('template_type') === $templateType)>{{ \Illuminate\Support\Str::headline(str_replace('_approve_reject', '', $templateType)) }}</option>
+										@endforeach
+									</select>
+									@error('template_type')
+										<div class="text-danger small mt-1">{{ $message }}</div>
+									@enderror
+								</div>
+							</div>
+							<div class="col-12">
+								<div class="row g-3">
+									<div class="col-12 col-lg-3 d-none" data-template-variable-panel>
+										<div class="card mb-3 d-flex flex-column" style="height: clamp(174px, calc(100vh - 454px), 344px);">
+											<div class="card-header d-flex align-items-center justify-content-between gap-2 py-0">
+												<div>
+													<h6 class="mb-0 small text-nowrap">Available variables</h6>
+												</div>
+												<span class="badge bg-light text-dark" data-template-variable-count></span>
+											</div>
+											<div class="card-body p-2 overflow-auto flex-grow-1" data-template-variable-list style="min-height: 0;"></div>
+										</div>
+									</div>
+									<div class="col-12 col-lg-12" data-template-content-column>
+										<div class="mb-3">
+											<div class="d-flex align-items-center justify-content-between mb-2">
+												<label class="form-label mb-0" for="edit_email_template_content">Template Content</label>
+												<small class="text-muted">Use the variable list to personalize the email.</small>
+											</div>
+											<textarea id="edit_email_template_content" name="email_content" class="form-control" rows="10" style="height: clamp(150px, calc(100vh - 478px), 320px); resize: none;" required>{{ old('email_content') }}</textarea>
+											@error('email_content')
+												<div class="text-danger small mt-1">{{ $message }}</div>
+											@enderror
+										</div>
+									</div>
 								</div>
 							</div>
 							<div class="col-md-12">
 								<div class="mb-3">
 									<label class="form-label">Status</label>
-									<select class="select">
-										<option>Select</option>
-										<option selected>Active</option>
-										<option>Inactive</option>
+									<select name="status" class="select" required>
+										<option value="active" @selected(old('status', 'active') === 'active')>Active</option>
+										<option value="inactive" @selected(old('status') === 'inactive')>Inactive</option>
 									</select>
+									@error('status')
+										<div class="text-danger small mt-1">{{ $message }}</div>
+									@enderror
 								</div>
 							</div>
 

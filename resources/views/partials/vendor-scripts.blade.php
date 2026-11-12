@@ -193,9 +193,19 @@
 ]))
     <script src="{{URL::asset('build/js/custom-tom-select.js')}}"></script>
     <script>
-        document.querySelectorAll('.page-wrapper select, #phpmailersettings select, #smtpsettings select').forEach(function (select) {
+        document.querySelectorAll([
+            '.page-wrapper select',
+            '#phpmailersettings select',
+            '#smtpsettings select',
+            '#addtemplate select',
+            '#edittemplate select'
+        ].join(', ')).forEach(function (select) {
             if (!select.tomselect) {
-                new TomSelect(select, { width: '100%', controlInput: null });
+                var options = { width: '100%', controlInput: null };
+                if (select.closest('#addtemplate, #edittemplate')) {
+                    options.dropdownParent = 'body';
+                }
+                new TomSelect(select, options);
             }
         });
     </script>

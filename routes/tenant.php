@@ -115,6 +115,11 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                     ->name('tenant.settings.email.update.legacy');
                 Route::delete('/email-settings', [SettingsController::class, 'deleteEmailSettings'])
                     ->name('tenant.settings.email.delete.legacy');
+                Route::post('/email-template', [SettingsController::class, 'storeEmailTemplate'])
+                    ->name('tenant.settings.email-template.store');
+                Route::put('/email-template/{emailTemplate}', [SettingsController::class, 'updateEmailTemplate'])
+                    ->whereNumber('emailTemplate')
+                    ->name('tenant.settings.email-template.update');
                 Route::prefix('settings')->name('tenant.settings.')->controller(SettingsController::class)->group(function (): void {
                     Route::get('/', 'index')->name('index');
                     Route::put('/profile-settings', 'updateProfile')->name('profile.update');

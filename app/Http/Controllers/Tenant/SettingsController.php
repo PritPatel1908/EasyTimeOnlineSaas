@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\Tenant\SendTenantEmailVerification;
 use App\Models\Tenant\BloodGroup;
 use App\Models\Tenant\EmailConfiguration;
+use App\Models\Tenant\EmailTemplate;
 use App\Models\Tenant\GeneralConfiguration;
 use App\Models\Tenant\User;
 use App\Support\TenantCompanyBranding;
@@ -160,6 +161,11 @@ class SettingsController extends Controller
             ];
         } elseif ($page === 'email-settings') {
             $data['emailConfiguration'] = EmailConfiguration::settings();
+        } elseif ($page === 'email-template') {
+            $data['emailTemplates'] = EmailTemplate::query()
+                ->orderBy('template_type')
+                ->orderBy('id')
+                ->get();
         } elseif ($page === 'default-settings') {
             $data['formatPresets'] = self::FORMAT_PRESETS;
             $data['defaultSettings'] = GeneralConfiguration::withTrashed()
@@ -193,6 +199,56 @@ class SettingsController extends Controller
         }
 
         return view($this->viewPath($page), $data);
+    }
+
+    public function storeEmailTemplate(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'title' => ['required', 'string', 'max:255'],
+            'template_type' => [
+                'required',
+                'string',
+                Rule::in(EmailTemplate::TEMPLATE_TYPES),
+            ],
+            'email_content' => ['required', 'string'],
+            'status' => ['required', Rule::in(['active', 'inactive'])],
+        ]);
+
+        EmailTemplate::query()->create([
+            'title' => $validated['title'],
+            'template_type' => $validated['template_type'],
+            'email_content' => $validated['email_content'],
+            'status' => $validated['status'],
+        ]);
+
+        return redirect()->to(url('email-template'))
+            ->with('success', 'Email template created successfully.');
+    }
+
+    public function updateEmailTemplate(Request $request, string $tenant, int|string $emailTemplate): RedirectResponse
+    {
+        $template = EmailTemplate::query()->findOrFail($emailTemplate);
+        $validated = $request->validate([
+            'title' => ['required', 'string', 'max:255'],
+            'template_type' => [
+                'required',
+                'string',
+                Rule::in(EmailTemplate::TEMPLATE_TYPES),
+            ],
+            'email_content' => ['required', 'string'],
+            'status' => ['required', Rule::in(['active', 'inactive'])],
+            'email_template_form' => ['required', Rule::in(['edit'])],
+        ]);
+
+        $template->update([
+            'title' => $validated['title'],
+            'template_type' => $validated['template_type'],
+            'email_content' => $validated['email_content'],
+            'status' => $validated['status'],
+        ]);
+
+        return redirect()->to(url('email-template'))
+            ->with('success', 'Email template updated successfully.');
     }
 
     public function updateDefaultSettings(Request $request): RedirectResponse
