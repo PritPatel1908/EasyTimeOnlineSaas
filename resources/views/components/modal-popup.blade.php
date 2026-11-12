@@ -29462,7 +29462,7 @@
 	@endif
 @endif
 
-@if(Route::is('email-template'))
+@if(Route::is('email-template') || request()->route('page') === 'email-template' || request()->is('email-template', 'settings/email-template'))
 	<!-- Add Promotion -->
 	<div class="modal fade" id="addtemplate">
 		<div class="modal-dialog modal-dialog-centered modal-md">

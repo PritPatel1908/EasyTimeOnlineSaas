@@ -4,6 +4,10 @@
     <!-- Feather Icon JS -->
     <script src="{{URL::asset('build/js/feather.min.js')}}"></script>
 
+@if (!Route::is('email-template') && (request()->route('page') === 'email-template' || request()->is('email-template', 'settings/email-template')))
+    <script src="{{URL::asset('build/plugins/quill/quill.min.js')}}"></script>
+@endif
+
 @if (!Route::is(['coming-soon', 'email-verification', 'email-verification-2', 'email-verification-3', 'error-404', 'error-500', 'forgot-password', 'forgot-password-2', 'forgot-password-3', 'lock-screen', 'login', 'login-2', 'login-3', 'register', 'register-2', 'register-3', 'reset-password', 'reset-password-2', 'reset-password-3', 'success', 'success-2', 'success-3', 'two-step-verification', 'two-step-verification-2', 'two-step-verification-3', 'under-construction', 'under-maintenance']))
     <!-- Slimscroll JS -->
     <script src="{{URL::asset('build/plugins/simplebar/simplebar.min.js')}}"></script>
