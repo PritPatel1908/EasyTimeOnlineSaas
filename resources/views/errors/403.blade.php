@@ -12,7 +12,7 @@
             <div class="col-xl-8 col-lg-9 d-flex justify-content-center align-items-center mx-auto">
                 <div class="w-100 text-center">
                     <div class="p-4">
-                        <img src="{{ URL::asset('build/img/logo.svg') }}" alt="{{ config('app.name') }}" class="img-fluid">
+                        <img src="{{ ($companyImageUrls['company_white_logo'] ?? URL::asset('build/img/logo.svg')) }}" alt="{{ config('app.name') }}" class="img-fluid">
                     </div>
                     <div class="d-flex justify-content-center mb-4">
                         <div class="avatar avatar-xxl rounded-circle bg-primary d-flex align-items-center justify-content-center text-white shadow-lg">

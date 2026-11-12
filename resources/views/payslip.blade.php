@@ -51,7 +51,7 @@
 									<div class="col-md-6">
 										<div class="mb-3">
 											<div class="mb-2">
-												<img src="{{URL::asset('build/img/logo.svg')}}" class="img-fluid" alt="logo">
+												<img src="{{ $companyImageUrls['company_white_logo'] ?? URL::asset('build/img/logo.svg') }}" class="img-fluid" alt="logo">
 											</div>
 											<p>3099 Kennedy Court Framingham, MA 01702</p>
 										</div>

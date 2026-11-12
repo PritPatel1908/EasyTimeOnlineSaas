@@ -14819,10 +14819,24 @@ table.table-bordered thead tr th p {
   }
 }
 .sidebar .sidebar-logo {
+  box-sizing: border-box;
   position: fixed;
-  height: 50px;
-  width: 252px;
-  padding: 16px 16px 0;
+  height: 66px;
+  width: inherit;
+  padding: 8px 12px;
+}
+.sidebar .sidebar-logo .logo,
+.sidebar .sidebar-logo .dark-logo {
+  max-width: 100%;
+}
+.sidebar .sidebar-logo .logo img,
+.sidebar .sidebar-logo .dark-logo img {
+  display: block;
+  max-width: 100%;
+  max-height: 50px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
 }
 .sidebar .sidebar-logo .logo {
   display: block;
@@ -14836,7 +14850,7 @@ table.table-bordered thead tr th p {
   }
 }
 .sidebar .slimScrollDiv {
-  top: 50px;
+  top: 66px;
   padding: 16px;
 }
 @media (max-width: 575.98px) {
@@ -14855,8 +14869,8 @@ table.table-bordered thead tr th p {
 }
 .sidebar .sidebar-inner {
   width: 100%;
-  height: calc(100% - 50px);
-  margin-top: 50px;
+  height: calc(100% - 66px);
+  margin-top: 66px;
 }
 @media (max-width: 991.98px) {
   .sidebar .sidebar-inner {

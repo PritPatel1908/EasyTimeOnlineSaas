@@ -83,7 +83,7 @@
 							<div class="border-bottom mb-3 pb-3">
 								<h4>Invoice Settings</h4>
 							</div>
-							<form action="{{url('profile-settings')}}">
+							<form action="{{url('invoice-settings')}}">
 								<div class="border-bottom mb-3">
 									<div class="row">
 										<div class="col-md-12">

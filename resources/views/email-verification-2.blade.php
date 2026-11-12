@@ -21,7 +21,7 @@
 							<form action="{{url('reset-password-2')}}" class="digit-group">
 								<div>
 									<div class=" mx-auto mb-5 text-center">
-										<img src="{{URL::asset('build/img/logo.svg')}}"
+										<img src="{{ $companyImageUrls['company_white_logo'] ?? URL::asset('build/img/logo.svg') }}"
 											class="img-fluid" alt="Logo">
 									</div>
 									<div class="">

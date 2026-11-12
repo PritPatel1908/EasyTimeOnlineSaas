@@ -89,7 +89,7 @@
 							<div class="border-bottom mb-3 pb-3">
 								<h4>Maintenance Mode</h4>
 							</div>
-							<form action="{{url('gdpr')}}">
+							<form action="{{url('maintenance-mode')}}">
 								<div class="border-bottom mb-3">
 									<div class="row">
 										<div class="col-md-12">

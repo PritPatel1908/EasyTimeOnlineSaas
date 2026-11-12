@@ -91,6 +91,8 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
             Route::get('/email/verify/{id}/{hash}', [SettingsController::class, 'verifyEmail'])
                 ->middleware('signed')
                 ->name('tenant.email.verify');
+            Route::get('/company-images/{key}', [SettingsController::class, 'companyImage'])
+                ->name('tenant.settings.company-image');
 
             Route::middleware('guest:tenant')->group(function (): void {
                 Route::get('/login', [AuthController::class, 'showLogin'])->name('tenant.login');
@@ -1041,6 +1043,8 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
 
                 Route::put('/default-settings', [SettingsController::class, 'updateDefaultSettings'])
                     ->name('tenant.settings.default.update');
+                Route::put('/company-settings', [SettingsController::class, 'updateCompanySettings'])
+                    ->name('tenant.settings.company.update');
                 Route::redirect('/business-settings', '/default-settings', 301)
                     ->name('tenant.settings.default.legacy');
 

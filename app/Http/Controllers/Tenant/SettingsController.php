@@ -10,16 +10,20 @@ use App\Models\Tenant\BloodGroup;
 use App\Models\Tenant\EmailConfiguration;
 use App\Models\Tenant\GeneralConfiguration;
 use App\Models\Tenant\User;
+use App\Support\TenantCompanyBranding;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SettingsController extends Controller
 {
@@ -49,6 +53,26 @@ class SettingsController extends Controller
             'h:i:s A' => 'h:i:s A',
         ],
     ];
+
+    /**
+     * @var list<string>
+     */
+    private const FILE_TYPE_OPTIONS = ['jpg', 'gif', 'png'];
+
+    /**
+     * @var list<string>
+     */
+    private const COMPANY_BASIC_SETTING_KEYS = [
+        'company_name',
+        'company_email',
+        'company_phone',
+        'company_web',
+    ];
+
+    /**
+     * @var list<string>
+     */
+    private const COMPANY_IMAGE_SETTING_KEYS = TenantCompanyBranding::IMAGE_KEYS;
 
     /**
      * @var list<string>
@@ -139,9 +163,21 @@ class SettingsController extends Controller
         } elseif ($page === 'default-settings') {
             $data['formatPresets'] = self::FORMAT_PRESETS;
             $data['defaultSettings'] = GeneralConfiguration::withTrashed()
-                ->whereIn('key', [...array_keys(self::FORMAT_PRESETS), ...self::ATTENDANCE_SETTING_KEYS])
+                ->whereIn('key', [
+                    ...array_keys(self::FORMAT_PRESETS),
+                    ...self::ATTENDANCE_SETTING_KEYS,
+                    'allowed_files',
+                    'max_file_size',
+                    ...self::COMPANY_BASIC_SETTING_KEYS,
+                    ...self::COMPANY_IMAGE_SETTING_KEYS,
+                ])
                 ->pluck('value', 'key')
                 ->all();
+            $data['allowedFileTypes'] = self::FILE_TYPE_OPTIONS;
+            $data['selectedAllowedFiles'] = $this->selectedAllowedFiles(
+                $data['defaultSettings']['allowed_files'] ?? null
+            );
+            $data['companyImageUrls'] = app(TenantCompanyBranding::class)->imageUrls($tenant);
         } elseif ($page === 'security-settings') {
             $securityUser = $this->profileUser();
             $passwordHistories = $securityUser
@@ -177,15 +213,30 @@ class SettingsController extends Controller
             'monthly_leave_check_date' => ['nullable', 'integer', 'between:1,31'],
             'yearly_leave_check_date' => ['nullable', 'integer', 'between:1,31'],
             'password_attempts_count' => ['required', 'integer', 'min:1'],
+            'allowed_files' => ['sometimes', 'nullable', 'array'],
+            'allowed_files.*' => ['string', Rule::in(self::FILE_TYPE_OPTIONS), 'distinct'],
+            'max_file_size' => ['nullable', 'integer', 'min:1'],
         ];
 
         $validated = $request->validate($rules);
 
         DB::transaction(function () use ($validated): void {
-            foreach ([...array_keys(self::FORMAT_PRESETS), ...self::ATTENDANCE_SETTING_KEYS] as $key) {
-                $value = isset(self::FORMAT_PRESETS[$key]) && $validated[$key] === 'custom'
-                    ? trim((string) $validated['custom_'.$key])
-                    : $validated[$key];
+            foreach ([
+                ...array_keys(self::FORMAT_PRESETS),
+                ...self::ATTENDANCE_SETTING_KEYS,
+                'allowed_files',
+                'max_file_size',
+            ] as $key) {
+                if ($key === 'allowed_files') {
+                    $value = json_encode($validated[$key] ?? [], JSON_THROW_ON_ERROR);
+                } elseif ($key === 'max_file_size') {
+                    $value = isset($validated[$key]) ? (string) $validated[$key] : null;
+                } else {
+                    $value = isset(self::FORMAT_PRESETS[$key]) && $validated[$key] === 'custom'
+                        ? trim((string) $validated['custom_'.$key])
+                        : $validated[$key];
+                }
+
                 $configuration = GeneralConfiguration::withTrashed()->firstOrNew(['key' => $key]);
                 $configuration->value = $value;
 
@@ -197,7 +248,102 @@ class SettingsController extends Controller
             }
         });
 
-        return back()->with('success', 'Default settings updated successfully.');
+        return redirect()->to(url('default-settings'))
+            ->with('success', 'Default settings updated successfully.');
+    }
+
+    public function updateCompanySettings(Request $request): RedirectResponse
+    {
+        $rules = [
+            'company_name' => ['nullable', 'string', 'max:255'],
+            'company_email' => ['nullable', 'email', 'max:255'],
+            'company_phone' => ['nullable', 'string', 'max:30'],
+            'company_web' => ['nullable', 'string', 'max:255'],
+        ];
+        foreach (self::COMPANY_IMAGE_SETTING_KEYS as $key) {
+            $rules[$key] = ['nullable', 'image', 'mimes:jpg,jpeg,png,gif,webp', 'max:2048'];
+        }
+
+        $validated = $request->validate($rules);
+
+        $values = [];
+        foreach (self::COMPANY_BASIC_SETTING_KEYS as $key) {
+            $value = trim((string) ($validated[$key] ?? ''));
+            $values[$key] = $value === '' ? null : $value;
+        }
+
+        $imagePaths = [];
+        foreach (self::COMPANY_IMAGE_SETTING_KEYS as $key) {
+            if ($request->hasFile($key)) {
+                $storedPath = $request->file($key)->store('company-images', 'public');
+                if (! is_string($storedPath)) {
+                    throw new RuntimeException('Unable to store the uploaded company image.');
+                }
+
+                $imagePaths[$key] = $storedPath;
+                $values[$key] = $storedPath;
+            }
+        }
+
+        $previousImagePaths = $imagePaths === []
+            ? []
+            : GeneralConfiguration::withTrashed()
+                ->whereIn('key', array_keys($imagePaths))
+                ->pluck('value', 'key')
+                ->all();
+
+        DB::transaction(function () use ($values): void {
+            foreach ($values as $key => $value) {
+                $configuration = GeneralConfiguration::withTrashed()->firstOrNew(['key' => $key]);
+                $configuration->value = $value;
+
+                if ($configuration->trashed()) {
+                    $configuration->restore();
+                } else {
+                    $configuration->save();
+                }
+            }
+        });
+
+        foreach ($previousImagePaths as $previousPath) {
+            if (is_string($previousPath) && str_starts_with($previousPath, 'company-images/')) {
+                Storage::disk('public')->delete($previousPath);
+            }
+        }
+
+        return redirect()->to(url('default-settings'))
+            ->with('success', 'Company information updated successfully.');
+    }
+
+    public function companyImage(string $tenant, string $key): StreamedResponse
+    {
+        abort_unless(in_array($key, self::COMPANY_IMAGE_SETTING_KEYS, true), 404);
+
+        $imagePath = GeneralConfiguration::query()->where('key', $key)->value('value');
+        abort_unless(
+            is_string($imagePath)
+                && str_starts_with($imagePath, 'company-images/')
+                && Storage::disk('public')->exists($imagePath),
+            404,
+        );
+
+        return Storage::disk('public')->response($imagePath);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function selectedAllowedFiles(?string $value): array
+    {
+        if ($value === null || $value === '') {
+            return [];
+        }
+
+        $decoded = json_decode($value, true);
+        $files = is_array($decoded) ? $decoded : [$value];
+        $files = array_filter($files, 'is_string');
+
+        return array_values(array_intersect(self::FILE_TYPE_OPTIONS, $files));
     }
 
     public function updateEmailSettings(Request $request): RedirectResponse
@@ -236,14 +382,16 @@ class SettingsController extends Controller
 
         EmailConfiguration::saveSettings($settings);
 
-        return back()->with('success', 'Email settings updated successfully.');
+        return redirect()->to(url('email-settings'))
+            ->with('success', 'Email settings updated successfully.');
     }
 
     public function deleteEmailSettings(): RedirectResponse
     {
         EmailConfiguration::deleteSettings();
 
-        return back()->with('success', 'Email configuration deleted successfully.');
+        return redirect()->to(url('email-settings'))
+            ->with('success', 'Email configuration deleted successfully.');
     }
 
     public function updateEmail(Request $request): RedirectResponse
@@ -312,7 +460,8 @@ class SettingsController extends Controller
                 ->afterCommit();
         });
 
-        return back()->with('success', 'Email address updated. A verification email has been queued for your new email address.');
+        return redirect()->to(url('security-settings'))
+            ->with('success', 'Email address updated. A verification email has been queued for your new email address.');
     }
 
     public function removeEmail(): RedirectResponse
@@ -325,7 +474,8 @@ class SettingsController extends Controller
             $user->save();
         });
 
-        return back()->with('success', 'Email address removed successfully.');
+        return redirect()->to(url('security-settings'))
+            ->with('success', 'Email address removed successfully.');
     }
 
     public function toggleTwoFactorAuthentication(): RedirectResponse
@@ -346,7 +496,7 @@ class SettingsController extends Controller
             ? 'Two-factor authentication enabled successfully.'
             : 'Two-factor authentication disabled successfully.';
 
-        return back()->with('success', $message);
+        return redirect()->to(url('security-settings'))->with('success', $message);
     }
 
     public function verifyEmail(Request $request): RedirectResponse
@@ -594,7 +744,8 @@ class SettingsController extends Controller
             }
         });
 
-        return redirect()->back()->with('success', 'Profile updated successfully.');
+        return redirect()->to(url('profile-settings'))
+            ->with('success', 'Profile updated successfully.');
     }
 
     /**

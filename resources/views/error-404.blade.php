@@ -11,7 +11,7 @@
 				<div class="col-md-8 d-flex justify-content-center align-items-center mx-auto">
 					<div>
 						<div class="p-4 text-center">
-							<img src="{{URL::asset('build/img/logo.svg')}}" alt="logo" class="img-fluid">
+							<img src="{{ $companyImageUrls['company_white_logo'] ?? URL::asset('build/img/logo.svg') }}" alt="logo" class="img-fluid">
 						</div>
 						<div class="error-images mb-5">
 							<img src="{{URL::asset('build/img/bg/error-404.svg')}}" alt="image" class="img-fluid">

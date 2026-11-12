@@ -26,7 +26,7 @@
 						<div class="col-md-7 mx-auto">
 							<div class="d-flex flex-column justify-content-between p-4">
 								<div class="mx-auto mb-5 text-center">
-									<img src="{{ URL::asset('build/img/logo.svg') }}" class="img-fluid" alt="Logo">
+									<img src="{{ ($companyImageUrls['company_white_logo'] ?? URL::asset('build/img/logo.svg')) }}" class="img-fluid" alt="Logo">
 								</div>
 								<div>
 									@if ($errors->any())

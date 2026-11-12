@@ -7,8 +7,10 @@ namespace Tests\Feature;
 use App\Http\Controllers\Tenant\SettingsController;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
@@ -45,9 +47,12 @@ class DefaultSettingsFormatsTest extends TestCase
             'monthly_leave_check_date' => '15',
             'yearly_leave_check_date' => '31',
             'password_attempts_count' => '6',
+            'allowed_files' => ['jpg', 'png'],
+            'max_file_size' => '5000',
         ]);
 
-        app(SettingsController::class)->updateDefaultSettings($request);
+        $response = app(SettingsController::class)->updateDefaultSettings($request);
+        $this->assertSame(url('default-settings'), $response->getTargetUrl());
 
         $this->assertDatabaseHas('general_configurations', [
             'key' => 'datetime_format',
@@ -81,6 +86,21 @@ class DefaultSettingsFormatsTest extends TestCase
             'key' => 'password_attempts_count',
             'value' => '6',
         ]);
+        $this->assertDatabaseHas('general_configurations', [
+            'key' => 'allowed_files',
+            'value' => '["jpg","png"]',
+        ]);
+        $this->assertDatabaseHas('general_configurations', [
+            'key' => 'max_file_size',
+            'value' => '5000',
+        ]);
+
+        $savedSettingsView = app(SettingsController::class)->show('tenant', 'default-settings');
+        $this->assertSame(
+            ['jpg', 'png'],
+            $savedSettingsView->getData()['selectedAllowedFiles']
+        );
+        $this->assertSame('5000', $savedSettingsView->getData()['defaultSettings']['max_file_size']);
     }
 
     public function test_leave_credit_dates_must_be_between_one_and_thirty_one(): void
@@ -100,6 +120,70 @@ class DefaultSettingsFormatsTest extends TestCase
 
         $this->expectException(ValidationException::class);
         app(SettingsController::class)->updateDefaultSettings($request);
+    }
+
+    public function test_company_basic_information_is_saved_and_loaded_from_general_configurations(): void
+    {
+        $this->createGeneralConfigurationsTable();
+        Storage::fake('public');
+
+        $imageKeys = [
+            'company_white_logo',
+            'company_dark_logo',
+            'company_white_mini_logo',
+            'company_dark_mini_logo',
+            'company_favicon',
+            'company_apple_icon',
+        ];
+        $files = [];
+        foreach ($imageKeys as $key) {
+            $files[$key] = UploadedFile::fake()->image($key.'.png', 32, 32);
+        }
+
+        $request = Request::create('/company-settings', 'PUT', [
+            'company_name' => 'SmartHR',
+            'company_email' => 'admin@example.com',
+            'company_phone' => '+91 1234567890',
+            'company_web' => 'https://example.com',
+        ], [], $files);
+
+        $response = app(SettingsController::class)->updateCompanySettings($request);
+
+        $this->assertSame(url('default-settings'), $response->getTargetUrl());
+        $this->assertDatabaseHas('general_configurations', [
+            'key' => 'company_name',
+            'value' => 'SmartHR',
+        ]);
+        $this->assertDatabaseHas('general_configurations', [
+            'key' => 'company_email',
+            'value' => 'admin@example.com',
+        ]);
+        $this->assertDatabaseHas('general_configurations', [
+            'key' => 'company_phone',
+            'value' => '+91 1234567890',
+        ]);
+        $this->assertDatabaseHas('general_configurations', [
+            'key' => 'company_web',
+            'value' => 'https://example.com',
+        ]);
+        foreach ($imageKeys as $key) {
+            $storedPath = DB::table('general_configurations')->where('key', $key)->value('value');
+            $this->assertIsString($storedPath);
+            Storage::disk('public')->assertExists($storedPath);
+        }
+
+        $settingsView = app(SettingsController::class)->show('tenant', 'default-settings');
+        $defaultSettings = $settingsView->getData()['defaultSettings'];
+        $this->assertSame('SmartHR', $defaultSettings['company_name']);
+        $this->assertSame('admin@example.com', $defaultSettings['company_email']);
+        $this->assertSame('+91 1234567890', $defaultSettings['company_phone']);
+        $this->assertSame('https://example.com', $defaultSettings['company_web']);
+        foreach ($imageKeys as $key) {
+            $this->assertStringContainsString(
+                '/company-images/'.$key,
+                $settingsView->getData()['companyImageUrls'][$key]
+            );
+        }
     }
 
     private function createGeneralConfigurationsTable(): void

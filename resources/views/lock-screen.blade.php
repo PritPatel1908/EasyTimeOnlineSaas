@@ -11,7 +11,7 @@
 				<form action="{{url('index')}}">
 					<div class="d-flex flex-column justify-content-between vh-100">
 						<div class=" mx-auto p-4 text-center">
-							<img src="{{URL::asset('build/img/logo.svg')}}" class="img-fluid" alt="Logo">
+							<img src="{{ $companyImageUrls['company_white_logo'] ?? URL::asset('build/img/logo.svg') }}" class="img-fluid" alt="Logo">
 						</div>
 						<div class="card">
 							<div class="card-body p-4">

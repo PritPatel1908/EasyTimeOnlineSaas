@@ -162,7 +162,7 @@
 												class="d-flex align-items-center flex-wrap row-gap-3 bg-light w-100 rounded p-3 mb-4">
 												<div
 													class="d-flex align-items-center justify-content-center avatar avatar-xxl bg-white rounded border border-dashed me-2 flex-shrink-0 text-dark frames px-2">
-													<img src="{{URL::asset('build/img/logo.svg')}}" class="img-fluid" alt="logo">
+													<img src="{{ $companyImageUrls['company_white_logo'] ?? URL::asset('build/img/logo.svg') }}" class="img-fluid" alt="logo">
 												</div>
 												<div class="profile-upload">
 													<div class="mb-2">
@@ -187,7 +187,7 @@
 												class="d-flex align-items-center flex-wrap row-gap-3 bg-light w-100 rounded p-3 mb-4">
 												<div
 													class="d-flex align-items-center justify-content-center avatar bg-dark avatar-xxl rounded border border-dashed me-2 px-2 flex-shrink-0 text-dark frames">
-													<img src="{{URL::asset('build/img/logo-white.svg')}}"
+													<img src="{{ $companyImageUrls['company_dark_logo'] ?? URL::asset('build/img/logo-white.svg') }}"
 														class="img-fluid text-white" alt="logo">
 												</div>
 												<div class="profile-upload">
@@ -213,7 +213,7 @@
 												class="d-flex align-items-center flex-wrap row-gap-3 bg-light w-100 rounded p-3 mb-4">
 												<div
 													class="d-flex align-items-center justify-content-center avatar avatar-xxl bg-white rounded border border-dashed me-2 p-3 flex-shrink-0 text-dark frames">
-													<img src="{{URL::asset('build/img/logo-small.svg')}}" class="img-fluid"
+													<img src="{{ $companyImageUrls['company_white_mini_logo'] ?? URL::asset('build/img/logo-small.svg') }}" class="img-fluid"
 														alt="logo">
 												</div>
 												<div class="profile-upload">
@@ -264,7 +264,7 @@
 												class="d-flex align-items-center flex-wrap row-gap-3 bg-light w-100 rounded p-3 mb-4">
 												<div
 													class="d-flex align-items-center justify-content-center avatar avatar-xxl rounded bg-white p-3 border border-dashed me-2 flex-shrink-0 text-dark frames">
-													<img src="{{URL::asset('build/img/logo-small.svg')}}" class="img-fluid"
+													<img src="{{ $companyImageUrls['company_white_mini_logo'] ?? URL::asset('build/img/logo-small.svg') }}" class="img-fluid"
 														alt="logo">
 												</div>
 												<div class="profile-upload">
@@ -290,7 +290,7 @@
 												class="d-flex align-items-center flex-wrap row-gap-3 bg-light w-100 rounded p-3 mb-4">
 												<div
 													class="d-flex align-items-center justify-content-center avatar avatar-xxl rounded bg-white p-3 border border-dashed me-2 flex-shrink-0 text-dark frames">
-													<img src="{{URL::asset('build/img/logo-small.svg')}}" class="img-fluid"
+													<img src="{{ $companyImageUrls['company_white_mini_logo'] ?? URL::asset('build/img/logo-small.svg') }}" class="img-fluid"
 														alt="logo">
 												</div>
 												<div class="profile-upload">

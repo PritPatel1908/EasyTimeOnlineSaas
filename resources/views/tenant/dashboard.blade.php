@@ -82,7 +82,7 @@
 <body>
     <div class="shell">
         <aside class="sidebar">
-            <a class="brand" href="{{ url('/') }}"><img src="{{ asset('admin-dist/images/logo.png') }}" alt="EasyTime"><span>EASYTIME</span></a>
+            <a class="brand" href="{{ url('/') }}"><img src="{{ $companyImageUrls['company_white_mini_logo'] ?? URL::asset('build/img/logo-small.svg') }}" alt="EasyTime"><span>EASYTIME</span></a>
             <div class="eyebrow">Workspace</div>
             <nav class="nav" aria-label="Workspace navigation">
                 <a class="nav-link active" href="{{ url('/') }}"><span class="nav-icon">&#8962;</span>Overview</a>

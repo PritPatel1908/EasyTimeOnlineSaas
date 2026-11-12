@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Exceptions\DeleteBlockedException;
 use App\Helpers\DatabaseReferenceChecker;
 use App\Models\Tenant\AttendanceLog;
+use App\Support\TenantCompanyBranding;
 use App\Support\TenantPermissions;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\DevCommands;
@@ -69,6 +70,18 @@ class AppServiceProvider extends ServiceProvider
                 : collect();
 
             $view->with('adminNotifications', $notifications);
+        });
+
+        View::composer('*', function (\Illuminate\View\View $view): void {
+            $tenant = request()->route('tenant');
+            if (! is_string($tenant)) {
+                $tenant = tenant('id');
+            }
+
+            $view->with(
+                'companyImageUrls',
+                app(TenantCompanyBranding::class)->imageUrls(is_string($tenant) ? $tenant : null),
+            );
         });
     }
 }

@@ -9,6 +9,7 @@
 
 		<!-- Start Content -->
 		<div class="content">
+			@include('partials.flash-alerts')
 
 			<!-- Breadcrumb -->
 			<div class="d-md-flex d-block align-items-center justify-content-between page-breadcrumb mb-3">
@@ -95,10 +96,10 @@
 										<button type="button" class="nav-link active" id="business-default-general-tab" role="tab" aria-controls="business-default-general-panel" aria-selected="true" data-business-tab="general" data-business-form="default">Default Formats</button>
 										<button type="button" class="nav-link" id="business-default-attendance-tab" role="tab" aria-controls="business-default-attendance-panel" aria-selected="false" data-business-tab="attendance" data-business-form="default">Default Configuration</button>
 										<button type="button" class="nav-link" id="business-default-currency-tab" role="tab" aria-controls="business-default-currency-panel" aria-selected="false" data-business-tab="currency" data-business-form="default">Currency</button>
-										<button type="button" class="nav-link" id="business-default-country-tab" role="tab" aria-controls="business-default-country-panel" aria-selected="false" data-business-tab="country" data-business-form="default">Country &amp; Files</button>
+										<button type="button" class="nav-link" id="business-default-country-tab" role="tab" aria-controls="business-default-country-panel" aria-selected="false" data-business-tab="country" data-business-form="default">File Configurations</button>
 										<button type="button" class="nav-link" id="business-company-details-tab" role="tab" aria-controls="business-company-details-panel" aria-selected="false" data-business-tab="details" data-business-form="company">Basic Information</button>
 										<button type="button" class="nav-link" id="business-company-branding-tab" role="tab" aria-controls="business-company-branding-panel" aria-selected="false" data-business-tab="branding" data-business-form="company">Company Images</button>
-										<button type="button" class="nav-link" id="business-company-address-tab" role="tab" aria-controls="business-company-address-panel" aria-selected="false" data-business-tab="address" data-business-form="company">Address</button>
+										{{-- <button type="button" class="nav-link" id="business-company-address-tab" role="tab" aria-controls="business-company-address-panel" aria-selected="false" data-business-tab="address" data-business-form="company">Address</button> --}}
 									</div>
 								</div>
 								<div class="profile-tab-panels">
@@ -118,6 +119,8 @@
 								$customDatetimeFormatValue = is_string($customDatetimeFormatValue) ? $customDatetimeFormatValue : '';
 								$customDateFormatValue = is_string($customDateFormatValue) ? $customDateFormatValue : '';
 								$customTimeFormatValue = is_string($customTimeFormatValue) ? $customTimeFormatValue : '';
+								$allowedFilesSelection = old('allowed_files', $selectedAllowedFiles);
+								$allowedFilesSelection = is_array($allowedFilesSelection) ? $allowedFilesSelection : [];
 							@endphp
 							<form action="{{url('default-settings')}}" method="POST" data-business-tab-form="default">
 								@csrf
@@ -336,6 +339,7 @@
 									</div>
 								</section>
 								<section class="profile-tab-panel" id="business-default-country-panel" role="tabpanel" aria-labelledby="business-default-country-tab" data-business-panel="country" hidden>
+									{{--
 									<h6 class="mb-3">Country Settings</h6>
 									<div class="row">
 										<div class="col-md-6">
@@ -353,6 +357,7 @@
 											</div>
 										</div>
 									</div>
+									--}}
 								<div class="border-bottom mb-3">
 									<h6 class="mb-3">File Settings</h6>
 									<div class="row">
@@ -362,11 +367,10 @@
 													<label class="form-label mb-md-0">Allowed Files</label>
 												</div>
 												<div class="col-md-7">
-													<select class="select">
-														<option>Select</option>
-														<option>jpg</option>
-														<option>gif</option>
-														<option>png</option>
+													<select class="select" name="allowed_files[]" multiple>
+														@foreach($allowedFileTypes as $fileType)
+															<option value="{{ $fileType }}" @selected(in_array($fileType, $allowedFilesSelection, true))>{{ $fileType }}</option>
+														@endforeach
 													</select>
 												</div>
 											</div>
@@ -377,7 +381,7 @@
 													<label class="form-label mb-md-0">Max File Size</label>
 												</div>
 												<div class="col-md-7">
-													<input type="text" class="form-control" placeholder="5000 MB">
+													<input type="number" min="1" step="1" name="max_file_size" class="form-control" placeholder="5000 MB" value="{{ old('max_file_size', $defaultSettings['max_file_size'] ?? '') }}">
 												</div>
 											</div>
 										</div>
@@ -389,7 +393,9 @@
 									<button type="submit" class="btn btn-primary">Save</button>
 								</div>
 							</form>
-							<form action="{{url('default-settings')}}" data-business-tab-form="company" hidden>
+							<form action="{{url('company-settings')}}" method="POST" enctype="multipart/form-data" data-business-tab-form="company" hidden>
+								@csrf
+								@method('PUT')
 								<section class="profile-tab-panel" id="business-company-details-panel" role="tabpanel" aria-labelledby="business-company-details-tab" data-business-panel="details">
 									<div class="row">
 										<div class="col-md-12">
@@ -399,43 +405,33 @@
 										</div>
 									</div>
 									<div class="row">
-										<div class="col-md-6">
+										<div class="col-md-4">
 											<div class="row align-items-center mb-3">
 												<div class="col-md-4">
 													<label class="form-label mb-md-0">Company Name</label>
 												</div>
 												<div class="col-md-8">
-													<input type="text" class="form-control">
+													<input type="text" name="company_name" class="form-control" maxlength="255" value="{{ old('company_name', $defaultSettings['company_name'] ?? '') }}">
 												</div>
 											</div>
 										</div>
-										<div class="col-md-6">
+										<div class="col-md-4">
 											<div class="row align-items-center mb-3">
 												<div class="col-md-4">
 													<label class="form-label mb-md-0">Email Address</label>
 												</div>
 												<div class="col-md-8">
-													<input type="text" class="form-control">
+													<input type="email" name="company_email" class="form-control" maxlength="255" value="{{ old('company_email', $defaultSettings['company_email'] ?? '') }}">
 												</div>
 											</div>
 										</div>
-										<div class="col-md-6">
+										<div class="col-md-4">
 											<div class="row align-items-center mb-3">
 												<div class="col-md-4">
 													<label class="form-label mb-md-0">Phone</label>
 												</div>
 												<div class="col-md-8">
-													<input type="text" class="form-control">
-												</div>
-											</div>
-										</div>
-										<div class="col-md-6">
-											<div class="row align-items-center mb-3">
-												<div class="col-md-4">
-													<label class="form-label mb-md-0">Fax</label>
-												</div>
-												<div class="col-md-8">
-													<input type="text" class="form-control">
+													<input type="tel" name="company_phone" class="form-control" maxlength="30" value="{{ old('company_phone', $defaultSettings['company_phone'] ?? '') }}">
 												</div>
 											</div>
 										</div>
@@ -445,7 +441,7 @@
 													<label class="form-label mb-md-0">Web</label>
 												</div>
 												<div class="col-md-10">
-													<input type="text" class="form-control">
+													<input type="text" name="company_web" class="form-control" maxlength="255" value="{{ old('company_web', $defaultSettings['company_web'] ?? '') }}">
 												</div>
 											</div>
 										</div>
@@ -458,8 +454,9 @@
 											<div
 												class="d-flex align-items-center flex-wrap row-gap-3 bg-light w-100 rounded p-3 mb-4">
 												<div
-													class="d-flex align-items-center justify-content-center avatar avatar-xxl bg-white rounded border border-dashed me-2 flex-shrink-0 text-dark frames px-2">
-													<img src="{{URL::asset('build/img/logo.svg')}}" class="img-fluid" alt="logo">
+													class="d-flex align-items-center justify-content-center avatar avatar-xxl bg-white rounded border border-dashed me-2 flex-shrink-0 text-dark frames px-2"
+													data-company-image-preview="company_white_logo">
+													<img src="{{ $companyImageUrls['company_white_logo'] ?? URL::asset('build/img/logo.svg') }}" class="img-fluid" alt="White logo">
 												</div>
 												<div class="profile-upload">
 													<div class="mb-2">
@@ -470,10 +467,10 @@
 														<div class="drag-upload-btn btn btn-sm btn-primary me-2">
 															Change
 															<input type="file" class="form-control image-sign"
-																multiple="">
+																name="company_white_logo" accept="image/png,image/jpeg,image/gif,image/webp" data-company-image-upload>
 														</div>
 														<a href="javascript:void(0);"
-															class="btn btn-light btn-sm">Cancel</a>
+															class="btn btn-light btn-sm" data-company-image-cancel>Cancel</a>
 													</div>
 
 												</div>
@@ -483,9 +480,10 @@
 											<div
 												class="d-flex align-items-center flex-wrap row-gap-3 bg-light w-100 rounded p-3 mb-4">
 												<div
-													class="d-flex align-items-center justify-content-center avatar bg-dark avatar-xxl rounded border border-dashed me-2 px-2 flex-shrink-0 text-dark frames">
-													<img src="{{URL::asset('build/img/logo-white.svg')}}"
-														class="img-fluid text-white" alt="logo">
+													class="d-flex align-items-center justify-content-center avatar bg-dark avatar-xxl rounded border border-dashed me-2 px-2 flex-shrink-0 text-dark frames"
+													data-company-image-preview="company_dark_logo">
+													<img src="{{ $companyImageUrls['company_dark_logo'] ?? URL::asset('build/img/logo-white.svg') }}"
+														class="img-fluid text-white" alt="Dark logo">
 												</div>
 												<div class="profile-upload">
 													<div class="mb-2">
@@ -496,10 +494,10 @@
 														<div class="drag-upload-btn btn btn-sm btn-primary me-2">
 															Change
 															<input type="file" class="form-control image-sign"
-																multiple="">
+																name="company_dark_logo" accept="image/png,image/jpeg,image/gif,image/webp" data-company-image-upload>
 														</div>
 														<a href="javascript:void(0);"
-															class="btn btn-light btn-sm">Cancel</a>
+															class="btn btn-light btn-sm" data-company-image-cancel>Cancel</a>
 													</div>
 
 												</div>
@@ -509,9 +507,10 @@
 											<div
 												class="d-flex align-items-center flex-wrap row-gap-3 bg-light w-100 rounded p-3 mb-4">
 												<div
-													class="d-flex align-items-center justify-content-center avatar avatar-xxl bg-white rounded border border-dashed me-2 p-3 flex-shrink-0 text-dark frames">
-													<img src="{{URL::asset('build/img/logo-small.svg')}}" class="img-fluid"
-														alt="logo">
+													class="d-flex align-items-center justify-content-center avatar avatar-xxl bg-white rounded border border-dashed me-2 p-3 flex-shrink-0 text-dark frames"
+													data-company-image-preview="company_white_mini_logo">
+													<img src="{{ $companyImageUrls['company_white_mini_logo'] ?? URL::asset('build/img/logo-small.svg') }}" class="img-fluid"
+														alt="White mini logo">
 												</div>
 												<div class="profile-upload">
 													<div class="mb-2">
@@ -522,10 +521,10 @@
 														<div class="drag-upload-btn btn btn-sm btn-primary me-2">
 															Change
 															<input type="file" class="form-control image-sign"
-																multiple="">
+																name="company_white_mini_logo" accept="image/png,image/jpeg,image/gif,image/webp" data-company-image-upload>
 														</div>
 														<a href="javascript:void(0);"
-															class="btn btn-light btn-sm">Cancel</a>
+															class="btn btn-light btn-sm" data-company-image-cancel>Cancel</a>
 													</div>
 
 												</div>
@@ -535,8 +534,13 @@
 											<div
 												class="d-flex align-items-center flex-wrap row-gap-3 bg-light w-100 rounded p-3 mb-4">
 												<div
-													class="d-flex align-items-center justify-content-center avatar avatar-xxl bg-dark rounded border border-dashed me-2 flex-shrink-0 text-dark frames">
-													<i class="ti ti-photo text-gray-3 fs-16"></i>
+													class="d-flex align-items-center justify-content-center avatar avatar-xxl bg-dark rounded border border-dashed me-2 flex-shrink-0 text-dark frames"
+													data-company-image-preview="company_dark_mini_logo">
+													@if ($companyImageUrls['company_dark_mini_logo'])
+														<img src="{{ $companyImageUrls['company_dark_mini_logo'] }}" class="img-fluid" alt="Dark mini logo">
+													@else
+														<i class="ti ti-photo text-gray-3 fs-16"></i>
+													@endif
 												</div>
 												<div class="profile-upload">
 													<div class="mb-2">
@@ -547,10 +551,10 @@
 														<div class="drag-upload-btn btn btn-sm btn-primary me-2">
 															Upload
 															<input type="file" class="form-control image-sign"
-																multiple="">
+																name="company_dark_mini_logo" accept="image/png,image/jpeg,image/gif,image/webp" data-company-image-upload>
 														</div>
 														<a href="javascript:void(0);"
-															class="btn btn-light btn-sm">Cancel</a>
+															class="btn btn-light btn-sm" data-company-image-cancel>Cancel</a>
 													</div>
 
 												</div>
@@ -560,9 +564,10 @@
 											<div
 												class="d-flex align-items-center flex-wrap row-gap-3 bg-light w-100 rounded p-3 mb-4">
 												<div
-													class="d-flex align-items-center justify-content-center avatar avatar-xxl rounded bg-white p-3 border border-dashed me-2 flex-shrink-0 text-dark frames">
-													<img src="{{URL::asset('build/img/logo-small.svg')}}" class="img-fluid"
-														alt="logo">
+													class="d-flex align-items-center justify-content-center avatar avatar-xxl rounded bg-white p-3 border border-dashed me-2 flex-shrink-0 text-dark frames"
+													data-company-image-preview="company_favicon">
+													<img src="{{ $companyImageUrls['company_favicon'] ?? URL::asset('build/img/logo-small.svg') }}" class="img-fluid"
+														alt="Favicon">
 												</div>
 												<div class="profile-upload">
 													<div class="mb-2">
@@ -573,10 +578,10 @@
 														<div class="drag-upload-btn btn btn-sm btn-primary me-2">
 															Change
 															<input type="file" class="form-control image-sign"
-																multiple="">
+																name="company_favicon" accept="image/png,image/jpeg,image/gif,image/webp" data-company-image-upload>
 														</div>
 														<a href="javascript:void(0);"
-															class="btn btn-light btn-sm">Cancel</a>
+															class="btn btn-light btn-sm" data-company-image-cancel>Cancel</a>
 													</div>
 
 												</div>
@@ -586,9 +591,10 @@
 											<div
 												class="d-flex align-items-center flex-wrap row-gap-3 bg-light w-100 rounded p-3 mb-4">
 												<div
-													class="d-flex align-items-center justify-content-center avatar avatar-xxl rounded bg-white p-3 border border-dashed me-2 flex-shrink-0 text-dark frames">
-													<img src="{{URL::asset('build/img/logo-small.svg')}}" class="img-fluid"
-														alt="logo">
+													class="d-flex align-items-center justify-content-center avatar avatar-xxl rounded bg-white p-3 border border-dashed me-2 flex-shrink-0 text-dark frames"
+													data-company-image-preview="company_apple_icon">
+													<img src="{{ $companyImageUrls['company_apple_icon'] ?? URL::asset('build/img/logo-small.svg') }}" class="img-fluid"
+														alt="Apple icon">
 												</div>
 												<div class="profile-upload">
 													<div class="mb-2">
@@ -599,10 +605,10 @@
 														<div class="drag-upload-btn btn btn-sm btn-primary me-2">
 															Change
 															<input type="file" class="form-control image-sign"
-																multiple="">
+																name="company_apple_icon" accept="image/png,image/jpeg,image/gif,image/webp" data-company-image-upload>
 														</div>
 														<a href="javascript:void(0);"
-															class="btn btn-light btn-sm">Cancel</a>
+															class="btn btn-light btn-sm" data-company-image-cancel>Cancel</a>
 													</div>
 
 												</div>
@@ -610,6 +616,7 @@
 										</div>
 									</div>
 								</section>
+								{{--
 								<section class="profile-tab-panel" id="business-company-address-panel" role="tabpanel" aria-labelledby="business-company-address-tab" data-business-panel="address" hidden>
 									<h6 class="mb-3">Address Information</h6>
 									<div class="row">
@@ -686,7 +693,8 @@
 											</div>
 										</div>
 								</div>
-									</section>
+								</section>
+								--}}
 								<div class="d-flex align-items-center justify-content-end">
 									<button type="button" class="btn btn-outline-light border me-3">Cancel</button>
 									<button type="submit" class="btn btn-primary">Save</button>
@@ -710,8 +718,10 @@
 			const buttons = Array.from(tabSet.querySelectorAll('[data-business-tab]'));
 			const panels = Array.from(tabSet.querySelectorAll('[data-business-panel]'));
 			const forms = Array.from(tabSet.querySelectorAll('[data-business-tab-form]'));
+			const storageKey = 'settings.default.activeTab';
 
 			function setActiveBusinessTab(tab, formName) {
+				sessionStorage.setItem(storageKey, tab);
 				buttons.forEach(function (button) {
 					const active = button.dataset.businessTab === tab;
 					button.classList.toggle('active', active);
@@ -753,9 +763,55 @@
 			});
 
 			if (buttons.length > 0) {
-				setActiveBusinessTab(buttons[0].dataset.businessTab, buttons[0].dataset.businessForm);
+				const savedTab = buttons.find(function (button) {
+					return button.dataset.businessTab === sessionStorage.getItem(storageKey);
+				});
+				const initialTab = savedTab || buttons[0];
+				setActiveBusinessTab(initialTab.dataset.businessTab, initialTab.dataset.businessForm);
 			}
 		});
+
+		const companyImageForm = document.querySelector('[data-business-tab-form="company"]');
+		if (companyImageForm) {
+			companyImageForm.querySelectorAll('[data-company-image-upload]').forEach(function (input) {
+				const preview = companyImageForm.querySelector(
+					'[data-company-image-preview="' + input.name + '"]'
+				);
+				const cancel = input.closest('.profile-upload').querySelector('[data-company-image-cancel]');
+				if (!preview) return;
+
+				const savedPreview = preview.innerHTML;
+				let previewUrl = null;
+
+				function restoreSavedPreview() {
+					input.value = '';
+					preview.innerHTML = savedPreview;
+					if (previewUrl) {
+						URL.revokeObjectURL(previewUrl);
+						previewUrl = null;
+					}
+				}
+
+				input.addEventListener('change', function () {
+					const file = input.files && input.files[0];
+					if (!file || (file.type && !file.type.startsWith('image/'))) return;
+
+					if (previewUrl) URL.revokeObjectURL(previewUrl);
+					previewUrl = URL.createObjectURL(file);
+
+					const image = document.createElement('img');
+					image.src = previewUrl;
+					image.alt = input.name.replace(/_/g, ' ');
+					image.className = 'img-fluid';
+					preview.replaceChildren(image);
+				});
+
+				cancel.addEventListener('click', function (event) {
+					event.preventDefault();
+					restoreSavedPreview();
+				});
+			});
+		}
 
 		[
 			['datetime-format-select', 'datetime-format-select-column', 'custom-datetime-format-field', 'custom-datetime-format'],

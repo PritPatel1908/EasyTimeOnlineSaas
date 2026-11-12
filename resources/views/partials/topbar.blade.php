@@ -4,10 +4,10 @@
 
         <div class="header-left">
             <a href="{{url('dashboard')}}" class="logo">
-                <img src="{{URL::asset('build/img/logo.svg')}}" alt="Logo">
+                <img src="{{ $companyImageUrls['company_white_logo'] ?? URL::asset('build/img/logo.svg') }}" alt="Logo">
             </a>
             <a href="{{url('dashboard')}}" class="dark-logo">
-                <img src="{{URL::asset('build/img/logo-white.svg')}}" alt="Logo">
+                <img src="{{ $companyImageUrls['company_dark_logo'] ?? URL::asset('build/img/logo-white.svg') }}" alt="Logo">
             </a>
         </div>
 

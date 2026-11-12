@@ -51,9 +51,9 @@
 								<div class="row justify-content-between align-items-center border-bottom mb-3">
 									<div class="col-md-6">
 										<div class="mb-2 invoice-logo">
-											<img src="{{URL::asset('build/img/logo.svg')}}" width="130" class="img-fluid logo"
+											<img src="{{ $companyImageUrls['company_white_logo'] ?? URL::asset('build/img/logo.svg') }}" width="130" class="img-fluid logo"
 												alt="logo">
-											<img src="{{URL::asset('build/img/logo-white.svg')}}" width="130"
+											<img src="{{ $companyImageUrls['company_dark_logo'] ?? URL::asset('build/img/logo-white.svg') }}" width="130"
 												class="img-fluid logo-white" alt="logo">
 										</div>
 										<p>3099 Kennedy Court Framingham, MA 01702</p>
@@ -207,8 +207,8 @@
 								</div>
 								<div class="text-center">
 									<div class="mb-3 invoice-logo d-flex align-items-center justify-content-center">
-										<img src="{{URL::asset('build/img/logo.svg')}}" class="img-fluid logo" alt="logo">
-										<img src="{{URL::asset('build/img/logo-white.svg')}}" class="img-fluid logo-white d-none"
+										<img src="{{ $companyImageUrls['company_white_logo'] ?? URL::asset('build/img/logo.svg') }}" class="img-fluid logo" alt="logo">
+										<img src="{{ $companyImageUrls['company_dark_logo'] ?? URL::asset('build/img/logo-white.svg') }}" class="img-fluid logo-white d-none"
 											alt="logo">
 									</div>
 									<p class="text-dark mb-1">Payment Made Via bank transfer / Cheque in the name of

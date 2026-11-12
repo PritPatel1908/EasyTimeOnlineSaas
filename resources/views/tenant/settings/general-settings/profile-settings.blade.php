@@ -71,6 +71,8 @@
 
     <div class="page-wrapper">
         <div class="content">
+            @include('partials.flash-alerts')
+
             <div class="d-md-flex d-block align-items-center justify-content-between page-breadcrumb mb-3">
                 <div class="my-auto mb-2">
                     <h2 class="mb-1">Settings</h2>
@@ -431,7 +433,11 @@
 
         const profileTabButtons = Array.from(document.querySelectorAll('[data-profile-tab]'));
         const profileTabPanels = Array.from(document.querySelectorAll('[data-profile-panel]'));
-        let activeProfileTab = profileTabButtons[0]?.dataset.profileTab;
+        const profileTabStorageKey = 'settings.profile.activeTab';
+        const savedProfileTab = sessionStorage.getItem(profileTabStorageKey);
+        let activeProfileTab = profileTabButtons.some(function (button) {
+            return button.dataset.profileTab === savedProfileTab;
+        }) ? savedProfileTab : profileTabButtons[0]?.dataset.profileTab;
 
         const currentAddressToggle = document.getElementById('profile-is-current-address');
         const currentAddressFields = document.querySelector('.profile-current-address-fields');
@@ -442,7 +448,14 @@
         }
 
         function setActiveProfileTab(tab) {
+            if (!profileTabButtons.some(function (button) {
+                return button.dataset.profileTab === tab;
+            })) {
+                return;
+            }
+
             activeProfileTab = tab;
+            sessionStorage.setItem(profileTabStorageKey, tab);
             profileTabButtons.forEach(function (button) {
                 const active = button.dataset.profileTab === tab;
                 button.classList.toggle('active', active);

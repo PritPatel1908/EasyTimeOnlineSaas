@@ -13,7 +13,7 @@
 					<div class="col-md-8 d-flex justify-content-end align-items-center mx-auto">
 						<div class="comming-soon-pg d-flex flex-column align-items-center justify-content-center">
 							<div class="mb-4 p-4">
-								<img src="{{URL::asset('build/img/logo.svg')}}" alt="logo" class="img-fluid">
+								<img src="{{ $companyImageUrls['company_white_logo'] ?? URL::asset('build/img/logo.svg') }}" alt="logo" class="img-fluid">
 							</div>
 							<div>
 								<img src="{{URL::asset('build/img/bg/coming-soon.svg')}}" alt="image" class="img-fluid">

@@ -3,10 +3,10 @@
         <div class="d-flex align-items-center justify-content-between">
             <div>
                 <a href="{{url('dashboard')}}" class="logo">
-                    <img src="{{URL::asset('build/img/logo.svg')}}" alt="Logo">
+                    <img src="{{ $companyImageUrls['company_white_logo'] ?? URL::asset('build/img/logo.svg') }}" alt="Logo">
                 </a>
                 <a href="{{url('dashboard')}}" class="dark-logo">
-                    <img src="{{URL::asset('build/img/logo-white.svg')}}" alt="Logo">
+                    <img src="{{ $companyImageUrls['company_dark_logo'] ?? URL::asset('build/img/logo-white.svg') }}" alt="Logo">
                 </a>
             </div>
             <div class="d-flex align-items-center">

@@ -14,7 +14,7 @@
 	<div class="sidebar sidebar-twocol">
 		<div class="twocol-mini">
 			<a href="{{url('dashboard')}}" class="logo-small">
-				<img src="{{URL::asset('build/img/logo-small.svg')}}" alt="Logo">
+				<img src="{{ $companyImageUrls['company_white_mini_logo'] ?? URL::asset('build/img/logo-small.svg') }}" alt="Logo">
 			</a>
 			<div class="sidebar-left slimscroll">
 				<div class="nav flex-column align-items-center nav-pills" id="sidebar-tabs" role="tablist"
@@ -110,10 +110,10 @@
 		<div class="sidebar-right">
 			<div class="sidebar-logo mb-4">
 				<a href="{{url('dashboard')}}" class="logo logo-normal">
-					<img src="{{URL::asset('build/img/logo.svg')}}" alt="Logo">
+					<img src="{{ $companyImageUrls['company_white_logo'] ?? URL::asset('build/img/logo.svg') }}" alt="Logo">
 				</a>
 				<a href="{{url('dashboard')}}" class="dark-logo">
-					<img src="{{URL::asset('build/img/logo-white.svg')}}" alt="Logo">
+					<img src="{{ $companyImageUrls['company_dark_logo'] ?? URL::asset('build/img/logo-white.svg') }}" alt="Logo">
 				</a>
 			</div>
 			<div class="sidebar-scroll">

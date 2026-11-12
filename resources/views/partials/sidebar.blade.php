@@ -85,13 +85,13 @@
 	<!-- Logo -->
 	<div class="sidebar-logo">
 		<a href="{{url('dashboard')}}" class="logo logo-normal">
-			<img src="{{URL::asset('build/img/logo.svg')}}" alt="Logo">
+			<img src="{{ $companyImageUrls['company_white_logo'] ?? URL::asset('build/img/logo.svg') }}" alt="Logo">
 		</a>
 		<a href="{{url('dashboard')}}" class="logo-small">
-			<img src="{{URL::asset('build/img/logo-small.svg')}}" alt="Logo">
+			<img src="{{ $companyImageUrls['company_white_mini_logo'] ?? URL::asset('build/img/logo-small.svg') }}" alt="Logo">
 		</a>
 		<a href="{{url('dashboard')}}" class="dark-logo">
-			<img src="{{URL::asset('build/img/logo-white.svg')}}" alt="Logo">
+			<img src="{{ $companyImageUrls['company_dark_logo'] ?? URL::asset('build/img/logo-white.svg') }}" alt="Logo">
 		</a>
 	</div>
 	<!-- /Logo -->

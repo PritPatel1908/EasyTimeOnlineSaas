@@ -15,7 +15,7 @@
     <div class="sidebar sidebar-stacked" style="display: flex !important;">
         <div class="stacked-mini">
             <a href="{{url('dashboard')}}" class="logo-small">
-                <img src="{{URL::asset('build/img/logo-small.svg')}}" alt="Logo">
+                <img src="{{ $companyImageUrls['company_white_mini_logo'] ?? URL::asset('build/img/logo-small.svg') }}" alt="Logo">
             </a>
             <div class="sidebar-left slimscroll">
                 <div class="d-flex align-items-center flex-column">

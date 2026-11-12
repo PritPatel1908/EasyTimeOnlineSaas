@@ -343,10 +343,10 @@
 										<div class="modal-body">
 											<div class="auth-brand text-center mt-2 mb-3 position-relative top-0">
 												<a href="{{url('index')}}" class="logo-dark">
-													<span><img src="{{URL::asset('build/img/logo.svg')}}" alt="dark logo"></span>
+													<span><img src="{{ $companyImageUrls['company_white_logo'] ?? URL::asset('build/img/logo.svg') }}" alt="dark logo"></span>
 												</a>
 												<a href="{{url('index')}}" class="logo-light">
-													<span><img src="{{URL::asset('build/img/logo-white.svg')}}" alt="logo"></span>
+													<span><img src="{{ $companyImageUrls['company_dark_logo'] ?? URL::asset('build/img/logo-white.svg') }}" alt="logo"></span>
 												</a>
 											</div>
 											<form class="ps-3 pe-3" action="#">
@@ -392,11 +392,11 @@
 										<div class="modal-body">
 											<div class="auth-brand text-center mt-2 mb-3 position-relative top-0">
 												<a href="{{url('index')}}" class="logo-dark">
-													<span><img src="{{URL::asset('build/img/logo.svg')}}" alt="dark logo"
+													<span><img src="{{ $companyImageUrls['company_white_logo'] ?? URL::asset('build/img/logo.svg') }}" alt="dark logo"
 															height="22"></span>
 												</a>
 												<a href="{{url('index')}}" class="logo-light">
-													<span><img src="{{URL::asset('build/img/logo-white.svg')}}" alt="logo"
+													<span><img src="{{ $companyImageUrls['company_dark_logo'] ?? URL::asset('build/img/logo-white.svg') }}" alt="logo"
 															height="22"></span>
 												</a>
 											</div>

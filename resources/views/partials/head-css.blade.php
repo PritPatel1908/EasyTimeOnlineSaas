@@ -1,8 +1,8 @@
     <!-- Favicon -->
-    <link rel="shortcut icon" type="image/x-icon" href="{{URL::asset('build/img/favicon.png')}}">
+    <link rel="shortcut icon" type="image/x-icon" href="{{ $companyImageUrls['company_favicon'] ?? URL::asset('build/img/favicon.png') }}">
 
     <!-- Apple Touch Icon -->
-    <link rel="apple-touch-icon" sizes="180x180" href="{{URL::asset('build/img/apple-touch-icon.png')}}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ $companyImageUrls['company_apple_icon'] ?? URL::asset('build/img/apple-touch-icon.png') }}">
 
 @if (!Route::is(['coming-soon', 'email-verification', 'email-verification-2', 'email-verification-3', 'error-404', 'error-500', 'forgot-password', 'forgot-password-2', 'forgot-password-3', 'job-details', 'job-grid-2', 'job-list-2', 'layout-box', 'layout-dark', 'layout-detached', 'layout-horizontal', 'layout-horizontal-box', 'layout-horizontal-fullwidth', 'layout-horizontal-overlay', 'layout-horizontal-sidemenu', 'layout-horizontal-single', 'layout-hovered', 'layout-modern', 'layout-rtl', 'layout-stacked', 'layout-two-column', 'layout-vertical-transparent', 'layout-without-header', 'lock-screen', 'login', 'login-2', 'login-3', 'register', 'register-2', 'register-3', 'reset-password', 'reset-password-2', 'reset-password-3', 'success', 'success-2', 'success-3', 'two-step-verification', 'two-step-verification-2', 'two-step-verification-3', 'under-construction', 'under-maintenance']))
     <!-- Theme Script js -->

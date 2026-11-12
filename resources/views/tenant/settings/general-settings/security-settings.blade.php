@@ -9,6 +9,7 @@
 
 		<!-- Start Content -->
 		<div class="content">
+			@include('partials.flash-alerts')
 
 			<!-- Breadcrumb -->
 			<div class="d-md-flex d-block align-items-center justify-content-between page-breadcrumb mb-3">
@@ -81,25 +82,6 @@
 							<div class="border-bottom mb-3 pb-3">
 								<h4>Security Settings</h4>
 							</div>
-							@if (session('success'))
-								@push('scripts')
-									<script>
-										window.addEventListener('load', function () {
-											if (typeof window.Swal?.fire !== 'function') {
-												console.error('SweetAlert2 is unavailable; success feedback could not be displayed.');
-												return;
-											}
-
-											window.Swal.fire({
-												icon: 'success',
-												title: 'Success',
-												text: @json(session('success')),
-												confirmButtonText: 'OK',
-											});
-										}, { once: true });
-									</script>
-								@endpush
-							@endif
 							<div>
 								<div
 									class="d-flex justify-content-between align-items-center flex-wrap border-bottom mb-3">
