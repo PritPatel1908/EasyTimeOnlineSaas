@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Helpers\ApprovalProcessor;
 use App\Http\Controllers\Tenant\PendingApprovalController;
 use App\Jobs\Tenant\FinalizeApprovedApplication;
+use App\Jobs\Tenant\SendManualPunchApprovalEmails;
 use App\Models\Tenant\ManualPunchApplication;
 use App\Models\Tenant\ShiftChangeApplication;
 use App\Models\Tenant\User;
@@ -56,6 +57,11 @@ class PendingApprovalModuleTest extends TestCase
                 'approval_status' => 'pending',
             ]);
             Bus::assertNotDispatched(FinalizeApprovedApplication::class);
+            Bus::assertDispatched(SendManualPunchApprovalEmails::class, static fn (SendManualPunchApprovalEmails $job): bool => (
+                $job->applicationId === 9
+                && $job->approvalStatusDetailId === 201
+                && $job->actorId === 10
+            ));
 
             ApprovalProcessor::processDecision(202, 11, 'approved', null);
             $this->assertDatabaseHas('approval_statuses', [

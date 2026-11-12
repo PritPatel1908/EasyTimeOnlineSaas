@@ -13,6 +13,7 @@ use App\Jobs\Tenant\CreateManualPunchApplicationApprovals;
 use App\Jobs\Tenant\GenerateManualPunchApplicationExport;
 use App\Jobs\Tenant\ProcessManualPunchImport;
 use App\Jobs\Tenant\ProcessPendingLogsBatch;
+use App\Jobs\Tenant\SendManualPunchApprovalEmails;
 use App\Models\Tenant\ManualPunchApplication;
 use App\Models\Tenant\User;
 use App\Services\Tenant\ManualPunchApplicationWorkflow;
@@ -325,8 +326,8 @@ class TenantManualPunchApplicationModuleTest extends TestCase
             DB::table('users')->insert([
                 ['id' => 101, 'name' => 'Employee One', 'code' => 'E001', 'email' => 'employee@example.test', 'manual_punch_approval_flow_id' => 10],
                 ['id' => 102, 'name' => 'Employee Two', 'code' => 'E002', 'email' => null, 'manual_punch_approval_flow_id' => 10],
-                ['id' => 201, 'name' => 'Approver One', 'code' => 'A001', 'email' => 'approver-one@example.test'],
-                ['id' => 202, 'name' => 'Approver Two', 'code' => 'A002', 'email' => 'approver-two@example.test'],
+                ['id' => 201, 'name' => 'Approver One', 'code' => 'A001', 'email' => 'approver-one@example.test', 'manual_punch_approval_flow_id' => null],
+                ['id' => 202, 'name' => 'Approver Two', 'code' => 'A002', 'email' => 'approver-two@example.test', 'manual_punch_approval_flow_id' => null],
             ]);
             DB::table('approval_flow_detail_user')->insert([
                 ['approval_flow_detail_id' => 20, 'user_id' => 201, 'created_at' => now(), 'updated_at' => now()],
@@ -455,6 +456,158 @@ class TenantManualPunchApplicationModuleTest extends TestCase
             );
         } finally {
             Carbon::setTestNow();
+            $this->dropWorkflowTables();
+        }
+    }
+
+    public function test_approval_emails_reach_employees_and_approvers_on_other_levels_with_rendered_history(): void
+    {
+        $this->createWorkflowTables();
+
+        try {
+            DB::table('approval_flows')->insert([
+                'id' => 10,
+                'approval_flow_code' => 'manual-punch-flow',
+                'status' => 1,
+            ]);
+            DB::table('approval_flow_details')->insert([
+                ['id' => 20, 'level' => 1, 'approval_flow_id' => 10],
+                ['id' => 21, 'level' => 2, 'approval_flow_id' => 10],
+                ['id' => 22, 'level' => 3, 'approval_flow_id' => 10],
+            ]);
+            DB::table('users')->insert([
+                ['id' => 101, 'name' => 'Employee One', 'code' => 'E001', 'email' => 'employee-one@example.test'],
+                ['id' => 102, 'name' => 'Employee Two', 'code' => 'E002', 'email' => 'employee-two@example.test'],
+                ['id' => 201, 'name' => 'Approver One', 'code' => 'A001', 'email' => 'approver-one@example.test'],
+                ['id' => 202, 'name' => 'Approver Two', 'code' => 'A002', 'email' => 'approver-two@example.test'],
+                ['id' => 203, 'name' => 'Approver Three', 'code' => 'A003', 'email' => 'approver-three@example.test'],
+            ]);
+            DB::table('manual_punch_applications')->insert([
+                'id' => 1,
+                'punch_type' => '1',
+                'punch_date' => '2026-10-24',
+                'punch_time' => '09:30:00',
+                'reason' => 'Correction',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            DB::table('manual_punch_application_users')->insert([
+                ['manual_punch_application_id' => 1, 'user_id' => 101],
+                ['manual_punch_application_id' => 1, 'user_id' => 102],
+            ]);
+            DB::table('approval_flow_detail_user')->insert([
+                ['approval_flow_detail_id' => 20, 'user_id' => 201, 'created_at' => now(), 'updated_at' => now()],
+                ['approval_flow_detail_id' => 21, 'user_id' => 202, 'created_at' => now(), 'updated_at' => now()],
+                ['approval_flow_detail_id' => 22, 'user_id' => 203, 'created_at' => now(), 'updated_at' => now()],
+            ]);
+            DB::table('approval_statuses')->insert([
+                'id' => 100,
+                'approvable_id' => 1,
+                'approvable_type' => ManualPunchApplication::class,
+                'approval_status' => 'pending',
+                'approval_flow_id' => 10,
+            ]);
+            DB::table('approval_status_details')->insert([
+                [
+                    'id' => 201,
+                    'level' => 1,
+                    'approval_status_id' => 100,
+                    'approval_flow_detail_id' => 20,
+                    'approval_status' => 'approved',
+                    'user_id' => 201,
+                    'timestamp' => '2026-11-12 10:00:00',
+                ],
+                [
+                    'id' => 202,
+                    'level' => 2,
+                    'approval_status_id' => 100,
+                    'approval_flow_detail_id' => 21,
+                    'approval_status' => 'approved',
+                    'user_id' => 202,
+                    'timestamp' => '2026-11-12 11:00:00',
+                ],
+                [
+                    'id' => 203,
+                    'level' => 3,
+                    'approval_status_id' => 100,
+                    'approval_flow_detail_id' => 22,
+                    'approval_status' => 'pending',
+                    'user_id' => null,
+                    'timestamp' => null,
+                ],
+            ]);
+            DB::table('email_templates')->insert([
+                'id' => 1,
+                'title' => 'Punch {{ punch_date }}: {{ application_status }}',
+                'template_type' => 'manual_punch_application_approve_reject',
+                'email_content' => '{{ employee_name }} ({{ employee_code }}); {{ punch_type }} {{ punch_date }} {{ punch_time }} {{ reason }}; {{ application_status }}; {{ total_approval_levels }}; {{ total_approvers }}; {{ current_approval_level }}; {{ current_level_approver_names }}; {{ previous_level_approval_history }}; {{ approval_history }}',
+                'status' => 'active',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            DB::table('email_template_assignments')->insert([
+                'application_type' => 'manual_punch_application',
+                'application_action' => 'approve',
+                'email_template_id' => 1,
+                'status' => 'active',
+                'send_to_another_approver' => true,
+                'send_to_employee' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            DB::table('email_configurations')->insert([
+                ['key' => 'from_address', 'value' => 'noreply@example.test'],
+                ['key' => 'from_name', 'value' => 'EasyTime'],
+            ]);
+
+            $sentEmails = [];
+            $mailer = Mockery::mock(Mailer::class);
+            $mailer->shouldReceive('html')
+                ->times(4)
+                ->andReturnUsing(function (string $body, callable $callback) use (&$sentEmails): void {
+                    $recipient = null;
+                    $subject = null;
+                    $message = Mockery::mock(Message::class);
+                    $message->shouldReceive('to')->once()->andReturnUsing(function (string $address) use (&$recipient, $message) {
+                        $recipient = $address;
+
+                        return $message;
+                    });
+                    $message->shouldReceive('subject')->once()->andReturnUsing(function (string $value) use (&$subject, $message) {
+                        $subject = $value;
+
+                        return $message;
+                    });
+                    $callback($message);
+                    $sentEmails[$recipient] = ['subject' => $subject, 'body' => $body];
+                });
+            $mailer->shouldReceive('alwaysFrom')->once()->with('noreply@example.test', 'EasyTime');
+
+            $mailManager = Mockery::mock(MailManager::class);
+            $mailManager->shouldReceive('build')
+                ->once()
+                ->with(Mockery::on(static fn (array $config): bool => (
+                    $config['transport'] === 'mail'
+                    && $config['from']['address'] === 'noreply@example.test'
+                )))
+                ->andReturn($mailer);
+            app()->instance('mail.manager', $mailManager);
+
+            (new SendManualPunchApprovalEmails(1, 202, 202))->handle();
+
+            $this->assertEqualsCanonicalizing([
+                'employee-one@example.test',
+                'employee-two@example.test',
+                'approver-one@example.test',
+                'approver-three@example.test',
+            ], array_keys($sentEmails));
+            $this->assertStringContainsString('Employee One (E001)', $sentEmails['employee-one@example.test']['body']);
+            $this->assertStringContainsString('pending; 3; 3; 2; Approver Two', $sentEmails['employee-one@example.test']['body']);
+            $this->assertStringContainsString('Level 1: Approver One approved on 2026-11-12 10:00:00', $sentEmails['employee-one@example.test']['body']);
+            $this->assertStringContainsString('Level 2: Approver Two approved on 2026-11-12 11:00:00', $sentEmails['employee-one@example.test']['body']);
+            $this->assertSame('Punch 2026-10-24: pending', $sentEmails['approver-one@example.test']['subject']);
+            $this->assertStringContainsString('Employee One, Employee Two (E001, E002)', $sentEmails['approver-three@example.test']['body']);
+        } finally {
             $this->dropWorkflowTables();
         }
     }
@@ -667,6 +820,7 @@ class TenantManualPunchApplicationModuleTest extends TestCase
             $table->timestamp('timestamp')->nullable();
             $table->unsignedBigInteger('user_id')->nullable();
             $table->string('approval_status')->default('pending');
+            $table->text('rejection_reason')->nullable();
             $table->unsignedBigInteger('created_by')->nullable();
             $table->unsignedBigInteger('updated_by')->nullable();
             $table->unsignedBigInteger('deleted_by')->nullable();
@@ -688,6 +842,7 @@ class TenantManualPunchApplicationModuleTest extends TestCase
             $table->unsignedBigInteger('email_template_id');
             $table->string('status')->default('active');
             $table->boolean('send_to_approver')->default(false);
+            $table->boolean('send_to_another_approver')->default(false);
             $table->boolean('send_to_employee')->default(false);
             $table->timestamps();
         });

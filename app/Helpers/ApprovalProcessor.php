@@ -4,6 +4,7 @@ namespace App\Helpers;
 
 use App\Jobs\Tenant\DebitLeaveApplication;
 use App\Jobs\Tenant\FinalizeApprovedApplication;
+use App\Jobs\Tenant\SendManualPunchApprovalEmails;
 use App\Models\Tenant\ApprovalFlow;
 use App\Models\Tenant\ApprovalStatus;
 use App\Models\Tenant\ApprovalStatusDetails;
@@ -94,6 +95,17 @@ class ApprovalProcessor
                 'user_id' => $actorId,
                 'updated_by' => $actorId,
             ]);
+
+            if ($decision === 'approved' && $approvable instanceof ManualPunchApplication) {
+                SendManualPunchApprovalEmails::dispatch(
+                    (int) $approvable->id,
+                    (int) $detail->id,
+                    $actorId,
+                )
+                    ->onConnection('database_tenant')
+                    ->onQueue('processing')
+                    ->afterCommit();
+            }
 
             if ($decision === 'rejected') {
                 $status->approval_status_details()
