@@ -790,40 +790,6 @@
                                                 </li>
                                                 <li class="submenu">
                                                     <a href="javascript:void(0);"
-                                                        class="{{ Request::is('business-settings', 'seo-settings', 'localization-settings', 'prefixes', 'preferences', 'appearance', 'language', 'add-language', 'language-web', 'authentication-settings', 'ai-settings') ? 'active subdrop' : '' }}">Website
-                                                        Settings<span class="menu-arrow"></span></a>
-                                                    <ul>
-                                                        <li><a href="{{url('business-settings')}}"
-                                                                class="{{ Request::is('business-settings') ? 'active' : '' }}">Business
-                                                                Settings</a></li>
-                                                        <li><a href="{{url('seo-settings')}}"
-                                                                class="{{ Request::is('seo-settings') ? 'active' : '' }}">SEO
-                                                                Settings</a></li>
-                                                        <li><a href="{{url('localization-settings')}}"
-                                                                class="{{ Request::is('localization-settings') ? 'active' : '' }}">Localization</a>
-                                                        </li>
-                                                        <li><a href="{{url('prefixes')}}"
-                                                                class="{{ Request::is('prefixes') ? 'active' : '' }}">Prefixes</a>
-                                                        </li>
-                                                        <li><a href="{{url('preferences')}}"
-                                                                class="{{ Request::is('preferences') ? 'active' : '' }}">Preferences</a>
-                                                        </li>
-                                                        <li><a href="{{url('appearance')}}"
-                                                                class="{{ Request::is('appearance') ? 'active' : '' }}">Appearance</a>
-                                                        </li>
-                                                        <li><a href="{{url('language')}}"
-                                                                class="{{ Request::is('language', 'add-language', 'language-web') ? 'active' : '' }}">Language</a>
-                                                        </li>
-                                                        <li><a href="{{url('authentication-settings')}}"
-                                                                class="{{ Request::is('authentication-settings') ? 'active' : '' }}">Authentication</a>
-                                                        </li>
-                                                        <li><a href="{{url('ai-settings')}}"
-                                                                class="{{ Request::is('ai-settings') ? 'active' : '' }}">AI
-                                                                Settings</a></li>
-                                                    </ul>
-                                                </li>
-                                                <li class="submenu">
-                                                    <a href="javascript:void(0);"
                                                         class="{{ Request::is('salary-settings', 'approval-settings', 'invoice-settings', 'leave-type', 'custom-fields') ? 'active subdrop' : '' }}">App
                                                         Settings<span class="menu-arrow"></span></a>
                                                     <ul>

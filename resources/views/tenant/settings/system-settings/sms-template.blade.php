@@ -40,16 +40,12 @@
 					<a class="nav-link " href="{{url('profile-settings')}}"><i class="ti ti-settings me-2"></i>General
 						Settings</a>
 				</li>
-				<!-- <li class="nav-item">
-					<a class="nav-link" href="{{url('business-settings')}}"><i class="ti ti-world-cog me-2"></i>Website
-						Settings</a>
-				</li> -->
 				<li class="nav-item">
 					<a class="nav-link " href="{{url('salary-settings')}}"><i
 							class="ti ti-device-ipad-horizontal-cog me-2"></i>App Settings</a>
 				</li>
 				<li class="nav-item">
-					<a class="nav-link active" href="{{url('email-settings')}}"><i
+					<a class="nav-link active" href="{{url('business-settings')}}"><i
 							class="ti ti-server-cog me-2"></i>System Settings</a>
 				</li>
 				<li class="nav-item">
