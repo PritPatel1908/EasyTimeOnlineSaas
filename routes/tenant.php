@@ -120,6 +120,14 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                 Route::put('/email-template/{emailTemplate}', [SettingsController::class, 'updateEmailTemplate'])
                     ->whereNumber('emailTemplate')
                     ->name('tenant.settings.email-template.update');
+                Route::post('/assign-email-templates', [SettingsController::class, 'storeEmailTemplateAssignment'])
+                    ->name('tenant.settings.email-template-assignment.store');
+                Route::put('/assign-email-templates/{assignment}', [SettingsController::class, 'updateEmailTemplateAssignment'])
+                    ->whereNumber('assignment')
+                    ->name('tenant.settings.email-template-assignment.update');
+                Route::delete('/assign-email-templates/{assignment}', [SettingsController::class, 'destroyEmailTemplateAssignment'])
+                    ->whereNumber('assignment')
+                    ->name('tenant.settings.email-template-assignment.destroy');
                 Route::prefix('settings')->name('tenant.settings.')->controller(SettingsController::class)->group(function (): void {
                     Route::get('/', 'index')->name('index');
                     Route::put('/profile-settings', 'updateProfile')->name('profile.update');

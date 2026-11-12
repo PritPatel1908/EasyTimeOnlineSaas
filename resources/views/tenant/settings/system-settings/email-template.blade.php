@@ -70,6 +70,8 @@
 								<a href="{{url('email-template')}}"
 									class="d-inline-flex align-items-center rounded  active py-2 px-3"><i
 										class="ti ti-arrow-badge-right me-2"></i>Email Templates</a>
+								<a href="{{url('assign-email-templates')}}"
+									class="d-inline-flex align-items-center rounded py-2 px-3">Assign Email Templates</a>
 								<a href="{{url('sms-settings')}}"
 									class="d-inline-flex align-items-center rounded py-2 px-3">SMS Settings</a>
 								<a href="{{url('sms-template')}}"

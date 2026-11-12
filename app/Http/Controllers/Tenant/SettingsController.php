@@ -9,6 +9,7 @@ use App\Jobs\Tenant\SendTenantEmailVerification;
 use App\Models\Tenant\BloodGroup;
 use App\Models\Tenant\EmailConfiguration;
 use App\Models\Tenant\EmailTemplate;
+use App\Models\Tenant\EmailTemplateAssignment;
 use App\Models\Tenant\GeneralConfiguration;
 use App\Models\Tenant\User;
 use App\Support\TenantCompanyBranding;
@@ -28,6 +29,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SettingsController extends Controller
 {
+    private const EMAIL_TEMPLATE_APPLICATION_ACTIONS = ['initial', 'approve', 'reject'];
+
     /**
      * @var array<string, array<string, string>>
      */
@@ -106,6 +109,7 @@ class SettingsController extends Controller
             'default-settings' => 'Default Settings',
             'email-settings' => 'Email Settings',
             'email-template' => 'Email Template',
+            'assign-email-templates' => 'Assign Email Templates',
             'sms-settings' => 'SMS Settings',
             'sms-template' => 'SMS Template',
             'otp-settings' => 'OTP Settings',
@@ -165,6 +169,24 @@ class SettingsController extends Controller
             $data['emailTemplates'] = EmailTemplate::query()
                 ->orderBy('template_type')
                 ->orderBy('id')
+                ->get();
+        } elseif ($page === 'assign-email-templates') {
+            $data['emailTemplateAssignments'] = EmailTemplateAssignment::query()
+                ->with('emailTemplate')
+                ->orderBy('application_type')
+                ->orderBy('application_action')
+                ->get();
+            $data['applicationTypes'] = self::applicationTemplateTypes();
+            $data['emailTemplates'] = EmailTemplate::query()
+                ->whereIn(
+                    'template_type',
+                    array_map(
+                        static fn (string $type): string => $type.'_approve_reject',
+                        $data['applicationTypes'],
+                    ),
+                )
+                ->orderBy('title')
+                ->orderBy('template_type')
                 ->get();
         } elseif ($page === 'default-settings') {
             $data['formatPresets'] = self::FORMAT_PRESETS;
@@ -249,6 +271,92 @@ class SettingsController extends Controller
 
         return redirect()->to(url('email-template'))
             ->with('success', 'Email template updated successfully.');
+    }
+
+    public function storeEmailTemplateAssignment(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'application_type' => [
+                'required',
+                'string',
+                Rule::in(self::applicationTemplateTypes()),
+            ],
+            'application_action' => [
+                'required',
+                'string',
+                Rule::in(self::EMAIL_TEMPLATE_APPLICATION_ACTIONS),
+                Rule::unique('email_template_assignments', 'application_action')
+                    ->where('application_type', $request->input('application_type')),
+            ],
+            'email_template_id' => [
+                'required',
+                'integer',
+                Rule::exists('email_templates', 'id')
+                    ->where('template_type', $request->input('application_type').'_approve_reject'),
+            ],
+            'status' => ['required', Rule::in(['active', 'inactive'])],
+            'send_to_approver' => ['sometimes', 'boolean'],
+            'send_to_another_approver' => ['sometimes', 'boolean'],
+            'send_to_employee' => ['sometimes', 'boolean'],
+        ], [
+            'application_action.unique' => 'An email template is already assigned to this application type and action.',
+        ]);
+
+        $validated = $this->normalizeEmailTemplateAssignmentFlags($validated);
+        EmailTemplateAssignment::query()->create($validated);
+
+        return redirect()->to(url('assign-email-templates'))
+            ->with('success', 'Email template assignment created successfully.');
+    }
+
+    public function updateEmailTemplateAssignment(
+        Request $request,
+        string $tenant,
+        int|string $assignment
+    ): RedirectResponse {
+        $emailTemplateAssignment = EmailTemplateAssignment::query()->findOrFail($assignment);
+        $validated = $request->validate([
+            'application_type' => [
+                'required',
+                'string',
+                Rule::in(self::applicationTemplateTypes()),
+            ],
+            'application_action' => [
+                'required',
+                'string',
+                Rule::in(self::EMAIL_TEMPLATE_APPLICATION_ACTIONS),
+                Rule::unique('email_template_assignments', 'application_action')
+                    ->where('application_type', $request->input('application_type'))
+                    ->ignore($emailTemplateAssignment->id),
+            ],
+            'email_template_id' => [
+                'required',
+                'integer',
+                Rule::exists('email_templates', 'id')
+                    ->where('template_type', $request->input('application_type').'_approve_reject'),
+            ],
+            'status' => ['required', Rule::in(['active', 'inactive'])],
+            'send_to_approver' => ['sometimes', 'boolean'],
+            'send_to_another_approver' => ['sometimes', 'boolean'],
+            'send_to_employee' => ['sometimes', 'boolean'],
+        ], [
+            'application_action.unique' => 'An email template is already assigned to this application type and action.',
+        ]);
+
+        $emailTemplateAssignment->update($this->normalizeEmailTemplateAssignmentFlags($validated));
+
+        return redirect()->to(url('assign-email-templates'))
+            ->with('success', 'Email template assignment updated successfully.');
+    }
+
+    public function destroyEmailTemplateAssignment(
+        string $tenant,
+        int|string $assignment
+    ): RedirectResponse {
+        EmailTemplateAssignment::query()->findOrFail($assignment)->delete();
+
+        return redirect()->to(url('assign-email-templates'))
+            ->with('success', 'Email template assignment deleted successfully.');
     }
 
     public function updateDefaultSettings(Request $request): RedirectResponse
@@ -824,6 +932,32 @@ class SettingsController extends Controller
     public static function sections(): array
     {
         return self::SECTIONS;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function applicationTemplateTypes(): array
+    {
+        return array_keys(EmailTemplate::APPLICATION_VARIABLES);
+    }
+
+    /**
+     * @param array<string, mixed> $validated
+     * @return array<string, mixed>
+     */
+    private function normalizeEmailTemplateAssignmentFlags(array $validated): array
+    {
+        $isInitial = $validated['application_action'] === 'initial';
+
+        return [
+            ...$validated,
+            'send_to_approver' => $isInitial && (bool) ($validated['send_to_approver'] ?? false),
+            'send_to_another_approver' => !$isInitial
+                && (bool) ($validated['send_to_another_approver'] ?? false),
+            'send_to_employee' => !$isInitial
+                && (bool) ($validated['send_to_employee'] ?? false),
+        ];
     }
 
     private function viewPath(string $page): string

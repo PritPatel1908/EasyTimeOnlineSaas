@@ -166,7 +166,7 @@
                             </div>
                             <div class="col-6">
                                 <a href="#menu-administration" role="tab"
-                                    class="nav-link {{ Request::is('assets', 'asset-categories', 'assets', 'asset-categories', 'knowledgebase', 'knowledgebase-details', 'knowledgebase-view', 'users', 'roles-permissions', 'permission', 'expenses-report', 'invoice-report', 'payment-report', 'project-report', 'task-report', 'user-report', 'employee-report', 'payslip-report', 'attendance-report', 'leave-report', 'daily-report', 'profile-settings', 'security-settings', 'notification-settings', 'connected-apps', 'default-settings', 'seo-settings', 'localization-settings', 'prefixes', 'preferences', 'appearance', 'language', 'add-language', 'language-web', 'authentication-settings', 'ai-settings', 'salary-settings', 'approval-settings', 'invoice-settings', 'leave-type', 'custom-fields', 'email-settings', 'email-template', 'sms-settings', 'sms-template', 'otp-settings', 'gdpr', 'maintenance-mode', 'payment-gateways', 'tax-rates', 'currencies', 'custom-css', 'custom-js', 'cronjob', 'storage-settings', 'ban-ip-address', 'backup', 'clear-cache') ? ' active' : '' }}"
+                                    class="nav-link {{ Request::is('assets', 'asset-categories', 'assets', 'asset-categories', 'knowledgebase', 'knowledgebase-details', 'knowledgebase-view', 'users', 'roles-permissions', 'permission', 'expenses-report', 'invoice-report', 'payment-report', 'project-report', 'task-report', 'user-report', 'employee-report', 'payslip-report', 'attendance-report', 'leave-report', 'daily-report', 'profile-settings', 'security-settings', 'notification-settings', 'connected-apps', 'default-settings', 'seo-settings', 'localization-settings', 'prefixes', 'preferences', 'appearance', 'language', 'add-language', 'language-web', 'authentication-settings', 'ai-settings', 'salary-settings', 'approval-settings', 'invoice-settings', 'leave-type', 'custom-fields', 'email-settings', 'email-template', 'assign-email-templates', 'sms-settings', 'sms-template', 'otp-settings', 'gdpr', 'maintenance-mode', 'payment-gateways', 'tax-rates', 'currencies', 'custom-css', 'custom-js', 'cronjob', 'storage-settings', 'ban-ip-address', 'backup', 'clear-cache') ? ' active' : '' }}"
                                     title="Administration" data-bs-toggle="tab" data-bs-target="#menu-administration"
                                     aria-selected="false">
                                     <span><i class="ti ti-cash"></i></span>
@@ -741,7 +741,7 @@
                                 </li>
                             </ul>
                         </div>
-                        <div class="tab-pane fade {{ Request::is('assets', 'asset-categories', 'assets', 'asset-categories', 'knowledgebase', 'knowledgebase-details', 'knowledgebase-view', 'users', 'roles-permissions', 'permission', 'expenses-report', 'invoice-report', 'payment-report', 'project-report', 'task-report', 'user-report', 'employee-report', 'payslip-report', 'attendance-report', 'leave-report', 'daily-report', 'profile-settings', 'security-settings', 'notification-settings', 'connected-apps', 'default-settings', 'seo-settings', 'localization-settings', 'prefixes', 'preferences', 'appearance', 'language', 'add-language', 'language-web', 'authentication-settings', 'ai-settings', 'salary-settings', 'approval-settings', 'invoice-settings', 'leave-type', 'custom-fields', 'email-settings', 'email-template', 'sms-settings', 'sms-template', 'otp-settings', 'gdpr', 'maintenance-mode', 'payment-gateways', 'tax-rates', 'currencies', 'custom-css', 'custom-js', 'cronjob', 'storage-settings', 'ban-ip-address', 'backup', 'clear-cache') ? 'show active' : '' }}"
+                        <div class="tab-pane fade {{ Request::is('assets', 'asset-categories', 'assets', 'asset-categories', 'knowledgebase', 'knowledgebase-details', 'knowledgebase-view', 'users', 'roles-permissions', 'permission', 'expenses-report', 'invoice-report', 'payment-report', 'project-report', 'task-report', 'user-report', 'employee-report', 'payslip-report', 'attendance-report', 'leave-report', 'daily-report', 'profile-settings', 'security-settings', 'notification-settings', 'connected-apps', 'default-settings', 'seo-settings', 'localization-settings', 'prefixes', 'preferences', 'appearance', 'language', 'add-language', 'language-web', 'authentication-settings', 'ai-settings', 'salary-settings', 'approval-settings', 'invoice-settings', 'leave-type', 'custom-fields', 'email-settings', 'email-template', 'assign-email-templates', 'sms-settings', 'sms-template', 'otp-settings', 'gdpr', 'maintenance-mode', 'payment-gateways', 'tax-rates', 'currencies', 'custom-css', 'custom-js', 'cronjob', 'storage-settings', 'ban-ip-address', 'backup', 'clear-cache') ? 'show active' : '' }}"
                             id="menu-administration">
                             <ul class="stack-submenu">
                                 <li class="submenu">
@@ -870,7 +870,7 @@
                                 </li>
                                 <li class="submenu">
                                     <a href="javascript:void(0);"
-                                        class="{{ Request::is('email-settings', 'email-template', 'sms-settings', 'sms-template', 'otp-settings', 'gdpr', 'maintenance-mode') ? 'active subdrop' : '' }}">
+                                        class="{{ Request::is('email-settings', 'email-template', 'assign-email-templates', 'sms-settings', 'sms-template', 'otp-settings', 'gdpr', 'maintenance-mode') ? 'active subdrop' : '' }}">
                                         System Settings
                                         <span class="menu-arrow"></span>
                                     </a>
@@ -880,6 +880,9 @@
                                                 Settings</a></li>
                                         <li><a href="{{url('email-template')}}"
                                                 class="{{ Request::is('email-template') ? 'active' : '' }}">Email
+                                                Templates</a></li>
+                                        <li><a href="{{url('assign-email-templates')}}"
+                                                class="{{ Request::is('assign-email-templates') ? 'active' : '' }}">Assign Email
                                                 Templates</a></li>
                                         <li><a href="{{url('sms-settings')}}"
                                                 class="{{ Request::is('sms-settings') ? 'active' : '' }}">SMS

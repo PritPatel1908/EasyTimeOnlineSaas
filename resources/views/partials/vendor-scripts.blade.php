@@ -198,11 +198,13 @@
             '#phpmailersettings select',
             '#smtpsettings select',
             '#addtemplate select',
-            '#edittemplate select'
+            '#edittemplate select',
+            '#add-assignment select',
+            '#edit-assignment select'
         ].join(', ')).forEach(function (select) {
             if (!select.tomselect) {
                 var options = { width: '100%', controlInput: null };
-                if (select.closest('#addtemplate, #edittemplate')) {
+                if (select.closest('#addtemplate, #edittemplate, #add-assignment, #edit-assignment')) {
                     options.dropdownParent = 'body';
                 }
                 new TomSelect(select, options);

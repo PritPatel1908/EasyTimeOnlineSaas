@@ -1228,7 +1228,7 @@ class="{{ $areasActive ? 'active' : '' }}">Areas</a></li>@endif
 						</li>
 						<li class="submenu">
 							<a href="javascript:void(0);"
-								class="{{ Request::is('profile-settings', 'security-settings', 'notification-settings', 'connected-apps', 'default-settings', 'seo-settings', 'localization-settings', 'prefixes', 'preferences', 'appearance', 'language', 'add-language', 'language-web', 'authentication-settings', 'ai-settings', 'salary-settings', 'approval-settings', 'invoice-settings', 'leave-type', 'custom-fields', 'email-settings', 'email-template', 'sms-settings', 'sms-template', 'otp-settings', 'gdpr', 'maintenance-mode', 'payment-gateways', 'tax-rates', 'currencies', 'custom-css', 'custom-js', 'cronjob', 'storage-settings', 'ban-ip-address', 'backup', 'clear-cache') ? 'active subdrop' : '' }}">
+								class="{{ Request::is('profile-settings', 'security-settings', 'notification-settings', 'connected-apps', 'default-settings', 'seo-settings', 'localization-settings', 'prefixes', 'preferences', 'appearance', 'language', 'add-language', 'language-web', 'authentication-settings', 'ai-settings', 'salary-settings', 'approval-settings', 'invoice-settings', 'leave-type', 'custom-fields', 'email-settings', 'email-template', 'assign-email-templates', 'sms-settings', 'sms-template', 'otp-settings', 'gdpr', 'maintenance-mode', 'payment-gateways', 'tax-rates', 'currencies', 'custom-css', 'custom-js', 'cronjob', 'storage-settings', 'ban-ip-address', 'backup', 'clear-cache') ? 'active subdrop' : '' }}">
 								<i class="ti ti-settings"></i><span>Settings</span>
 								<span class="menu-arrow"></span>
 							</a>
@@ -1276,7 +1276,7 @@ class="{{ $areasActive ? 'active' : '' }}">Areas</a></li>@endif
 								</li>
 								<li class="submenu submenu-two">
 									<a href="javascript:void(0);"
-										class="{{ Request::is('email-settings', 'email-template', 'sms-settings', 'sms-template', 'otp-settings', 'gdpr', 'maintenance-mode') ? 'active subdrop' : '' }}">System
+										class="{{ Request::is('email-settings', 'email-template', 'assign-email-templates', 'sms-settings', 'sms-template', 'otp-settings', 'gdpr', 'maintenance-mode') ? 'active subdrop' : '' }}">System
 										Settings<span class="menu-arrow inside-submenu"></span></a>
 									<ul>
 										<li><a href="{{url('email-settings')}}"
@@ -1284,6 +1284,9 @@ class="{{ $areasActive ? 'active' : '' }}">Areas</a></li>@endif
 												Settings</a></li>
 										<li><a href="{{url('email-template')}}"
 												class="{{ Request::is('email-template') ? 'active' : '' }}">Email
+												Templates</a></li>
+										<li><a href="{{url('assign-email-templates')}}"
+												class="{{ Request::is('assign-email-templates') ? 'active' : '' }}">Assign Email
 												Templates</a></li>
 										<li><a href="{{url('sms-settings')}}"
 												class="{{ Request::is('sms-settings') ? 'active' : '' }}">SMS

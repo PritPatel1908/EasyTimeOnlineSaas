@@ -2,6 +2,7 @@
 
 namespace App\Models\Tenant;
 
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Model;
 
 class EmailTemplate extends Model
@@ -118,6 +119,11 @@ class EmailTemplate extends Model
         'email_content',
         'status',
     ];
+
+    public function assignments(): HasMany
+    {
+        return $this->hasMany(EmailTemplateAssignment::class);
+    }
 
     /**
      * @return array<string, list<array{key: string, label: string}>>
