@@ -87,10 +87,22 @@
 					<div class="card">
 						<div class="card-body">
 							<div class="border-bottom mb-3 pb-3">
-								<h4>Default Settings</h4>
+								<h4>Business Settings</h4>
 							</div>
-							<form action="{{url('business-settings')}}">
-								<div class="border-bottom mb-3">
+							<div class="business-tab-set" data-business-tab-set>
+								<div class="profile-tabs-wrap mb-3">
+									<div class="nav nav-tabs profile-tabs" role="tablist" aria-label="Business settings sections">
+										<button type="button" class="nav-link active" id="business-default-general-tab" role="tab" aria-controls="business-default-general-panel" aria-selected="true" data-business-tab="general" data-business-form="default">General</button>
+										<button type="button" class="nav-link" id="business-default-currency-tab" role="tab" aria-controls="business-default-currency-panel" aria-selected="false" data-business-tab="currency" data-business-form="default">Currency</button>
+										<button type="button" class="nav-link" id="business-default-country-tab" role="tab" aria-controls="business-default-country-panel" aria-selected="false" data-business-tab="country" data-business-form="default">Country &amp; Files</button>
+										<button type="button" class="nav-link" id="business-company-details-tab" role="tab" aria-controls="business-company-details-panel" aria-selected="false" data-business-tab="details" data-business-form="company">Basic Information</button>
+										<button type="button" class="nav-link" id="business-company-branding-tab" role="tab" aria-controls="business-company-branding-panel" aria-selected="false" data-business-tab="branding" data-business-form="company">Company Images</button>
+										<button type="button" class="nav-link" id="business-company-address-tab" role="tab" aria-controls="business-company-address-panel" aria-selected="false" data-business-tab="address" data-business-form="company">Address</button>
+									</div>
+								</div>
+								<div class="profile-tab-panels">
+							<form action="{{url('business-settings')}}" data-business-tab-form="default">
+								<section class="profile-tab-panel" id="business-default-general-panel" role="tabpanel" aria-labelledby="business-default-general-tab" data-business-panel="general">
 									<div class="row">
 										<div class="col-md-6">
 											<div class="row align-items-center mb-3">
@@ -192,8 +204,8 @@
 											</div>
 										</div>
 									</div>
-								</div>
-								<div class="border-bottom mb-3">
+								</section>
+								<section class="profile-tab-panel" id="business-default-currency-panel" role="tabpanel" aria-labelledby="business-default-currency-tab" data-business-panel="currency" hidden>
 									<h6 class="mb-3">Currency Information</h6>
 									<div class="row">
 										<div class="col-md-6">
@@ -267,8 +279,8 @@
 											</div>
 										</div>
 									</div>
-								</div>
-								<div class="border-bottom mb-3">
+								</section>
+								<section class="profile-tab-panel" id="business-default-country-panel" role="tabpanel" aria-labelledby="business-default-country-tab" data-business-panel="country" hidden>
 									<h6 class="mb-3">Country Settings</h6>
 									<div class="row">
 										<div class="col-md-6">
@@ -286,7 +298,6 @@
 											</div>
 										</div>
 									</div>
-								</div>
 								<div class="border-bottom mb-3">
 									<h6 class="mb-3">File Settings</h6>
 									<div class="row">
@@ -315,15 +326,16 @@
 												</div>
 											</div>
 										</div>
-									</div>
+										</div>
 								</div>
+								</section>
 								<div class="d-flex align-items-center justify-content-end">
 									<button type="button" class="btn btn-outline-light border me-3">Cancel</button>
 									<button type="submit" class="btn btn-primary">Save</button>
 								</div>
 							</form>
-							<form action="{{url('business-settings')}}">
-								<div class="border-bottom mb-3">
+							<form action="{{url('business-settings')}}" data-business-tab-form="company" hidden>
+								<section class="profile-tab-panel" id="business-company-details-panel" role="tabpanel" aria-labelledby="business-company-details-tab" data-business-panel="details">
 									<div class="row">
 										<div class="col-md-12">
 											<div>
@@ -383,8 +395,8 @@
 											</div>
 										</div>
 									</div>
-								</div>
-								<div class="border-bottom mb-3">
+								</section>
+								<section class="profile-tab-panel" id="business-company-branding-panel" role="tabpanel" aria-labelledby="business-company-branding-tab" data-business-panel="branding" hidden>
 									<h6 class="mb-3">Company Images</h6>
 									<div class="row">
 										<div class="col-md-6">
@@ -542,8 +554,8 @@
 											</div>
 										</div>
 									</div>
-								</div>
-								<div class="border-bottom mb-3">
+								</section>
+								<section class="profile-tab-panel" id="business-company-address-panel" role="tabpanel" aria-labelledby="business-company-address-tab" data-business-panel="address" hidden>
 									<h6 class="mb-3">Address Information</h6>
 									<div class="row">
 										<div class="col-md-12">
@@ -618,13 +630,15 @@
 												</div>
 											</div>
 										</div>
-									</div>
 								</div>
+									</section>
 								<div class="d-flex align-items-center justify-content-end">
 									<button type="button" class="btn btn-outline-light border me-3">Cancel</button>
 									<button type="submit" class="btn btn-primary">Save</button>
 								</div>
 							</form>
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -635,6 +649,95 @@
 		@include('partials.footer')
 
 	</div>
+
+	<script>
+		document.querySelectorAll('[data-business-tab-set]').forEach(function (tabSet) {
+			const buttons = Array.from(tabSet.querySelectorAll('[data-business-tab]'));
+			const panels = Array.from(tabSet.querySelectorAll('[data-business-panel]'));
+			const forms = Array.from(tabSet.querySelectorAll('[data-business-tab-form]'));
+
+			function setActiveBusinessTab(tab, formName) {
+				buttons.forEach(function (button) {
+					const active = button.dataset.businessTab === tab;
+					button.classList.toggle('active', active);
+					button.setAttribute('aria-selected', active ? 'true' : 'false');
+					button.tabIndex = active ? 0 : -1;
+				});
+				panels.forEach(function (panel) {
+					const active = panel.dataset.businessPanel === tab;
+					panel.hidden = !active;
+					panel.classList.toggle('active', active);
+				});
+				forms.forEach(function (form) {
+					form.hidden = form.dataset.businessTabForm !== formName;
+				});
+			}
+
+			buttons.forEach(function (button, index) {
+				button.addEventListener('click', function () {
+					setActiveBusinessTab(button.dataset.businessTab, button.dataset.businessForm);
+				});
+				button.addEventListener('keydown', function (event) {
+					let nextIndex = index;
+					if (event.key === 'ArrowRight') {
+						nextIndex = (index + 1) % buttons.length;
+					} else if (event.key === 'ArrowLeft') {
+						nextIndex = (index - 1 + buttons.length) % buttons.length;
+					} else if (event.key === 'Home') {
+						nextIndex = 0;
+					} else if (event.key === 'End') {
+						nextIndex = buttons.length - 1;
+					} else {
+						return;
+					}
+
+					event.preventDefault();
+					buttons[nextIndex].focus();
+					setActiveBusinessTab(buttons[nextIndex].dataset.businessTab, buttons[nextIndex].dataset.businessForm);
+				});
+			});
+
+			if (buttons.length > 0) {
+				setActiveBusinessTab(buttons[0].dataset.businessTab, buttons[0].dataset.businessForm);
+			}
+		});
+	</script>
+	<style>
+		.business-tab-set .profile-tabs-wrap {
+			overflow: visible;
+		}
+
+		.business-tab-set .profile-tabs {
+			display: flex;
+			flex-wrap: nowrap;
+			gap: 0.35rem;
+			border-bottom: 1px solid #dee2e6;
+			overflow-x: auto;
+		}
+
+		.business-tab-set .profile-tabs .nav-link {
+			flex: 0 0 auto;
+			white-space: nowrap;
+			border-radius: 0.375rem 0.375rem 0 0;
+		}
+
+		.business-tab-set .profile-tab-panel .row {
+			--bs-gutter-x: 1rem;
+		}
+
+		.business-tab-set .profile-tab-panel input,
+		.business-tab-set .profile-tab-panel select {
+			min-width: 0;
+		}
+
+		.business-tab-set .profile-tab-panel[hidden] {
+			display: none !important;
+		}
+
+		.business-tab-set [data-business-tab-form][hidden] {
+			display: none !important;
+		}
+	</style>
 
     <!-- ========================
         End Page Content
