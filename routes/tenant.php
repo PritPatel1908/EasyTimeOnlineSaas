@@ -1038,7 +1038,7 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                     })->name('data-policies.legacy');
                 });
 
-                Route::put('/default-settings', [SettingsController::class, 'updateDefaultFormats'])
+                Route::put('/default-settings', [SettingsController::class, 'updateDefaultSettings'])
                     ->name('tenant.settings.default.update');
                 Route::redirect('/business-settings', '/default-settings', 301)
                     ->name('tenant.settings.default.legacy');

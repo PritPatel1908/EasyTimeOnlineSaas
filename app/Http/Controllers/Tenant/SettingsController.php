@@ -51,6 +51,17 @@ class SettingsController extends Controller
     ];
 
     /**
+     * @var list<string>
+     */
+    private const ATTENDANCE_SETTING_KEYS = [
+        'punch_direction_consider_same',
+        'attendance_schedule_time',
+        'monthly_leave_check_date',
+        'yearly_leave_check_date',
+        'password_attempts_count',
+    ];
+
+    /**
      * @var array<string, array<string, string>>
      */
     private const SECTIONS = [
@@ -127,8 +138,8 @@ class SettingsController extends Controller
             $data['emailConfiguration'] = EmailConfiguration::settings();
         } elseif ($page === 'default-settings') {
             $data['formatPresets'] = self::FORMAT_PRESETS;
-            $data['formatSettings'] = GeneralConfiguration::withTrashed()
-                ->whereIn('key', array_keys(self::FORMAT_PRESETS))
+            $data['defaultSettings'] = GeneralConfiguration::withTrashed()
+                ->whereIn('key', [...array_keys(self::FORMAT_PRESETS), ...self::ATTENDANCE_SETTING_KEYS])
                 ->pluck('value', 'key')
                 ->all();
         } elseif ($page === 'security-settings') {
@@ -148,7 +159,7 @@ class SettingsController extends Controller
         return view($this->viewPath($page), $data);
     }
 
-    public function updateDefaultFormats(Request $request): RedirectResponse
+    public function updateDefaultSettings(Request $request): RedirectResponse
     {
         $rules = [];
         foreach (self::FORMAT_PRESETS as $key => $presets) {
@@ -160,15 +171,21 @@ class SettingsController extends Controller
                 'max:100',
             ];
         }
+        $rules += [
+            'punch_direction_consider_same' => ['required', 'integer', 'min:0'],
+            'attendance_schedule_time' => ['required', 'date_format:H:i:s'],
+            'monthly_leave_check_date' => ['nullable', 'integer', 'between:1,31'],
+            'yearly_leave_check_date' => ['nullable', 'integer', 'between:1,31'],
+            'password_attempts_count' => ['required', 'integer', 'min:1'],
+        ];
 
         $validated = $request->validate($rules);
 
         DB::transaction(function () use ($validated): void {
-            foreach (array_keys(self::FORMAT_PRESETS) as $key) {
-                $value = $validated[$key] === 'custom'
+            foreach ([...array_keys(self::FORMAT_PRESETS), ...self::ATTENDANCE_SETTING_KEYS] as $key) {
+                $value = isset(self::FORMAT_PRESETS[$key]) && $validated[$key] === 'custom'
                     ? trim((string) $validated['custom_'.$key])
                     : $validated[$key];
-
                 $configuration = GeneralConfiguration::withTrashed()->firstOrNew(['key' => $key]);
                 $configuration->value = $value;
 
@@ -180,7 +197,7 @@ class SettingsController extends Controller
             }
         });
 
-        return back()->with('success', 'Date and time formats updated successfully.');
+        return back()->with('success', 'Default settings updated successfully.');
     }
 
     public function updateEmailSettings(Request $request): RedirectResponse

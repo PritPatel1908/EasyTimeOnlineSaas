@@ -93,7 +93,7 @@
 								<div class="profile-tabs-wrap mb-3">
 									<div class="nav nav-tabs profile-tabs" role="tablist" aria-label="Default settings sections">
 										<button type="button" class="nav-link active" id="business-default-general-tab" role="tab" aria-controls="business-default-general-panel" aria-selected="true" data-business-tab="general" data-business-form="default">Default Formats</button>
-										<button type="button" class="nav-link" id="business-default-attendance-tab" role="tab" aria-controls="business-default-attendance-panel" aria-selected="false" data-business-tab="attendance" data-business-form="default">Default Attendance Configuration</button>
+										<button type="button" class="nav-link" id="business-default-attendance-tab" role="tab" aria-controls="business-default-attendance-panel" aria-selected="false" data-business-tab="attendance" data-business-form="default">Default Configuration</button>
 										<button type="button" class="nav-link" id="business-default-currency-tab" role="tab" aria-controls="business-default-currency-panel" aria-selected="false" data-business-tab="currency" data-business-form="default">Currency</button>
 										<button type="button" class="nav-link" id="business-default-country-tab" role="tab" aria-controls="business-default-country-panel" aria-selected="false" data-business-tab="country" data-business-form="default">Country &amp; Files</button>
 										<button type="button" class="nav-link" id="business-company-details-tab" role="tab" aria-controls="business-company-details-panel" aria-selected="false" data-business-tab="details" data-business-form="company">Basic Information</button>
@@ -103,9 +103,9 @@
 								</div>
 								<div class="profile-tab-panels">
 							@php
-								$datetimeFormatValue = old('datetime_format', $formatSettings['datetime_format'] ?? '');
-								$dateFormatValue = old('date_format', $formatSettings['date_format'] ?? '');
-								$timeFormatValue = old('time_format', $formatSettings['time_format'] ?? '');
+								$datetimeFormatValue = old('datetime_format', $defaultSettings['datetime_format'] ?? '');
+								$dateFormatValue = old('date_format', $defaultSettings['date_format'] ?? '');
+								$timeFormatValue = old('time_format', $defaultSettings['time_format'] ?? '');
 								$datetimeFormatValue = is_string($datetimeFormatValue) ? $datetimeFormatValue : '';
 								$dateFormatValue = is_string($dateFormatValue) ? $dateFormatValue : '';
 								$timeFormatValue = is_string($timeFormatValue) ? $timeFormatValue : '';
@@ -123,6 +123,7 @@
 								@csrf
 								@method('PUT')
 								<section class="profile-tab-panel" id="business-default-general-panel" role="tabpanel" aria-labelledby="business-default-general-tab" data-business-panel="general">
+									<h6 class="mb-3">Default Formats</h6>
 									<div class="row">
 										{{-- <div class="col-md-6">
 											<div class="row align-items-center mb-3">
@@ -205,7 +206,59 @@
 									</div>
 								</section>
 								<section class="profile-tab-panel" id="business-default-attendance-panel" role="tabpanel" aria-labelledby="business-default-attendance-tab" data-business-panel="attendance" hidden>
-									<h6 class="mb-3">Default Attendance Configuration</h6>
+									<h6 class="mb-3">Default Configuration</h6>
+									<div class="row">
+										<div class="col-12">
+											<div class="row align-items-center mb-3">
+												<div class="col-12 col-md-3">
+													<label class="form-label mb-md-0" for="punch-direction-consider-same">Duplicate Punch Period in minutes</label>
+												</div>
+												<div class="col-12 col-md-9">
+													<input class="form-control" id="punch-direction-consider-same" name="punch_direction_consider_same" type="number" min="0" step="1" value="{{ old('punch_direction_consider_same', $defaultSettings['punch_direction_consider_same'] ?? '') }}" required>
+												</div>
+											</div>
+										</div>
+										<div class="col-12">
+											<div class="row align-items-center mb-3">
+												<div class="col-12 col-md-3">
+													<label class="form-label mb-md-0" for="attendance-schedule-time">Daily Attendance Generate Time</label>
+												</div>
+												<div class="col-12 col-md-9">
+													<input class="form-control" id="attendance-schedule-time" name="attendance_schedule_time" type="time" step="1" value="{{ old('attendance_schedule_time', $defaultSettings['attendance_schedule_time'] ?? '') }}" required>
+												</div>
+											</div>
+										</div>
+										<div class="col-12">
+											<div class="row align-items-center mb-3">
+												<div class="col-12 col-md-3">
+													<label class="form-label mb-md-0" for="monthly-leave-check-date">Monthly Auto Leave Credit Date</label>
+												</div>
+												<div class="col-12 col-md-9">
+													<input class="form-control" id="monthly-leave-check-date" name="monthly_leave_check_date" type="number" min="1" max="31" step="1" value="{{ old('monthly_leave_check_date', $defaultSettings['monthly_leave_check_date'] ?? '') }}">
+												</div>
+											</div>
+										</div>
+										<div class="col-12">
+											<div class="row align-items-center mb-3">
+												<div class="col-12 col-md-3">
+													<label class="form-label mb-md-0" for="yearly-leave-check-date">Yearly Auto Leave Credit Date</label>
+												</div>
+												<div class="col-12 col-md-9">
+													<input class="form-control" id="yearly-leave-check-date" name="yearly_leave_check_date" type="number" min="1" max="31" step="1" value="{{ old('yearly_leave_check_date', $defaultSettings['yearly_leave_check_date'] ?? '') }}">
+												</div>
+											</div>
+										</div>
+										<div class="col-12">
+											<div class="row align-items-center mb-3">
+												<div class="col-12 col-md-3">
+													<label class="form-label mb-md-0" for="password-attempts-count">Maximum Wrong Password Attempts Allowed</label>
+												</div>
+												<div class="col-12 col-md-9">
+													<input class="form-control" id="password-attempts-count" name="password_attempts_count" type="number" min="1" step="1" value="{{ old('password_attempts_count', $defaultSettings['password_attempts_count'] ?? '') }}" required>
+												</div>
+											</div>
+										</div>
+									</div>
 								</section>
 								<section class="profile-tab-panel" id="business-default-currency-panel" role="tabpanel" aria-labelledby="business-default-currency-tab" data-business-panel="currency" hidden>
 									<h6 class="mb-3">Currency Information</h6>
