@@ -28,6 +28,11 @@ class EmployeeStructureRouteTest extends TestCase
         $this->assertTrue(Route::has('tenant.employee-structure.designations.export'));
     }
 
+    public function test_employee_activation_route_exists(): void
+    {
+        $this->assertTrue(Route::has('tenant.employee-structure.employees.activate'));
+    }
+
     public function test_employee_rows_render_clone_action(): void
     {
         $user = new User();
@@ -47,6 +52,25 @@ class EmployeeStructureRouteTest extends TestCase
 
         $this->assertStringContainsString('employee-structure/employees/create?clone=1', $html);
         $this->assertStringContainsString('title="Clone"', $html);
+    }
+
+    public function test_inactive_employee_row_renders_activate_action(): void
+    {
+        $admin = new User();
+        $admin->id = 1;
+        Auth::guard('tenant')->setUser($admin);
+
+        $employee = new User();
+        $employee->id = 2;
+        $employee->name = 'Inactive Employee';
+        $employee->is_inactive = true;
+
+        $html = view('employee-structure.employees.partials.rows', [
+            'employees' => collect([$employee]),
+        ])->render();
+
+        $this->assertStringContainsString('employees/2/activate', $html);
+        $this->assertStringContainsString('title="Activate"', $html);
     }
 
     public function test_super_admin_user_id_1_has_no_employee_structure_permission_restriction(): void

@@ -159,6 +159,18 @@ class EmployeeController extends Controller
         return redirect(url(self::INDEX_URL))->with('success', 'Employee updated successfully.');
     }
 
+    public function activate(Request $request): RedirectResponse
+    {
+        $employee = User::query()->where('user_type', 'employee')->findOrFail($request->route('employee'));
+        $employee->forceFill([
+            'is_inactive' => false,
+            'inactive_date' => null,
+            'login_attempts' => 0,
+        ])->save();
+
+        return redirect(url(self::INDEX_URL))->with('success', 'Employee activated successfully.');
+    }
+
     public function destroy(Request $request): RedirectResponse
     {
         $employee = User::query()->where('user_type', 'employee')->findOrFail($request->route('employee'));

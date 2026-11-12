@@ -64,6 +64,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @property string|null $user_type
  * @property string|null $status
  * @property bool|null $is_locked
+ * @property bool $is_inactive
  * @property bool|null $shift_status
  * @property string|null $profile_pic
  * @property Carbon|null $inactive_date
@@ -357,7 +358,7 @@ class User extends Authenticatable implements FilamentUser, HasTenants
 
     public function canAccessPanel(Panel $panel): bool
     {
-        if ($this->is_locked) {
+        if ($this->is_inactive) {
             Notification::make()
                 ->title('Login Failed')
                 ->body('User is locked or not active')

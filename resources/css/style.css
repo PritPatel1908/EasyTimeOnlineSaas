@@ -10351,10 +10351,12 @@ caption {
 .table tbody tr td .product-img img {
   border: 0;
 }
-.table tbody tr td .action-icon a {
+.table tbody tr td .action-icon a,
+.table tbody tr td .action-icon button {
   color: #6B7280;
 }
-.table tbody tr td .action-icon a:hover {
+.table tbody tr td .action-icon a:hover,
+.table tbody tr td .action-icon button:hover {
   background: #E9EDF4;
   color: #111827;
 }
@@ -26910,7 +26912,8 @@ a.edit-icon:hover {
   left: 10px;
 }
 
-.action-icon a {
+.action-icon a,
+.action-icon button {
   width: 26px;
   height: 26px;
   display: flex;
@@ -26919,8 +26922,13 @@ a.edit-icon:hover {
   font-size: 16px;
   color: #6B7280;
   border-radius: 5px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
 }
-.action-icon a:hover {
+.action-icon a:hover,
+.action-icon button:hover {
   background: #E9EDF4;
   color: #111827;
 }

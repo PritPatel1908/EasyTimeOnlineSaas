@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
-use App\Notifications\LoginOtp;
+use App\Models\Tenant\GeneralConfiguration;
 use App\Models\Tenant\User;
+use App\Notifications\LoginOtp;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -45,8 +46,20 @@ class AuthController extends Controller
             })
             ->first();
 
+        if ($user?->is_inactive) {
+            return back()->withErrors(['email' => 'This account is locked. Please contact your administrator.'])->withInput();
+        }
+
         if ($user === null || ! Hash::check((string) $request->input('password'), (string) $user->password)) {
+            if ($user !== null && (int) $user->getKey() !== 1) {
+                $this->recordFailedLogin($user);
+            }
+
             return back()->withErrors(['email' => 'Invalid email/user code or password.'])->withInput();
+        }
+
+        if ((int) $user->getKey() !== 1 && (int) $user->login_attempts !== 0) {
+            $user->forceFill(['login_attempts' => 0])->save();
         }
 
         if ($user->two_factor_enabled) {
@@ -197,5 +210,22 @@ class AuthController extends Controller
         ]);
 
         Notification::route('mail', $user->email)->notify(new LoginOtp($code));
+    }
+
+    private function recordFailedLogin(User $user): void
+    {
+        if ($user->is_inactive) {
+            return;
+        }
+
+        $maxAttempts = (int) GeneralConfiguration::query()
+            ->where('key', 'password_attempts_count')
+            ->value('value');
+
+        $user->increment('login_attempts');
+
+        if ($maxAttempts > 0 && $user->login_attempts >= $maxAttempts) {
+            $user->forceFill(['is_inactive' => true])->save();
+        }
     }
 }

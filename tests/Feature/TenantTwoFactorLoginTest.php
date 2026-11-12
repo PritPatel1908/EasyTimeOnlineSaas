@@ -35,6 +35,15 @@ class TenantTwoFactorLoginTest extends TestCase
             $table->string('number')->nullable();
             $table->string('password')->nullable();
             $table->boolean('two_factor_enabled')->default(false);
+            $table->boolean('is_inactive')->default(false);
+            $table->unsignedInteger('login_attempts')->default(0);
+            $table->softDeletes();
+        });
+
+        Schema::connection('tenant')->create('general_configurations', function (Blueprint $table): void {
+            $table->id();
+            $table->string('key');
+            $table->string('value')->nullable();
             $table->softDeletes();
         });
 
@@ -85,14 +94,70 @@ class TenantTwoFactorLoginTest extends TestCase
         $this->assertSessionMissing('tenant.auth.otp');
     }
 
+    public function test_non_admin_account_is_locked_after_configured_wrong_password_attempts(): void
+    {
+        $this->createUser(2);
+        DB::connection('tenant')->table('general_configurations')->insert([
+            'key' => 'password_attempts_count',
+            'value' => '2',
+        ]);
+
+        foreach (range(1, 2) as $attempt) {
+            $this->post('/login', [
+                'email' => 'employee@example.com',
+                'password' => 'wrong-password',
+            ])->assertSessionHasErrors('email');
+        }
+
+        $user = DB::connection('tenant')->table('users')->where('id', 2)->first();
+        $this->assertSame(2, (int) $user->login_attempts);
+        $this->assertTrue((bool) $user->is_inactive);
+
+        foreach (['wrong-password', 'Password123'] as $password) {
+            $this->post('/login', [
+                'email' => 'employee@example.com',
+                'password' => $password,
+            ])->assertSessionHasErrors('email');
+            $this->assertSame(
+                'This account is locked. Please contact your administrator.',
+                session('errors')->first('email')
+            );
+        }
+
+        $this->assertGuest('tenant');
+    }
+
+    public function test_user_one_is_exempt_from_wrong_password_lockout(): void
+    {
+        $this->createUser(1);
+        DB::connection('tenant')->table('general_configurations')->insert([
+            'key' => 'password_attempts_count',
+            'value' => '1',
+        ]);
+
+        $this->post('/login', [
+            'email' => 'employee@example.com',
+            'password' => 'wrong-password',
+        ])->assertSessionHasErrors('email');
+
+        $user = DB::connection('tenant')->table('users')->where('id', 1)->first();
+        $this->assertSame(0, (int) $user->login_attempts);
+        $this->assertFalse((bool) $user->is_inactive);
+    }
+
     private function createTwoFactorUser(): void
     {
+        $this->createUser(1, true);
+    }
+
+    private function createUser(int $id, bool $twoFactorEnabled = false): void
+    {
         DB::connection('tenant')->table('users')->insert([
-            'id' => 1,
+            'id' => $id,
             'email' => 'employee@example.com',
             'code' => 'EMP001',
             'password' => Hash::make('Password123'),
-            'two_factor_enabled' => true,
+            'two_factor_enabled' => $twoFactorEnabled,
         ]);
     }
 }

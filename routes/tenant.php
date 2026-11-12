@@ -760,6 +760,7 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                     Route::post('employees/import', [EmployeeController::class, 'import'])->middleware('tenant.permission:User,import')->name('employees.import');
                     Route::post('employees/filter', [EmployeeController::class, 'filterStatus'])->middleware('tenant.permission:User,read')->name('employees.filter');
                     Route::get('employees/create', [EmployeeController::class, 'create'])->middleware('tenant.permission:User,create')->name('employees.create');
+                    Route::post('employees/{employee}/activate', [EmployeeController::class, 'activate'])->middleware('tenant.permission:User,write')->name('employees.activate');
                     Route::resource('employees', EmployeeController::class)->except(['create'])->middlewareFor('index', 'tenant.permission:User,read')->middlewareFor('show', 'tenant.permission:User,read')->middlewareFor('store', 'tenant.permission:User,create')->middlewareFor('edit', 'tenant.permission:User,write')->middlewareFor('update', 'tenant.permission:User,write')->middlewareFor('destroy', 'tenant.permission:User,delete')->names('employees');
                     Route::get('designations', [DesignationController::class, 'index'])->middleware('tenant.permission:Designation,read')->name('designations.index');
                     Route::get('designations/export', [DesignationController::class, 'export'])->middleware('tenant.permission:Designation,export')->name('designations.export');
