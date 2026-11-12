@@ -19,6 +19,10 @@ use App\Services\Tenant\ManualPunchApplicationWorkflow;
 use Illuminate\Contracts\Auth\Guard;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Mail\MailManager;
+use Illuminate\Mail\Mailer;
+use Illuminate\Mail\Message;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
@@ -302,6 +306,159 @@ class TenantManualPunchApplicationModuleTest extends TestCase
         $this->assertArrayNotHasKey('approval_status', $storeRules);
     }
 
+    public function test_initial_and_edited_application_emails_use_the_submission_time_and_reach_approvers(): void
+    {
+        $this->createWorkflowTables();
+
+        try {
+            Bus::fake();
+            Carbon::setTestNow('2026-11-12 12:00:00');
+            DB::table('approval_flows')->insert([
+                'id' => 10,
+                'approval_flow_code' => 'manual-punch-flow',
+                'status' => 1,
+            ]);
+            DB::table('approval_flow_details')->insert([
+                ['id' => 20, 'level' => 1, 'approval_flow_id' => 10],
+                ['id' => 22, 'level' => 2, 'approval_flow_id' => 10],
+            ]);
+            DB::table('users')->insert([
+                ['id' => 101, 'name' => 'Employee One', 'code' => 'E001', 'email' => 'employee@example.test', 'manual_punch_approval_flow_id' => 10],
+                ['id' => 102, 'name' => 'Employee Two', 'code' => 'E002', 'email' => null, 'manual_punch_approval_flow_id' => 10],
+                ['id' => 201, 'name' => 'Approver One', 'code' => 'A001', 'email' => 'approver-one@example.test'],
+                ['id' => 202, 'name' => 'Approver Two', 'code' => 'A002', 'email' => 'approver-two@example.test'],
+            ]);
+            DB::table('approval_flow_detail_user')->insert([
+                ['approval_flow_detail_id' => 20, 'user_id' => 201, 'created_at' => now(), 'updated_at' => now()],
+                ['approval_flow_detail_id' => 22, 'user_id' => 202, 'created_at' => now(), 'updated_at' => now()],
+            ]);
+            DB::table('email_templates')->insert([
+                'id' => 1,
+                'title' => 'Punch {{ punch_date }}',
+                'template_type' => 'manual_punch_application_approve_reject',
+                'email_content' => 'Hello {{ employee_name }} ({{ employee_code }}): {{ punch_type }} {{ punch_date }} {{ punch_time }} {{ reason }}; Submitted {{ submitted_on }}; {{ application_status }}; {{ total_approval_levels }}; {{ total_approvers }}; {{ current_approval_level }}; {{ current_level_approver_names }}; {{ previous_level_approval_history }}; {{ approval_history }}; {{ unknown_value }}'."\nSecond template line",
+                'status' => 'active',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            DB::table('email_template_assignments')->insert([
+                'application_type' => 'manual_punch_application',
+                'application_action' => 'initial',
+                'email_template_id' => 1,
+                'status' => 'active',
+                'send_to_approver' => true,
+                'send_to_employee' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            DB::table('email_configurations')->insert([
+                ['key' => 'transport', 'value' => 'smtp'],
+                ['key' => 'host', 'value' => 'smtp.example.test'],
+                ['key' => 'port', 'value' => '587'],
+                ['key' => 'username', 'value' => 'mailer'],
+                ['key' => 'password', 'value' => 'secret'],
+                ['key' => 'encryption', 'value' => 'tls'],
+                ['key' => 'from_address', 'value' => 'noreply@example.test'],
+                ['key' => 'from_name', 'value' => 'EasyTime'],
+            ]);
+
+            $workflow = app(ManualPunchApplicationWorkflow::class);
+            $application = $workflow->create([
+                'punch_type' => '1',
+                'punch_date' => '2026-10-20',
+                'punch_time' => '09:15:00',
+                'reason' => 'Correction',
+            ], [101, 102], 101)->firstOrFail();
+
+            $sentEmails = [];
+            $mailer = Mockery::mock(Mailer::class);
+            $mailer->shouldReceive('html')
+                ->times(6)
+                ->andReturnUsing(function (string $body, callable $callback) use (&$sentEmails): void {
+                    $recipient = null;
+                    $subject = null;
+                    $message = Mockery::mock(Message::class);
+                    $message->shouldReceive('to')->once()->andReturnUsing(function (string $address) use (&$recipient, $message) {
+                        $recipient = $address;
+
+                        return $message;
+                    });
+                    $message->shouldReceive('subject')->once()->andReturnUsing(function (string $value) use (&$subject, $message) {
+                        $subject = $value;
+
+                        return $message;
+                    });
+                    $callback($message);
+                    $sentEmails[$recipient][] = ['subject' => $subject, 'body' => $body];
+                });
+            $mailer->shouldReceive('alwaysFrom')
+                ->twice()
+                ->with('noreply@example.test', 'EasyTime');
+
+            $mailManager = Mockery::mock(MailManager::class);
+            $mailManager->shouldReceive('build')
+                ->twice()
+                ->with(Mockery::on(static fn (array $config): bool => (
+                    $config['transport'] === 'smtp'
+                    && $config['host'] === 'smtp.example.test'
+                    && $config['port'] === 587
+                    && $config['from']['address'] === 'noreply@example.test'
+                )))
+                ->andReturn($mailer);
+            app()->instance('mail.manager', $mailManager);
+
+            (new CreateManualPunchApplicationApprovals((int) $application->id, [10], 101))->handle();
+
+            $this->assertEqualsCanonicalizing([
+                'employee@example.test',
+                'approver-one@example.test',
+                'approver-two@example.test',
+            ], array_keys($sentEmails));
+            $employeeEmail = $sentEmails['employee@example.test'][0];
+            $this->assertSame('Punch 2026-10-20', $employeeEmail['subject']);
+            $this->assertStringContainsString('Employee One (E001)', $employeeEmail['body']);
+            $this->assertStringContainsString('In Punch 2026-10-20 09:15:00 Correction', $employeeEmail['body']);
+            $this->assertStringContainsString('Submitted 2026-11-12 12:00:00', $employeeEmail['body']);
+            $this->assertStringContainsString("<br />\nSecond template line", $employeeEmail['body']);
+            $this->assertStringNotContainsString('{{', $employeeEmail['body']);
+            $this->assertSame(
+                $sentEmails['approver-one@example.test'][0]['body'],
+                $sentEmails['approver-two@example.test'][0]['body'],
+            );
+            $this->assertStringContainsString('Employee One, Employee Two (E001, E002)', $sentEmails['approver-one@example.test'][0]['body']);
+            $this->assertStringContainsString('pending; 2; 2; 1; Approver One', $sentEmails['approver-one@example.test'][0]['body']);
+            $this->assertStringNotContainsString('{{', $sentEmails['approver-one@example.test'][0]['body']);
+            $this->assertDatabaseCount('approval_statuses', 1);
+            $this->assertDatabaseCount('approval_status_details', 2);
+
+            Carbon::setTestNow('2026-11-12 12:15:00');
+            $workflow->update($application, [
+                'punch_type' => '2',
+                'punch_date' => '2026-10-21',
+                'punch_time' => '18:00:00',
+                'reason' => 'Updated correction',
+            ], [101, 102], 202);
+            Bus::assertDispatched(CreateManualPunchApplicationApprovals::class, static fn ($job): bool => (
+                $job->applicationId === (int) $application->id
+                && $job->actorId === 202
+            ));
+
+            (new CreateManualPunchApplicationApprovals((int) $application->id, [10], 202))->handle();
+
+            $this->assertCount(2, $sentEmails['approver-one@example.test']);
+            $this->assertCount(2, $sentEmails['approver-two@example.test']);
+            $this->assertStringContainsString('Submitted 2026-11-12 12:15:00', $sentEmails['approver-one@example.test'][1]['body']);
+            $this->assertStringContainsString('Out Punch 2026-10-21 18:00:00 Updated correction', $sentEmails['approver-one@example.test'][1]['body']);
+            $this->assertSame(
+                $sentEmails['approver-one@example.test'][1]['body'],
+                $sentEmails['approver-two@example.test'][1]['body'],
+            );
+        } finally {
+            Carbon::setTestNow();
+            $this->dropWorkflowTables();
+        }
+    }
+
     public function test_application_import_sample_contains_manual_punch_fields_and_generated_status(): void
     {
         $response = app(ManualPunchApplicationController::class)->downloadImportSample();
@@ -448,6 +605,7 @@ class TenantManualPunchApplicationModuleTest extends TestCase
             $table->id();
             $table->string('name')->nullable();
             $table->string('code')->nullable();
+            $table->string('email')->nullable();
             $table->unsignedBigInteger('manual_punch_approval_flow_id')->nullable();
             $table->softDeletes();
             $table->timestamps();
@@ -463,6 +621,12 @@ class TenantManualPunchApplicationModuleTest extends TestCase
             $table->id();
             $table->unsignedInteger('level')->default(0);
             $table->unsignedBigInteger('approval_flow_id');
+            $table->timestamps();
+        });
+        Schema::create('approval_flow_detail_user', function ($table): void {
+            $table->id();
+            $table->unsignedBigInteger('approval_flow_detail_id');
+            $table->unsignedBigInteger('user_id');
             $table->timestamps();
         });
         Schema::create('manual_punch_applications', function ($table): void {
@@ -509,14 +673,43 @@ class TenantManualPunchApplicationModuleTest extends TestCase
             $table->softDeletes();
             $table->timestamps();
         });
+        Schema::create('email_templates', function ($table): void {
+            $table->id();
+            $table->string('title')->nullable();
+            $table->string('template_type');
+            $table->text('email_content')->nullable();
+            $table->string('status')->default('active');
+            $table->timestamps();
+        });
+        Schema::create('email_template_assignments', function ($table): void {
+            $table->id();
+            $table->string('application_type');
+            $table->string('application_action');
+            $table->unsignedBigInteger('email_template_id');
+            $table->string('status')->default('active');
+            $table->boolean('send_to_approver')->default(false);
+            $table->boolean('send_to_employee')->default(false);
+            $table->timestamps();
+        });
+        Schema::create('email_configurations', function ($table): void {
+            $table->id();
+            $table->string('key');
+            $table->string('value')->nullable();
+            $table->softDeletes();
+            $table->timestamps();
+        });
     }
 
     private function dropWorkflowTables(): void
     {
+        Schema::dropIfExists('email_configurations');
+        Schema::dropIfExists('email_template_assignments');
+        Schema::dropIfExists('email_templates');
         Schema::dropIfExists('approval_status_details');
         Schema::dropIfExists('approval_statuses');
         Schema::dropIfExists('manual_punch_application_users');
         Schema::dropIfExists('manual_punch_applications');
+        Schema::dropIfExists('approval_flow_detail_user');
         Schema::dropIfExists('approval_flow_details');
         Schema::dropIfExists('approval_flows');
         Schema::dropIfExists('users');

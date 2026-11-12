@@ -28,6 +28,7 @@ class EmailTemplate extends Model
             ['key' => 'punch_date', 'label' => 'Punch date'],
             ['key' => 'punch_time', 'label' => 'Punch time'],
             ['key' => 'reason', 'label' => 'Reason'],
+            ['key' => 'submitted_on', 'label' => 'Submitted on'],
         ],
         'overtime_application' => [
             ['key' => 'date', 'label' => 'Overtime date'],
