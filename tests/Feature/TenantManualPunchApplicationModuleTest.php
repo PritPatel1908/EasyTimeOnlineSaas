@@ -563,7 +563,7 @@ class TenantManualPunchApplicationModuleTest extends TestCase
             $sentEmails = [];
             $mailer = Mockery::mock(Mailer::class);
             $mailer->shouldReceive('html')
-                ->times(4)
+                ->times(8)
                 ->andReturnUsing(function (string $body, callable $callback) use (&$sentEmails): void {
                     $recipient = null;
                     $subject = null;
@@ -581,11 +581,11 @@ class TenantManualPunchApplicationModuleTest extends TestCase
                     $callback($message);
                     $sentEmails[$recipient] = ['subject' => $subject, 'body' => $body];
                 });
-            $mailer->shouldReceive('alwaysFrom')->once()->with('noreply@example.test', 'EasyTime');
+            $mailer->shouldReceive('alwaysFrom')->twice()->with('noreply@example.test', 'EasyTime');
 
             $mailManager = Mockery::mock(MailManager::class);
             $mailManager->shouldReceive('build')
-                ->once()
+                ->twice()
                 ->with(Mockery::on(static fn (array $config): bool => (
                     $config['transport'] === 'mail'
                     && $config['from']['address'] === 'noreply@example.test'
@@ -607,6 +607,35 @@ class TenantManualPunchApplicationModuleTest extends TestCase
             $this->assertStringContainsString('Level 2: Approver Two approved on 2026-11-12 11:00:00', $sentEmails['employee-one@example.test']['body']);
             $this->assertSame('Punch 2026-10-24: pending', $sentEmails['approver-one@example.test']['subject']);
             $this->assertStringContainsString('Employee One, Employee Two (E001, E002)', $sentEmails['approver-three@example.test']['body']);
+
+            DB::table('email_template_assignments')->insert([
+                'application_type' => 'manual_punch_application',
+                'application_action' => 'reject',
+                'email_template_id' => 1,
+                'status' => 'active',
+                'send_to_another_approver' => true,
+                'send_to_employee' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            DB::table('approval_status_details')->where('id', 202)->update([
+                'approval_status' => 'rejected',
+                'rejection_reason' => 'Incorrect punch details.',
+            ]);
+            DB::table('approval_status_details')->where('id', 203)->update(['approval_status' => 'cancelled']);
+            DB::table('approval_statuses')->where('id', 100)->update(['approval_status' => 'rejected']);
+            $sentEmails = [];
+
+            (new SendManualPunchApprovalEmails(1, 202, 202, 'rejected'))->handle();
+
+            $this->assertEqualsCanonicalizing([
+                'employee-one@example.test',
+                'employee-two@example.test',
+                'approver-one@example.test',
+                'approver-three@example.test',
+            ], array_keys($sentEmails));
+            $this->assertSame('Punch 2026-10-24: rejected', $sentEmails['employee-one@example.test']['subject']);
+            $this->assertStringContainsString('Incorrect punch details.', $sentEmails['employee-one@example.test']['body']);
         } finally {
             $this->dropWorkflowTables();
         }

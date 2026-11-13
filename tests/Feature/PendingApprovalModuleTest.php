@@ -153,6 +153,7 @@ class PendingApprovalModuleTest extends TestCase
 
         try {
             $this->createApplicationWithFlow();
+            Bus::fake();
             DB::table('approval_flows')->insert(['id' => 2, 'approval_flow_code' => 'parallel-flow']);
             DB::table('approval_flow_details')->insert(['id' => 22, 'level' => 1, 'approval_flow_id' => 2]);
             DB::table('approval_flow_detail_user')->insert([
@@ -194,6 +195,12 @@ class PendingApprovalModuleTest extends TestCase
                 'id' => 101,
                 'approval_status' => 'cancelled',
             ]);
+            Bus::assertDispatched(SendManualPunchApprovalEmails::class, static fn (SendManualPunchApprovalEmails $job): bool => (
+                $job->applicationId === 9
+                && $job->approvalStatusDetailId === 201
+                && $job->actorId === 10
+                && $job->decision === 'rejected'
+            ));
         } finally {
             $this->dropApprovalTables();
         }

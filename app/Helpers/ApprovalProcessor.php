@@ -96,11 +96,12 @@ class ApprovalProcessor
                 'updated_by' => $actorId,
             ]);
 
-            if ($decision === 'approved' && $approvable instanceof ManualPunchApplication) {
+            if ($approvable instanceof ManualPunchApplication) {
                 SendManualPunchApprovalEmails::dispatch(
                     (int) $approvable->id,
                     (int) $detail->id,
                     $actorId,
+                    $decision,
                 )
                     ->onConnection('database_tenant')
                     ->onQueue('processing')

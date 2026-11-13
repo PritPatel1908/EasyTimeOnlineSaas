@@ -28,14 +28,19 @@ class SendManualPunchApprovalEmails implements ShouldQueue
         public int $applicationId,
         public int $approvalStatusDetailId,
         public int $actorId,
+        public string $decision = 'approved',
     ) {}
 
     public function handle(): void
     {
+        if (! in_array($this->decision, ['approved', 'rejected'], true)) {
+            throw new RuntimeException('The manual punch approval decision is invalid.');
+        }
+
         $assignment = EmailTemplateAssignment::query()
             ->with('emailTemplate')
             ->where('application_type', 'manual_punch_application')
-            ->where('application_action', 'approve')
+            ->where('application_action', $this->decision === 'approved' ? 'approve' : 'reject')
             ->where('status', 'active')
             ->first();
 
@@ -58,7 +63,7 @@ class SendManualPunchApprovalEmails implements ShouldQueue
             ->firstWhere('id', $this->approvalStatusDetailId);
 
         if ($currentDetail === null
-            || $currentDetail->approval_status !== 'approved'
+            || $currentDetail->approval_status !== $this->decision
             || (int) $currentDetail->user_id !== $this->actorId) {
             throw new RuntimeException('The manual punch approval decision could not be loaded.');
         }
