@@ -37,5 +37,11 @@ class CreateLeaveApplicationApprovals implements ShouldQueue
             $this->approvalFlowIds,
             $this->actorId,
         );
+
+        SendApplicationStatusEmails::dispatch(
+            LeaveApplication::class,
+            (int) $application->id,
+            'initial',
+        )->onConnection('database_tenant')->onQueue('processing')->afterCommit();
     }
 }

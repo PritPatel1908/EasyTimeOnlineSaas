@@ -37,5 +37,11 @@ class CreateShortLeaveApplicationApprovals implements ShouldQueue
             $this->approvalFlowIds,
             $this->actorId,
         );
+
+        SendApplicationStatusEmails::dispatch(
+            ShortLeaveApplication::class,
+            (int) $application->id,
+            'initial',
+        )->onConnection('database_tenant')->onQueue('processing')->afterCommit();
     }
 }

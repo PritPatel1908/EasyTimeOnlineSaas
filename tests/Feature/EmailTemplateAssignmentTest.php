@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Controllers\Tenant\SettingsController;
+use App\Models\Tenant\EmailTemplate;
+use App\Models\Tenant\EmailTemplateAssignment;
+use Database\Seeders\Tenant\EmailTemplateDefaultsSeeder;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -167,5 +170,55 @@ class EmailTemplateAssignmentTest extends TestCase
         } catch (ValidationException $exception) {
             $this->assertArrayHasKey('application_action', $exception->errors());
         }
+    }
+
+    public function test_default_templates_and_assignments_are_seeded_for_each_application_action_idempotently(): void
+    {
+        $seeder = app(EmailTemplateDefaultsSeeder::class);
+
+        $seeder->run();
+
+        $expectedCount = count(EmailTemplate::APPLICATION_VARIABLES) * 4;
+        $this->assertSame($expectedCount, EmailTemplateAssignment::query()->count());
+        $this->assertSame($expectedCount + 2, EmailTemplate::query()->count());
+        $this->assertDatabaseHas('email_template_assignments', [
+            'application_type' => 'leave_application',
+            'application_action' => 'initial',
+            'send_to_approver' => true,
+        ]);
+        $this->assertDatabaseHas('email_template_assignments', [
+            'application_type' => 'leave_application',
+            'application_action' => 'cancel',
+            'send_to_another_approver' => true,
+            'send_to_employee' => true,
+        ]);
+
+        $cancelTemplate = EmailTemplate::query()
+            ->where('template_type', 'leave_application_approve_reject')
+            ->where('title', 'Leave Application - Cancel')
+            ->firstOrFail();
+        $this->assertStringContainsString('{{from_date}}', $cancelTemplate->email_content);
+        $this->assertStringContainsString('{{cancellation_reason}}', $cancelTemplate->email_content);
+        $this->assertStringContainsString('{{cancelled_at}}', $cancelTemplate->email_content);
+
+        $cancelTemplate->update(['email_content' => 'Customized by tenant']);
+        EmailTemplateAssignment::query()
+            ->where('application_type', 'leave_application')
+            ->where('application_action', 'cancel')
+            ->update(['status' => 'inactive']);
+
+        $seeder->run();
+
+        $this->assertSame($expectedCount, EmailTemplateAssignment::query()->count());
+        $this->assertSame($expectedCount + 2, EmailTemplate::query()->count());
+        $this->assertDatabaseHas('email_templates', [
+            'id' => $cancelTemplate->id,
+            'email_content' => 'Customized by tenant',
+        ]);
+        $this->assertDatabaseHas('email_template_assignments', [
+            'application_type' => 'leave_application',
+            'application_action' => 'cancel',
+            'status' => 'inactive',
+        ]);
     }
 }

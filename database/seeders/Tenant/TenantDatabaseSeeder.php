@@ -104,6 +104,7 @@ class TenantDatabaseSeeder extends Seeder
         }
 
         $this->call(StatusMasterSeeder::class);
+        $this->call(EmailTemplateDefaultsSeeder::class);
 
         activity()
             ->causedBy($user)

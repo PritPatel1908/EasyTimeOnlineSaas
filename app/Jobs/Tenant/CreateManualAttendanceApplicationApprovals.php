@@ -37,5 +37,11 @@ class CreateManualAttendanceApplicationApprovals implements ShouldQueue
             $this->approvalFlowIds,
             $this->actorId,
         );
+
+        SendApplicationStatusEmails::dispatch(
+            ManualAttendanceApplication::class,
+            (int) $application->id,
+            'initial',
+        )->onConnection('database_tenant')->onQueue('processing')->afterCommit();
     }
 }

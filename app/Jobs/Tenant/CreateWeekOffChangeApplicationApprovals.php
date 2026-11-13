@@ -37,5 +37,11 @@ class CreateWeekOffChangeApplicationApprovals implements ShouldQueue
             $this->approvalFlowIds,
             $this->actorId,
         );
+
+        SendApplicationStatusEmails::dispatch(
+            WeekOffChangeApplication::class,
+            (int) $application->id,
+            'initial',
+        )->onConnection('database_tenant')->onQueue('processing')->afterCommit();
     }
 }

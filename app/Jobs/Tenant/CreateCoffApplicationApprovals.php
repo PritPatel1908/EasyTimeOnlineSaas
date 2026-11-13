@@ -37,5 +37,11 @@ class CreateCoffApplicationApprovals implements ShouldQueue
             $this->approvalFlowIds,
             $this->actorId,
         );
+
+        SendApplicationStatusEmails::dispatch(
+            CoffApplication::class,
+            (int) $application->id,
+            'initial',
+        )->onConnection('database_tenant')->onQueue('processing')->afterCommit();
     }
 }
