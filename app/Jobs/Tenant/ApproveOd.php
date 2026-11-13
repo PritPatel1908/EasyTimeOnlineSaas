@@ -47,6 +47,16 @@ class ApproveOd implements ShouldBeUnique, ShouldQueue
      */
     public function handle(): void
     {
+        $application = OutDuty::query()
+            ->with('approval_statuses')
+            ->findOrFail($this->odApplication->id);
+        if ($application->approval_statuses->isEmpty() || $application->approval_statuses->contains(
+            static fn ($status): bool => $status->approval_status !== 'approved',
+        )) {
+            return;
+        }
+
+        $this->odApplication = $application->loadMissing('user');
         $user = $this->odApplication->user;
         $fromDateTime = Carbon::parse($this->odApplication->from_date_time);
         $toDateTime = Carbon::parse($this->odApplication->to_date_time);

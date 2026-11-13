@@ -33,7 +33,7 @@
 	$manualStructureActive = request()->is('time-management/manual-punches*', 'time-management/manual-attendances*', 'time-management/manual-shift-changes*', 'time-management/week-off-changes*', 'time-management/week-off-swaps*');
 	$applicationStructureActive = request()->is('time-management/manual-punch-applications*', 'time-management/manual-attendance-applications*', 'time-management/overtime-applications*', 'time-management/shift-change-applications*', 'time-management/leave-applications*', 'time-management/short-leave-applications*', 'time-management/coff-applications*', 'time-management/week-off-change-applications*', 'time-management/week-off-swap-applications*');
 	$timingRuleStructureActive = request()->is('time-management/late-coming-rules*', 'time-management/early-going-rules*', 'time-management/half-day-rules*', 'time-management/overtime-rules*', 'time-management/absent-rules*');
-	$requestManagementStructureActive = request()->is('requests/pending*');
+	$requestManagementStructureActive = request()->is('requests/pending*', 'requests/approved*', 'requests/rejected*', 'requests/cancelled*', 'requests/upcoming*');
 	$settingsActive = request()->is('settings', 'settings/*') ||
 		in_array(request()->segment(1), array_keys(\App\Http\Controllers\Tenant\SettingsController::pages()), true);
 	$categoryActive = request()->is('employee-structure/categories*');
@@ -466,12 +466,20 @@
 						<li class="submenu">
 							<a href="javascript:void(0);"
 								class="{{ $requestManagementStructureActive ? 'active subdrop' : '' }}">
-								<i class="ti ti-inbox"></i><span>Pending Request</span>
+								<i class="ti ti-inbox"></i><span>Request Management</span>
 								<span class="menu-arrow"></span>
 							</a>
 							<ul>
 								<li><a href="{{ url('requests/pending') }}"
-									class="{{ $requestManagementStructureActive ? 'active' : '' }}">Pending Request</a></li>
+									class="{{ request()->is('requests/pending*') ? 'active' : '' }}">Pending Requests</a></li>
+								<li><a href="{{ url('requests/approved') }}"
+									class="{{ request()->is('requests/approved*') ? 'active' : '' }}">Approved Requests</a></li>
+								<li><a href="{{ url('requests/rejected') }}"
+									class="{{ request()->is('requests/rejected*') ? 'active' : '' }}">Rejected Requests</a></li>
+								<li><a href="{{ url('requests/cancelled') }}"
+									class="{{ request()->is('requests/cancelled*') ? 'active' : '' }}">Cancelled Requests</a></li>
+								<li><a href="{{ url('requests/upcoming') }}"
+									class="{{ request()->is('requests/upcoming*') ? 'active' : '' }}">Upcoming Requests</a></li>
 							</ul>
 						</li>
 					</ul>

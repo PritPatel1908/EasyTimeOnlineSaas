@@ -93,6 +93,17 @@ class TenantWeekOffChangeMusterProcessorTest extends TestCase
             $table->unsignedBigInteger('user_id');
             $table->timestamps();
         });
+        Schema::create('users', function (Blueprint $table): void {
+            $table->id();
+            $table->softDeletes();
+            $table->timestamps();
+        });
+        Schema::create('approved_application_effect_snapshots', function (Blueprint $table): void {
+            $table->id();
+            $table->morphs('approvable');
+            $table->json('snapshot');
+            $table->timestamps();
+        });
 
         DB::table('financial_years')->insert([
             'is_started' => true,
@@ -103,6 +114,7 @@ class TenantWeekOffChangeMusterProcessorTest extends TestCase
     protected function tearDown(): void
     {
         foreach ([
+            'approved_application_effect_snapshots',
             'approval_statuses',
             'week_off_musters',
             'week_off_change_application_users',
@@ -112,6 +124,7 @@ class TenantWeekOffChangeMusterProcessorTest extends TestCase
             'week_off_change_users',
             'week_off_changes',
             'financial_years',
+            'users',
         ] as $table) {
             Schema::dropIfExists($table);
         }

@@ -26,7 +26,14 @@ class ProcessManualAttendanceApplicationPunches implements ShouldQueue
 
     public function handle(): void
     {
-        $application = ManualAttendanceApplication::query()->findOrFail($this->manualAttendanceApplicationId);
+        $application = ManualAttendanceApplication::query()
+            ->with('approval_statuses')
+            ->findOrFail($this->manualAttendanceApplicationId);
+        if ($application->approval_statuses->isEmpty() || $application->approval_statuses->contains(
+            static fn ($status): bool => $status->approval_status !== 'approved',
+        )) {
+            return;
+        }
 
         ManualAttendancePunchProcessor::process($application);
     }

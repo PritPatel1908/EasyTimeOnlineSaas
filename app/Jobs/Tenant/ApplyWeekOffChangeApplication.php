@@ -23,7 +23,12 @@ class ApplyWeekOffChangeApplication implements ShouldQueue
 
     public function handle(): void
     {
-        $application = WeekOffChangeApplication::query()->findOrFail($this->applicationId);
+        $application = WeekOffChangeApplication::query()
+            ->with('approval_statuses')
+            ->findOrFail($this->applicationId);
+        if ($application->overallApprovalStatus() !== 'approved') {
+            return;
+        }
 
         WeekOffChangeApplicationMusterProcessor::process($application);
     }

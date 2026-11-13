@@ -40,16 +40,12 @@ class ApprovalApprove
             $users = $record->Users()->pluck('user_id')->toArray();
             foreach ($users as $user_id) {
                 $user = User::find($user_id);
-                $user->shifts()->delete();
-            }
-
-            foreach ($users as $user_id) {
-                $user = User::find($user_id);
                 $user->shift_type = $record->shift_type;
                 $user->save();
                 if ($record->shift_type == 'auto') {
                     $user->shifts()->sync($record->shifts()->pluck('shift_id'));
                 } elseif ($record->shift_type == 'rotational') {
+                    $user->shifts()->sync([]);
                     $user->shift_rotation_id = $record->shift_rotation->id;
                     $user->save();
                 } else {

@@ -89,6 +89,12 @@ class CoffApplicationApprovalTest extends TestCase
             $table->unsignedBigInteger('approvable_id');
             $table->string('approval_status');
         });
+        Schema::create('approved_application_effect_snapshots', function ($table): void {
+            $table->id();
+            $table->morphs('approvable');
+            $table->json('snapshot');
+            $table->timestamps();
+        });
         Schema::create('status_masters', function ($table): void {
             $table->id();
             $table->string('code');

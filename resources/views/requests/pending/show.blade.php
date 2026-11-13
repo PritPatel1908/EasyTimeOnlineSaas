@@ -7,14 +7,18 @@
     <div class="content">
         <div class="d-md-flex d-block align-items-center justify-content-between page-breadcrumb mb-3">
             <div class="my-auto mb-2">
-                <h2 class="mb-1">Review Pending Request</h2>
+                <h2 class="mb-1">{{ match ($approvalStatus->approval_status) {
+                    'approved' => 'Approved Request',
+                    'rejected' => 'Rejected Request',
+                    default => $source === 'upcoming' ? 'Upcoming Request' : 'Review Pending Request',
+                } }}</h2>
                 <nav><ol class="breadcrumb mb-0">
                     <li class="breadcrumb-item"><a href="{{ url('dashboard') }}"><i class="ti ti-smart-home"></i></a></li>
-                    <li class="breadcrumb-item"><a href="{{ route('tenant.requests.pending.index', ['tenant' => $tenant]) }}">Pending Requests</a></li>
+                    <li class="breadcrumb-item"><a href="{{ route($sourceRoute, ['tenant' => $tenant]) }}">{{ $sourceLabel }}</a></li>
                     <li class="breadcrumb-item active" aria-current="page">Request #{{ $approvalStatus->approvable_id }}</li>
                 </ol></nav>
             </div>
-            <a href="{{ route('tenant.requests.pending.index', ['tenant' => $tenant]) }}" class="btn btn-light"><i class="ti ti-arrow-left me-1"></i>Back</a>
+            <a href="{{ route($sourceRoute, ['tenant' => $tenant]) }}" class="btn btn-light"><i class="ti ti-arrow-left me-1"></i>Back</a>
         </div>
 
         @if ($errors->any())
@@ -131,7 +135,9 @@
                 </div>
             </div>
         @else
-            <div class="alert alert-secondary" role="status">This approval level is no longer actionable.</div>
+            @if (! in_array($approvalStatus->approval_status, ['approved', 'rejected'], true))
+                <div class="alert alert-secondary" role="status">{{ $readOnlyMessage }}</div>
+            @endif
         @endif
     </div>
     @include('partials.footer')

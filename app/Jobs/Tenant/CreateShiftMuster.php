@@ -3,6 +3,7 @@
 namespace App\Jobs\Tenant;
 
 use App\Helpers\ShiftChangeMusterProcessor;
+use App\Models\Tenant\ShiftChangeApplication;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;
@@ -28,6 +29,17 @@ class CreateShiftMuster implements ShouldQueue
      */
     public function handle(): void
     {
+        if ($this->shift_change instanceof ShiftChangeApplication) {
+            $application = ShiftChangeApplication::query()
+                ->with('approval_statuses')
+                ->findOrFail($this->shift_change->id);
+            if ($application->overallApprovalStatus() !== 'approved') {
+                return;
+            }
+
+            $this->shift_change = $application;
+        }
+
         ShiftChangeMusterProcessor::process($this->shift_change);
     }
 }

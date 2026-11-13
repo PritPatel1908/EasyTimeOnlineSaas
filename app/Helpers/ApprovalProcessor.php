@@ -5,6 +5,7 @@ namespace App\Helpers;
 use App\Jobs\Tenant\DebitLeaveApplication;
 use App\Jobs\Tenant\FinalizeApprovedApplication;
 use App\Jobs\Tenant\SendManualPunchApprovalEmails;
+use App\Jobs\Tenant\SendOvertimeApprovalEmails;
 use App\Models\Tenant\ApprovalFlow;
 use App\Models\Tenant\ApprovalStatus;
 use App\Models\Tenant\ApprovalStatusDetails;
@@ -98,6 +99,17 @@ class ApprovalProcessor
 
             if ($approvable instanceof ManualPunchApplication) {
                 SendManualPunchApprovalEmails::dispatch(
+                    (int) $approvable->id,
+                    (int) $detail->id,
+                    $actorId,
+                    $decision,
+                )
+                    ->onConnection('database_tenant')
+                    ->onQueue('processing')
+                    ->afterCommit();
+            }
+            if ($approvable instanceof OvertimeApplication) {
+                SendOvertimeApprovalEmails::dispatch(
                     (int) $approvable->id,
                     (int) $detail->id,
                     $actorId,

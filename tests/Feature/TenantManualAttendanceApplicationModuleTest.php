@@ -151,6 +151,11 @@ class TenantManualAttendanceApplicationModuleTest extends TestCase
 
     public function test_final_approval_queues_manual_punch_processing_instead_of_creating_attendance(): void
     {
+        Schema::create('users', function (Blueprint $table): void {
+            $table->id();
+            $table->softDeletes();
+            $table->timestamps();
+        });
         Schema::create('manual_attendance_applications', function (Blueprint $table): void {
             $table->id();
             $table->dateTime('in_time');
@@ -160,12 +165,24 @@ class TenantManualAttendanceApplicationModuleTest extends TestCase
             $table->softDeletes();
             $table->timestamps();
         });
+        Schema::create('manual_attendance_application_users', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('manual_attendance_application_id');
+            $table->unsignedBigInteger('user_id');
+            $table->timestamps();
+        });
         Schema::create('approval_statuses', function (Blueprint $table): void {
             $table->id();
             $table->unsignedBigInteger('approvable_id');
             $table->string('approvable_type');
             $table->string('approval_status');
             $table->unsignedBigInteger('approval_flow_id')->nullable();
+            $table->timestamps();
+        });
+        Schema::create('approved_application_effect_snapshots', function (Blueprint $table): void {
+            $table->id();
+            $table->morphs('approvable');
+            $table->json('snapshot');
             $table->timestamps();
         });
 
@@ -191,8 +208,11 @@ class TenantManualAttendanceApplicationModuleTest extends TestCase
             ));
             Bus::assertNotDispatched(ApproveUserManualAttendance::class);
         } finally {
+            Schema::dropIfExists('approved_application_effect_snapshots');
             Schema::dropIfExists('approval_statuses');
+            Schema::dropIfExists('manual_attendance_application_users');
             Schema::dropIfExists('manual_attendance_applications');
+            Schema::dropIfExists('users');
         }
     }
 

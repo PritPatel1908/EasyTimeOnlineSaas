@@ -7,6 +7,7 @@ namespace App\Services\Tenant;
 use App\Models\Tenant\EmailConfiguration;
 use App\Models\Tenant\ManualPunch;
 use App\Models\Tenant\ManualPunchApplication;
+use App\Models\Tenant\OvertimeApplication;
 use App\Models\Tenant\User;
 use Illuminate\Mail\Mailer;
 use Illuminate\Support\Collection;
@@ -51,6 +52,18 @@ class ManualPunchApplicationEmailSender
             'punch_time' => $application->punch_time?->format('H:i:s') ?? '',
             'reason' => $application->reason ?? '',
             'submitted_on' => $application->updated_at?->format('Y-m-d H:i:s') ?? '',
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function overtimeApplicationVariables(OvertimeApplication $application): array
+    {
+        return [
+            'date' => $application->date?->format('Y-m-d') ?? '',
+            'overtime_minutes' => (string) ($application->overtime_minutes ?? ''),
+            'reason' => $application->reason ?? '',
         ];
     }
 

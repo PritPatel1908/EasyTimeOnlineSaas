@@ -47,6 +47,16 @@ class ApproveCoff implements ShouldBeUnique, ShouldQueue
      */
     public function handle(): void
     {
+        $application = Coff::query()
+            ->with('approval_statuses')
+            ->findOrFail($this->coffApplication->id);
+        if ($application->approval_statuses->isEmpty() || $application->approval_statuses->contains(
+            static fn ($status): bool => $status->approval_status !== 'approved',
+        )) {
+            return;
+        }
+
+        $this->coffApplication = $application->loadMissing('user');
         $user = $this->coffApplication->user;
         $fromDate = Carbon::parse($this->coffApplication->from_date);
         $toDate = Carbon::parse($this->coffApplication->to_date);

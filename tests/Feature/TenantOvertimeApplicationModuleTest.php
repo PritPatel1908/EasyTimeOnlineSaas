@@ -11,16 +11,22 @@ use App\Jobs\Tenant\CreateOvertimeApplicationApprovals;
 use App\Jobs\Tenant\FinalizeApprovedApplication;
 use App\Jobs\Tenant\GenerateOvertimeApplicationExport;
 use App\Jobs\Tenant\ProcessOvertimeApplicationImport;
+use App\Jobs\Tenant\SendOvertimeApprovalEmails;
 use App\Models\Tenant\OvertimeApplication;
 use App\Models\Tenant\User;
 use App\Notifications\Tenant\OvertimeApplicationImportExportCompleted;
 use App\Services\Tenant\OvertimeApplicationWorkflow;
+use Illuminate\Mail\MailManager;
+use Illuminate\Mail\Mailer;
+use Illuminate\Mail\Message;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\ViewErrorBag;
+use Mockery;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Tests\TestCase;
 
@@ -184,6 +190,173 @@ class TenantOvertimeApplicationModuleTest extends TestCase
         }
     }
 
+    public function test_overtime_application_emails_are_sent_for_submission_approval_and_rejection(): void
+    {
+        $this->createWorkflowTables();
+        $this->createEmailTables();
+
+        try {
+            Bus::fake();
+            Carbon::setTestNow('2026-11-12 12:00:00');
+            DB::table('approval_flows')->insert([
+                'id' => 10,
+                'approval_flow_code' => 'overtime-flow',
+                'status' => 1,
+            ]);
+            DB::table('approval_flow_details')->insert([
+                ['id' => 20, 'level' => 1, 'approval_flow_id' => 10],
+                ['id' => 21, 'level' => 2, 'approval_flow_id' => 10],
+            ]);
+            DB::table('users')->insert([
+                ['id' => 101, 'name' => 'Employee One', 'code' => 'E001', 'email' => 'employee@example.test', 'overtime_approval_flow_id' => 10],
+                ['id' => 201, 'name' => 'Approver One', 'code' => 'A001', 'email' => 'approver-one@example.test'],
+                ['id' => 202, 'name' => 'Approver Two', 'code' => 'A002', 'email' => 'approver-two@example.test'],
+            ]);
+            DB::table('approval_flow_detail_user')->insert([
+                ['approval_flow_detail_id' => 20, 'user_id' => 201],
+                ['approval_flow_detail_id' => 21, 'user_id' => 202],
+            ]);
+            DB::table('attendances2026')->insert([
+                'user_id' => 101,
+                'date' => '2026-11-03',
+                'total_overtime_minutes' => 90,
+                'approved_overtime_minutes' => 0,
+            ]);
+            DB::table('email_templates')->insert([
+                'id' => 1,
+                'title' => 'Overtime {{ date }}: {{ application_status }}',
+                'template_type' => 'overtime_application_approve_reject',
+                'email_content' => '{{ employee_name }} ({{ employee_code }}); {{ date }} {{ overtime_minutes }} {{ reason }}; {{ application_status }}; {{ total_approval_levels }}; {{ total_approvers }}; {{ current_approval_level }}; {{ current_level_approver_names }}; {{ previous_level_approval_history }}; {{ approval_history }}',
+                'status' => 'active',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            foreach (['initial', 'approve', 'reject'] as $action) {
+                DB::table('email_template_assignments')->insert([
+                    'application_type' => 'overtime_application',
+                    'application_action' => $action,
+                    'email_template_id' => 1,
+                    'status' => 'active',
+                    'send_to_approver' => true,
+                    'send_to_another_approver' => true,
+                    'send_to_employee' => true,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+            DB::table('email_configurations')->insert([
+                ['key' => 'from_address', 'value' => 'noreply@example.test'],
+                ['key' => 'from_name', 'value' => 'EasyTime'],
+            ]);
+
+            $sentEmails = [];
+            $mailer = Mockery::mock(Mailer::class);
+            $mailer->shouldReceive('html')
+                ->times(10)
+                ->andReturnUsing(function (string $body, callable $callback) use (&$sentEmails): void {
+                    $recipient = null;
+                    $subject = null;
+                    $message = Mockery::mock(Message::class);
+                    $message->shouldReceive('to')->once()->andReturnUsing(function (string $address) use (&$recipient, $message) {
+                        $recipient = $address;
+
+                        return $message;
+                    });
+                    $message->shouldReceive('subject')->once()->andReturnUsing(function (string $value) use (&$subject, $message) {
+                        $subject = $value;
+
+                        return $message;
+                    });
+                    $callback($message);
+                    $sentEmails[$recipient][] = ['subject' => $subject, 'body' => $body];
+                });
+            $mailer->shouldReceive('alwaysFrom')
+                ->times(4)
+                ->with('noreply@example.test', 'EasyTime');
+            $mailManager = Mockery::mock(MailManager::class);
+            $mailManager->shouldReceive('build')
+                ->times(4)
+                ->andReturn($mailer);
+            app()->instance('mail.manager', $mailManager);
+
+            $workflow = app(OvertimeApplicationWorkflow::class);
+            $approvedApplication = $workflow->create([
+                'user_id' => 101,
+                'date' => '2026-11-03',
+                'overtime_minutes' => 5,
+                'reason' => 'Project work',
+            ], 101);
+            (new CreateOvertimeApplicationApprovals((int) $approvedApplication->id, [10], 101))->handle();
+
+            $this->assertSame(
+                'Overtime 2026-11-03: pending',
+                $sentEmails['employee@example.test'][0]['subject'],
+            );
+            $this->assertStringContainsString('Employee One (E001); 2026-11-03 90 Project work; pending; 2; 2; 1; Approver One', $sentEmails['employee@example.test'][0]['body']);
+            $this->assertStringContainsString('No approvals yet', $sentEmails['approver-one@example.test'][0]['body']);
+            $this->assertCount(1, $sentEmails['approver-two@example.test']);
+
+            $approvedDetailId = (int) DB::table('approval_status_details')
+                ->join('approval_statuses', 'approval_status_details.approval_status_id', '=', 'approval_statuses.id')
+                ->where('approval_statuses.approvable_type', OvertimeApplication::class)
+                ->where('approval_statuses.approvable_id', $approvedApplication->id)
+                ->where('approval_status_details.level', 1)
+                ->value('approval_status_details.id');
+            ApprovalProcessor::processDecision($approvedDetailId, 201, 'approved', null);
+            Bus::assertDispatched(SendOvertimeApprovalEmails::class, static fn (SendOvertimeApprovalEmails $job): bool => (
+                $job->applicationId === (int) $approvedApplication->id
+                && $job->approvalStatusDetailId === $approvedDetailId
+                && $job->actorId === 201
+                && $job->decision === 'approved'
+            ));
+            $approvedJob = new SendOvertimeApprovalEmails((int) $approvedApplication->id, $approvedDetailId, 201);
+            $approvedJob->handle();
+
+            $this->assertStringContainsString('pending; 2; 2; 1; Approver One', $sentEmails['employee@example.test'][1]['body']);
+            $this->assertStringContainsString('Level 1: Approver One approved on 2026-11-12 12:00:00', $sentEmails['employee@example.test'][1]['body']);
+            $this->assertCount(2, $sentEmails['approver-two@example.test']);
+
+            $rejectedApplication = $workflow->create([
+                'user_id' => 101,
+                'date' => '2026-11-03',
+                'overtime_minutes' => 5,
+                'reason' => 'Another project task',
+            ], 101);
+            (new CreateOvertimeApplicationApprovals((int) $rejectedApplication->id, [10], 101))->handle();
+            $rejectedDetailId = (int) DB::table('approval_status_details')
+                ->join('approval_statuses', 'approval_status_details.approval_status_id', '=', 'approval_statuses.id')
+                ->where('approval_statuses.approvable_type', OvertimeApplication::class)
+                ->where('approval_statuses.approvable_id', $rejectedApplication->id)
+                ->where('approval_status_details.level', 1)
+                ->value('approval_status_details.id');
+            ApprovalProcessor::processDecision($rejectedDetailId, 201, 'rejected', 'Insufficient details.');
+            Bus::assertDispatched(SendOvertimeApprovalEmails::class, static fn (SendOvertimeApprovalEmails $job): bool => (
+                $job->applicationId === (int) $rejectedApplication->id
+                && $job->approvalStatusDetailId === $rejectedDetailId
+                && $job->actorId === 201
+                && $job->decision === 'rejected'
+            ));
+            (new SendOvertimeApprovalEmails(
+                (int) $rejectedApplication->id,
+                $rejectedDetailId,
+                201,
+                'rejected',
+            ))->handle();
+
+            $this->assertSame(
+                'Overtime 2026-11-03: rejected',
+                $sentEmails['employee@example.test'][2]['subject'],
+            );
+            $this->assertStringContainsString('Insufficient details.', $sentEmails['employee@example.test'][2]['body']);
+        } finally {
+            Carbon::setTestNow();
+            Schema::dropIfExists('email_configurations');
+            Schema::dropIfExists('email_template_assignments');
+            Schema::dropIfExists('email_templates');
+            $this->dropWorkflowTables();
+        }
+    }
+
     public function test_final_overtime_approval_updates_attendance_with_approved_minutes(): void
     {
         $this->createWorkflowTables();
@@ -333,6 +506,7 @@ class TenantOvertimeApplicationModuleTest extends TestCase
             $table->id();
             $table->string('name')->nullable();
             $table->string('code')->nullable();
+            $table->string('email')->nullable();
             $table->unsignedBigInteger('overtime_approval_flow_id')->nullable();
             $table->softDeletes();
             $table->timestamps();
@@ -386,6 +560,12 @@ class TenantOvertimeApplicationModuleTest extends TestCase
             $table->softDeletes();
             $table->timestamps();
         });
+        Schema::create('approved_application_effect_snapshots', function ($table): void {
+            $table->id();
+            $table->morphs('approvable');
+            $table->json('snapshot');
+            $table->timestamps();
+        });
         Schema::create('approval_status_details', function ($table): void {
             $table->id();
             $table->unsignedTinyInteger('level')->nullable();
@@ -403,9 +583,39 @@ class TenantOvertimeApplicationModuleTest extends TestCase
         });
     }
 
+    private function createEmailTables(): void
+    {
+        Schema::create('email_templates', function ($table): void {
+            $table->id();
+            $table->string('title')->nullable();
+            $table->string('template_type');
+            $table->text('email_content')->nullable();
+            $table->string('status')->default('active');
+            $table->timestamps();
+        });
+        Schema::create('email_template_assignments', function ($table): void {
+            $table->id();
+            $table->string('application_type');
+            $table->string('application_action');
+            $table->unsignedBigInteger('email_template_id');
+            $table->string('status')->default('active');
+            $table->boolean('send_to_approver')->default(false);
+            $table->boolean('send_to_another_approver')->default(false);
+            $table->boolean('send_to_employee')->default(false);
+            $table->timestamps();
+        });
+        Schema::create('email_configurations', function ($table): void {
+            $table->id();
+            $table->string('key');
+            $table->text('value')->nullable();
+            $table->softDeletes();
+        });
+    }
+
     private function dropWorkflowTables(): void
     {
         Schema::dropIfExists('approval_status_details');
+        Schema::dropIfExists('approved_application_effect_snapshots');
         Schema::dropIfExists('approval_statuses');
         Schema::dropIfExists('approval_flow_detail_user');
         Schema::dropIfExists('attendances2026');

@@ -239,7 +239,7 @@ class RolePermissionController extends Controller
             'customPermissions' => [
                 'Pending Request' => [
                     'module' => 'pendingrequest',
-                    'actions' => ['read', 'approve', 'reject'],
+                    'actions' => ['read', 'approve', 'reject', 'cancel'],
                 ],
             ],
         ]);

@@ -21,6 +21,17 @@ class CreateWeekOffSwap implements ShouldQueue
 
     public function handle(): void
     {
+        if ($this->weekOffSwap instanceof WeekOffSwapApplication) {
+            $application = WeekOffSwapApplication::query()
+                ->with('approval_statuses')
+                ->findOrFail($this->weekOffSwap->id);
+            if ($application->overallApprovalStatus() !== 'approved') {
+                return;
+            }
+
+            $this->weekOffSwap = $application;
+        }
+
         WeekOffSwapMusterService::applySwap($this->weekOffSwap);
     }
 }

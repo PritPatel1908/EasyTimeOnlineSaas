@@ -53,6 +53,15 @@ class ApproveLeaveApplication implements ShouldBeUnique, ShouldQueue
     {
         DB::beginTransaction();
         try {
+            $approvalStatuses = $this->leave_application->approval_statuses()->get();
+            if ($approvalStatuses->isEmpty() || $approvalStatuses->contains(
+                static fn ($status): bool => $status->approval_status !== 'approved',
+            )) {
+                DB::commit();
+
+                return;
+            }
+
             $this->leave_application->loadMissing('users');
 
             foreach ($this->leave_application->users as $user) {

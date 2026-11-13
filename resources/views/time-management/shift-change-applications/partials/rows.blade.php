@@ -1,5 +1,27 @@
 @forelse ($applications as $application)
-    @php($status = $application->overallApprovalStatus())
+    @php
+        $cancellationStatus = $cancellationStatuses->get($application->id);
+        $status = match ($cancellationStatus) {
+            'pending' => 'cancellation_pending',
+            'failed' => 'cancellation_failed',
+            'completed' => 'cancelled',
+            default => $application->overallApprovalStatus(),
+        };
+        $statusLabel = match ($status) {
+            'cancellation_pending' => 'Cancellation Pending',
+            'cancellation_failed' => 'Cancellation Failed',
+            default => ucfirst($status),
+        };
+        $statusClass = match ($status) {
+            'pending' => 'primary',
+            'approved' => 'success',
+            'rejected', 'cancellation_failed' => 'danger',
+            'cancelled' => 'secondary',
+            'cancellation_pending' => 'info',
+            'draft' => 'secondary',
+            default => 'light text-dark',
+        };
+    @endphp
     <tr>
         <td><input class="form-check-input" type="checkbox" value="{{ $application->id }}"></td>
         <td class="text-center">{{ $application->Users->map(fn ($user) => $user->name . ($user->code ? ' ('.$user->code.')' : ''))->join(', ') ?: '—' }}</td>
@@ -13,7 +35,7 @@
         </td>
         <td class="text-center">{{ $application->from_date?->format('Y-m-d') ?? '—' }}</td>
         <td class="text-center">{{ $application->is_forever ? 'No end date' : ($application->to_date?->format('Y-m-d') ?? '—') }}</td>
-        <td class="text-center"><span class="badge bg-{{ match ($status) {'pending' => 'primary', 'approved' => 'success', 'rejected' => 'danger', 'draft' => 'secondary', default => 'light text-dark'} }}">{{ ucfirst($status) }}</span></td>
+        <td class="text-center"><span class="badge bg-{{ $statusClass }}">{{ $statusLabel }}</span></td>
         <td class="text-center">{{ $application->reason ?: '—' }}</td>
         <td class="text-center">
             <div class="action-icon d-inline-flex">

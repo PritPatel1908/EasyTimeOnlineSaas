@@ -16,6 +16,7 @@ use App\Models\Tenant\ShiftChangeApplication;
 use App\Models\Tenant\ShortLeaveApplication;
 use App\Models\Tenant\WeekOffChangeApplication;
 use App\Models\Tenant\WeekOffSwapApplication;
+use App\Services\Tenant\ApprovedApplicationEffectSnapshotService;
 use App\Services\Tenant\LeaveAttendanceWriter;
 use App\Services\Tenant\CoffAttendanceWriter;
 use Carbon\Carbon;
@@ -73,6 +74,8 @@ class FinalizeApprovedApplication implements ShouldQueue
             return;
         }
 
+        app(ApprovedApplicationEffectSnapshotService::class)->capture($application);
+
         if ($application instanceof OvertimeApplication) {
             $date = Carbon::parse($application->date)->toDateString();
             $table = 'attendances'.Carbon::parse($date)->format('Y');
@@ -96,11 +99,11 @@ class FinalizeApprovedApplication implements ShouldQueue
             $application->loadMissing(['Users', 'shifts', 'shift_rotation']);
             DB::transaction(function () use ($application): void {
                 foreach ($application->Users as $user) {
-                    $user->shifts()->delete();
                     $user->shift_type = $application->shift_type;
                     $user->save();
 
                     if ($application->shift_type === 'rotational') {
+                        $user->shifts()->sync([]);
                         $user->shift_rotation_id = $application->shift_rotation?->id;
                         $user->save();
                     } else {

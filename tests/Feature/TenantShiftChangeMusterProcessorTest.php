@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Helpers\ShiftChangeMusterProcessor;
+use App\Jobs\Tenant\FinalizeApprovedApplication;
 use App\Models\Tenant\ShiftChange;
+use App\Models\Tenant\ShiftChangeApplication;
 use App\Models\Tenant\ShiftMuster;
 use Carbon\Carbon;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -25,6 +28,8 @@ class TenantShiftChangeMusterProcessorTest extends TestCase
         Schema::create('users', function (Blueprint $table): void {
             $table->id();
             $table->string('name')->nullable();
+            $table->string('shift_type')->nullable();
+            $table->unsignedBigInteger('shift_rotation_id')->nullable();
             $table->boolean('shift_status')->default(false);
             $table->unsignedBigInteger('created_by')->nullable();
             $table->unsignedBigInteger('updated_by')->nullable();
@@ -159,6 +164,12 @@ class TenantShiftChangeMusterProcessorTest extends TestCase
         foreach ([
             'shift_musters',
             'activity_log',
+            'approved_application_effect_snapshots',
+            'approval_statuses',
+            'shift_change_application_shifts',
+            'shift_change_application_users',
+            'shift_change_applications',
+            'user_shifts',
             'shift_change_shifts',
             'shift_change_users',
             'shift_changes',
@@ -322,5 +333,91 @@ class TenantShiftChangeMusterProcessorTest extends TestCase
         } finally {
             Carbon::setTestNow();
         }
+    }
+
+    public function test_approving_application_updates_user_shift_pivot_without_deleting_shift_records(): void
+    {
+        Schema::create('user_shifts', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->unsignedBigInteger('shift_id');
+            $table->timestamps();
+        });
+        Schema::create('shift_change_applications', function (Blueprint $table): void {
+            $table->id();
+            $table->string('shift_type');
+            $table->unsignedBigInteger('shift_rotation_id')->nullable();
+            $table->date('from_date');
+            $table->boolean('is_forever')->default(false);
+            $table->date('to_date')->nullable();
+            $table->unsignedTinyInteger('status')->default(1);
+            $table->string('reason')->nullable();
+            $table->softDeletes();
+            $table->timestamps();
+        });
+        Schema::create('shift_change_application_users', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('shift_change_application_id');
+            $table->unsignedBigInteger('user_id');
+            $table->timestamps();
+        });
+        Schema::create('shift_change_application_shifts', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('shift_change_application_id');
+            $table->unsignedBigInteger('shift_id');
+            $table->timestamps();
+        });
+        Schema::create('approval_statuses', function (Blueprint $table): void {
+            $table->id();
+            $table->morphs('approvable');
+            $table->string('approval_status');
+            $table->timestamps();
+        });
+        Schema::create('approved_application_effect_snapshots', function (Blueprint $table): void {
+            $table->id();
+            $table->morphs('approvable');
+            $table->json('snapshot');
+            $table->timestamps();
+        });
+
+        DB::table('user_shifts')->insert([
+            'user_id' => 2,
+            'shift_id' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('shift_change_applications')->insert([
+            'id' => 11,
+            'shift_type' => 'fixed',
+            'from_date' => '2026-10-25',
+            'to_date' => '2026-10-25',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('shift_change_application_users')->insert([
+            'shift_change_application_id' => 11,
+            'user_id' => 2,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('shift_change_application_shifts')->insert([
+            'shift_change_application_id' => 11,
+            'shift_id' => 3,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('approval_statuses')->insert([
+            'approvable_type' => ShiftChangeApplication::class,
+            'approvable_id' => 11,
+            'approval_status' => 'approved',
+        ]);
+
+        Bus::fake();
+        (new FinalizeApprovedApplication(ShiftChangeApplication::class, 11))->handle();
+
+        $this->assertDatabaseHas('shifts', ['id' => 1, 'name' => 'Original Shift', 'deleted_at' => null]);
+        $this->assertDatabaseHas('shifts', ['id' => 3, 'name' => 'Date Range Shift', 'deleted_at' => null]);
+        $this->assertDatabaseHas('user_shifts', ['user_id' => 2, 'shift_id' => 3]);
+        $this->assertDatabaseMissing('user_shifts', ['user_id' => 2, 'shift_id' => 1]);
     }
 }

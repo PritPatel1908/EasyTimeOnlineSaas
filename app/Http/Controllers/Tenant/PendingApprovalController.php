@@ -8,6 +8,7 @@ use App\Enums\WOTypeEnumn;
 use App\Helpers\ApprovalProcessor;
 use App\Http\Controllers\Controller;
 use App\Models\Tenant\ApprovalStatusDetails;
+use App\Models\Tenant\ApprovedApplicationEffectSnapshot;
 use App\Models\Tenant\Coff;
 use App\Models\Tenant\CoffApplication;
 use App\Models\Tenant\LeaveApplication;
@@ -20,8 +21,10 @@ use App\Models\Tenant\Scopes\DataPolicyFilter;
 use App\Models\Tenant\ShiftChangeApplication;
 use App\Models\Tenant\WeekOffChangeApplication;
 use App\Models\Tenant\WeekOffSwapApplication;
+use App\Services\Tenant\ApprovedRequestCancellationService;
 use App\Support\TenantPermissions;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Http\RedirectResponse;
@@ -53,26 +56,7 @@ class PendingApprovalController extends Controller
         $userId = (int) Auth::guard('tenant')->id();
         $pendingEmployeeUsers = $this->pendingEmployeeUsers();
 
-        $approvals = ApprovalStatusDetails::query()
-            ->with([
-                'main_status.approvable' => function (MorphTo $morphTo) use ($pendingEmployeeUsers): void {
-                    $morphTo->morphWith([
-                        LeaveApplication::class => ['users', 'leave_type', 'leave_reason'],
-                        Coff::class => ['user'],
-                        CoffApplication::class => ['user'],
-                        ManualAttendanceApplication::class => ['Users'],
-                        ManualPunchApplication::class => ['Users', 'user'],
-                        OvertimeApplication::class => ['user'],
-                        OutDuty::class => ['user'],
-                        ShortLeaveApplication::class => ['user'],
-                        ShiftChangeApplication::class => ['Users' => $pendingEmployeeUsers],
-                        WeekOffChangeApplication::class => ['Users'],
-                        WeekOffSwapApplication::class => ['Users'],
-                    ]);
-                },
-                'main_status.approval_flow',
-                'approval_flow_detail',
-            ])
+        $approvals = $this->requestApprovalsQuery($pendingEmployeeUsers)
             ->where('approval_status', 'pending')
             ->whereHas('main_status', function ($query): void {
                 $query->where('approval_status', 'pending')
@@ -117,7 +101,190 @@ class PendingApprovalController extends Controller
         ]);
     }
 
+    public function approved(): View
+    {
+        TenantPermissions::authorize('PendingRequest', 'read');
+        $userId = (int) Auth::guard('tenant')->id();
+
+        $approvals = $this->requestApprovalsQuery($this->pendingEmployeeUsers())
+            ->where('approval_status_details.approval_status', 'approved')
+            ->whereHas('approval_flow_detail.users', fn ($query) => $query->whereKey($userId))
+            ->whereHas('main_status', function ($query): void {
+                $query->where('approval_status', 'approved')
+                    ->whereIn('approvable_type', self::APPROVABLE_TYPES);
+            })
+            ->whereNotExists(function ($query): void {
+                $query->selectRaw('1')
+                    ->from('approval_statuses as other_statuses')
+                    ->join('approval_statuses as current_status', 'current_status.approvable_id', '=', 'other_statuses.approvable_id')
+                    ->whereColumn('current_status.approvable_type', 'other_statuses.approvable_type')
+                    ->whereColumn('current_status.id', 'approval_status_details.approval_status_id')
+                    ->where('other_statuses.approval_status', '!=', 'approved');
+            })
+            ->latest('approval_status_details.updated_at')
+            ->get()
+            ->unique(fn (ApprovalStatusDetails $approval): string => $approval->main_status->approvable_type.':'.$approval->main_status->approvable_id)
+            ->values();
+
+        $rows = $this->approvalRows($approvals);
+        $cancellationStates = $this->cancellationStates($approvals);
+        $rows = $rows->map(function (array $row) use ($cancellationStates): array {
+            $approval = $row['approval'];
+            $key = $approval->main_status->approvable_type.':'.$approval->main_status->approvable_id;
+            $state = $cancellationStates[$key] ?? [];
+
+            return [
+                ...$row,
+                'cancellationStatus' => $state['status'] ?? null,
+            ];
+        });
+
+        return view('requests.queue.index', [
+            'approvals' => $rows,
+            'pageTitle' => 'Approved Requests',
+            'emptyMessage' => 'There are no approved requests assigned to you.',
+            'source' => 'approved',
+            'canCancel' => TenantPermissions::userCan('PendingRequest', 'cancel'),
+        ]);
+    }
+
+    public function cancelApproved(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'cancellation_reason' => ['required', 'string', 'max:1000'],
+        ]);
+        if (trim($validated['cancellation_reason']) === '') {
+            throw ValidationException::withMessages([
+                'cancellation_reason' => 'A cancellation reason is required.',
+            ]);
+        }
+
+        TenantPermissions::authorize('PendingRequest', 'cancel');
+        $userId = (int) Auth::guard('tenant')->id();
+        $approval = ApprovalStatusDetails::query()
+            ->whereHas('approval_flow_detail.users', fn ($query) => $query->whereKey($userId))
+            ->findOrFail($request->route('detail'));
+
+        app(ApprovedRequestCancellationService::class)->requestCancellation(
+            $approval,
+            $userId,
+            $validated['cancellation_reason'],
+        );
+
+        return redirect()
+            ->route('tenant.requests.approved.index', ['tenant' => $request->route('tenant')])
+            ->with('success', 'Cancellation was queued. The request effects will be restored in the background.');
+    }
+
+    public function rejected(): View
+    {
+        TenantPermissions::authorize('PendingRequest', 'read');
+        $userId = (int) Auth::guard('tenant')->id();
+
+        $approvals = $this->requestApprovalsQuery($this->pendingEmployeeUsers())
+            ->where('approval_status_details.approval_status', 'rejected')
+            ->whereHas('approval_flow_detail.users', fn ($query) => $query->whereKey($userId))
+            ->whereHas('main_status', function ($query): void {
+                $query->where('approval_status', 'rejected')
+                    ->whereIn('approvable_type', self::APPROVABLE_TYPES);
+            })
+            ->latest('approval_status_details.updated_at')
+            ->get()
+            ->unique(fn (ApprovalStatusDetails $approval): string => $approval->main_status->approvable_type.':'.$approval->main_status->approvable_id)
+            ->values();
+
+        return view('requests.queue.index', [
+            'approvals' => $this->approvalRows($approvals),
+            'pageTitle' => 'Rejected Requests',
+            'emptyMessage' => 'There are no rejected requests assigned to you.',
+            'source' => 'rejected',
+        ]);
+    }
+
+    public function cancelled(): View
+    {
+        TenantPermissions::authorize('PendingRequest', 'read');
+        $userId = (int) Auth::guard('tenant')->id();
+
+        $approvals = $this->requestApprovalsQuery($this->pendingEmployeeUsers())
+            ->whereHas('approval_flow_detail.users', fn ($query) => $query->whereKey($userId))
+            ->whereHas('main_status', function ($query): void {
+                $query->where('approval_status', 'cancelled')
+                    ->whereIn('approvable_type', self::APPROVABLE_TYPES);
+            })
+            ->latest('approval_status_details.updated_at')
+            ->get()
+            ->unique(fn (ApprovalStatusDetails $approval): string => $approval->main_status->approvable_type.':'.$approval->main_status->approvable_id)
+            ->values();
+
+        return view('requests.queue.index', [
+            'approvals' => $this->approvalRows($approvals),
+            'pageTitle' => 'Cancelled Requests',
+            'emptyMessage' => 'There are no cancelled requests assigned to you.',
+            'source' => 'cancelled',
+        ]);
+    }
+
+    public function upcoming(): View
+    {
+        TenantPermissions::authorize('PendingRequest', 'read');
+        $userId = (int) Auth::guard('tenant')->id();
+
+        $approvals = $this->requestApprovalsQuery($this->pendingEmployeeUsers())
+            ->with('main_status.approval_status_details')
+            ->where('approval_status_details.approval_status', 'pending')
+            ->whereHas('main_status', function ($query): void {
+                $query->where('approval_status', 'pending')
+                    ->whereIn('approvable_type', self::APPROVABLE_TYPES);
+            })
+            ->whereHas('approval_flow_detail.users', fn ($query) => $query->whereKey($userId))
+            ->whereNotExists(function ($query): void {
+                $query->selectRaw('1')
+                    ->from('approval_statuses as rejected_statuses')
+                    ->join('approval_statuses as current_status', 'current_status.approvable_id', '=', 'rejected_statuses.approvable_id')
+                    ->whereColumn('current_status.approvable_type', 'rejected_statuses.approvable_type')
+                    ->whereColumn('current_status.id', 'approval_status_details.approval_status_id')
+                    ->where('rejected_statuses.approval_status', 'rejected');
+            })
+            ->latest('approval_status_details.created_at')
+            ->get()
+            ->filter(fn (ApprovalStatusDetails $approval): bool => $this->isUpcoming($approval))
+            ->values();
+
+        return view('requests.queue.index', [
+            'approvals' => $this->approvalRows($approvals),
+            'pageTitle' => 'Upcoming Requests',
+            'emptyMessage' => 'There are no upcoming requests assigned to you.',
+            'source' => 'upcoming',
+        ]);
+    }
+
     public function show(Request $request): View
+    {
+        return $this->showRequest($request, 'pending');
+    }
+
+    public function showApproved(Request $request): View
+    {
+        return $this->showRequest($request, 'approved');
+    }
+
+    public function showRejected(Request $request): View
+    {
+        return $this->showRequest($request, 'rejected');
+    }
+
+    public function showCancelled(Request $request): View
+    {
+        return $this->showRequest($request, 'cancelled');
+    }
+
+    public function showUpcoming(Request $request): View
+    {
+        return $this->showRequest($request, 'upcoming');
+    }
+
+    private function showRequest(Request $request, string $source): View
     {
         TenantPermissions::authorize('PendingRequest', 'read');
         $userId = (int) Auth::guard('tenant')->id();
@@ -136,6 +303,16 @@ class PendingApprovalController extends Controller
         $record = $approvalStatus?->approvable;
         abort_unless($approvalStatus !== null && $record !== null, 404);
         abort_unless(in_array($record::class, self::APPROVABLE_TYPES, true), 404);
+        abort_unless(match ($source) {
+            'approved' => $approval->approval_status === 'approved'
+                && $approvalStatus->approval_status === 'approved'
+                && ! $record->approval_statuses()->where('approval_status', '!=', 'approved')->exists(),
+            'rejected' => $approval->approval_status === 'rejected'
+                && $approvalStatus->approval_status === 'rejected',
+            'cancelled' => $approvalStatus->approval_status === 'cancelled',
+            'upcoming' => $this->isUpcoming($approval),
+            default => true,
+        }, 404);
 
         $relations = match ($record::class) {
             LeaveApplication::class => ['users', 'leave_type', 'leave_reason', 'approval_statuses.approval_flow', 'approval_statuses.approval_status_details.user'],
@@ -191,8 +368,36 @@ class PendingApprovalController extends Controller
             ? $this->weekOffDetails($record)
             : [];
         $isActionable = $this->isActionable($approval, $userId);
+        $readOnlyMessage = match ($approvalStatus->approval_status) {
+            'approved' => 'This request has been fully approved.',
+            'rejected' => 'This request was rejected.',
+            'cancelled' => 'This request was cancelled.',
+            default => $this->isUpcoming($approval)
+                ? 'This request will be available after the current approval level is completed.'
+                : 'This approval level is no longer actionable.',
+        };
+        $sourceRoute = match ($source) {
+            'pending' => 'tenant.requests.pending.index',
+            'approved' => 'tenant.requests.approved.index',
+            'rejected' => 'tenant.requests.rejected.index',
+            'cancelled' => 'tenant.requests.cancelled.index',
+            'upcoming' => 'tenant.requests.upcoming.index',
+        };
+        $sourceLabel = match ($source) {
+            'pending' => 'Pending Requests',
+            'approved' => 'Approved Requests',
+            'rejected' => 'Rejected Requests',
+            'cancelled' => 'Cancelled Requests',
+            'upcoming' => 'Upcoming Requests',
+        };
+        $cancellationSnapshot = $source === 'cancelled'
+            ? ApprovedApplicationEffectSnapshot::query()
+                ->where('approvable_type', $approvalStatus->approvable_type)
+                ->where('approvable_id', $approvalStatus->approvable_id)
+                ->first(['cancellation_reason', 'cancelled_at'])
+            : null;
 
-        return view('requests.pending.show', [
+        $viewData = [
             'approval' => $approval,
             'approvalStatus' => $approvalStatus,
             'record' => $record,
@@ -201,7 +406,24 @@ class PendingApprovalController extends Controller
             'relatedDetails' => $relatedDetails,
             'weekOffDetails' => $weekOffDetails,
             'isActionable' => $isActionable,
-        ]);
+            'readOnlyMessage' => $readOnlyMessage,
+            'cancellationReason' => $cancellationSnapshot?->cancellation_reason,
+            'cancelledAt' => $cancellationSnapshot?->cancelled_at,
+            'source' => $source,
+            'sourceRoute' => $sourceRoute,
+            'sourceLabel' => $sourceLabel,
+        ];
+
+        return $source === 'pending'
+            ? view('requests.pending.show', $viewData)
+            : view('requests.queue.show', array_merge($viewData, [
+                'pageTitle' => match ($source) {
+                    'approved' => 'Approved Request',
+                    'rejected' => 'Rejected Request',
+                    'cancelled' => 'Cancelled Request',
+                    'upcoming' => 'Upcoming Request',
+                },
+            ]));
     }
 
     public function decide(Request $request): RedirectResponse
@@ -378,6 +600,93 @@ class PendingApprovalController extends Controller
     private function pendingEmployeeUsers(): \Closure
     {
         return static fn ($relation) => $relation->withoutGlobalScope(DataPolicyFilter::class);
+    }
+
+    private function requestApprovalsQuery(\Closure $pendingEmployeeUsers): Builder
+    {
+        return ApprovalStatusDetails::query()
+            ->with([
+                'main_status.approvable' => function (MorphTo $morphTo) use ($pendingEmployeeUsers): void {
+                    $morphTo->morphWith([
+                        LeaveApplication::class => ['users', 'leave_type', 'leave_reason'],
+                        Coff::class => ['user'],
+                        CoffApplication::class => ['user'],
+                        ManualAttendanceApplication::class => ['Users'],
+                        ManualPunchApplication::class => ['Users', 'user'],
+                        OvertimeApplication::class => ['user'],
+                        OutDuty::class => ['user'],
+                        ShortLeaveApplication::class => ['user'],
+                        ShiftChangeApplication::class => ['Users' => $pendingEmployeeUsers],
+                        WeekOffChangeApplication::class => ['Users'],
+                        WeekOffSwapApplication::class => ['Users'],
+                    ]);
+                },
+                'main_status.approval_flow',
+                'approval_flow_detail',
+            ]);
+    }
+
+    /**
+     * @param  EloquentCollection<int, ApprovalStatusDetails>  $approvals
+     * @return \Illuminate\Support\Collection<int, array{approval: ApprovalStatusDetails, requestType: string, employees: string, requestDetails: string}>
+     */
+    private function approvalRows(EloquentCollection $approvals): \Illuminate\Support\Collection
+    {
+        return $approvals->map(function (ApprovalStatusDetails $approval): array {
+            $record = $approval->main_status?->approvable;
+
+            return [
+                'approval' => $approval,
+                'requestType' => $record === null ? 'Request' : Str::headline(class_basename($record)),
+                'employees' => $this->employeeNames($record),
+                'requestDetails' => $this->requestSummary($record),
+            ];
+        });
+    }
+
+    /**
+     * @param  EloquentCollection<int, ApprovalStatusDetails>  $approvals
+     * @return array<string, array{status: string|null}>
+     */
+    private function cancellationStates(EloquentCollection $approvals): array
+    {
+        $states = [];
+        foreach ($approvals->groupBy(
+            static fn (ApprovalStatusDetails $approval): string => $approval->main_status->approvable_type,
+        ) as $type => $group) {
+            $snapshots = ApprovedApplicationEffectSnapshot::query()
+                ->where('approvable_type', $type)
+                ->whereIn('approvable_id', $group->map(
+                    static fn (ApprovalStatusDetails $approval): int => (int) $approval->main_status->approvable_id,
+                )->unique())
+                ->get(['approvable_id', 'cancellation_status']);
+
+            foreach ($snapshots as $snapshot) {
+                $states[$type.':'.$snapshot->approvable_id] = [
+                    'status' => $snapshot->cancellation_status,
+                ];
+            }
+        }
+
+        return $states;
+    }
+
+    private function isUpcoming(ApprovalStatusDetails $approval): bool
+    {
+        $approvalStatus = $approval->main_status;
+        if ($approvalStatus?->approval_status !== 'pending' || $approval->approval_status !== 'pending') {
+            return false;
+        }
+
+        $previousLevels = $approvalStatus->approval_status_details
+            ->filter(fn (ApprovalStatusDetails $detail): bool => $detail->level < $approval->level);
+        $currentLevel = $previousLevels->sortByDesc('level')->first();
+
+        return $currentLevel?->approval_status === 'pending'
+            && ! $previousLevels->contains(
+                fn (ApprovalStatusDetails $detail): bool => $detail->level < $currentLevel->level
+                    && $detail->approval_status !== 'approved',
+            );
     }
 
     private function employeeNames(?object $record): string

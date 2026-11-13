@@ -9,6 +9,7 @@ use App\Http\Requests\Tenant\StoreShiftChangeApplicationRequest;
 use App\Http\Requests\Tenant\UpdateShiftChangeApplicationRequest;
 use App\Jobs\Tenant\GenerateShiftChangeApplicationExport;
 use App\Jobs\Tenant\ProcessShiftChangeApplicationImport;
+use App\Models\Tenant\ApprovedApplicationEffectSnapshot;
 use App\Models\Tenant\BusRoute;
 use App\Models\Tenant\Category;
 use App\Models\Tenant\Company;
@@ -41,13 +42,20 @@ class ShiftChangeApplicationController extends Controller
 
     public function index(): View
     {
+        $applications = ShiftChangeApplication::query()
+            ->with(['Users', 'shifts', 'shift_rotation', 'approval_statuses'])
+            ->latest('from_date')
+            ->latest('id')
+            ->paginate(15)
+            ->withQueryString();
+        $cancellationStatuses = ApprovedApplicationEffectSnapshot::query()
+            ->where('approvable_type', ShiftChangeApplication::class)
+            ->whereIn('approvable_id', $applications->getCollection()->modelKeys())
+            ->pluck('cancellation_status', 'approvable_id');
+
         return view('time-management.shift-change-applications.index', [
-            'applications' => ShiftChangeApplication::query()
-                ->with(['Users', 'shifts', 'shift_rotation', 'approval_statuses'])
-                ->latest('from_date')
-                ->latest('id')
-                ->paginate(15)
-                ->withQueryString(),
+            'applications' => $applications,
+            'cancellationStatuses' => $cancellationStatuses,
         ]);
     }
 

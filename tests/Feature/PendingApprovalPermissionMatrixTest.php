@@ -59,5 +59,29 @@ class PendingApprovalPermissionMatrixTest extends TestCase
             'App\Http\Controllers\Tenant\PendingApprovalController@decide',
             Route::getRoutes()->getByName('tenant.requests.pending.decision')->getActionName(),
         );
+        $this->assertContains(
+            'tenant.permission:PendingRequest,read',
+            Route::getRoutes()->getByName('tenant.requests.approved.index')->gatherMiddleware(),
+        );
+        $this->assertContains(
+            'tenant.permission:PendingRequest,read',
+            Route::getRoutes()->getByName('tenant.requests.approved.show')->gatherMiddleware(),
+        );
+        $this->assertContains(
+            'tenant.permission:PendingRequest,read',
+            Route::getRoutes()->getByName('tenant.requests.rejected.index')->gatherMiddleware(),
+        );
+        $this->assertContains(
+            'tenant.permission:PendingRequest,read',
+            Route::getRoutes()->getByName('tenant.requests.rejected.show')->gatherMiddleware(),
+        );
+        $this->assertContains(
+            'tenant.permission:PendingRequest,read',
+            Route::getRoutes()->getByName('tenant.requests.upcoming.index')->gatherMiddleware(),
+        );
+        $this->assertContains(
+            'tenant.permission:PendingRequest,read',
+            Route::getRoutes()->getByName('tenant.requests.upcoming.show')->gatherMiddleware(),
+        );
     }
 }
