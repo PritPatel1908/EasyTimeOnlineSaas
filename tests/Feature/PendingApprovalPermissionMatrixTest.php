@@ -20,6 +20,7 @@ class PendingApprovalPermissionMatrixTest extends TestCase
         view()->share('errors', new ViewErrorBag());
 
         $role = new Role();
+        $role->id = 1;
         $role->name = 'Approver';
         $role->setRelation('permissions', new Collection([
             new Permission(['name' => 'pendingrequest.read']),
@@ -29,7 +30,7 @@ class PendingApprovalPermissionMatrixTest extends TestCase
 
         $html = view('tenant.roles-permissions.permissions', [
             'role' => $role,
-            'modules' => [],
+            'modules' => ['EmailConfiguration', 'User', 'FinancialYear'],
             'actions' => ['read', 'write'],
             'customPermissions' => [
                 'Pending Request' => [
@@ -55,6 +56,17 @@ class PendingApprovalPermissionMatrixTest extends TestCase
             ],
         ])->render();
 
+        $this->assertStringContainsString('>Employee</span>', $html);
+        $this->assertStringNotContainsString('>User</span>', $html);
+        $this->assertStringContainsString('value="user.read"', $html);
+        $this->assertLessThan(
+            strpos($html, '>FinancialYear</span>'),
+            strpos($html, '>Employee</span>'),
+        );
+        $this->assertLessThan(
+            strpos($html, '>Employee</span>'),
+            strpos($html, '>EmailConfiguration</span>'),
+        );
         $this->assertStringContainsString('Custom permissions', $html);
         preg_match_all(
             '/<table class="table permission-table custom-permission-table mb-2 align-middle">(.*?)<\/table>/s',

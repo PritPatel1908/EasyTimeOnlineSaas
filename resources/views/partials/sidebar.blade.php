@@ -86,6 +86,13 @@
 		\App\Support\TenantPermissions::userCan('LeaveType', 'read') ||
 		\App\Support\TenantPermissions::userCan('User', 'read') ||
 		(\Illuminate\Support\Facades\Auth::guard('tenant')->id() === 1);
+	$canViewLeaveStructure =
+		\App\Support\TenantPermissions::userCan('LeaveType', 'read') ||
+		\App\Support\TenantPermissions::userCan('LeaveGroup', 'read') ||
+		\App\Support\TenantPermissions::userCan('LeaveAccount', 'read') ||
+		\App\Support\TenantPermissions::userCan('LeaveAccountDetail', 'read') ||
+		\App\Support\TenantPermissions::userCan('ManualLeaveBalance', 'read');
+	$canViewSettings = \App\Support\TenantPermissions::userCan('Setting', 'read');
 @endphp
 	<!-- Logo -->
 	<div class="sidebar-logo">
@@ -275,6 +282,7 @@
 					</ul>
 				</li>
 				@endif
+				@if ($canViewLeaveStructure)
 				<li class="menu-title"><span>LEAVE STRUCTURE</span></li>
 				<li>
 					<ul>
@@ -307,6 +315,7 @@
 						</li>
 					</ul>
 				</li>
+				@endif
 				@if ($canViewTimeManagementStructure || $canViewManualStructure)
 				<li class="menu-title"><span>TIME MANAGEMENT STRUCTURE</span></li>
 				<li>
@@ -500,6 +509,7 @@
 					</ul>
 				</li>
 				@endif
+				@if ($canViewSettings)
 				<li class="menu-title"><span>SETTINGS STRUCTURE</span></li>
 				<li>
 					<ul>
@@ -537,6 +547,7 @@
 						</li>
 					</ul>
 				</li>
+				@endif
 				@if (false)
 				<li class="menu-title"><span>MAIN MENU</span></li>
 				<li>

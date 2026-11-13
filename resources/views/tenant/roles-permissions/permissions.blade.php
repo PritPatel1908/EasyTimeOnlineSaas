@@ -57,7 +57,11 @@
                                     @foreach ($modules as $module)
                                         @php
                                             $key = strtolower(str_replace(' ', '-', $module));
-                                            $moduleLabel = $module === 'GradeWiseLeave' ? 'Leave Group' : $module;
+                                            $moduleLabel = match ($module) {
+                                                'GradeWiseLeave' => 'Leave Group',
+                                                'User' => 'Employee',
+                                                default => $module,
+                                            };
                                         @endphp
 
                                         <tr>
