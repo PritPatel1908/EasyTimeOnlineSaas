@@ -140,14 +140,17 @@ class EmployeeController extends Controller
             $validated['profile_pic'] = $request->file('profile_pic')->store('employee-profiles', 'public');
         }
         $shiftIds = $this->extractShiftIds($validated);
+        $hasRole = array_key_exists('role_id', $validated);
         $roleId = $validated['role_id'] ?? null;
         unset($validated['role_id']);
         if (($validated['password'] ?? '') === '') {
             unset($validated['password']);
         }
-        DB::transaction(function () use ($employee, $validated, $roleId, $shiftIds): void {
+        DB::transaction(function () use ($employee, $validated, $hasRole, $roleId, $shiftIds): void {
             $employee->update($this->attributes($validated));
-            $employee->syncRoles($roleId ? [Role::query()->findOrFail($roleId)] : []);
+            if ($hasRole) {
+                $employee->syncRoles($roleId ? [Role::query()->findOrFail($roleId)] : []);
+            }
             if ($shiftIds !== null) {
                 $employee->shifts()->sync($shiftIds);
             }

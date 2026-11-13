@@ -102,27 +102,34 @@
                         <div class="border-top">
                             <div class="px-4 py-3">
                                 <h6 class="mb-1">Custom permissions</h6>
-                                <p class="text-muted fs-13 mb-0">Set access to pending approval requests separately from application management permissions.</p>
+                                <p class="text-muted fs-13 mb-0">Set access for each approval request status separately from application management permissions.</p>
                             </div>
-                            <div class="table-responsive">
-                                <table class="table permission-table mb-0 align-middle">
-                                    <thead class="thead-light">
-                                        <tr>
-                                            <th class="ps-4">Permission</th>
-                                            <th class="text-center">Read</th>
-                                            <th class="text-center">Approve</th>
-                                            <th class="text-center">Reject</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach ($customPermissions as $label => $customPermission)
+                            @foreach ($customPermissions as $label => $customPermission)
+                                <div class="table-responsive">
+                                    <table class="table permission-table custom-permission-table mb-2 align-middle" style="table-layout: fixed;">
+                                        <colgroup>
+                                            <col style="width: 35%;">
+                                            @foreach ($customPermission['actions'] as $action)
+                                                <col style="width: {{ 65 / count($customPermission['actions']) }}%;">
+                                            @endforeach
+                                        </colgroup>
+                                        <thead class="thead-light">
+                                            <tr>
+                                                <th class="ps-4">Permission</th>
+                                                @foreach ($customPermission['actions'] as $action)
+                                                    <th class="text-center text-capitalize">{{ $action }}</th>
+                                                @endforeach
+                                            </tr>
+                                        </thead>
+                                        <tbody>
                                             <tr>
                                                 <td class="ps-4"><span class="text-gray-9 fw-medium">{{ $label }}</span></td>
                                                 @foreach ($customPermission['actions'] as $action)
                                                     @php
                                                         $permission = $customPermission['module'] . '.' . $action;
                                                         $permissionId = $customPermission['module'] . '_' . $action;
-                                                        $isAssigned = $assigned->contains($permission);
+                                                        $isAssigned = $assigned->contains($permission)
+                                                            || ($permission === 'approvedrequest.cancel' && $assigned->contains('pendingrequest.cancel'));
                                                     @endphp
                                                     <td class="text-center">
                                                         <div class="form-check form-check-md d-inline-block">
@@ -131,11 +138,11 @@
                                                         </div>
                                                     </td>
                                                 @endforeach
-                                                </tr>
-                                        @endforeach
-                                    </tbody>
-                                </table>
-                            </div>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            @endforeach
                         </div>
                     </div>
 

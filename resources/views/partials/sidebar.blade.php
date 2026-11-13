@@ -59,6 +59,11 @@
 	$canViewWeekOffChangeApplications = \App\Support\TenantPermissions::userCan('WeekOffChangeApplication', 'read');
 	$canViewWeekOffSwapApplications = \App\Support\TenantPermissions::userCan('WeekOffSwapApplication', 'read');
 	$canViewPendingRequests = \App\Support\TenantPermissions::userCan('PendingRequest', 'read');
+	$canViewApprovedRequests = \App\Support\TenantPermissions::userCan('ApprovedRequest', 'read');
+	$canViewRejectedRequests = \App\Support\TenantPermissions::userCan('RejectedRequest', 'read');
+	$canViewCancelledRequests = \App\Support\TenantPermissions::userCan('CancelledRequest', 'read');
+	$canViewUpcomingRequests = \App\Support\TenantPermissions::userCan('UpcomingRequest', 'read');
+	$canViewRequestManagement = $canViewPendingRequests || $canViewApprovedRequests || $canViewRejectedRequests || $canViewCancelledRequests || $canViewUpcomingRequests;
 	$canViewManualAttendances = \App\Support\TenantPermissions::userCan('ManualAttendance', 'read');
 	$canViewManualShiftChanges = \App\Support\TenantPermissions::userCan('ShiftChange', 'read');
 	$canViewWeekOffChanges = \App\Support\TenantPermissions::userCan('WeekOffChange', 'read');
@@ -459,7 +464,7 @@
 					</ul>
 				</li>
 				@endif
-				@if ($canViewPendingRequests)
+				@if ($canViewRequestManagement)
 				<li class="menu-title"><span>REQUEST MANAGEMENT STRUCTURE</span></li>
 				<li>
 					<ul>
@@ -470,16 +475,26 @@
 								<span class="menu-arrow"></span>
 							</a>
 							<ul>
+								@if ($canViewPendingRequests)
 								<li><a href="{{ url('requests/pending') }}"
 									class="{{ request()->is('requests/pending*') ? 'active' : '' }}">Pending Requests</a></li>
+								@endif
+								@if ($canViewApprovedRequests)
 								<li><a href="{{ url('requests/approved') }}"
 									class="{{ request()->is('requests/approved*') ? 'active' : '' }}">Approved Requests</a></li>
+								@endif
+								@if ($canViewRejectedRequests)
 								<li><a href="{{ url('requests/rejected') }}"
 									class="{{ request()->is('requests/rejected*') ? 'active' : '' }}">Rejected Requests</a></li>
+								@endif
+								@if ($canViewCancelledRequests)
 								<li><a href="{{ url('requests/cancelled') }}"
 									class="{{ request()->is('requests/cancelled*') ? 'active' : '' }}">Cancelled Requests</a></li>
+								@endif
+								@if ($canViewUpcomingRequests)
 								<li><a href="{{ url('requests/upcoming') }}"
 									class="{{ request()->is('requests/upcoming*') ? 'active' : '' }}">Upcoming Requests</a></li>
+								@endif
 							</ul>
 						</li>
 					</ul>

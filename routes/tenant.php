@@ -150,15 +150,15 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                     Route::post('/{detail}/decision', 'decide')->whereNumber('detail')->name('decision');
                 });
                 Route::prefix('requests')->name('tenant.requests.')->controller(PendingApprovalController::class)->group(function (): void {
-                    Route::get('/approved', 'approved')->middleware('tenant.permission:PendingRequest,read')->name('approved.index');
-                    Route::get('/approved/{detail}', 'showApproved')->middleware('tenant.permission:PendingRequest,read')->whereNumber('detail')->name('approved.show');
-                    Route::post('/approved/{detail}/cancel', 'cancelApproved')->middleware('tenant.permission:PendingRequest,cancel')->whereNumber('detail')->name('approved.cancel');
-                    Route::get('/rejected', 'rejected')->middleware('tenant.permission:PendingRequest,read')->name('rejected.index');
-                    Route::get('/rejected/{detail}', 'showRejected')->middleware('tenant.permission:PendingRequest,read')->whereNumber('detail')->name('rejected.show');
-                    Route::get('/cancelled', 'cancelled')->middleware('tenant.permission:PendingRequest,read')->name('cancelled.index');
-                    Route::get('/cancelled/{detail}', 'showCancelled')->middleware('tenant.permission:PendingRequest,read')->whereNumber('detail')->name('cancelled.show');
-                    Route::get('/upcoming', 'upcoming')->middleware('tenant.permission:PendingRequest,read')->name('upcoming.index');
-                    Route::get('/upcoming/{detail}', 'showUpcoming')->middleware('tenant.permission:PendingRequest,read')->whereNumber('detail')->name('upcoming.show');
+                    Route::get('/approved', 'approved')->middleware('tenant.permission:ApprovedRequest,read')->name('approved.index');
+                    Route::get('/approved/{detail}', 'showApproved')->middleware('tenant.permission:ApprovedRequest,read')->whereNumber('detail')->name('approved.show');
+                    Route::post('/approved/{detail}/cancel', 'cancelApproved')->middleware('tenant.permission:ApprovedRequest,cancel')->whereNumber('detail')->name('approved.cancel');
+                    Route::get('/rejected', 'rejected')->middleware('tenant.permission:RejectedRequest,read')->name('rejected.index');
+                    Route::get('/rejected/{detail}', 'showRejected')->middleware('tenant.permission:RejectedRequest,read')->whereNumber('detail')->name('rejected.show');
+                    Route::get('/cancelled', 'cancelled')->middleware('tenant.permission:CancelledRequest,read')->name('cancelled.index');
+                    Route::get('/cancelled/{detail}', 'showCancelled')->middleware('tenant.permission:CancelledRequest,read')->whereNumber('detail')->name('cancelled.show');
+                    Route::get('/upcoming', 'upcoming')->middleware('tenant.permission:UpcomingRequest,read')->name('upcoming.index');
+                    Route::get('/upcoming/{detail}', 'showUpcoming')->middleware('tenant.permission:UpcomingRequest,read')->whereNumber('detail')->name('upcoming.show');
                 });
                 Route::get('data-policy', [DataPolicyController::class, 'index'])
                     ->middleware('tenant.permission:DataPolicy,read')

@@ -130,6 +130,10 @@ final class TenantPermissions
             default => [],
         };
 
+        if ($module === 'approvedrequest' && $action === 'cancel') {
+            $aliases[] = 'pendingrequest.cancel';
+        }
+
         $legacyModule = match ($module) {
             'leavegroup' => 'leave::group',
             'leavetype' => 'leave::type',

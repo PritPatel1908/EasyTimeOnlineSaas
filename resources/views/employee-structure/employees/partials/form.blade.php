@@ -1,6 +1,7 @@
 @php
     $value = fn(string $field, mixed $default = '') => old($field, data_get($employee, $field, $default));
     $allowLogin = filter_var($value('is_locked', false), FILTER_VALIDATE_BOOLEAN);
+    $roleValue = old('role_id', $employee?->roles?->first()?->id ?? $value('role_id'));
     $dateValue = fn(string $field): string => ($date = $value($field))
         ? \Illuminate\Support\Carbon::parse($date)->format('Y-m-d')
         : '';
@@ -438,7 +439,7 @@
                                     @disabled(!$allowLogin)>
                                     <option value="">Select</option>
                                     @foreach ($roles as $option)
-                                        <option value="{{ $option->id }}" @selected((string) $value('role_id') === (string) $option->id)>
+                                        <option value="{{ $option->id }}" @selected((string) $roleValue === (string) $option->id)>
                                             {{ $option->name }}</option>
                                     @endforeach
                                 </select>

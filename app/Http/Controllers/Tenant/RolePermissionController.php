@@ -239,7 +239,23 @@ class RolePermissionController extends Controller
             'customPermissions' => [
                 'Pending Request' => [
                     'module' => 'pendingrequest',
-                    'actions' => ['read', 'approve', 'reject', 'cancel'],
+                    'actions' => ['read', 'approve', 'reject'],
+                ],
+                'Approved Request' => [
+                    'module' => 'approvedrequest',
+                    'actions' => ['read', 'cancel'],
+                ],
+                'Rejected Request' => [
+                    'module' => 'rejectedrequest',
+                    'actions' => ['read'],
+                ],
+                'Cancelled Request' => [
+                    'module' => 'cancelledrequest',
+                    'actions' => ['read'],
+                ],
+                'Upcoming Request' => [
+                    'module' => 'upcomingrequest',
+                    'actions' => ['read'],
                 ],
             ],
         ]);

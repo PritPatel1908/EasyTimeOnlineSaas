@@ -103,7 +103,7 @@ class PendingApprovalController extends Controller
 
     public function approved(): View
     {
-        TenantPermissions::authorize('PendingRequest', 'read');
+        TenantPermissions::authorize('ApprovedRequest', 'read');
         $userId = (int) Auth::guard('tenant')->id();
 
         $approvals = $this->requestApprovalsQuery($this->pendingEmployeeUsers())
@@ -144,7 +144,7 @@ class PendingApprovalController extends Controller
             'pageTitle' => 'Approved Requests',
             'emptyMessage' => 'There are no approved requests assigned to you.',
             'source' => 'approved',
-            'canCancel' => TenantPermissions::userCan('PendingRequest', 'cancel'),
+            'canCancel' => TenantPermissions::userCan('ApprovedRequest', 'cancel'),
         ]);
     }
 
@@ -159,7 +159,7 @@ class PendingApprovalController extends Controller
             ]);
         }
 
-        TenantPermissions::authorize('PendingRequest', 'cancel');
+        TenantPermissions::authorize('ApprovedRequest', 'cancel');
         $userId = (int) Auth::guard('tenant')->id();
         $approval = ApprovalStatusDetails::query()
             ->whereHas('approval_flow_detail.users', fn ($query) => $query->whereKey($userId))
@@ -178,7 +178,7 @@ class PendingApprovalController extends Controller
 
     public function rejected(): View
     {
-        TenantPermissions::authorize('PendingRequest', 'read');
+        TenantPermissions::authorize('RejectedRequest', 'read');
         $userId = (int) Auth::guard('tenant')->id();
 
         $approvals = $this->requestApprovalsQuery($this->pendingEmployeeUsers())
@@ -203,7 +203,7 @@ class PendingApprovalController extends Controller
 
     public function cancelled(): View
     {
-        TenantPermissions::authorize('PendingRequest', 'read');
+        TenantPermissions::authorize('CancelledRequest', 'read');
         $userId = (int) Auth::guard('tenant')->id();
 
         $approvals = $this->requestApprovalsQuery($this->pendingEmployeeUsers())
@@ -227,7 +227,7 @@ class PendingApprovalController extends Controller
 
     public function upcoming(): View
     {
-        TenantPermissions::authorize('PendingRequest', 'read');
+        TenantPermissions::authorize('UpcomingRequest', 'read');
         $userId = (int) Auth::guard('tenant')->id();
 
         $approvals = $this->requestApprovalsQuery($this->pendingEmployeeUsers())
@@ -286,7 +286,14 @@ class PendingApprovalController extends Controller
 
     private function showRequest(Request $request, string $source): View
     {
-        TenantPermissions::authorize('PendingRequest', 'read');
+        $permissionModule = match ($source) {
+            'approved' => 'ApprovedRequest',
+            'rejected' => 'RejectedRequest',
+            'cancelled' => 'CancelledRequest',
+            'upcoming' => 'UpcomingRequest',
+            default => 'PendingRequest',
+        };
+        TenantPermissions::authorize($permissionModule, 'read');
         $userId = (int) Auth::guard('tenant')->id();
         $approval = ApprovalStatusDetails::query()
             ->with([
