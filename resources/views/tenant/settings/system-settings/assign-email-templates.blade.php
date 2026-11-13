@@ -174,6 +174,7 @@
                             <option value="initial" @selected(old('assignment_form') === 'add' && old('application_action') === 'initial')>Initial</option>
                             <option value="approve" @selected(old('assignment_form') === 'add' && old('application_action') === 'approve')>Approve</option>
                             <option value="reject" @selected(old('assignment_form') === 'add' && old('application_action') === 'reject')>Reject</option>
+                            <option value="cancel" @selected(old('assignment_form') === 'add' && old('application_action') === 'cancel')>Cancel</option>
                         </select>
                         @error('application_action') <small class="text-danger">{{ $message }}</small> @enderror
                     </div>
@@ -256,6 +257,7 @@
                             <option value="initial">{{ __('Initial') }}</option>
                             <option value="approve">{{ __('Approve') }}</option>
                             <option value="reject">{{ __('Reject') }}</option>
+                            <option value="cancel">{{ __('Cancel') }}</option>
                         </select>
                         @error('application_action') <small class="text-danger">{{ $message }}</small> @enderror
                     </div>
@@ -372,7 +374,7 @@
 
                 function updateActionFields() {
                     const isInitial = applicationAction.value === 'initial';
-                    const isDecision = applicationAction.value === 'approve' || applicationAction.value === 'reject';
+                    const isDecision = ['approve', 'reject', 'cancel'].includes(applicationAction.value);
                     initialFlags.classList.toggle('d-none', !isInitial);
                     approvalFlags.classList.toggle('d-none', !isDecision);
 

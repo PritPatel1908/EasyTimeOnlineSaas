@@ -157,6 +157,17 @@ class ProcessPendingLogsTest extends TestCase
             $table->date('to_date');
             $table->softDeletes();
         });
+        Schema::create('coff_applications', function ($table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('coff_from_date');
+            $table->date('coff_to_date');
+            $table->boolean('is_half_day')->default(false);
+            $table->boolean('is_first_half')->default(false);
+            $table->boolean('is_second_half')->default(false);
+            $table->string('status');
+            $table->softDeletes();
+        });
         Schema::create('short_leave_applications', function ($table): void {
             $table->id();
             $table->unsignedBigInteger('user_id');
@@ -182,6 +193,7 @@ class ProcessPendingLogsTest extends TestCase
         Schema::dropIfExists('in_out_musters2025');
         Schema::dropIfExists('short_leave_applications');
         Schema::dropIfExists('coffs');
+        Schema::dropIfExists('coff_applications');
         Schema::dropIfExists('leave_application_users');
         Schema::dropIfExists('leave_applications');
         Schema::dropIfExists('leave_types');
@@ -358,6 +370,195 @@ class ProcessPendingLogsTest extends TestCase
 
         $this->assertSame($approvedId, $method->invoke($calculator, '2026-03-10')->id);
         $this->assertNull($method->invoke($calculator, '2026-03-11'));
+    }
+
+    public function test_coff_status_requires_the_assigned_work_half_to_be_complete(): void
+    {
+        DB::table('users')->insert([['id' => 7], ['id' => 8], ['id' => 9]]);
+        $incompleteCoffStatus = StatusMaster::create([
+            'code' => 'COA',
+            'alias' => 'C-off + Absent',
+            'description' => 'Compensatory off with absent work half',
+        ]);
+        $workedCoffStatus = StatusMaster::create([
+            'code' => 'COP',
+            'alias' => 'C-off + Present',
+            'description' => 'Compensatory off with present work half',
+        ]);
+        foreach ([7, 8, 9] as $userId) {
+            DB::table('coff_applications')->insert([
+                'user_id' => $userId,
+                'coff_from_date' => '2026-11-11',
+                'coff_to_date' => '2026-11-12',
+                'is_second_half' => true,
+                'is_first_half' => true,
+                'status' => 'approved',
+            ]);
+        }
+
+        $shiftId = DB::table('shifts')->insertGetId([
+            'in_time' => '09:00:00',
+            'out_time' => '21:00:00',
+            'first_half_end_time' => '13:00:00',
+            'second_half_start_time' => '15:00:00',
+        ]);
+        foreach ([7, 8, 9] as $userId) {
+            DB::table('shift_musters')->insert([
+                'date' => '2026-11-12',
+                'user_id' => $userId,
+                'is_locked' => false,
+                'is_auto' => false,
+                'shift' => json_encode([$shiftId], JSON_THROW_ON_ERROR),
+            ]);
+        }
+
+        $attendances = [];
+        foreach ([
+            7 => [null, null],
+            8 => ['2026-11-12 15:00:00', '2026-11-12 16:00:00'],
+            9 => ['2026-11-12 15:00:00', '2026-11-12 21:00:00'],
+        ] as $userId => [$inTime, $outTime]) {
+            $attendance = Attendance::year(2026);
+            $attendance->user_id = $userId;
+            $attendance->date = '2026-11-12';
+            $attendance->shift_id = $shiftId;
+            $attendance->shift_in_time = '2026-11-12 09:00:00';
+            $attendance->shift_out_time = '2026-11-12 21:00:00';
+            $attendance->in_time = $inTime;
+            $attendance->out_time = $outTime;
+            $attendance->status_master_id = $incompleteCoffStatus->id;
+            $attendances[$userId] = $attendance;
+        }
+        Schema::disableForeignKeyConstraints();
+        foreach ($attendances as $attendance) {
+            $attendance->save();
+        }
+        Schema::enableForeignKeyConstraints();
+
+        $category = new Category;
+        $category->setAttribute('single_punch_allowed_half_day', true);
+        $category->setAttribute('single_punch_allowed_present', true);
+        foreach ([
+            7 => ['2026-11-12 09:30:00', false, $incompleteCoffStatus],
+            8 => ['2026-11-12 16:05:00', true, $incompleteCoffStatus],
+            9 => ['2026-11-12 21:05:00', true, $workedCoffStatus],
+        ] as $userId => [$punchDateTime, $isOut, $expectedStatus]) {
+            $user = new User;
+            $user->setAttribute('id', $userId);
+            $user->setAttribute('shift_type', 'auto');
+            $user->setRelation('category', $category);
+            $log = new AttendanceLog;
+            $log->setAttribute('datetime', Carbon::parse($punchDateTime));
+            $log->setAttribute('is_out', $isOut);
+            $log->setRelation('user', $user);
+            $calculator = new AttCalculator($log);
+            $calculator->setFyears(2026);
+            $calculator->retriveAttendance($attendances[$userId]);
+            $calculator->syncAttendanceWorkTime();
+            $calculator->checkHalfDayRule();
+            $calculator->checkAbsentRule();
+
+            $this->assertSame($expectedStatus->id, $attendances[$userId]->fresh()->status_master_id);
+        }
+    }
+
+    public function test_half_leave_status_requires_the_assigned_work_half_to_be_complete(): void
+    {
+        DB::table('users')->insert([['id' => 7], ['id' => 8], ['id' => 9]]);
+        DB::table('leave_types')->insert(['id' => 1, 'code' => 'LV']);
+        $incompleteLeaveStatus = StatusMaster::create([
+            'code' => 'LVA',
+            'alias' => 'Leave + Absent',
+            'description' => 'Half leave with absent work half',
+        ]);
+        $workedLeaveStatus = StatusMaster::create([
+            'code' => 'LVP',
+            'alias' => 'Leave + Present',
+            'description' => 'Half leave with present work half',
+        ]);
+
+        foreach ([7, 8, 9] as $userId) {
+            $leaveApplicationId = DB::table('leave_applications')->insertGetId([
+                'leave_type_id' => 1,
+                'from_date' => '2026-11-12',
+                'to_date' => '2026-11-12',
+                'is_first_half' => true,
+            ]);
+            DB::table('leave_application_users')->insert([
+                'leave_application_id' => $leaveApplicationId,
+                'user_id' => $userId,
+            ]);
+            DB::table('approval_statuses')->insert([
+                'approvable_type' => \App\Models\Tenant\LeaveApplication::class,
+                'approvable_id' => $leaveApplicationId,
+                'approval_status' => 'approved',
+            ]);
+        }
+
+        $shiftId = DB::table('shifts')->insertGetId([
+            'in_time' => '09:00:00',
+            'out_time' => '21:00:00',
+            'first_half_end_time' => '13:00:00',
+            'second_half_start_time' => '15:00:00',
+        ]);
+        foreach ([7, 8, 9] as $userId) {
+            DB::table('shift_musters')->insert([
+                'date' => '2026-11-12',
+                'user_id' => $userId,
+                'is_locked' => false,
+                'is_auto' => false,
+                'shift' => json_encode([$shiftId], JSON_THROW_ON_ERROR),
+            ]);
+        }
+
+        $attendances = [];
+        foreach ([
+            7 => [null, null],
+            8 => ['2026-11-12 15:00:00', '2026-11-12 16:00:00'],
+            9 => ['2026-11-12 15:00:00', '2026-11-12 21:00:00'],
+        ] as $userId => [$inTime, $outTime]) {
+            $attendance = Attendance::year(2026);
+            $attendance->user_id = $userId;
+            $attendance->date = '2026-11-12';
+            $attendance->shift_id = $shiftId;
+            $attendance->shift_in_time = '2026-11-12 09:00:00';
+            $attendance->shift_out_time = '2026-11-12 21:00:00';
+            $attendance->in_time = $inTime;
+            $attendance->out_time = $outTime;
+            $attendance->status_master_id = $incompleteLeaveStatus->id;
+            $attendances[$userId] = $attendance;
+        }
+        Schema::disableForeignKeyConstraints();
+        foreach ($attendances as $attendance) {
+            $attendance->save();
+        }
+        Schema::enableForeignKeyConstraints();
+
+        $category = new Category;
+        $category->setAttribute('single_punch_allowed_half_day', true);
+        $category->setAttribute('single_punch_allowed_present', true);
+        foreach ([
+            7 => ['2026-11-12 09:30:00', false, $incompleteLeaveStatus],
+            8 => ['2026-11-12 16:05:00', true, $incompleteLeaveStatus],
+            9 => ['2026-11-12 21:05:00', true, $workedLeaveStatus],
+        ] as $userId => [$punchDateTime, $isOut, $expectedStatus]) {
+            $user = new User;
+            $user->setAttribute('id', $userId);
+            $user->setAttribute('shift_type', 'auto');
+            $user->setRelation('category', $category);
+            $log = new AttendanceLog;
+            $log->setAttribute('datetime', Carbon::parse($punchDateTime));
+            $log->setAttribute('is_out', $isOut);
+            $log->setRelation('user', $user);
+            $calculator = new AttCalculator($log);
+            $calculator->setFyears(2026);
+            $calculator->retriveAttendance($attendances[$userId]);
+            $calculator->syncAttendanceWorkTime();
+            $calculator->checkHalfDayRule();
+            $calculator->checkAbsentRule();
+
+            $this->assertSame($expectedStatus->id, $attendances[$userId]->fresh()->status_master_id);
+        }
     }
 
     public function test_holiday_and_week_off_attendance_use_their_worked_status_codes(): void

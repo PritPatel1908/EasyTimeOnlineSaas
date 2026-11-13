@@ -112,6 +112,9 @@ class EmailTemplate extends Model
         ['key' => 'current_level_approver_names', 'label' => 'Current level approver names'],
         ['key' => 'previous_level_approval_history', 'label' => 'Previous level decisions (employee, approved/rejected, date, rejection reason)'],
         ['key' => 'approval_history', 'label' => 'Full approval history (level, employee, decision, date, rejection reason)'],
+        ['key' => 'cancellation_reason', 'label' => 'Cancellation reason'],
+        ['key' => 'cancelled_by', 'label' => 'Cancelled by'],
+        ['key' => 'cancelled_at', 'label' => 'Cancelled at'],
     ];
 
     protected $fillable = [

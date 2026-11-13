@@ -7,6 +7,7 @@ namespace App\Services\Tenant;
 use App\Jobs\Tenant\ReverseLeaveApplicationAccountBalance;
 use App\Jobs\Tenant\ReprocessAttendanceLogs;
 use App\Jobs\Tenant\CancelApprovedRequest;
+use App\Jobs\Tenant\SendApplicationCancellationEmails;
 use App\Models\Tenant\ApprovalStatus;
 use App\Models\Tenant\ApprovalStatusDetails;
 use App\Models\Tenant\ApprovedApplicationEffectSnapshot;
@@ -127,6 +128,12 @@ class ApprovedRequestCancellationService
                 'cancelled_at' => now(),
                 'cancellation_error' => null,
             ]);
+
+            SendApplicationCancellationEmails::dispatch(
+                $application::class,
+                (int) $application->getKey(),
+                $actorId,
+            )->onConnection('database_tenant')->onQueue('processing')->afterCommit();
         });
     }
 

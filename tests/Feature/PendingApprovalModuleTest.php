@@ -9,6 +9,7 @@ use App\Http\Controllers\Tenant\PendingApprovalController;
 use App\Jobs\Tenant\FinalizeApprovedApplication;
 use App\Jobs\Tenant\CancelApprovedRequest;
 use App\Jobs\Tenant\SendManualPunchApprovalEmails;
+use App\Jobs\Tenant\SendApplicationCancellationEmails;
 use App\Models\Tenant\ApprovalStatus;
 use App\Models\Tenant\ApprovalStatusDetails;
 use App\Models\Tenant\ApprovedApplicationEffectSnapshot;
@@ -166,6 +167,13 @@ class PendingApprovalModuleTest extends TestCase
                 ));
 
                 (new CancelApprovedRequest(201))->handle($cancellations);
+                Bus::assertDispatched(SendApplicationCancellationEmails::class, static fn (
+                    SendApplicationCancellationEmails $job,
+                ): bool => (
+                    $job->applicationClass === ManualPunchApplication::class
+                    && $job->applicationId === 9
+                    && $job->actorId === 10
+                ));
 
                 $this->assertDatabaseHas('approved_application_effect_snapshots', [
                     'approvable_type' => ManualPunchApplication::class,

@@ -6,6 +6,7 @@ use App\Models\Tenant\Attendance;
 use App\Models\Tenant\AttendanceLog;
 use App\Models\Tenant\Category;
 use App\Models\Tenant\Coff;
+use App\Models\Tenant\CoffApplication;
 use App\Models\Tenant\GeneralConfiguration;
 use App\Models\Tenant\Holiday;
 use App\Models\Tenant\InOutMuster;
@@ -45,6 +46,11 @@ class AttCalculator
      * @var array<string, ?LeaveApplication>
      */
     private array $approvedLeaveApplicationsByDate = [];
+
+    /**
+     * @var array<string, ?CoffApplication>
+     */
+    private array $approvedCoffApplicationsByDate = [];
 
     private bool $halfDayCycleResetDateResolved = false;
 
@@ -888,80 +894,32 @@ class AttCalculator
             ->where('from_date', '<=', $this->log->datetime->format('Y-m-d'))
             ->where('to_date', '>=', $this->log->datetime->format('Y-m-d'))
             ->first();
+        $coffApplication = $coff === null
+            ? $this->approvedCoffApplicationForDate($this->log->datetime->toDateString())
+            : null;
+        $coffIsHalfDay = $coff?->only_a_half_day ?? $coffApplication?->is_half_day ?? false;
+        $coffIsSecondHalf = $coff?->is_this_second_half ?? $coffApplication?->is_second_half ?? false;
+        $coffIsFirstHalf = $coff?->is_first_half ?? $coffApplication?->is_first_half ?? false;
+        $coffFromDate = $coff?->from_date ?? $coffApplication?->coff_from_date;
+        $coffToDate = $coff?->to_date ?? $coffApplication?->coff_to_date;
+        $isCoffApplicationHalfDate = $coffApplication !== null
+            && $this->coffApplicationOffHalfForDate($coffApplication, $this->log->datetime->toDateString()) !== null;
 
         if ($leave_application != null) {
-            if ($leave_application->is_only_half) {
-                if ($this->log->user->category->single_punch_allowed_present && $this->curatt->in_time) {
-                    $this->debug('Single Punch Allowed For Only Second Half Leave');
-                    $this->curatt->status_master_id = StatusMaster::where('code', $leave_application->leave_type->code.'P')->first()->id;
-                    $this->curatt->save();
-
-                    $this->updateStatusMuster($leave_application->leave_type->code.'P', 0.5, true);
-                } else {
-                    if ($this->curatt->in_time && $this->curatt->out_time) {
-                        $this->curatt->status_master_id = StatusMaster::where('code', $leave_application->leave_type->code.'P')->first()->id;
-                        $this->curatt->save();
-
-                        $this->updateStatusMuster($leave_application->leave_type->code.'P', 0.5, true);
-                    } else {
-                        $this->debug('Second Half In or Out Punch Missing');
-                        $this->curatt->status_master_id = StatusMaster::where('code', $leave_application->leave_type->code.'A')->first()->id;
-                        $this->curatt->save();
-
-                        $this->updateStatusMuster($leave_application->leave_type->code.'A', 0.5, true);
-                    }
-                }
-
-            } elseif ($leave_application->is_second_half) {
-                if ($leave_application->from_date == $this->log->datetime->format('Y-m-d')) {
-                    if ($this->log->user->category->single_punch_allowed_present && $this->curatt->in_time) {
-                        $this->debug('Single Punch Allowed For Second Half Leave');
-                        $this->curatt->status_master_id = StatusMaster::where('code', 'P'.$leave_application->leave_type->code)->first()->id;
-                        $this->curatt->save();
-
-                        $this->updateStatusMuster('P'.$leave_application->leave_type->code, 0.5, true);
-                    } else {
-                        if ($this->curatt->in_time && $this->curatt->out_time) {
-                            $this->curatt->status_master_id = StatusMaster::where('code', 'P'.$leave_application->leave_type->code)->first()->id;
-                            $this->curatt->save();
-
-                            $this->updateStatusMuster('P'.$leave_application->leave_type->code, 0.5, true);
-                        } else {
-                            $this->debug('First Half In or Out Punch Missing');
-                            $this->curatt->status_master_id = StatusMaster::where('code', 'A'.$leave_application->leave_type->code)->first()->id;
-                            $this->curatt->save();
-
-                            $this->updateStatusMuster('A'.$leave_application->leave_type->code, 0.5, true);
-                        }
-                    }
-                }
-            } elseif ($leave_application->is_first_half) {
-                if ($leave_application->to_date == $this->log->datetime->format('Y-m-d')) {
-                    if ($this->log->user->category->single_punch_allowed_present && $this->curatt->in_time) {
-                        $this->debug('Single Punch Allowed For First Half Leave');
-                        $this->curatt->status_master_id = StatusMaster::where('code', $leave_application->leave_type->code.'P')->first()->id;
-                        $this->curatt->save();
-
-                        $this->updateStatusMuster($leave_application->leave_type->code.'P', 0.5, true);
-                    } else {
-                        if ($this->curatt->in_time && $this->curatt->out_time) {
-                            $this->curatt->status_master_id = StatusMaster::where('code', $leave_application->leave_type->code.'P')->first()->id;
-                            $this->curatt->save();
-
-                            $this->updateStatusMuster($leave_application->leave_type->code.'P', 0.5, true);
-                        } else {
-                            $this->debug('Second Half In or Out Punch Missing');
-                            $this->curatt->status_master_id = StatusMaster::where('code', $leave_application->leave_type->code.'A')->first()->id;
-                            $this->curatt->save();
-
-                            $this->updateStatusMuster($leave_application->leave_type->code.'A', 0.5, true);
-                        }
-                    }
-                }
+            $leaveStatusCode = $this->leaveApplicationHalfStatusCode(
+                $leave_application,
+                $this->log->datetime->toDateString(),
+            );
+            if ($leaveStatusCode !== null) {
+                $statusMaster = StatusMaster::where('code', $leaveStatusCode)->firstOrFail();
+                $this->curatt->status_master_id = $statusMaster->id;
+                $this->curatt->save();
+                $this->updateStatusMuster($leaveStatusCode, 0.5);
+                $this->debug('Resolved approved half-leave status as '.$leaveStatusCode.' from worked shift-half time');
             }
-        } elseif ($coff != null) {
-            if ($coff->only_a_half_day) {
-                if ($coff->is_this_second_half) {
+        } elseif ($coff !== null || $coffApplication !== null) {
+            if ($coffIsHalfDay) {
+                if ($coffIsSecondHalf) {
                     if ($this->log->user->category->single_punch_allowed_present && $this->curatt->in_time) {
                         $this->debug('Single Punch Allowed Present For Coff Second Half');
                         $this->curatt->status_master_id = StatusMaster::where('code', 'PCO')->first()->id;
@@ -1004,7 +962,7 @@ class AttCalculator
                         }
                     }
                 }
-            } elseif ($this->log->datetime->format('Y-m-d') == Carbon::parse($coff->from_date)->format('Y-m-d') && $coff->is_second_half) {
+            } elseif ($this->log->datetime->format('Y-m-d') == Carbon::parse($coffFromDate)->format('Y-m-d') && $coffIsSecondHalf) {
                 if ($this->log->user->category->single_punch_allowed_present && $this->curatt->in_time) {
                     $this->debug('Single Punch Allowed For Second Half Coff');
                     $this->curatt->status_master_id = StatusMaster::where('code', 'PCO')->first()->id;
@@ -1024,7 +982,7 @@ class AttCalculator
                         $this->updateStatusMuster('ACO', 0.5);
                     }
                 }
-            } elseif ($this->log->datetime->format('Y-m-d') == Carbon::parse($coff->to_date)->format('Y-m-d') && $coff->is_first_half) {
+            } elseif ($this->log->datetime->format('Y-m-d') == Carbon::parse($coffToDate)->format('Y-m-d') && $coffIsFirstHalf) {
                 if ($this->log->user->category->single_punch_allowed_present && $this->curatt->in_time) {
                     $this->debug('Single Punch Allowed For First Half Coff');
                     $this->curatt->status_master_id = StatusMaster::where('code', 'COP')->first()->id;
@@ -1195,6 +1153,22 @@ class AttCalculator
             return 'PWO';
         }
 
+        $date = $this->curatt?->date?->toDateString() ?? $this->log->datetime?->toDateString();
+        if ($date !== null) {
+            $leaveApplication = $this->approvedLeaveApplicationForDate($date);
+            if ($leaveApplication !== null) {
+                $leaveStatusCode = $this->leaveApplicationHalfStatusCode($leaveApplication, $date);
+                if ($leaveStatusCode !== null) {
+                    return $leaveStatusCode;
+                }
+            }
+
+            $coffApplication = $this->approvedCoffApplicationForDate($date);
+            if ($coffApplication !== null) {
+                return $this->coffApplicationPunchStatusCode($coffApplication, $date);
+            }
+        }
+
         return (bool) ($this->curatt?->is_weekoff) ? 'WOP' : 'PP';
     }
 
@@ -1296,6 +1270,10 @@ class AttCalculator
 
     private function approvedLeaveApplicationForDate(string $date): ?LeaveApplication
     {
+        if ($this->log->user === null) {
+            return null;
+        }
+
         if (array_key_exists($date, $this->approvedLeaveApplicationsByDate)) {
             return $this->approvedLeaveApplicationsByDate[$date];
         }
@@ -1314,6 +1292,229 @@ class AttCalculator
         }
 
         return $this->approvedLeaveApplicationsByDate[$date] = null;
+    }
+
+    private function approvedCoffApplicationForDate(string $date): ?CoffApplication
+    {
+        if ($this->log->user === null) {
+            return null;
+        }
+
+        if (array_key_exists($date, $this->approvedCoffApplicationsByDate)) {
+            return $this->approvedCoffApplicationsByDate[$date];
+        }
+
+        return $this->approvedCoffApplicationsByDate[$date] = CoffApplication::query()
+            ->where('user_id', $this->log->user->id)
+            ->where('status', 'approved')
+            ->whereDate('coff_from_date', '<=', $date)
+            ->whereDate('coff_to_date', '>=', $date)
+            ->first();
+    }
+
+    private function coffApplicationOffHalfForDate(CoffApplication $application, string $date): ?string
+    {
+        if ($application->is_half_day) {
+            if ($application->is_first_half) {
+                return 'first';
+            }
+
+            return $application->is_second_half ? 'second' : null;
+        }
+
+        if (
+            $application->is_second_half
+            && $application->coff_from_date->toDateString() === $date
+        ) {
+            return 'second';
+        }
+
+        if (
+            $application->is_first_half
+            && $application->coff_to_date->toDateString() === $date
+        ) {
+            return 'first';
+        }
+
+        return null;
+    }
+
+    private function coffApplicationPunchStatusCode(CoffApplication $application, string $date): string
+    {
+        $coffHalf = $this->coffApplicationOffHalfForDate($application, $date);
+        if ($coffHalf === null) {
+            return 'PCO';
+        }
+
+        $workHalfComplete = $this->workHalfIsComplete($coffHalf);
+
+        return match ([$coffHalf, $workHalfComplete]) {
+            ['first', true] => 'COP',
+            ['first', false] => 'COA',
+            ['second', true] => 'PCO',
+            ['second', false] => 'ACO',
+        };
+    }
+
+    private function syncApprovedCoffApplicationStatus(): void
+    {
+        if ($this->curatt === null) {
+            return;
+        }
+
+        $date = $this->curatt->date->toDateString();
+        $application = $this->approvedCoffApplicationForDate($date);
+        if (
+            $application === null
+            || $this->coffApplicationOffHalfForDate($application, $date) === null
+        ) {
+            return;
+        }
+
+        $statusCode = $this->coffApplicationPunchStatusCode($application, $date);
+        $statusMaster = StatusMaster::where('code', $statusCode)->firstOrFail();
+        $this->curatt->status_master_id = $statusMaster->id;
+        $this->curatt->save();
+        $this->updateStatusMuster(
+            $statusCode,
+            in_array($statusCode, ['PCO', 'COP'], true) ? 1.0 : 0.5,
+        );
+        $this->debug('Resolved approved COFF status as '.$statusCode.' from worked shift-half time');
+    }
+
+    private function leaveApplicationHalfStatusCode(LeaveApplication $application, string $date): ?string
+    {
+        $leaveType = $application->leave_type;
+        if ($leaveType === null) {
+            throw new \RuntimeException('Approved leave application #'.$application->id.' has no leave type.');
+        }
+
+        $leaveCode = $leaveType->code;
+        if (
+            $application->is_only_half
+            && $application->from_date->toDateString() === $date
+        ) {
+            return $this->workHalfIsComplete('second')
+                ? $leaveCode.'P'
+                : $leaveCode.'A';
+        }
+
+        if (
+            $application->is_second_half
+            && $application->from_date->toDateString() === $date
+        ) {
+            return $this->workHalfIsComplete('second')
+                ? 'P'.$leaveCode
+                : 'A'.$leaveCode;
+        }
+
+        if (
+            $application->is_first_half
+            && $application->to_date->toDateString() === $date
+        ) {
+            return $this->workHalfIsComplete('first')
+                ? $leaveCode.'P'
+                : $leaveCode.'A';
+        }
+
+        return null;
+    }
+
+    private function syncApprovedLeaveApplicationStatus(): void
+    {
+        if ($this->curatt === null) {
+            return;
+        }
+
+        $date = $this->curatt->date->toDateString();
+        $application = $this->approvedLeaveApplicationForDate($date);
+        if ($application === null) {
+            return;
+        }
+
+        $statusCode = $this->leaveApplicationHalfStatusCode($application, $date);
+        if ($statusCode === null) {
+            return;
+        }
+
+        $statusMaster = StatusMaster::where('code', $statusCode)->firstOrFail();
+        $this->curatt->status_master_id = $statusMaster->id;
+        $this->curatt->save();
+        $this->updateStatusMuster($statusCode, 0.5);
+        $this->debug('Resolved approved half-leave status as '.$statusCode.' from worked shift-half time');
+    }
+
+    private function workHalfIsComplete(string $offHalf): bool
+    {
+        $inTime = $this->curatt?->in_time ? Carbon::parse($this->curatt->in_time) : null;
+        $outTime = $this->curatt?->out_time ? Carbon::parse($this->curatt->out_time) : null;
+        $periods = $this->assignedShiftHalfPeriods();
+        if (
+            $inTime === null
+            || $outTime === null
+            || ! $outTime->greaterThan($inTime)
+            || $periods === null
+        ) {
+            return false;
+        }
+
+        $workPeriod = $offHalf === 'first' ? $periods['second'] : $periods['first'];
+        $workedMinutes = $this->workedMinutesWithin($inTime, $outTime, $workPeriod);
+        $periodMinutes = (int) $workPeriod[0]->diffInMinutes($workPeriod[1]);
+        $requiredMinutes = $periodMinutes;
+        if ($this->log->user?->category?->ignore_break_in_attendance) {
+            $requiredMinutes -= $this->breakMinutesToDeduct($workPeriod[0], $workPeriod[1]);
+        }
+
+        return $workedMinutes >= max(0, $requiredMinutes);
+    }
+
+    /**
+     * @return array{first: array{0: Carbon, 1: Carbon}, second: array{0: Carbon, 1: Carbon}}|null
+     */
+    private function assignedShiftHalfPeriods(): ?array
+    {
+        $shift = $this->curatt?->shift;
+        if (
+            $shift === null
+            || $this->curatt->shift_in_time === null
+            || $this->curatt->shift_out_time === null
+            || $shift->first_half_end_time === null
+            || $shift->second_half_start_time === null
+        ) {
+            return null;
+        }
+
+        $shiftInTime = Carbon::parse($this->curatt->shift_in_time);
+        $shiftOutTime = Carbon::parse($this->curatt->shift_out_time);
+        if ($this->curatt->is_night_shift && $shiftOutTime->lessThanOrEqualTo($shiftInTime)) {
+            $shiftOutTime->addDay();
+        }
+
+        $shiftBoundary = static function ($time) use ($shiftInTime): Carbon {
+            $boundary = Carbon::parse($time)
+                ->setDate($shiftInTime->year, $shiftInTime->month, $shiftInTime->day);
+            if ($boundary->lessThanOrEqualTo($shiftInTime)) {
+                $boundary->addDay();
+            }
+
+            return $boundary;
+        };
+        $firstHalfEnd = $shiftBoundary($shift->first_half_end_time);
+        $secondHalfStart = $shiftBoundary($shift->second_half_start_time);
+        if (
+            ! $firstHalfEnd->greaterThan($shiftInTime)
+            || ! $firstHalfEnd->lessThan($shiftOutTime)
+            || ! $secondHalfStart->greaterThan($firstHalfEnd)
+            || ! $secondHalfStart->lessThan($shiftOutTime)
+        ) {
+            return null;
+        }
+
+        return [
+            'first' => [$shiftInTime, $firstHalfEnd],
+            'second' => [$secondHalfStart, $shiftOutTime],
+        ];
     }
 
     private function applyCurrentShiftToAttendance(): void
@@ -1683,6 +1884,16 @@ class AttCalculator
     {
         if ($this->curatt === null || $this->log->user === null || $this->log->datetime === null) {
             $this->debug('Skipping half-day check because attendance, user, or log date is missing');
+
+            return;
+        }
+
+        $date = $this->log->datetime->toDateString();
+        if (
+            $this->approvedLeaveApplicationForDate($date) === null
+            && $this->approvedCoffApplicationForDate($date) !== null
+        ) {
+            $this->debug('Skipping regular half-day rules because an approved COFF application controls this attendance date');
 
             return;
         }
@@ -2551,6 +2762,18 @@ class AttCalculator
 
     public function checkAbsentRule(): void
     {
+        if (
+            $this->curatt !== null
+            && $this->log->user !== null
+            && $this->log->datetime !== null
+            && $this->approvedLeaveApplicationForDate($this->log->datetime->toDateString()) === null
+            && $this->approvedCoffApplicationForDate($this->log->datetime->toDateString()) !== null
+        ) {
+            $this->debug('Skipping regular absent rules because an approved COFF application controls this attendance date');
+
+            return;
+        }
+
         if ($this->curatt !== null && $this->applySinglePunchPresentStatus()) {
             return;
         }
@@ -3015,7 +3238,10 @@ class AttCalculator
             return;
         }
 
-        if ($this->applySinglePunchPresentStatus(checkTimingRules: true)) {
+        $coffApplicationDate = $this->curatt->date?->toDateString() ?? $this->log->datetime?->toDateString();
+        $hasApprovedCoffApplication = $coffApplicationDate !== null
+            && $this->approvedCoffApplicationForDate($coffApplicationDate) !== null;
+        if (! $hasApprovedCoffApplication && $this->applySinglePunchPresentStatus(checkTimingRules: true)) {
             return;
         }
 
@@ -3047,6 +3273,9 @@ class AttCalculator
             ->where('from_date', '<=', $date)
             ->where('to_date', '>=', $date)
             ->first();
+        $coffApplication = $coff === null
+            ? $this->approvedCoffApplicationForDate($date)
+            : null;
 
         $statusCode = $this->presentStatusCode();
         if ($leaveApplication !== null) {
@@ -3054,16 +3283,26 @@ class AttCalculator
                 return;
             }
 
-            $statusCode = $leaveApplication->leave_type->code.'P';
+            $statusCode = $this->leaveApplicationHalfStatusCode($leaveApplication, $date)
+                ?? $leaveApplication->leave_type->code.'P';
         } elseif ($coff !== null) {
             if (! $coff->is_first_half || $coff->to_date != $date) {
                 return;
             }
 
             $statusCode = 'COP';
+        } elseif ($coffApplication !== null) {
+            if (
+                ! $coffApplication->is_first_half
+                || $coffApplication->coff_to_date->toDateString() !== $date
+            ) {
+                return;
+            }
+
+            $statusCode = $this->coffApplicationPunchStatusCode($coffApplication, $date);
         }
 
-        $updateStatusMuster = $leaveApplication === null && $coff === null;
+        $updateStatusMuster = $leaveApplication === null && $coff === null && $coffApplication === null;
         $punchInTime = $this->curatt->in_time;
         if (
             $punchInTime !== null
@@ -3144,7 +3383,10 @@ class AttCalculator
             return;
         }
 
-        if ($this->applySinglePunchPresentStatus(checkTimingRules: true)) {
+        $coffApplicationDate = $this->curatt->date?->toDateString() ?? $this->log->datetime?->toDateString();
+        $hasApprovedCoffApplication = $coffApplicationDate !== null
+            && $this->approvedCoffApplicationForDate($coffApplicationDate) !== null;
+        if (! $hasApprovedCoffApplication && $this->applySinglePunchPresentStatus(checkTimingRules: true)) {
             return;
         }
 
@@ -3186,13 +3428,19 @@ class AttCalculator
             ->where('from_date', '<=', $date)
             ->where('to_date', '>=', $date)
             ->first();
+        $coffApplication = $coff === null
+            ? $this->approvedCoffApplicationForDate($date)
+            : null;
 
         $statusCode = $this->presentStatusCode();
 
         if ($leaveApplication !== null) {
-            $statusCode = 'P'.$leaveApplication->leave_type->code;
+            $statusCode = $this->leaveApplicationHalfStatusCode($leaveApplication, $date)
+                ?? 'P'.$leaveApplication->leave_type->code;
         } elseif ($coff !== null) {
             $statusCode = 'PCO';
+        } elseif ($coffApplication !== null) {
+            $statusCode = $this->coffApplicationPunchStatusCode($coffApplication, $date);
         }
 
         $ruleGraceMinutes = max(0, (int) $lateComingRule->ignore_late_coming_minutes);
@@ -3561,6 +3809,8 @@ class AttCalculator
         $this->curatt->c_off_days = $coffDays;
         $this->setCoffCreditDays($coffDays);
         $this->curatt->save();
+        $this->syncApprovedCoffApplicationStatus();
+        $this->syncApprovedLeaveApplicationStatus();
         $this->debug('Updated attendance work time to '.$this->curatt->work_time.' minutes');
     }
 
@@ -3572,6 +3822,17 @@ class AttCalculator
     private function applySinglePunchPresentStatus(bool $checkTimingRules = false): bool
     {
         if (! $this->hasSinglePunch()) {
+            return false;
+        }
+
+        $date = $this->curatt->date?->toDateString() ?? $this->log->datetime->toDateString();
+        $leaveApplication = $this->approvedLeaveApplicationForDate($date);
+        if (
+            $leaveApplication !== null
+            && $this->leaveApplicationHalfStatusCode($leaveApplication, $date) !== null
+        ) {
+            $this->debug('Skipping generic single-punch status because an approved half-leave application controls this date');
+
             return false;
         }
 
@@ -3603,7 +3864,6 @@ class AttCalculator
             return ! $checkTimingRules;
         }
 
-        $date = $this->curatt->date?->toDateString() ?? $this->log->datetime->toDateString();
         $statusCode = $this->presentStatusCode();
         $statusMaster = StatusMaster::where('code', $statusCode)->firstOrFail();
         $this->curatt->is_late = false;

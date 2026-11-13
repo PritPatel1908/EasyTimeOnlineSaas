@@ -14,7 +14,9 @@ use App\Jobs\Tenant\GenerateManualPunchApplicationExport;
 use App\Jobs\Tenant\ProcessManualPunchImport;
 use App\Jobs\Tenant\ProcessPendingLogsBatch;
 use App\Jobs\Tenant\SendManualPunchApprovalEmails;
+use App\Jobs\Tenant\SendApplicationCancellationEmails;
 use App\Models\Tenant\ManualPunchApplication;
+use App\Models\Tenant\ApprovedApplicationEffectSnapshot;
 use App\Models\Tenant\User;
 use App\Services\Tenant\ManualPunchApplicationWorkflow;
 use Illuminate\Contracts\Auth\Guard;
@@ -637,6 +639,150 @@ class TenantManualPunchApplicationModuleTest extends TestCase
             $this->assertSame('Punch 2026-10-24: rejected', $sentEmails['employee-one@example.test']['subject']);
             $this->assertStringContainsString('Incorrect punch details.', $sentEmails['employee-one@example.test']['body']);
         } finally {
+            $this->dropWorkflowTables();
+        }
+    }
+
+    public function test_cancellation_email_uses_cancel_assignment_and_notifies_employee_and_other_approvers(): void
+    {
+        $this->createWorkflowTables();
+        Schema::create('approved_application_effect_snapshots', function ($table): void {
+            $table->id();
+            $table->string('approvable_type');
+            $table->unsignedBigInteger('approvable_id');
+            $table->json('snapshot')->nullable();
+            $table->string('cancellation_status')->nullable();
+            $table->unsignedBigInteger('cancellation_requested_by')->nullable();
+            $table->timestamp('cancellation_requested_at')->nullable();
+            $table->text('cancellation_error')->nullable();
+            $table->unsignedBigInteger('cancelled_by')->nullable();
+            $table->text('cancellation_reason')->nullable();
+            $table->timestamp('cancelled_at')->nullable();
+            $table->timestamps();
+        });
+
+        try {
+            DB::table('users')->insert([
+                ['id' => 101, 'name' => 'Employee One', 'code' => 'E001', 'email' => 'employee@example.test'],
+                ['id' => 202, 'name' => 'Cancelling Approver', 'code' => 'A002', 'email' => 'actor@example.test'],
+                ['id' => 203, 'name' => 'Other Approver', 'code' => 'A003', 'email' => 'other@example.test'],
+            ]);
+            DB::table('approval_flows')->insert([
+                'id' => 10,
+                'approval_flow_code' => 'manual-punch-flow',
+                'status' => 1,
+            ]);
+            DB::table('approval_flow_details')->insert([
+                'id' => 20,
+                'level' => 1,
+                'approval_flow_id' => 10,
+            ]);
+            DB::table('approval_flow_detail_user')->insert([
+                ['approval_flow_detail_id' => 20, 'user_id' => 202, 'created_at' => now(), 'updated_at' => now()],
+                ['approval_flow_detail_id' => 20, 'user_id' => 203, 'created_at' => now(), 'updated_at' => now()],
+            ]);
+            DB::table('manual_punch_applications')->insert([
+                'id' => 1,
+                'punch_type' => '1',
+                'punch_date' => '2026-11-13',
+                'punch_time' => '09:30:00',
+                'reason' => 'Correction',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            DB::table('manual_punch_application_users')->insert([
+                'manual_punch_application_id' => 1,
+                'user_id' => 101,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            DB::table('approval_statuses')->insert([
+                'id' => 100,
+                'approvable_id' => 1,
+                'approvable_type' => ManualPunchApplication::class,
+                'approval_status' => 'cancelled',
+                'approval_flow_id' => 10,
+            ]);
+            DB::table('approval_status_details')->insert([
+                'id' => 201,
+                'level' => 1,
+                'approval_status_id' => 100,
+                'approval_flow_detail_id' => 20,
+                'approval_status' => 'cancelled',
+                'user_id' => 202,
+            ]);
+            DB::table('email_templates')->insert([
+                'id' => 1,
+                'title' => 'Cancelled punch {{ punch_date }}',
+                'template_type' => 'manual_punch_application_approve_reject',
+                'email_content' => '{{ employee_name }} {{ application_status }} {{ cancellation_reason }} {{ cancelled_by }} {{ cancelled_at }}',
+                'status' => 'active',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            DB::table('email_template_assignments')->insert([
+                'application_type' => 'manual_punch_application',
+                'application_action' => 'cancel',
+                'email_template_id' => 1,
+                'status' => 'active',
+                'send_to_another_approver' => true,
+                'send_to_employee' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            DB::table('email_configurations')->insert([
+                ['key' => 'from_address', 'value' => 'noreply@example.test'],
+                ['key' => 'from_name', 'value' => 'EasyTime'],
+            ]);
+            ApprovedApplicationEffectSnapshot::query()->create([
+                'approvable_type' => ManualPunchApplication::class,
+                'approvable_id' => 1,
+                'cancellation_status' => 'completed',
+                'cancelled_by' => 202,
+                'cancellation_reason' => 'Duplicate request',
+                'cancelled_at' => '2026-11-13 12:00:00',
+            ]);
+
+            $sentEmails = [];
+            $mailer = Mockery::mock(Mailer::class);
+            $mailer->shouldReceive('html')
+                ->twice()
+                ->andReturnUsing(function (string $body, callable $callback) use (&$sentEmails): void {
+                    $recipient = null;
+                    $subject = null;
+                    $message = Mockery::mock(Message::class);
+                    $message->shouldReceive('to')->once()->andReturnUsing(function (string $address) use (&$recipient, $message) {
+                        $recipient = $address;
+
+                        return $message;
+                    });
+                    $message->shouldReceive('subject')->once()->andReturnUsing(function (string $value) use (&$subject, $message) {
+                        $subject = $value;
+
+                        return $message;
+                    });
+                    $callback($message);
+                    $sentEmails[$recipient] = ['subject' => $subject, 'body' => $body];
+                });
+            $mailer->shouldReceive('alwaysFrom')->once()->with('noreply@example.test', 'EasyTime');
+
+            $mailManager = Mockery::mock(MailManager::class);
+            $mailManager->shouldReceive('build')
+                ->once()
+                ->andReturn($mailer);
+            app()->instance('mail.manager', $mailManager);
+
+            (new SendApplicationCancellationEmails(ManualPunchApplication::class, 1, 202))->handle();
+
+            $this->assertEqualsCanonicalizing([
+                'employee@example.test',
+                'other@example.test',
+            ], array_keys($sentEmails));
+            $this->assertSame('Cancelled punch 2026-11-13', $sentEmails['employee@example.test']['subject']);
+            $this->assertStringContainsString('Employee One cancelled Duplicate request Cancelling Approver 2026-11-13 12:00:00', $sentEmails['employee@example.test']['body']);
+            $this->assertStringContainsString('Employee One cancelled Duplicate request Cancelling Approver 2026-11-13 12:00:00', $sentEmails['other@example.test']['body']);
+        } finally {
+            Schema::dropIfExists('approved_application_effect_snapshots');
             $this->dropWorkflowTables();
         }
     }

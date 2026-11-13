@@ -112,11 +112,24 @@ class EmailTemplateAssignmentTest extends TestCase
                 'send_to_employee' => '1',
             ]
         ));
+        $cancellationResponse = $controller->storeEmailTemplateAssignment(Request::create(
+            '/assign-email-templates',
+            'POST',
+            [
+                'application_type' => 'leave_application',
+                'application_action' => 'cancel',
+                'email_template_id' => $leaveTemplateId,
+                'status' => 'active',
+                'send_to_another_approver' => '1',
+                'send_to_employee' => '1',
+            ]
+        ));
 
         $this->assertSame(url('assign-email-templates'), $response->getTargetUrl());
         $this->assertSame(url('assign-email-templates'), $anotherTypeResponse->getTargetUrl());
         $this->assertSame(url('assign-email-templates'), $approvalResponse->getTargetUrl());
-        $this->assertDatabaseCount('email_template_assignments', 3);
+        $this->assertSame(url('assign-email-templates'), $cancellationResponse->getTargetUrl());
+        $this->assertDatabaseCount('email_template_assignments', 4);
         $this->assertDatabaseHas('email_template_assignments', [
             'application_type' => 'leave_application',
             'application_action' => 'initial',
@@ -127,6 +140,13 @@ class EmailTemplateAssignmentTest extends TestCase
         $this->assertDatabaseHas('email_template_assignments', [
             'application_type' => 'leave_application',
             'application_action' => 'approve',
+            'send_to_approver' => false,
+            'send_to_another_approver' => true,
+            'send_to_employee' => true,
+        ]);
+        $this->assertDatabaseHas('email_template_assignments', [
+            'application_type' => 'leave_application',
+            'application_action' => 'cancel',
             'send_to_approver' => false,
             'send_to_another_approver' => true,
             'send_to_employee' => true,

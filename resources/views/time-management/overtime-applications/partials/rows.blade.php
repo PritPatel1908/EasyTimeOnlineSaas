@@ -6,7 +6,7 @@
         <td class="text-center">{{ $application->date?->format('Y-m-d') ?? '—' }}</td>
         <td class="text-center">{{ $application->overtime_minutes }}</td>
         <td class="text-center">{{ $application->reason ?: '—' }}</td>
-        <td class="text-center"><span class="badge bg-{{ match ($status) {'pending' => 'primary', 'approved' => 'success', 'rejected' => 'danger', 'draft' => 'secondary', default => 'light text-dark'} }}">{{ ucfirst($status) }}</span></td>
+        <td class="text-center"><span class="badge bg-{{ match ($status) {'pending' => 'primary', 'approved' => 'success', 'rejected' => 'danger', 'draft' => 'secondary', 'cancelled' => 'dark', default => 'light text-dark'} }}">{{ ucfirst($status) }}</span></td>
         <td class="text-center">
             <div class="action-icon d-inline-flex">
                 @if (\App\Support\TenantPermissions::userCan('OvertimeApplication', 'read'))

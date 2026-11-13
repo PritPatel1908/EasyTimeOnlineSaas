@@ -28,7 +28,7 @@
                 <div class="col-md-3 mb-3"><small class="text-muted d-block">Date</small><span>{{ $application->date?->format('Y-m-d') ?? '—' }}</span></div>
                 <div class="col-md-3 mb-3"><small class="text-muted d-block">Overtime Minutes</small><span>{{ $application->overtime_minutes }}</span></div>
                 <div class="col-md-6 mb-3"><small class="text-muted d-block">Reason</small><span>{{ $application->reason ?: '—' }}</span></div>
-                <div class="col-md-3 mb-3"><small class="text-muted d-block">Approval Status</small><span class="badge bg-{{ match ($status) {'pending' => 'primary', 'approved' => 'success', 'rejected' => 'danger', 'draft' => 'secondary', default => 'light text-dark'} }}">{{ ucfirst($status) }}</span></div>
+                <div class="col-md-3 mb-3"><small class="text-muted d-block">Approval Status</small><span class="badge bg-{{ match ($status) {'pending' => 'primary', 'approved' => 'success', 'rejected' => 'danger', 'draft' => 'secondary', 'cancelled' => 'dark', default => 'light text-dark'} }}">{{ ucfirst($status) }}</span></div>
             </div></div>
         </div>
 

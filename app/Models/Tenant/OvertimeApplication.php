@@ -67,6 +67,10 @@ class OvertimeApplication extends Model
             return 'unknown';
         }
 
+        if ($statuses->contains('approval_status', 'cancelled')) {
+            return 'cancelled';
+        }
+
         if ($statuses->contains('approval_status', 'rejected')) {
             return 'rejected';
         }

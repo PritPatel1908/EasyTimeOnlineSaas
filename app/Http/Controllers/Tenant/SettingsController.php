@@ -29,7 +29,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SettingsController extends Controller
 {
-    private const EMAIL_TEMPLATE_APPLICATION_ACTIONS = ['initial', 'approve', 'reject'];
+    private const EMAIL_TEMPLATE_APPLICATION_ACTIONS = ['initial', 'approve', 'reject', 'cancel'];
 
     /**
      * @var array<string, array<string, string>>
