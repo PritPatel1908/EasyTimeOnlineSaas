@@ -1109,7 +1109,7 @@ class AttCalculator
         $statusMaster = StatusMaster::where('code', $statusCode)->first();
         $statusMuster = StatusMuster::where('user_id', $this->log->user->id)
             ->where('is_locked', false)
-            ->whereDate('date', $this->log->datetime->toDateString())
+            ->where('date', $this->log->datetime->toDateString())
             ->first();
 
         if ($statusMuster === null) {
