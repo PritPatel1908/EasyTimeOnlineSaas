@@ -219,11 +219,9 @@ class AttendanceLogController extends Controller
 
     public function index(Request $request): View
     {
-        $filters = $request->validate([
-            'search' => ['nullable', 'string', 'max:100'],
+        $request->validate([
             'deleted' => ['nullable', 'boolean'],
         ]);
-        $search = trim($filters['search'] ?? '');
         $showDeleted = $request->boolean('deleted');
 
         $query = AttendanceLog::query()->with('user');
@@ -232,26 +230,11 @@ class AttendanceLogController extends Controller
             $query->onlyTrashed();
         }
 
-        if ($search !== '') {
-            $query->where(function ($query) use ($search): void {
-                $query->where('user_code', 'like', '%'.$search.'%')
-                    ->orWhereHas('user', function ($query) use ($search): void {
-                        $query->where('name', 'like', '%'.$search.'%');
-                    });
-
-                if (ctype_digit($search)) {
-                    $query->orWhere('id', (int) $search);
-                }
-            });
-        }
-
         return view('time-management.attendance-logs.index', [
             'attendanceLogs' => $query
                 ->latest('datetime')
                 ->latest('id')
-                ->paginate(25)
-                ->withQueryString(),
-            'search' => $search,
+                ->get(),
             'showDeleted' => $showDeleted,
             'employees' => User::query()
                 ->where('user_type', 'employee')
@@ -365,16 +348,6 @@ class AttendanceLogController extends Controller
             ->with('success', 'Attendance log restoration has started for matching deleted punches.');
     }
 
-    public function show(Request $request): View
-    {
-        $attendanceLog = $this->resolveAttendanceLog($request, true);
-        $attendanceLog->load(['user', 'machine', 'area', 'process_tags']);
-
-        return view('time-management.attendance-logs.show', [
-            'attendanceLog' => $attendanceLog,
-        ]);
-    }
-
     public function reprocess(Request $request): RedirectResponse
     {
         $attendanceLog = $this->resolveAttendanceLog($request);
@@ -400,6 +373,16 @@ class AttendanceLogController extends Controller
 
         return redirect(url('time-management/attendance-logs/'.$attendanceLog->id))
             ->with('success', 'Punch reprocessing has started.');
+    }
+
+    public function show(Request $request): View
+    {
+        $attendanceLog = $this->resolveAttendanceLog($request, true);
+        $attendanceLog->load(['user', 'machine', 'area', 'process_tags']);
+
+        return view('time-management.attendance-logs.show', [
+            'attendanceLog' => $attendanceLog,
+        ]);
     }
 
     public function destroy(Request $request): RedirectResponse
