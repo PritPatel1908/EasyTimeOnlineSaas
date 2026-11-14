@@ -35,6 +35,7 @@ class RolePermissionController extends Controller
             'Coff',
             'CoffApplication',
             'Company',
+            'CustomReport',
             'DailyReport',
             'DataPolicy',
             'Department',

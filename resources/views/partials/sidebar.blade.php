@@ -473,6 +473,24 @@
 					</ul>
 				</li>
 				@endif
+				@if (\App\Support\TenantPermissions::userCan('CustomReport', 'read'))
+				<li class="menu-title"><span>REPORT STRUCTURE</span></li>
+				<li>
+					<ul>
+						<li class="submenu">
+							<a href="javascript:void(0);"
+								class="{{ request()->is('employee-structure/custom-reports*') ? 'active subdrop' : '' }}">
+								<i class="ti ti-report-analytics"></i><span>Report Structure</span>
+								<span class="menu-arrow"></span>
+							</a>
+							<ul>
+								<li><a href="{{ url('employee-structure/custom-reports') }}"
+									class="{{ request()->is('employee-structure/custom-reports*') ? 'active' : '' }}">Custom Reports</a></li>
+							</ul>
+						</li>
+					</ul>
+				</li>
+				@endif
 				@if ($canViewRequestManagement)
 				<li class="menu-title"><span>REQUEST MANAGEMENT STRUCTURE</span></li>
 				<li>
@@ -1224,7 +1242,7 @@ class="{{ $areasActive ? 'active' : '' }}">Areas</a></li>@endif
 						</li>
 						<li class="submenu">
 							<a href="javascript:void(0);"
-								class="{{ Request::is('expenses-report', 'invoice-report', 'payment-report', 'project-report', 'task-report', 'user-report', 'employee-report', 'payslip-report', 'attendance-report', 'leave-report', 'daily-report') ? 'active subdrop' : '' }}">
+								class="{{ Request::is('expenses-report', 'invoice-report', 'payment-report', 'project-report', 'task-report', 'user-report', 'employee-report', 'payslip-report', 'attendance-report', 'leave-report', 'daily-report', 'employee-structure/custom-reports*') ? 'active subdrop' : '' }}">
 								<i class="ti ti-user-star"></i><span>Reports</span>
 								<span class="menu-arrow"></span>
 							</a>

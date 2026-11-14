@@ -198,7 +198,7 @@
 				@if ($canViewEmployeeStructure)
 				<li class="submenu">
 					<a href="javascript:void(0);"
-						class="{{ Request::is('employee-structure/*') ? 'active subdrop' : '' }}">
+						class="{{ Request::is('employee-structure/*') && !Request::is('employee-structure/custom-reports*') ? 'active subdrop' : '' }}">
 						<i class="ti ti-users"></i><span>Employee Structure</span>
 						<span class="menu-arrow"></span>
 					</a>
@@ -521,7 +521,7 @@
 				</li>
 				<li class="submenu">
 					<a href="#"
-						class="{{ Request::is('estimates', 'invoice', 'payments', 'expenses', 'provident-fund', 'taxes', 'categories', 'budgets', 'budget-expenses', 'budget-revenues', 'employee-salary', 'payslip', 'payroll', 'payroll-overtime', 'payroll-deduction', 'assets', 'asset-categories', 'knowledgebase', 'knowledgebase-details', 'knowledgebase-view', 'users', 'roles-permissions', 'permission', 'expenses-report', 'invoice-report', 'payment-report', 'project-report', 'task-report', 'user-report', 'employee-report', 'payslip-report', 'attendance-report', 'leave-report', 'daily-report', 'profile-settings', 'security-settings', 'notification-settings', 'project-report', 'connected-apps', 'default-settings', 'seo-settings', 'localization-settings', 'prefixes', 'preferences', 'appearance', 'language', 'add-language', 'language-web', 'authentication-settings', 'ai-settings', 'salary-settings', 'approval-settings', 'invoice-settings', 'leave-type', 'custom-fields', 'email-settings', 'email-template', 'sms-settings', 'sms-template', 'otp-settings', 'gdpr', 'maintenance-mode', 'payment-gateways', 'tax-rates', 'currencies', 'custom-css', 'custom-js', 'cronjob', 'storage-settings', 'ban-ip-address', 'backup', 'clear-cache') ? 'active subdrop' : '' }}">
+						class="{{ Request::is('estimates', 'invoice', 'payments', 'expenses', 'provident-fund', 'taxes', 'categories', 'budgets', 'budget-expenses', 'budget-revenues', 'employee-salary', 'payslip', 'payroll', 'payroll-overtime', 'payroll-deduction', 'assets', 'asset-categories', 'knowledgebase', 'knowledgebase-details', 'knowledgebase-view', 'users', 'roles-permissions', 'permission', 'expenses-report', 'invoice-report', 'payment-report', 'project-report', 'task-report', 'user-report', 'employee-report', 'payslip-report', 'attendance-report', 'leave-report', 'daily-report', 'employee-structure/custom-reports*', 'profile-settings', 'security-settings', 'notification-settings', 'project-report', 'connected-apps', 'default-settings', 'seo-settings', 'localization-settings', 'prefixes', 'preferences', 'appearance', 'language', 'add-language', 'language-web', 'authentication-settings', 'ai-settings', 'salary-settings', 'approval-settings', 'invoice-settings', 'leave-type', 'custom-fields', 'email-settings', 'email-template', 'sms-settings', 'sms-template', 'otp-settings', 'gdpr', 'maintenance-mode', 'payment-gateways', 'tax-rates', 'currencies', 'custom-css', 'custom-js', 'cronjob', 'storage-settings', 'ban-ip-address', 'backup', 'clear-cache') ? 'active subdrop' : '' }}">
 						<i class="ti ti-user-star"></i><span>Administration</span>
 						<span class="menu-arrow"></span>
 					</a>
@@ -623,7 +623,7 @@
 						</li>
 						<li class="submenu">
 							<a href="javascript:void(0);"
-								class="{{ Request::is('expenses-report', 'invoice-report', 'payment-report', 'project-report', 'task-report', 'user-report', 'employee-report', 'payslip-report', 'attendance-report', 'leave-report', 'daily-report') ? 'active subdrop' : '' }}"><span>Reports</span>
+								class="{{ Request::is('expenses-report', 'invoice-report', 'payment-report', 'project-report', 'task-report', 'user-report', 'employee-report', 'payslip-report', 'attendance-report', 'leave-report', 'daily-report', 'employee-structure/custom-reports*') ? 'active subdrop' : '' }}"><span>Reports</span>
 								<span class="menu-arrow"></span>
 							</a>
 							<ul>
@@ -656,6 +656,8 @@
 										class="{{ Request::is('leave-report') ? 'active' : '' }}">Leave Report</a></li>
 								<li><a href="{{url('daily-report')}}"
 										class="{{ Request::is('daily-report') ? 'active' : '' }}">Daily Report</a></li>
+								@if (\App\Support\TenantPermissions::userCan('CustomReport', 'read'))<li><a href="{{ url('employee-structure/custom-reports') }}"
+										class="{{ Request::is('employee-structure/custom-reports*') ? 'active' : '' }}">Custom Reports</a></li>@endif
 							</ul>
 						</li>
 						<li class="submenu">

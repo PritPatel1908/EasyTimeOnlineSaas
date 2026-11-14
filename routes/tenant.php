@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Tenant\AuthController;
 use App\Http\Controllers\Tenant\CategoryController;
+use App\Http\Controllers\Tenant\CustomReportController;
 use App\Http\Controllers\Tenant\CoffApplicationController;
 use App\Http\Controllers\Tenant\LeaveApplicationController;
 use App\Http\Controllers\Tenant\LeaveGroupController;
@@ -756,6 +757,16 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                     Route::post('categories/filter', [CategoryController::class, 'filterStatus'])->middleware('tenant.permission:Category,read')->name('categories.filter');
                     Route::get('categories/create', [CategoryController::class, 'create'])->middleware('tenant.permission:Category,create')->name('categories.create');
                     Route::resource('categories', CategoryController::class)->except(['create'])->middlewareFor('index', 'tenant.permission:Category,read')->middlewareFor('show', 'tenant.permission:Category,read')->middlewareFor('store', 'tenant.permission:Category,create')->middlewareFor('edit', 'tenant.permission:Category,write')->middlewareFor('update', 'tenant.permission:Category,write')->middlewareFor('destroy', 'tenant.permission:Category,delete')->names('categories');
+                    Route::post('custom-reports/filter', [CustomReportController::class, 'filterStatus'])->middleware('tenant.permission:CustomReport,read')->name('custom-reports.filter');
+                    Route::get('custom-reports/create', [CustomReportController::class, 'create'])->middleware('tenant.permission:CustomReport,create')->name('custom-reports.create');
+                    Route::resource('custom-reports', CustomReportController::class)->except(['create'])
+                        ->middlewareFor('index', 'tenant.permission:CustomReport,read')
+                        ->middlewareFor('show', 'tenant.permission:CustomReport,read')
+                        ->middlewareFor('store', 'tenant.permission:CustomReport,create')
+                        ->middlewareFor('edit', 'tenant.permission:CustomReport,write')
+                        ->middlewareFor('update', 'tenant.permission:CustomReport,write')
+                        ->middlewareFor('destroy', 'tenant.permission:CustomReport,delete')
+                        ->names('custom-reports');
                     Route::get('leave-groups', [LeaveGroupController::class, 'index'])->middleware('tenant.permission:LeaveGroup,read')->name('leave-groups.index');
                     Route::get('leave-groups/export', [LeaveGroupController::class, 'export'])->middleware('tenant.permission:LeaveGroup,export')->name('leave-groups.export');
                     Route::get('leave-groups/import/sample', [LeaveGroupController::class, 'downloadImportSample'])->middleware('tenant.permission:LeaveGroup,import')->name('leave-groups.import-sample');

@@ -1,0 +1,15 @@
+@extends('layout.mainlayout')
+@section('content')
+<div class="page-wrapper"><div class="content">
+    @include('partials.flash-alerts')
+    <div class="d-flex justify-content-between page-breadcrumb mb-3">
+        <div><h2 class="mb-1">Edit Custom Report</h2><nav><ol class="breadcrumb mb-0"><li class="breadcrumb-item">Reports</li><li class="breadcrumb-item"><a href="{{ url('employee-structure/custom-reports') }}">Custom Reports</a></li><li class="breadcrumb-item active">Edit Custom Report</li></ol></nav></div>
+    </div>
+    <div class="card"><div class="card-header"><h5 class="mb-0">{{ $customReport->report_name }}</h5></div><div class="card-body">
+        <form method="POST" action="{{ url('employee-structure/custom-reports/'.$customReport->id) }}">@csrf @method('PUT')
+            @include('employee-structure.custom-reports.partials.form-fields')
+            <div class="text-end"><a href="{{ url('employee-structure/custom-reports') }}" class="btn btn-light me-2">Cancel</a><button class="btn btn-primary">Save Changes</button></div>
+        </form>
+    </div></div>
+</div>@include('partials.footer')</div>
+@endsection
