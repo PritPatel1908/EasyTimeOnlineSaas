@@ -334,17 +334,46 @@ Template Name: Smarthr - Bootstrap Admin Template
 			});
 			pages.appendChild(prevBtn);
 
-			for (var i = 0; i < totalPages; i++) {
-				(function (pageIndex) {
-					var pageBtn = document.createElement('button');
-					pageBtn.textContent = String(pageIndex + 1);
-					pageBtn.className = pageIndex === state.page ? 'gridjs-currentPage' : '';
-					pageBtn.addEventListener('click', function () {
-						state.page = pageIndex;
-						render();
-					});
-					pages.appendChild(pageBtn);
-				})(i);
+			function appendPageButton(pageIndex) {
+				var pageBtn = document.createElement('button');
+				pageBtn.textContent = String(pageIndex + 1);
+				pageBtn.className = pageIndex === state.page ? 'gridjs-currentPage' : '';
+				pageBtn.setAttribute('aria-label', 'Page ' + (pageIndex + 1));
+				if (pageIndex === state.page) pageBtn.setAttribute('aria-current', 'page');
+				pageBtn.addEventListener('click', function () {
+					state.page = pageIndex;
+					render();
+				});
+				pages.appendChild(pageBtn);
+			}
+
+			function appendSpread() {
+				var spread = document.createElement('button');
+				spread.className = 'gridjs-spread';
+				spread.textContent = '...';
+				spread.disabled = true;
+				spread.setAttribute('aria-hidden', 'true');
+				pages.appendChild(spread);
+			}
+
+			if (totalPages <= 7) {
+				for (var i = 0; i < totalPages; i++) appendPageButton(i);
+			} else if (state.page < 3) {
+				for (var firstPage = 0; firstPage < 4; firstPage++) appendPageButton(firstPage);
+				appendSpread();
+				appendPageButton(totalPages - 1);
+			} else if (state.page > totalPages - 4) {
+				appendPageButton(0);
+				appendSpread();
+				for (var lastPage = totalPages - 4; lastPage < totalPages; lastPage++) appendPageButton(lastPage);
+			} else {
+				appendPageButton(0);
+				appendSpread();
+				for (var nearbyPage = state.page - 1; nearbyPage <= state.page + 1; nearbyPage++) {
+					appendPageButton(nearbyPage);
+				}
+				appendSpread();
+				appendPageButton(totalPages - 1);
 			}
 
 			var nextBtn = document.createElement('button');

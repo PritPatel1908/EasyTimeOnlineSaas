@@ -279,6 +279,18 @@ class ProcessPendingLogsTest extends TestCase
         Bus::assertNotDispatched(ReprocessAttendanceLogs::class);
     }
 
+    public function test_debug_attendance_log_does_not_enable_persistent_query_logging(): void
+    {
+        $connection = DB::connection();
+        $connection->disableQueryLog();
+
+        $log = new AttendanceLog;
+        $log->setAttribute('debug_me', true);
+        new AttCalculator($log);
+
+        $this->assertFalse($connection->logging());
+    }
+
     public function test_direct_processing_skips_logs_with_status_zero_without_changing_them(): void
     {
         $logId = DB::table('attendance_logs')->insertGetId([

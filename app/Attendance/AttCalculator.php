@@ -22,7 +22,6 @@ use App\Models\Tenant\StatusMuster;
 use App\Models\Tenant\WeekOffMuster;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
@@ -102,9 +101,6 @@ class AttCalculator
     {
         $this->log = $log;
         $this->returnLog = $returnLog;
-        if ($this->returnLog || $this->log->debug_me) {
-            DB::enableQueryLog();
-        }
     }
 
     public function debug($message)
