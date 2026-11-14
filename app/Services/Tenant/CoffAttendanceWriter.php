@@ -53,12 +53,6 @@ class CoffAttendanceWriter
                 $attributes = [
                     'user_id' => $user->id,
                     'date' => $date->toDateString(),
-                    'location_id' => $this->firstId($user->location_id),
-                    'company_id' => $this->firstId($user->company_id),
-                    'department_id' => $user->department_id,
-                    'sub_department_id' => $user->sub_department_id,
-                    'category_id' => $user->category_id,
-                    'sub_category_id' => $user->sub_category_id,
                     'status_master_id' => $statuses->get($statusCode)->id,
                     'is_half_day' => $statusCode !== 'CO',
                     'remarks' => 'CO Against '.$application->coff_against_date->format('Y-m-d'),
@@ -94,12 +88,4 @@ class CoffAttendanceWriter
         return 'CO';
     }
 
-    private function firstId(mixed $value): ?int
-    {
-        if (is_array($value)) {
-            $value = reset($value);
-        }
-
-        return is_numeric($value) ? (int) $value : null;
-    }
 }

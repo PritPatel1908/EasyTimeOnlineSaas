@@ -25,7 +25,6 @@
                     data-default-start-date="{{ now()->startOfMonth()->toDateString() }}"
                     data-default-end-date="{{ now()->endOfMonth()->toDateString() }}">
                     @csrf
-                    <input type="hidden" name="page" value="1">
                     <div class="row align-items-end">
                         <div class="col-md-3 mb-3">
                             <label for="time_card_year" class="form-label">Year</label>
@@ -157,7 +156,6 @@
 
         form.addEventListener('submit', function (event) {
             event.preventDefault();
-            form.elements.page.value = '1';
             filterTimeCard();
         });
 
@@ -186,7 +184,6 @@
             startDate.value = form.dataset.defaultStartDate;
             endDate.value = form.dataset.defaultEndDate;
             form.querySelector('[name="employee_id"]').value = form.dataset.defaultEmployee;
-            form.elements.page.value = '1';
             form.requestSubmit();
         });
 
@@ -246,14 +243,6 @@
                     });
                 return;
             }
-
-            const link = event.target.closest('.pagination a');
-            if (!link) {
-                return;
-            }
-            event.preventDefault();
-            form.elements.page.value = new URL(link.href, window.location.href).searchParams.get('page') || '1';
-            filterTimeCard();
         });
     })();
 </script>

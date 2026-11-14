@@ -9,7 +9,7 @@
                     <tr>
                         <th>Attendance ID</th>
                         <th>Employee</th>
-                        <th>Date</th>
+                        <th data-sortable="true">Date</th>
                         <th>Shift</th>
                         <th>In Time</th>
                         <th>Out Time</th>
@@ -154,10 +154,4 @@
             </table>
         </div>
     </div>
-    @if ($attendanceRecords->hasPages())
-        <div class="card-footer d-flex align-items-center justify-content-between flex-wrap row-gap-2">
-            <p class="mb-0 text-muted fs-13">Showing {{ $attendanceRecords->firstItem() }}–{{ $attendanceRecords->lastItem() }} of {{ $attendanceRecords->total() }} records</p>
-            {{ $attendanceRecords->links() }}
-        </div>
-    @endif
 </div>

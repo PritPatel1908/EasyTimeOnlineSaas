@@ -103,7 +103,8 @@ Template Name: Smarthr - Bootstrap Admin Template
 			var headerHtml = th.innerHTML ? th.innerHTML.trim() : '';
 			return {
 				html: headerHtml || '&nbsp;',
-				sortable: !th.classList.contains('no-sort') && !columnHasMarkup[index]
+				sortable: !th.classList.contains('no-sort')
+					&& (!columnHasMarkup[index] || th.dataset.sortable === 'true')
 			};
 		});
 

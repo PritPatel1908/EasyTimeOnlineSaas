@@ -15,10 +15,6 @@ use Illuminate\Support\Facades\Schema;
  *
  * @property int $id
  * @property int $user_id
- * @property int $location_id
- * @property int $company_id
- * @property int $department_id
- * @property int $sub_department_id
  * @property string $date
  * @property string $shift
  * @property string $shift_in_time
@@ -127,12 +123,6 @@ class Attendance extends Model
         $table->id();
         $table->foreignId('user_id')->constrained();
         $table->date('date');
-        $table->foreignId('location_id')->nullable()->constrained();
-        $table->foreignId('company_id')->nullable()->constrained();
-        $table->json('department_id')->nullable();
-        $table->json('sub_department_id')->nullable();
-        $table->json('category_id')->nullable();
-        $table->json('sub_category_id')->nullable();
         $table->foreignId('shift_id')->nullable()->constrained();
         $table->foreignId('area_id')->nullable()->constrained();
         $table->string('shift_code')->nullable();
@@ -169,13 +159,7 @@ class Attendance extends Model
 
     protected $fillable = [
         'user_id',
-        'location_id',
-        'company_id',
         'area_id',
-        'department_id',
-        'sub_department_id',
-        'category_id',
-        'sub_category_id',
         'date',
         'shift_id',
         'shift_code',
@@ -211,12 +195,6 @@ class Attendance extends Model
 
     protected $casts = [
         'user_id' => 'int',
-        'location_id' => 'int',
-        'company_id' => 'int',
-        'department_id' => 'array',
-        'sub_department_id' => 'array',
-        'category_id' => 'array',
-        'sub_category_id' => 'array',
         'in_log_id' => 'int',
         'out_log_id' => 'int',
         'date' => 'date',
@@ -266,36 +244,6 @@ class Attendance extends Model
     public function outLog()
     {
         return $this->belongsTo(AttendanceLog::class, 'out_log_id');
-    }
-
-    public function location()
-    {
-        return $this->belongsTo(Location::class);
-    }
-
-    public function company()
-    {
-        return $this->belongsTo(Company::class);
-    }
-
-    public function department()
-    {
-        return $this->belongsTo(Department::class);
-    }
-
-    public function sub_department()
-    {
-        return $this->belongsTo(SubDepartment::class);
-    }
-
-    public function category()
-    {
-        return $this->belongsTo(Category::class);
-    }
-
-    public function sub_category()
-    {
-        return $this->belongsTo(SubCategory::class);
     }
 
     public static function year($year)

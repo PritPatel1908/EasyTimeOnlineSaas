@@ -71,12 +71,6 @@ class ApproveCoff implements ShouldBeUnique, ShouldQueue
                         'date' => $fromDate->format('Y-m-d'),
                         'is_locked' => false,
                     ], [
-                        'location_id' => $this->coffApplication->location_id ? $this->coffApplication->location_id : null,
-                        'company_id' => $this->coffApplication->company_id ? $this->coffApplication->company_id : null,
-                        'department_id' => $user->department_id ? $user->department_id : null,
-                        'sub_department_id' => $user->sub_department_id ? $user->sub_department_id : null,
-                        'category_id' => $user->category_id ? $user->category_id : null,
-                        'sub_category_id' => $user->sub_category_id ? $user->sub_category_id : null,
                         'status_master_id' => StatusMaster::where('code', 'ACO')->first()->id,
                         'remarks' => "CO Against {$againsts}",
                     ]);
@@ -87,12 +81,6 @@ class ApproveCoff implements ShouldBeUnique, ShouldQueue
                         'date' => $fromDate->format('Y-m-d'),
                         'is_locked' => false,
                     ], [
-                        'location_id' => $this->coffApplication->location_id ? $this->coffApplication->location_id : null,
-                        'company_id' => $this->coffApplication->company_id ? $this->coffApplication->company_id : null,
-                        'department_id' => $user->department_id ? $user->department_id : null,
-                        'sub_department_id' => $user->sub_department_id ? $user->sub_department_id : null,
-                        'category_id' => $user->category_id ? $user->category_id : null,
-                        'sub_category_id' => $user->sub_category_id ? $user->sub_category_id : null,
                         'status_master_id' => StatusMaster::where('code', 'COA')->first()->id,
                         'remarks' => "CO Against {$againsts}",
                     ]);
@@ -106,12 +94,6 @@ class ApproveCoff implements ShouldBeUnique, ShouldQueue
                         'date' => $fromDate->format('Y-m-d'),
                         'is_locked' => false,
                     ], [
-                        'location_id' => $this->coffApplication->location_id ? $this->coffApplication->location_id : null,
-                        'company_id' => $this->coffApplication->company_id ? $this->coffApplication->company_id : null,
-                        'department_id' => $user->department_id ? $user->department_id : null,
-                        'sub_department_id' => $user->sub_department_id ? $user->sub_department_id : null,
-                        'category_id' => $user->category_id ? $user->category_id : null,
-                        'sub_category_id' => $user->sub_category_id ? $user->sub_category_id : null,
                         'status_master_id' => StatusMaster::where('code', 'ACO')->first()->id,
                         'remarks' => "CO Against {$againsts}",
                     ]);
@@ -123,12 +105,6 @@ class ApproveCoff implements ShouldBeUnique, ShouldQueue
                         'date' => $toDate->format('Y-m-d'),
                         'is_locked' => false,
                     ], [
-                        'location_id' => $this->coffApplication->location_id ? $this->coffApplication->location_id : null,
-                        'company_id' => $this->coffApplication->company_id ? $this->coffApplication->company_id : null,
-                        'department_id' => $user->department_id ? $user->department_id : null,
-                        'sub_department_id' => $user->sub_department_id ? $user->sub_department_id : null,
-                        'category_id' => $user->category_id ? $user->category_id : null,
-                        'sub_category_id' => $user->sub_category_id ? $user->sub_category_id : null,
                         'status_master_id' => StatusMaster::where('code', 'COA')->first()->id,
                         'remarks' => "CO Against {$againsts}",
                     ]);
@@ -143,12 +119,6 @@ class ApproveCoff implements ShouldBeUnique, ShouldQueue
                                 'date' => $date->format('Y-m-d'),
                                 'is_locked' => false,
                             ], [
-                                'location_id' => $this->coffApplication->location_id ? $this->coffApplication->location_id : null,
-                                'company_id' => $this->coffApplication->company_id ? $this->coffApplication->company_id : null,
-                                'department_id' => $user->department_id ? $user->department_id : null,
-                                'sub_department_id' => $user->sub_department_id ? $user->sub_department_id : null,
-                                'category_id' => $user->category_id ? $user->category_id : null,
-                                'sub_category_id' => $user->sub_category_id ? $user->sub_category_id : null,
                                 'status_master_id' => StatusMaster::where('code', 'CO')->first()->id,
                                 'remarks' => "CO Against {$againsts}",
                             ]);
@@ -162,12 +132,6 @@ class ApproveCoff implements ShouldBeUnique, ShouldQueue
                         'date' => $fromDate->format('Y-m-d'),
                         'is_locked' => false,
                     ], [
-                        'location_id' => $this->coffApplication->location_id ? $this->coffApplication->location_id : null,
-                        'company_id' => $this->coffApplication->company_id ? $this->coffApplication->company_id : null,
-                        'department_id' => $user->department_id ? $user->department_id : null,
-                        'sub_department_id' => $user->sub_department_id ? $user->sub_department_id : null,
-                        'category_id' => $user->category_id ? $user->category_id : null,
-                        'sub_category_id' => $user->sub_category_id ? $user->sub_category_id : null,
                         'status_master_id' => StatusMaster::where('code', 'ACO')->first()->id,
                         'remarks' => "CO Against {$againsts}",
                     ]);
@@ -182,12 +146,6 @@ class ApproveCoff implements ShouldBeUnique, ShouldQueue
                                 'date' => $date->format('Y-m-d'),
                                 'is_locked' => false,
                             ], [
-                                'location_id' => $this->coffApplication->location_id ? $this->coffApplication->location_id : null,
-                                'company_id' => $this->coffApplication->company_id ? $this->coffApplication->company_id : null,
-                                'department_id' => $user->department_id ? $user->department_id : null,
-                                'sub_department_id' => $user->sub_department_id ? $user->sub_department_id : null,
-                                'category_id' => $user->category_id ? $user->category_id : null,
-                                'sub_category_id' => $user->sub_category_id ? $user->sub_category_id : null,
                                 'status_master_id' => StatusMaster::where('code', 'CO')->first()->id,
                                 'remarks' => "CO Against {$againsts}",
                             ]);
@@ -201,12 +159,6 @@ class ApproveCoff implements ShouldBeUnique, ShouldQueue
                         'date' => $toDate->format('Y-m-d'),
                         'is_locked' => false,
                     ], [
-                        'location_id' => $this->coffApplication->location_id ? $this->coffApplication->location_id : null,
-                        'company_id' => $this->coffApplication->company_id ? $this->coffApplication->company_id : null,
-                        'department_id' => $user->department_id ? $user->department_id : null,
-                        'sub_department_id' => $user->sub_department_id ? $user->sub_department_id : null,
-                        'category_id' => $user->category_id ? $user->category_id : null,
-                        'sub_category_id' => $user->sub_category_id ? $user->sub_category_id : null,
                         'status_master_id' => StatusMaster::where('code', 'COA')->first()->id,
                         'remarks' => "CO Against {$againsts}",
                     ]);
@@ -222,12 +174,6 @@ class ApproveCoff implements ShouldBeUnique, ShouldQueue
                                     'date' => $date->format('Y-m-d'),
                                     'is_locked' => false,
                                 ], [
-                                    'location_id' => $this->coffApplication->location_id ? $this->coffApplication->location_id : null,
-                                    'company_id' => $this->coffApplication->company_id ? $this->coffApplication->company_id : null,
-                                    'department_id' => $user->department_id ? $user->department_id : null,
-                                    'sub_department_id' => $user->sub_department_id ? $user->sub_department_id : null,
-                                    'category_id' => $user->category_id ? $user->category_id : null,
-                                    'sub_category_id' => $user->sub_category_id ? $user->sub_category_id : null,
                                     'status_master_id' => StatusMaster::where('code', 'CO')->first()->id,
                                     'remarks' => "CO Against {$againsts}",
                                 ]);
@@ -243,12 +189,6 @@ class ApproveCoff implements ShouldBeUnique, ShouldQueue
                             'date' => $date->format('Y-m-d'),
                             'is_locked' => false,
                         ], [
-                            'location_id' => $this->coffApplication->location_id ? $this->coffApplication->location_id : null,
-                            'company_id' => $this->coffApplication->company_id ? $this->coffApplication->company_id : null,
-                            'department_id' => $user->department_id ? $user->department_id : null,
-                            'sub_department_id' => $user->sub_department_id ? $user->sub_department_id : null,
-                            'category_id' => $user->category_id ? $user->category_id : null,
-                            'sub_category_id' => $user->sub_category_id ? $user->sub_category_id : null,
                             'status_master_id' => StatusMaster::where('code', 'CO')->first()->id,
                             'remarks' => "CO Against {$againsts}",
                         ]);

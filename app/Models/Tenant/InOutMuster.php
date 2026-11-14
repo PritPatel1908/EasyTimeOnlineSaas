@@ -34,12 +34,6 @@ class InOutMuster extends Model
         $table->foreignId('user_id')->constrained();
         $table->date('date');
         $table->foreignID('shift_id')->nullable()->constrained()->noActionOnDelete();
-        $table->foreignId('location_id')->nullable()->constrained();
-        $table->foreignId('company_id')->nullable()->constrained();
-        $table->json('department_id')->nullable();
-        $table->json('sub_department_id')->nullable();
-        $table->json('category_id')->nullable();
-        $table->json('sub_category_id')->nullable();
         $table->foreignId('area_id')->nullable()->constrained();
         $table->datetime('check_time', $precision = 0)->nullable();
         $table->datetime('in_time', $precision = 0)->nullable();
@@ -56,12 +50,6 @@ class InOutMuster extends Model
     protected $fillable = [
         'user_id',
         'shift_id',
-        'location_id',
-        'company_id',
-        'department_id',
-        'sub_department_id',
-        'category_id',
-        'sub_category_id',
         'area_id',
         'date',
         'check_time',
@@ -78,12 +66,6 @@ class InOutMuster extends Model
     protected $casts = [
         'user_id' => 'int',
         'shift_id' => 'int', // 'shift_id' => 'array
-        'location_id' => 'int',
-        'company_id' => 'int',
-        'department_id' => 'array',
-        'sub_department_id' => 'array',
-        'category_id' => 'array',
-        'sub_category_id' => 'array',
         'area_id' => 'int',
         'date' => 'date',
         'check_time' => 'datetime',
@@ -114,26 +96,6 @@ class InOutMuster extends Model
     public function outLog()
     {
         return $this->belongsTo(AttendanceLog::class, 'out_log_id');
-    }
-
-    public function location()
-    {
-        return $this->belongsTo(Location::class);
-    }
-
-    public function company()
-    {
-        return $this->belongsTo(Company::class);
-    }
-
-    public function department()
-    {
-        return $this->belongsTo(Department::class);
-    }
-
-    public function sub_department()
-    {
-        return $this->belongsTo(SubDepartment::class);
     }
 
     public function area()

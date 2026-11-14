@@ -54,8 +54,16 @@ class LeaveAttendanceWriterTest extends TestCase
 
         $this->assertNotNull($firstDay);
         $this->assertSame(1, (int) $firstDay->status_master_id);
-        $this->assertNull($firstDay->location_id);
-        $this->assertNull($firstDay->company_id);
+        foreach ([
+            'location_id',
+            'company_id',
+            'department_id',
+            'sub_department_id',
+            'category_id',
+            'sub_category_id',
+        ] as $field) {
+            $this->assertFalse(Schema::hasColumn('attendances2026', $field));
+        }
         $this->assertNull($firstDay->shift_id);
         $this->assertNotNull($lastDay);
         $this->assertSame(2, (int) $lastDay->status_master_id);

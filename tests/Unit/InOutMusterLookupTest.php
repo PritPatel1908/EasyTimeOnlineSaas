@@ -48,11 +48,35 @@ class InOutMusterLookupTest extends TestCase
             $table->boolean('is_locked')->default(false);
             $table->timestamps();
         });
+        Schema::create('shifts', function ($table): void {
+            $table->id();
+            $table->string('name');
+            $table->string('code');
+            $table->time('in_time')->nullable();
+            $table->time('out_time')->nullable();
+            $table->time('auto_from')->nullable();
+            $table->time('auto_to')->nullable();
+            $table->boolean('is_flaxible')->default(false);
+            $table->boolean('is_night_shift')->default(false);
+            $table->boolean('set_cutoff')->default(false);
+            $table->string('cutoff_time')->nullable();
+            $table->softDeletes();
+        });
+        Schema::create('shift_musters', function ($table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('date');
+            $table->boolean('is_locked')->default(false);
+            $table->boolean('is_auto')->default(false);
+            $table->json('shift')->nullable();
+        });
     }
 
     protected function tearDown(): void
     {
         Schema::dropIfExists('in_out_musters2026');
+        Schema::dropIfExists('shift_musters');
+        Schema::dropIfExists('shifts');
         DB::purge('in_out_muster_lookup_test');
         config(['database.default' => $this->originalDefaultConnection]);
         config()->offsetUnset('database.connections.in_out_muster_lookup_test');
@@ -90,6 +114,119 @@ class InOutMusterLookupTest extends TestCase
         $muster = $calculator->queryFixedOutEntry('2026');
 
         $this->assertSame($matchingMusterId, $muster->id);
+    }
+
+    public function test_out_lookup_prefers_an_open_in_over_a_later_closed_muster(): void
+    {
+        $calculator = $this->calculatorFor('2026-03-10 19:30:00', 1);
+        $openInMusterId = $this->insertMuster(
+            1,
+            '2026-03-10 08:45:00',
+            '2026-03-10 08:45:00',
+            null,
+        );
+        $this->insertMuster(
+            1,
+            '2026-03-10 15:25:00',
+            '2026-03-10 14:22:00',
+            '2026-03-10 15:25:00',
+        );
+
+        $muster = $calculator->queryFixedOutEntry('2026');
+
+        $this->assertSame($openInMusterId, $muster->id);
+    }
+
+    public function test_automatic_outside_window_out_punch_reuses_shift_from_same_day_open_in(): void
+    {
+        $shiftId = DB::table('shifts')->insertGetId([
+            'name' => 'Day Shift',
+            'code' => 'SF1',
+            'in_time' => '09:00:00',
+            'out_time' => '21:00:00',
+            'auto_from' => '07:00:00',
+            'auto_to' => '10:00:00',
+        ]);
+        DB::table('shift_musters')->insert([
+            'user_id' => 42,
+            'date' => '2026-03-10',
+            'is_locked' => false,
+            'is_auto' => true,
+            'shift' => json_encode([$shiftId]),
+        ]);
+        $this->insertMuster(
+            1,
+            '2026-03-10 08:45:00',
+            '2026-03-10 08:45:00',
+            null,
+            $shiftId,
+        );
+
+        $log = new AttendanceLog;
+        $log->setAttribute('datetime', Carbon::parse('2026-03-10 22:15:00'));
+        $log->setAttribute('is_out', true);
+        $log->setRelation('user', (new User)->setAttribute('id', 42)->setAttribute('shift_type', 'auto'));
+
+        $calculator = new AttCalculator($log);
+        (new \ReflectionProperty(AttCalculator::class, 'area'))
+            ->setValue($calculator, (new Area)->setAttribute('id', 1));
+        $calculator->f_years = '2026';
+        $calculator->attendance_date = '2026-03-10';
+
+        $calculator->retriveAssignedShift();
+
+        $this->assertSame($shiftId, $calculator->shift->id);
+    }
+
+    public function test_same_day_open_in_muster_overrides_a_matched_automatic_shift(): void
+    {
+        $automaticShiftId = DB::table('shifts')->insertGetId([
+            'name' => 'Automatic Shift',
+            'code' => 'SF1',
+            'in_time' => '09:00:00',
+            'out_time' => '21:00:00',
+            'auto_from' => '07:00:00',
+            'auto_to' => '10:00:00',
+        ]);
+        $musterShiftId = DB::table('shifts')->insertGetId([
+            'name' => 'Open Muster Shift',
+            'code' => 'SF2',
+            'in_time' => '08:00:00',
+            'out_time' => '16:00:00',
+            'auto_from' => '12:00:00',
+            'auto_to' => '16:00:00',
+        ]);
+        DB::table('shift_musters')->insert([
+            'user_id' => 42,
+            'date' => '2026-03-10',
+            'is_locked' => false,
+            'is_auto' => true,
+            'shift' => json_encode([$automaticShiftId]),
+        ]);
+        $this->insertMuster(
+            1,
+            '2026-03-10 08:45:00',
+            '2026-03-10 08:45:00',
+            null,
+            $musterShiftId,
+        );
+
+        $log = new AttendanceLog;
+        $log->setAttribute('datetime', Carbon::parse('2026-03-10 09:30:00'));
+        $log->setAttribute('is_out', true);
+        $log->setRelation('user', (new User)->setAttribute('id', 42)->setAttribute('shift_type', 'auto'));
+
+        $calculator = new AttCalculator($log);
+        (new \ReflectionProperty(AttCalculator::class, 'area'))
+            ->setValue($calculator, (new Area)->setAttribute('id', 1));
+        $calculator->f_years = '2026';
+        $calculator->attendance_date = '2026-03-10';
+
+        $calculator->retriveAssignedShift();
+
+        $this->assertSame($musterShiftId, $calculator->shift->id);
+        $overridesCutoff = new \ReflectionProperty(AttCalculator::class, 'assignedShiftOverridesPunchCutoff');
+        $this->assertTrue($overridesCutoff->getValue($calculator));
     }
 
     public function test_fixed_in_updates_existing_muster_when_its_log_time_changes(): void
@@ -137,11 +274,19 @@ class InOutMusterLookupTest extends TestCase
         return $calculator;
     }
 
-    private function insertMuster(int $areaId, string $checkTime, ?string $inTime, ?string $outTime): int
+    private function insertMuster(
+        int $areaId,
+        string $checkTime,
+        ?string $inTime,
+        ?string $outTime,
+        ?int $shiftId = null,
+    ): int
     {
         return DB::table('in_out_musters2026')->insertGetId([
             'user_id' => 42,
             'area_id' => $areaId,
+            'shift_id' => $shiftId,
+            'date' => substr($checkTime, 0, 10),
             'check_time' => $checkTime,
             'in_time' => $inTime,
             'out_time' => $outTime,

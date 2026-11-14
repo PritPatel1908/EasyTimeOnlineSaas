@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Support;
 
 use App\Models\Tenant\GeneralConfiguration;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\URL;
 
 final class TenantCompanyBranding
@@ -38,14 +39,19 @@ final class TenantCompanyBranding
         $imageUrls = array_fill_keys(self::IMAGE_KEYS, null);
 
         if ($tenant !== null && $tenant !== '') {
-            $imagePaths = GeneralConfiguration::query()
-                ->whereIn('key', self::IMAGE_KEYS)
-                ->pluck('value', 'key');
+            $configuration = new GeneralConfiguration;
+            $connection = $configuration->getConnection();
 
-            foreach (self::IMAGE_KEYS as $key) {
-                $imagePath = $imagePaths->get($key);
-                if (is_string($imagePath) && str_starts_with($imagePath, 'company-images/')) {
-                    $imageUrls[$key] = URL::to('/company-images/'.$key);
+            if (Schema::connection($connection->getName())->hasTable($configuration->getTable())) {
+                $imagePaths = $configuration->newQuery()
+                    ->whereIn('key', self::IMAGE_KEYS)
+                    ->pluck('value', 'key');
+
+                foreach (self::IMAGE_KEYS as $key) {
+                    $imagePath = $imagePaths->get($key);
+                    if (is_string($imagePath) && str_starts_with($imagePath, 'company-images/')) {
+                        $imageUrls[$key] = URL::to('/company-images/'.$key);
+                    }
                 }
             }
         }

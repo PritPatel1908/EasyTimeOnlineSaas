@@ -155,12 +155,6 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
             'date' => $this->manualAttendance->in_time->copy()->format('Y-m-d'),
             'is_locked' => false,
         ], [
-            'location_id' => $this->assignedOrganizationId('location'),
-            'company_id' => $this->assignedOrganizationId('company'),
-            'department_id' => $this->user->department_id,
-            'sub_department_id' => $this->user->sub_department_id,
-            'category_id' => $this->user->category_id,
-            'sub_category_id' => $this->user->sub_category_id,
             'in_time' => $this->manualAttendance->in_time,
             'out_time' => $this->manualAttendance->out_time,
             'work_time' => $inTime !== null && $outTime !== null
@@ -220,24 +214,6 @@ class ApproveUserManualAttendance implements ShouldBeUnique, ShouldQueue
         $this->debug('Single punch is treated as present; timing rules were skipped');
 
         return true;
-    }
-
-    private function assignedOrganizationId(string $field): ?int
-    {
-        $selectedIds = $this->manualAttendance->{$field.'_ids'};
-        if (is_array($selectedIds) && $selectedIds !== []) {
-            $userIds = $this->user->{$field.'_id'};
-            $matchingIds = array_values(array_intersect(
-                array_map('intval', $selectedIds),
-                array_map('intval', (array) $userIds),
-            ));
-
-            return $matchingIds[0] ?? null;
-        }
-
-        $legacyId = $this->manualAttendance->{$field.'_id'};
-
-        return $legacyId === null ? null : (int) $legacyId;
     }
 
     public function assignStatus(): void

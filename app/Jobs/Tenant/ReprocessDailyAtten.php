@@ -65,12 +65,6 @@ class ReprocessDailyAtten implements ShouldBeUnique, ShouldQueue
                         $att = Attendance::year($date->format('Y'))->create([
                             'user_id' => $user->id,
                             'date' => $date->format('Y-m-d'),
-                            // 'location_id' => $user->location_id ? $user->location_id : null,
-                            // 'company_id' => $user->company_id ? $user->company_id : null,
-                            // 'department_id' => $user->department_id ? $user->department_id : null,
-                            // 'sub_department_id' => $user->sub_department_id ? $user->sub_department_id : null,
-                            // 'category_id' => $user->category_id ? $user->category_id : null,
-                            // 'sub_category_id' => $user->sub_category_id ? $user->sub_category_id : null,
                         ]);
 
                         $att->is_holiday = true;
@@ -84,12 +78,6 @@ class ReprocessDailyAtten implements ShouldBeUnique, ShouldQueue
                         $att = Attendance::year($date->format('Y'))->create([
                             'user_id' => $user->id,
                             'date' => $date->format('Y-m-d'),
-                            // 'location_id' => $user->location_id ? $user->location_id : null,
-                            // 'company_id' => $user->company_id ? $user->company_id : null,
-                            // 'department_id' => $user->department_id ? $user->department_id : null,
-                            // 'sub_department_id' => $user->sub_department_id ? $user->sub_department_id : null,
-                            // 'category_id' => $user->category_id ? $user->category_id : null,
-                            // 'sub_category_id' => $user->sub_category_id ? $user->sub_category_id : null,
                         ]);
 
                         $att->is_weekoff = true;
@@ -103,12 +91,6 @@ class ReprocessDailyAtten implements ShouldBeUnique, ShouldQueue
                         $att = Attendance::year($date->format('Y'))->create([
                             'user_id' => $user->id,
                             'date' => $date->format('Y-m-d'),
-                            // 'location_id' => $user->location_id ? $user->location_id : null,
-                            // 'company_id' => $user->company_id ? $user->company_id : null,
-                            // 'department_id' => $user->department_id ? $user->department_id : null,
-                            // 'sub_department_id' => $user->sub_department_id ? $user->sub_department_id : null,
-                            // 'category_id' => $user->category_id ? $user->category_id : null,
-                            // 'sub_category_id' => $user->sub_category_id ? $user->sub_category_id : null,
                         ]);
 
                         $att->is_holiday = true;
@@ -122,12 +104,6 @@ class ReprocessDailyAtten implements ShouldBeUnique, ShouldQueue
                         $att = Attendance::year($date->format('Y'))->create([
                             'user_id' => $user->id,
                             'date' => $date->format('Y-m-d'),
-                            // 'location_id' => $user->location_id ? $user->location_id : null,
-                            // 'company_id' => $user->company_id ? $user->company_id : null,
-                            // 'department_id' => $user->department_id ? $user->department_id : null,
-                            // 'sub_department_id' => $user->sub_department_id ? $user->sub_department_id : null,
-                            // 'category_id' => $user->category_id ? $user->category_id : null,
-                            // 'sub_category_id' => $user->sub_category_id ? $user->sub_category_id : null,
                         ]);
 
                         $att->status_master_id = StatusMaster::where('code', 'AA')->first()->id;

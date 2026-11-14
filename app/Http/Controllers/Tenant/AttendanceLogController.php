@@ -191,7 +191,7 @@ class AttendanceLogController extends Controller
         }
 
         $query = Attendance::year($year)
-            ->with(['user', 'status_master'])
+            ->with(['user', 'shift', 'status_master'])
             ->whereBetween('date', [$startDate, $endDate]);
 
         if ($employeeId !== null) {
@@ -202,8 +202,7 @@ class AttendanceLogController extends Controller
             'attendanceRecords' => $query
                 ->orderByDesc('date')
                 ->latest('id')
-                ->paginate(50)
-                ->withQueryString(),
+                ->get(),
             'employees' => User::query()
                 ->where('user_type', 'employee')
                 ->orderBy('code')

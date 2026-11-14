@@ -1123,6 +1123,72 @@ class ProcessPendingLogsTest extends TestCase
         $this->assertSame(2007, (int) $calculator->curatt->fresh()->out_log_id);
     }
 
+    public function test_same_day_open_in_muster_takes_precedence_over_previous_shift_cutoff(): void
+    {
+        $previousShift = Shift::create([
+            'in_time' => '09:00:00',
+            'out_time' => '21:00:00',
+            'set_cutoff' => true,
+            'cutoff_time' => '36:00:00',
+            'is_night_shift' => false,
+        ]);
+        $sameDayShift = Shift::create([
+            'in_time' => '09:00:00',
+            'out_time' => '21:00:00',
+            'auto_from' => '07:00:00',
+            'auto_to' => '10:00:00',
+            'is_night_shift' => false,
+        ]);
+        DB::table('shift_musters')->insert([
+            'user_id' => 7,
+            'date' => '2026-11-11',
+            'is_locked' => false,
+            'is_auto' => true,
+            'shift' => json_encode([$sameDayShift->id], JSON_THROW_ON_ERROR),
+        ]);
+        Schema::create('in_out_musters2026', function ($table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('date');
+            $table->unsignedBigInteger('shift_id')->nullable();
+            $table->unsignedBigInteger('area_id')->nullable();
+            $table->dateTime('check_time')->nullable();
+            $table->dateTime('in_time')->nullable();
+            $table->dateTime('out_time')->nullable();
+            $table->boolean('is_locked')->default(false);
+        });
+        DB::table('in_out_musters2026')->insert([
+            'user_id' => 7,
+            'date' => '2026-11-11',
+            'shift_id' => $sameDayShift->id,
+            'check_time' => '2026-11-11 09:00:00',
+            'in_time' => '2026-11-11 09:00:00',
+            'out_time' => null,
+            'is_locked' => false,
+        ]);
+
+        $calculator = $this->calculatorWithPreviousPunch(
+            '2026-11-10 23:49:48',
+            true,
+            '2026-11-11 20:55:00',
+        );
+        $log = $this->getCalculatorLog($calculator);
+        $log->setAttribute('is_manual', true);
+        $log->setAttribute('punch_type', 2);
+        $this->createPreviousAttendanceForPunch($calculator, $previousShift, '2026-11-10');
+
+        $calculator->checkInOrOut();
+        $calculator->retriveAssignedShift();
+
+        $this->assertSame($sameDayShift->id, $calculator->shift?->id);
+        $this->assertSame('2026-11-11', $calculator->attendance_date);
+        $this->assertNull((new \ReflectionProperty(AttCalculator::class, 'punchAttendanceDate'))->getValue($calculator));
+        $this->assertStringContainsString(
+            'keeping attendance on 2026-11-11',
+            implode(PHP_EOL, $calculator->getReturnLogs()),
+        );
+    }
+
     public function test_cutoff_duration_also_keeps_night_shift_punches_in_previous_shift_window(): void
     {
         $shift = Shift::create([
@@ -2204,6 +2270,50 @@ class ProcessPendingLogsTest extends TestCase
         $this->assertSame(1.0, $statusMuster->fresh()->day_count);
     }
 
+    public function test_clearing_half_day_status_preserves_overtime_status_in_attendance_and_muster(): void
+    {
+        $presentStatusId = DB::table('status_masters')->insertGetId([
+            'code' => 'PP',
+            'alias' => 'Present',
+            'description' => 'Present',
+        ]);
+        $halfDayStatusId = DB::table('status_masters')->insertGetId([
+            'code' => 'PA',
+            'alias' => 'Present + Absent',
+            'description' => 'Half-day present',
+        ]);
+        $overtimeStatusId = DB::table('status_masters')->insertGetId([
+            'code' => 'PPO',
+            'alias' => 'Present + Overtime',
+            'description' => 'Present with overtime',
+        ]);
+        [$calculator, $attendance] = $this->calculatorWithAbsentRule(
+            punchInTime: '2026-04-15 08:00:00',
+            punchOutTime: '2026-04-15 17:00:00',
+        );
+        $attendance->is_half_day = true;
+        $attendance->is_over_time = true;
+        $attendance->total_overtime_minutes = 60;
+        $attendance->status_master_id = $halfDayStatusId;
+        $attendance->save();
+        $statusMuster = StatusMuster::create([
+            'date' => '2026-04-15',
+            'user_id' => 7,
+            'status_master_id' => $halfDayStatusId,
+            'day_count' => 0.5,
+            'year' => 2026,
+            'is_locked' => false,
+        ]);
+
+        $calculator->checkAbsentRule();
+
+        $this->assertFalse($attendance->fresh()->is_half_day);
+        $this->assertSame($overtimeStatusId, $attendance->fresh()->status_master_id);
+        $this->assertSame($overtimeStatusId, $statusMuster->fresh()->status_master_id);
+        $this->assertSame(1.0, $statusMuster->fresh()->day_count);
+        $this->assertNotSame($presentStatusId, $attendance->fresh()->status_master_id);
+    }
+
     public function test_absent_work_hour_threshold_overrides_half_day_rule_result(): void
     {
         $absentStatus = StatusMaster::create([
@@ -2734,6 +2844,7 @@ class ProcessPendingLogsTest extends TestCase
                 $table->boolean('is_night_shift')->default(false);
                 $table->unsignedBigInteger('in_log_id')->nullable();
                 $table->boolean('is_locked')->default(false);
+                $table->timestamps();
             });
         }
 

@@ -585,16 +585,16 @@ class WorkHrsReportGenerator
                     $row[] = $attendance->user->name ? $attendance->user->name : '';
                     break;
                 case 'location_name':
-                    $row[] = is_array($attendance->location_id) ? collect(Location::whereIn('id', $attendance->location_id)->get())->pluck('name')->implode(', ') : ($attendance->location ? $attendance->location->name : '');
+                    $row[] = '';
                     break;
                 case 'location_code':
-                    $row[] = is_array($attendance->location_id) ? collect(Location::whereIn('id', $attendance->location_id)->get())->pluck('code')->implode(', ') : ($attendance->location ? $attendance->location->name : '');
+                    $row[] = '';
                     break;
                 case 'company_name':
-                    $row[] = is_array($attendance->company_id) ? collect(Company::whereIn('id', $attendance->company_id)->get())->pluck('name')->implode(', ') : ($attendance->company ? $attendance->company->name : '');
+                    $row[] = '';
                     break;
                 case 'company_code':
-                    $row[] = is_array($attendance->company_id) ? collect(Company::whereIn('id', $attendance->company_id)->get())->pluck('code')->implode(', ') : ($attendance->company ? $attendance->company->code : '');
+                    $row[] = '';
                     break;
                 case 'department_name':
                     $row[] = is_array($attendance->user->department_id) ? collect(Department::whereIn('id', $attendance->user->department_id)->get())->pluck('name')->implode(', ') : ($attendance->user->department ? $attendance->user->department->name : '');

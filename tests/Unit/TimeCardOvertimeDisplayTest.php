@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit;
 
 use Carbon\Carbon;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Tests\TestCase;
 
 class TimeCardOvertimeDisplayTest extends TestCase
@@ -41,6 +40,22 @@ class TimeCardOvertimeDisplayTest extends TestCase
         $this->assertStringContainsString('class="btn btn-sm btn-light border text-dark time-card-punches"', $html);
         $this->assertStringNotContainsString('btn-link', $html);
         $this->assertStringContainsString('data-attendance-id="1"', $html);
+    }
+
+    public function test_date_column_is_sortable_while_containing_a_punch_button(): void
+    {
+        $html = $this->renderAttendanceRecord(false, 0, 0, 0);
+
+        $this->assertStringContainsString('<th data-sortable="true">Date</th>', $html);
+    }
+
+    public function test_records_use_only_the_datatable_pagination(): void
+    {
+        $html = $this->renderAttendanceRecord(false, 0, 0, 0);
+
+        $this->assertStringContainsString('<table class="table datatable">', $html);
+        $this->assertStringNotContainsString('Showing 1–', $html);
+        $this->assertStringNotContainsString('pagination', $html);
     }
 
     private function renderAttendanceRecord(
@@ -79,7 +94,7 @@ class TimeCardOvertimeDisplayTest extends TestCase
             'is_weekoff' => false,
             'status_master' => (object) ['alias' => null],
         ];
-        $attendanceRecords = new LengthAwarePaginator([$attendance], 1, 50);
+        $attendanceRecords = collect([$attendance]);
 
         return view('time-management.time-card.partials.records', [
             'attendanceRecords' => $attendanceRecords,

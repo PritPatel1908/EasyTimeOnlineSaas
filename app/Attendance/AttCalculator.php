@@ -1024,10 +1024,20 @@ class AttCalculator
         } else {
             if ($this->log->user->category->single_punch_allowed_present != null && $this->log->user->category->single_punch_allowed_present == 'true' && $this->curatt->in_time) {
                 $this->debug('Single Punch Allowed');
-                $statusMaster = StatusMaster::where('code', $this->presentStatusCode())->firstOrFail();
-                $this->curatt->status_master_id = $statusMaster->id;
-                $this->curatt->save();
+                $startedAt = microtime(true);
+                $statusCode = $this->presentStatusCode();
+                $this->debugIfSlow('Resolving single-punch attendance status', $startedAt);
 
+                $startedAt = microtime(true);
+                $statusMaster = StatusMaster::where('code', $statusCode)->firstOrFail();
+                $this->debugIfSlow('Loading single-punch status master', $startedAt);
+
+                $this->curatt->status_master_id = $statusMaster->id;
+                $startedAt = microtime(true);
+                $this->curatt->save();
+                $this->debugIfSlow('Saving single-punch attendance status', $startedAt);
+
+                $startedAt = microtime(true);
                 StatusMuster::where('user_id', $this->log->user->id)
                     ->where('is_locked', false)
                     ->where('date', $this->log->datetime->format('Y-m-d'))
@@ -1035,6 +1045,7 @@ class AttCalculator
                         'status_master_id' => $statusMaster->id,
                         'day_count' => 1.0,
                     ]);
+                $this->debugIfSlow('Updating single-punch status muster', $startedAt);
             } else {
                 if ($this->curatt->in_time && $this->curatt->out_time == null) {
                     $this->debug('User in time get and out time null');
@@ -1091,6 +1102,7 @@ class AttCalculator
             }
         }
 
+        $startedAt = microtime(true);
         if ($this->log->is_manual) {
             $this->curatt->is_manual = true;
             $this->curatt->save();
@@ -1098,10 +1110,23 @@ class AttCalculator
             $this->curatt->is_manual = false;
             $this->curatt->save();
         }
+        $this->debugIfSlow('Saving manual punch flag', $startedAt);
 
         // Handle cutoff time logic
+        $startedAt = microtime(true);
         $this->handleCutoffTime();
+        $this->debugIfSlow('Handling attendance cutoff', $startedAt);
+        $startedAt = microtime(true);
         $this->applyFlexibleShiftTimesToAttendance();
+        $this->debugIfSlow('Applying flexible shift times', $startedAt);
+    }
+
+    private function debugIfSlow(string $operation, float $startedAt): void
+    {
+        $durationMs = (microtime(true) - $startedAt) * 1000;
+        if ($durationMs >= 1000) {
+            $this->debug($operation.' took '.(int) round($durationMs).' ms');
+        }
     }
 
     private function updateStatusMuster(string $statusCode, ?float $dayCount = null, bool $incrementDayCount = false): void
@@ -1136,6 +1161,13 @@ class AttCalculator
 
     private function presentStatusCode(): string
     {
+        if (
+            (bool) ($this->curatt?->is_over_time)
+            || (int) ($this->curatt?->total_overtime_minutes ?? 0) > 0
+        ) {
+            return 'PPO';
+        }
+
         if ((bool) ($this->curatt?->is_holiday)) {
             return 'WHP';
         }
@@ -1716,12 +1748,6 @@ class AttCalculator
                 'date' => $this->attendance_date,
                 'is_locked' => false,
             ], [
-                'location_id' => $this->machine?->location_id,
-                'company_id' => $this->machine?->company_id,
-                'department_id' => $this->log->user->department_id,
-                'sub_department_id' => $this->log->user->sub_department_id,
-                'category_id' => $this->log->user->category_id,
-                'sub_category_id' => $this->log->user->sub_category_id,
                 'area_id' => $this->area?->id,
             ]);
         }
@@ -1794,6 +1820,23 @@ class AttCalculator
 
                 $this->debug('Shift #'.$shift->code.' is not matched');
                 $this->debug('BOOL'.$this->log->datetime.'|'.$autoFrom.'|'.$autoTo);
+            }
+        }
+
+        if ($this->log->is_out) {
+            $openMuster = $this->queryFixedOutEntry($this->log->datetime->year);
+            if (
+                $openMuster !== null
+                && $openMuster->date?->toDateString() === $this->log->datetime->toDateString()
+                && $openMuster->shift !== null
+            ) {
+                $this->shift = $openMuster->shift;
+                $this->attendance_date = $this->log->datetime->toDateString();
+                $this->attendance_changed = false;
+                $this->punchAttendanceDate = null;
+                $this->f_years = $this->log->datetime->year;
+                $this->assignedShiftOverridesPunchCutoff = true;
+                $this->debug('Using same-day open InOutMuster #'.$openMuster->id.' for Out punch and keeping attendance on '.$this->attendance_date);
             }
         }
 
@@ -4267,12 +4310,6 @@ class AttCalculator
                         ],
                         [
 
-                            'location_id' => $this->machine?->location_id,
-                            'company_id' => $this->machine?->company_id,
-                            'department_id' => $this->log->user->department_id,
-                            'sub_department_id' => $this->log->user->sub_department_id,
-                            'category_id' => $this->log->user->category_id,
-                            'sub_category_id' => $this->log->user->sub_category_id,
                             'shift_id' => $this->shift?->id,
                             'check_time' => $out_time,
                             'out_time' => $out_time,
@@ -4294,12 +4331,6 @@ class AttCalculator
                         'in_log_id' => $this->log->id,
                         'is_locked' => false,
                     ], [
-                        'location_id' => $this->machine?->location_id,
-                        'company_id' => $this->machine?->company_id,
-                        'department_id' => $this->log->user->department_id,
-                        'sub_department_id' => $this->log->user->sub_department_id,
-                        'category_id' => $this->log->user->category_id,
-                        'sub_category_id' => $this->log->user->sub_category_id,
                         'check_time' => $this->log->datetime,
                         'shift_id' => $this->shift?->id,
                         // 'out_time' => null,
@@ -4323,12 +4354,6 @@ class AttCalculator
                     'is_locked' => false,
                 ], [
 
-                    'location_id' => $this->machine?->location_id,
-                    'company_id' => $this->machine?->company_id,
-                    'department_id' => $this->log->user->department_id,
-                    'sub_department_id' => $this->log->user->sub_department_id,
-                    'category_id' => $this->log->user->category_id,
-                    'sub_category_id' => $this->log->user->sub_category_id,
                     'check_time' => $this->log->datetime,
                     'shift_id' => $this->shift?->id,
                     // 'out_time' => null,
@@ -4349,12 +4374,6 @@ class AttCalculator
                 'in_log_id' => $this->log->id,
                 'is_locked' => false,
             ], [
-                'location_id' => $this->machine?->location_id,
-                'company_id' => $this->machine?->company_id,
-                'department_id' => $this->log->user->department_id,
-                'sub_department_id' => $this->log->user->sub_department_id,
-                'category_id' => $this->log->user->category_id,
-                'sub_category_id' => $this->log->user->sub_category_id,
                 'shift_id' => $this->shift?->id,
                 'check_time' => $this->log->datetime,
                 // 'out_time' => null,
@@ -4433,12 +4452,6 @@ class AttCalculator
                         ],
                         [
 
-                            'location_id' => $this->machine?->location_id,
-                            'company_id' => $this->machine?->company_id,
-                            'department_id' => $this->log->user->department_id,
-                            'sub_department_id' => $this->log->user->sub_department_id,
-                            'category_id' => $this->log->user->category_id,
-                            'sub_category_id' => $this->log->user->sub_category_id,
                             'shift_id' => $this->shift?->id,
                             'check_time' => $this->log->datetime,
                             'in_time' => $in_time,
@@ -4460,12 +4473,6 @@ class AttCalculator
                         'is_locked' => false,
                     ], [
 
-                        'location_id' => $this->machine?->location_id,
-                        'company_id' => $this->machine?->company_id,
-                        'department_id' => $this->log->user->department_id,
-                        'sub_department_id' => $this->log->user->sub_department_id,
-                        'category_id' => $this->log->user->category_id,
-                        'sub_category_id' => $this->log->user->sub_category_id,
                         'shift_id' => $this->shift?->id,
                         'date' => $this->attendance_date, // $this->log->datetime->toDateString(),
                         'check_time' => $this->log->datetime,
@@ -4488,12 +4495,6 @@ class AttCalculator
                     'is_locked' => false,
                 ], [
 
-                    'location_id' => $this->machine?->location_id,
-                    'company_id' => $this->machine?->company_id,
-                    'department_id' => $this->log->user->department_id,
-                    'sub_department_id' => $this->log->user->sub_department_id,
-                    'category_id' => $this->log->user->category_id,
-                    'sub_category_id' => $this->log->user->sub_category_id,
                     'date' => $this->attendance_date, // $this->log->datetime->toDateString(),
                     'shift_id' => $this->shift?->id,
                     'check_time' => $this->log->datetime,
@@ -4515,13 +4516,7 @@ class AttCalculator
                 'out_log_id' => $this->log->id,
                 'is_locked' => false,
             ], [
-                'location_id' => $this->machine?->location_id,
-                'company_id' => $this->machine?->company_id,
-                'department_id' => $this->log->user->department_id,
-                'category_id' => $this->log->user->category_id,
-                'sub_category_id' => $this->log->user->sub_category_id,
                 'shift_id' => $this->shift?->id,
-                'sub_department_id' => $this->log->user->sub_department_id,
                 'check_time' => $this->log->datetime,
                 // 'in_time' => null,
                 // 'in_log_id' => null,
@@ -4542,11 +4537,14 @@ class AttCalculator
             ->where('user_id', $this->log->user->id)
             ->where('area_id', $this->area?->id)
             ->where('is_locked', false)
+            ->whereNotNull('in_time')
+            ->where('in_time', '<=', $this->log->datetime)
             ->where(function (Builder $query) {
-                $query->where('check_time', '<=', $this->log->datetime)
+                $query->whereNull('out_time')
                     ->orWhere('out_time', '>=', $this->log->datetime);
             })
             ->where('check_time', '>=', $this->log->datetime->copy()->subDay()->startOfDay())
+            ->orderBy('in_time', 'desc')
             ->orderBy('check_time', 'desc')
             ->limit(1)
             ->first();

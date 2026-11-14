@@ -69,12 +69,6 @@ class ApproveOd implements ShouldBeUnique, ShouldQueue
                     'user_id' => $user->id,
                     'date' => $date->format('Y-m-d'),
                 ], [
-                    'location_id' => $this->odApplication->location_id ? $this->odApplication->location_id : null,
-                    'company_id' => $this->odApplication->company_id ? $this->odApplication->company_id : null,
-                    'department_id' => $user->department_id ? $user->department_id : null,
-                    'sub_department_id' => $user->sub_department_id ? $user->sub_department_id : null,
-                    'category_id' => $user->category_id ? $user->category_id : null,
-                    'sub_category_id' => $user->sub_category_id ? $user->sub_category_id : null,
                     'status_master_id' => StatusMaster::where('code', 'OD')->first()->id,
                     'remarks' => $this->odApplication->reason ? $this->odApplication->reason : null,
                 ]);
