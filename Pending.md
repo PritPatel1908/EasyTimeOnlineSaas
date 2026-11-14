@@ -8,3 +8,4 @@
 8. Auto leave credits ba proper scheduler banava and ena pachi leave application proper function add karvu.
 9. Badhi application form and import ma proper validation add akrvana che as per easytime old.
 10. jyare leave lidhi hoy full day / half day and ye divse koi punche kare and full day ni leave hoy and ye divse jo ena half day jetlo punch thyo hoy to half leave auto credit thy jay and full day jetla punch kre to full day ni leave credit thy jay and ye vakhte koi leave cancle kre to pan balance proper jetlu credit na thyu hoy etlu j thay.
+11. jyare eployee clone akriye tyare ni week off details clone nathi tati.

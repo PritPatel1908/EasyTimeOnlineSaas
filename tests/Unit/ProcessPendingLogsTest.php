@@ -6,6 +6,7 @@ namespace Tests\Unit;
 
 use App\Attendance\AttCalculator;
 use App\Jobs\Tenant\ProcessPendingLogs;
+use App\Jobs\Tenant\ProcessPendingLogsBatch;
 use App\Jobs\Tenant\ReprocessAttendanceLogs;
 use App\Models\Tenant\AbsentRule;
 use App\Models\Tenant\Attendance;
@@ -26,6 +27,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use RuntimeException;
 use Tests\TestCase;
 
 class ProcessPendingLogsTest extends TestCase
@@ -315,6 +317,47 @@ class ProcessPendingLogsTest extends TestCase
         $log = DB::table('attendance_logs')->where('id', $logId)->first();
         $this->assertSame(0, (int) $log->is_calculated);
         $this->assertSame(0, (int) $log->is_staged);
+    }
+
+    public function test_pending_batch_marks_a_failed_log_and_continues_with_later_logs(): void
+    {
+        $failedLogId = DB::table('attendance_logs')->insertGetId([
+            'user_code' => 'FAILED',
+            'datetime' => '2026-03-10 09:00:00',
+        ]);
+        $nextLogId = DB::table('attendance_logs')->insertGetId([
+            'user_code' => 'NEXT',
+            'datetime' => '2026-03-10 09:01:00',
+        ]);
+
+        $job = new class($failedLogId) extends ProcessPendingLogsBatch
+        {
+            public function __construct(private int $failedLogId)
+            {
+                parent::__construct();
+            }
+
+            protected function processLog(int $logId): void
+            {
+                if ($logId === $this->failedLogId) {
+                    throw new RuntimeException('Test processing failure');
+                }
+
+                AttendanceLog::query()->whereKey($logId)->update(['is_calculated' => true]);
+            }
+        };
+        $job->handle();
+
+        $failedLog = AttendanceLog::query()->findOrFail($failedLogId);
+        $nextLog = AttendanceLog::query()->findOrFail($nextLogId);
+
+        $this->assertTrue($failedLog->has_error);
+        $this->assertSame(1, DB::table('process_tags')
+            ->where('taggable_type', AttendanceLog::class)
+            ->where('taggable_id', $failedLogId)
+            ->where('name', 'Processing Error')
+            ->count());
+        $this->assertTrue($nextLog->is_calculated);
     }
 
     public function test_attendance_calculator_uses_only_fully_approved_leave_applications(): void

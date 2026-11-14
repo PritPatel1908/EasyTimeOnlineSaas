@@ -172,12 +172,12 @@ Add:
 ```ini
 [program:laravel-queue]
 process_name=%(program_name)s_%(process_num)02d
-command=php /var/www/easytimeonline/artisan queue:work database_tenant --queue=notifications,import,export,activity-log,processing,low --sleep=3 --tries=3
+command=php /var/www/easytimeonline/artisan queue:work database_tenant --queue=notifications,import,export,activity-log,processing,low --sleep=3 --tries=3 --timeout=3600
 directory=/var/www/easytimeonline
 autostart=true
 autorestart=true
 startsecs=10
-stopwaitsecs=10
+stopwaitsecs=3700
 numprocs=3
 user=www-data
 redirect_stderr=true
@@ -428,7 +428,7 @@ php artisan optimize:clear
 ### Start queue manually
 
 ```bash
-php artisan queue:work database_tenant --queue=notifications,import,export,activity-log --tries=3
+php artisan queue:work database_tenant --queue=notifications,import,export,activity-log --tries=3 --timeout=3600
 ```
 
 ### Start Supervisor workers

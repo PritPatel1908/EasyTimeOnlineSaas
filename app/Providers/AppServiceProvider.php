@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Exceptions\DeleteBlockedException;
 use App\Helpers\DatabaseReferenceChecker;
 use App\Models\Tenant\AttendanceLog;
+use App\Services\Tenant\MasterSnapshotService;
 use App\Support\TenantCompanyBranding;
 use App\Support\TenantPermissions;
 use Illuminate\Database\Eloquent\Model;
@@ -37,6 +38,24 @@ class AppServiceProvider extends ServiceProvider
         }
 
         TenantPermissions::registerGateHook();
+
+        Event::listen('eloquent.created: *', static function (mixed ...$payload): void {
+            $models = $payload[1] ?? [];
+            $model = $models[0] ?? null;
+
+            if ($model instanceof Model) {
+                app(MasterSnapshotService::class)->captureCreated($model);
+            }
+        });
+
+        Event::listen('eloquent.updated: *', static function (mixed ...$payload): void {
+            $models = $payload[1] ?? [];
+            $model = $models[0] ?? null;
+
+            if ($model instanceof Model) {
+                app(MasterSnapshotService::class)->captureUpdated($model);
+            }
+        });
 
         Event::listen('eloquent.deleting: *', static function (mixed ...$payload): void {
             $models = $payload[1] ?? [];

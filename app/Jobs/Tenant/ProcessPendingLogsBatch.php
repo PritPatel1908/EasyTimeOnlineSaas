@@ -19,9 +19,9 @@ class ProcessPendingLogsBatch implements ShouldBeUnique, ShouldQueue
 
     public int $uniqueFor = 3600;
 
-    public function __construct(public bool $staged = false)
-    {
-    }
+    public int $timeout = 3600;
+
+    public function __construct(public bool $staged = false) {}
 
     public function uniqueId(): string
     {
@@ -35,7 +35,6 @@ class ProcessPendingLogsBatch implements ShouldBeUnique, ShouldQueue
         $hasCursor = false;
         $processed = 0;
         $failed = 0;
-        $firstFailure = null;
 
         while (true) {
             $query = AttendanceLog::query()
@@ -76,25 +75,37 @@ class ProcessPendingLogsBatch implements ShouldBeUnique, ShouldQueue
                 $hasCursor = true;
 
                 try {
-                    (new ProcessPendingLogs($cursorId))->handle();
+                    $this->processLog($cursorId);
                     $processed++;
                 } catch (\Throwable $exception) {
                     $failed++;
-                    $firstFailure ??= $exception;
                     Log::channel('attprocess')->error(
-                        'Failed to process attendance log #'.$cursorId,
+                        'Failed to process attendance log #' . $cursorId,
                         ['exception' => $exception]
                     );
+                    $this->markLogAsProcessingError($cursorId);
                 }
             }
         }
 
         Log::channel('attprocess')->debug(
-            'Processed '.$processed.' '.($this->staged ? 'staged ' : '').'attendance logs in chunks; failed: '.$failed
+            'Processed ' . $processed . ' ' . ($this->staged ? 'staged ' : '') . 'attendance logs in chunks; failed: ' . $failed
         );
+    }
 
-        if ($firstFailure !== null) {
-            throw $firstFailure;
-        }
+    protected function processLog(int $logId): void
+    {
+        (new ProcessPendingLogs($logId))->handle();
+    }
+
+    private function markLogAsProcessingError(int $logId): void
+    {
+        $log = AttendanceLog::query()->findOrFail($logId);
+        $log->forceFill(['has_error' => true])->save();
+        $log->process_tags()->create([
+            'name' => 'Processing Error',
+            'color' => 'danger',
+            'icon' => 'heroicon-o-exclamation-triangle',
+        ]);
     }
 }

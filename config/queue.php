@@ -95,7 +95,7 @@ return [
             'connection'   => 'central',
             'table'        => env('DB_QUEUE_TABLE', 'jobs'),
             'queue'        => 'notifications',
-            'retry_after'  => (int) env('DB_QUEUE_TENANT_RETRY_AFTER', 3660), // Keep above tenant batch-job timeout.
+            'retry_after'  => (int) env('DB_QUEUE_TENANT_RETRY_AFTER', 3660), // Must exceed ProcessPendingLogsBatch::$timeout.
             'after_commit' => false,
             // NO 'central' flag → QueueTenancyBootstrapper injects tenant_id.
             // Keep this on the shared central queue DB so workers can find jobs

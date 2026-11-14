@@ -72,7 +72,7 @@ QUEUE_NAMES=notifications,import,export,activity-log,processing,low bash queue-w
 
 # Alternative explicit command
 
-php artisan queue:work database_tenant --queue=tenant,notifications,import,export,activity-log,processing,low --sleep=3 --tries=3
+php artisan queue:work database_tenant --queue=tenant,notifications,import,export,activity-log,processing,low --sleep=3 --tries=3 --timeout=3600
 
 php artisan tenants:run app:create-leave-muster
 php artisan tenants:run app:check-leave-balance
