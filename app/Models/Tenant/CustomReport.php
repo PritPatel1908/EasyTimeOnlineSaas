@@ -25,4 +25,9 @@ class CustomReport extends Model
     {
         return $this->hasMany(CustomReportDetail::class);
     }
+
+    public function generations()
+    {
+        return $this->hasMany(CustomReportGeneration::class);
+    }
 }

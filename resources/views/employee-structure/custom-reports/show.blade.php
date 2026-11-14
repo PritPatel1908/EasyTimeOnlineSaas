@@ -58,5 +58,52 @@
         </div>
     </div>
     <div class="card"><div class="card-header"><h5 class="mb-0">Custom Report Filter</h5></div><div class="card-body"><pre class="mb-0">{{ json_encode($customReportDetail?->custom_report_filter ?? [], $jsonFlags) }}</pre></div></div>
+    <div class="card mt-4">
+        <div class="card-header"><h5 class="mb-0">Generate and Download</h5></div>
+        <div class="card-body">
+            <p class="text-muted">This creates an empty table with the configured field headings. Report data generation will be added separately.</p>
+            <form method="POST" action="{{ url('employee-structure/custom-reports/'.$customReport->id.'/generate') }}" class="d-flex align-items-end gap-2 flex-wrap mb-4">
+                @csrf
+                <div>
+                    <label class="form-label" for="custom_report_format">File format</label>
+                    <select id="custom_report_format" name="report_format" class="form-control" required>
+                        <option value="csv">CSV</option>
+                        <option value="xlsx">Excel (.xlsx)</option>
+                        <option value="pdf">PDF</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary"><i class="ti ti-file-export me-1"></i>Generate report</button>
+            </form>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead><tr><th>Requested</th><th>Format</th><th>Status</th><th></th></tr></thead>
+                    <tbody>
+                        @forelse($customReport->generations as $generation)
+                            <tr>
+                                <td>{{ $generation->created_at->format('Y-m-d H:i:s') }}</td>
+                                <td>{{ strtoupper($generation->report_format->value) }}</td>
+                                <td>{{ ucfirst($generation->report_status->value) }}</td>
+                                <td class="text-end">
+                                    @if($generation->report_status === \App\Enums\ReportStatus::generated)
+                                        <a class="btn btn-sm btn-outline-primary" href="{{ url('employee-structure/custom-reports/'.$customReport->id.'/generations/'.$generation->id.'/download') }}"><i class="ti ti-download me-1"></i>Download</a>
+                                    @elseif($generation->report_status === \App\Enums\ReportStatus::error)
+                                        <span class="text-danger me-2">Generation failed</span>
+                                        <form method="POST" action="{{ url('employee-structure/custom-reports/'.$customReport->id.'/generations/'.$generation->id.'/regenerate') }}" class="d-inline">
+                                            @csrf
+                                            <button type="submit" class="btn btn-sm btn-outline-primary"><i class="ti ti-refresh me-1"></i>Regenerate</button>
+                                        </form>
+                                    @else
+                                        <span class="text-muted">Refresh to check status</span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="4" class="text-center text-muted">No generated files yet.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>@include('partials.footer')</div>
 @endsection

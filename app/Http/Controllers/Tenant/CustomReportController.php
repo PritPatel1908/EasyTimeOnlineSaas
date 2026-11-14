@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Enums\ReportFormat;
+use App\Enums\ReportStatus;
+use App\Jobs\Tenant\GenerateCustomReportExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tenant\StoreCustomReportRequest;
 use App\Http\Requests\Tenant\UpdateCustomReportRequest;
@@ -13,6 +16,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class CustomReportController extends Controller
 {
@@ -33,8 +38,74 @@ class CustomReportController extends Controller
     {
         return view('employee-structure.custom-reports.show', [
             'customReport' => CustomReport::query()
-                ->with('custom_report_details')
+                ->with([
+                    'custom_report_details',
+                    'generations' => static fn ($query) => $query->latest()->limit(10),
+                ])
                 ->findOrFail($request->route('custom_report')),
+        ]);
+    }
+
+    public function generate(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'report_format' => ['required', 'in:csv,pdf,xlsx'],
+        ]);
+        $customReport = CustomReport::query()->findOrFail($request->route('custom_report'));
+        $generation = $customReport->generations()->create([
+            'report_format' => ReportFormat::from($validated['report_format']),
+            'report_status' => ReportStatus::generating,
+        ]);
+
+        GenerateCustomReportExport::dispatch($generation->id, (string) tenant('id'))
+            ->onConnection('database_tenant')
+            ->onQueue('export');
+
+        return redirect(url(self::INDEX_URL.'/'.$customReport->id))
+            ->with('success', 'Custom report generation has started. Refresh this page to check its status.');
+    }
+
+    public function regenerate(Request $request): RedirectResponse
+    {
+        $customReport = CustomReport::query()->findOrFail($request->route('custom_report'));
+        $failedGeneration = $customReport->generations()->findOrFail($request->route('generation'));
+        abort_unless($failedGeneration->report_status === ReportStatus::error, 404);
+
+        $generation = $customReport->generations()->create([
+            'report_format' => $failedGeneration->report_format,
+            'report_status' => ReportStatus::generating,
+        ]);
+
+        GenerateCustomReportExport::dispatch($generation->id, (string) tenant('id'))
+            ->onConnection('database_tenant')
+            ->onQueue('export');
+
+        return redirect(url(self::INDEX_URL.'/'.$customReport->id))
+            ->with('success', 'Custom report regeneration has started. Refresh this page to check its status.');
+    }
+
+    public function downloadGeneration(Request $request): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $customReport = CustomReport::query()->findOrFail($request->route('custom_report'));
+        $generation = $customReport->generations()->findOrFail($request->route('generation'));
+
+        abort_unless(
+            $generation->report_status === ReportStatus::generated
+                && $generation->report_path !== null
+                && Storage::disk('local')->exists($generation->report_path),
+            404,
+        );
+
+        $format = $generation->report_format->value;
+        $contentTypes = [
+            'csv' => 'text/csv; charset=UTF-8',
+            'pdf' => 'application/pdf',
+            'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ];
+        $fileName = (Str::slug($customReport->report_name) ?: 'custom-report').'.'.$format;
+
+        return Storage::disk('local')->download($generation->report_path, $fileName, [
+            'Content-Type' => $contentTypes[$format],
         ]);
     }
 

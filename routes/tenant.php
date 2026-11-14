@@ -759,6 +759,9 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                     Route::resource('categories', CategoryController::class)->except(['create'])->middlewareFor('index', 'tenant.permission:Category,read')->middlewareFor('show', 'tenant.permission:Category,read')->middlewareFor('store', 'tenant.permission:Category,create')->middlewareFor('edit', 'tenant.permission:Category,write')->middlewareFor('update', 'tenant.permission:Category,write')->middlewareFor('destroy', 'tenant.permission:Category,delete')->names('categories');
                     Route::post('custom-reports/filter', [CustomReportController::class, 'filterStatus'])->middleware('tenant.permission:CustomReport,read')->name('custom-reports.filter');
                     Route::get('custom-reports/create', [CustomReportController::class, 'create'])->middleware('tenant.permission:CustomReport,create')->name('custom-reports.create');
+                    Route::post('custom-reports/{custom_report}/generate', [CustomReportController::class, 'generate'])->middleware('tenant.permission:CustomReport,read')->name('custom-reports.generate');
+                    Route::post('custom-reports/{custom_report}/generations/{generation}/regenerate', [CustomReportController::class, 'regenerate'])->middleware('tenant.permission:CustomReport,read')->name('custom-reports.generations.regenerate');
+                    Route::get('custom-reports/{custom_report}/generations/{generation}/download', [CustomReportController::class, 'downloadGeneration'])->middleware('tenant.permission:CustomReport,read')->name('custom-reports.generations.download');
                     Route::resource('custom-reports', CustomReportController::class)->except(['create'])
                         ->middlewareFor('index', 'tenant.permission:CustomReport,read')
                         ->middlewareFor('show', 'tenant.permission:CustomReport,read')
