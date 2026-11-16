@@ -278,6 +278,36 @@ class AttCalculator
             $maxGapSeconds = $previousShift !== null && ! $previousShift->set_cutoff
                 ? $this->getConfiguredDurationSeconds('max_gap_btwn_prv_in_and_curtt_out')
                 : 0;
+
+            if ($this->isBothDirectionMachine() && $this->prv_log->is_out) {
+                $previousAttendance = $this->getPreviousAttendanceForPunch();
+                $inTime = $previousAttendance?->in_time ?? $this->prv_log->datetime;
+                $diffFromInSeconds = $inTime->diffInSeconds($this->log->datetime);
+                $withinConfiguredWindow = $maxGapSeconds > 0 && $diffFromInSeconds <= $maxGapSeconds;
+                $withinSameDayOrNightShift = $this->prv_log->datetime->isSameDay($this->log->datetime)
+                    || $previousShift?->is_night_shift;
+
+                if ($withinConfiguredWindow || ($maxGapSeconds <= 0 && $withinSameDayOrNightShift)) {
+                    $this->log->is_out = true;
+                    if ($previousAttendance !== null) {
+                        $attendanceDate = $previousAttendance->date->format('Y-m-d');
+                        $this->punchAttendanceDate = $attendanceDate;
+                        $this->attendance_date = $attendanceDate;
+                        $this->f_years = Carbon::parse($attendanceDate)->year;
+                    } else {
+                        $this->setPunchAttendanceDateFromPreviousLog($previousShift);
+                    }
+                    $this->debug('Both-direction machine: keeping punches Out within the existing attendance window');
+                } else {
+                    $this->log->is_out = false;
+                    $this->debug('Both-direction machine: attendance window ended; marking the punch as In');
+                }
+
+                $this->applyConfiguredGapRules($sameDirectionSeconds);
+
+                return;
+            }
+
             if ($previousShift === null && ! $this->prv_log->datetime->isSameDay($this->log->datetime) && $maxGapSeconds <= 0) {
                 $this->debug('Previous shift not found across dates; using the default In direction');
                 $this->log->is_out = false;
@@ -287,7 +317,7 @@ class AttCalculator
             }
 
             if (! $this->prv_log->is_out) {
-                if ($sameDirectionSeconds > 0 && $diffInSeconds < $sameDirectionSeconds) {
+                if (! $this->isBothDirectionMachine() && $sameDirectionSeconds > 0 && $diffInSeconds < $sameDirectionSeconds) {
                     $this->debug('Punch is within same-direction duration; keeping previous In direction');
                     $this->log->is_out = false;
                 } elseif ($maxGapSeconds > 0) {
@@ -610,6 +640,13 @@ class AttCalculator
 
     private function setDirectionFromPreviousPunch(int $sameDirectionSeconds): void
     {
+        if ($this->isBothDirectionMachine()) {
+            $this->debug('Both-direction machine: keeping punches Out within the cutoff window');
+            $this->log->is_out = true;
+
+            return;
+        }
+
         $diffInSeconds = $this->prv_log->datetime->diffInSeconds($this->log->datetime);
 
         if ($sameDirectionSeconds > 0 && $diffInSeconds < $sameDirectionSeconds) {
@@ -619,6 +656,11 @@ class AttCalculator
             $this->debug('Toggling in/out direction within the same shift window');
             $this->log->is_out = ! $this->prv_log->is_out;
         }
+    }
+
+    private function isBothDirectionMachine(): bool
+    {
+        return in_array((string) $this->machine?->access_direction, ['both', '0'], true);
     }
 
     private function setPunchAttendanceDateFromPreviousLog(?Shift $shift): void

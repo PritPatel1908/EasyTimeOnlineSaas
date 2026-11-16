@@ -1420,6 +1420,113 @@ class ProcessPendingLogsTest extends TestCase
         $this->assertSame('2026-01-01', (new \ReflectionProperty(AttCalculator::class, 'punchAttendanceDate'))->getValue($calculator));
     }
 
+    public function test_both_direction_keeps_repeated_punches_out_until_configured_gap_expires(): void
+    {
+        GeneralConfiguration::create([
+            'key' => 'max_gap_btwn_prv_in_and_curtt_out',
+            'value' => '04:00',
+        ]);
+        $shift = Shift::create([
+            'in_time' => '08:00:00',
+            'out_time' => '20:00:00',
+            'set_cutoff' => false,
+            'is_night_shift' => false,
+        ]);
+        DB::table('shift_musters')->insert([
+            'user_id' => 7,
+            'date' => '2026-01-01',
+            'is_locked' => false,
+            'calculated_shift' => $shift->id,
+        ]);
+
+        $withinGap = $this->calculatorWithPreviousPunch(
+            '2026-01-01 11:00:00',
+            true,
+            '2026-01-01 11:30:00',
+        );
+        $this->setCalculatorMachineDirection($withinGap, 'both');
+        $this->createPreviousAttendanceForPunch($withinGap, $shift, '2026-01-01', 7, '2026-01-01 08:00:00');
+        $withinGap->checkInOrOut();
+
+        $this->assertTrue($this->getCalculatorLog($withinGap)->is_out, implode(PHP_EOL, $withinGap->getReturnLogs()));
+
+        $afterGap = $this->calculatorWithPreviousPunch(
+            '2026-01-01 12:00:00',
+            true,
+            '2026-01-01 12:01:00',
+        );
+        $this->setCalculatorMachineDirection($afterGap, 'both');
+        $this->createPreviousAttendanceForPunch($afterGap, $shift, '2026-01-01', 7, '2026-01-01 08:00:00');
+        $afterGap->checkInOrOut();
+
+        $this->assertFalse($this->getCalculatorLog($afterGap)->is_out, implode(PHP_EOL, $afterGap->getReturnLogs()));
+    }
+
+    public function test_both_direction_starts_with_in_then_marks_the_next_punch_out(): void
+    {
+        $shift = Shift::create([
+            'in_time' => '08:00:00',
+            'out_time' => '20:00:00',
+            'set_cutoff' => false,
+            'is_night_shift' => false,
+        ]);
+        DB::table('shift_musters')->insert([
+            'user_id' => 7,
+            'date' => '2026-01-01',
+            'is_locked' => false,
+            'calculated_shift' => $shift->id,
+        ]);
+
+        $user = new User;
+        $user->setAttribute('id', 7);
+        $firstLog = new AttendanceLog;
+        $firstLog->setAttribute('datetime', Carbon::parse('2026-01-01 08:00:00'));
+        $firstLog->setRelation('user', $user);
+        $firstPunch = new AttCalculator($firstLog, true);
+        $this->setCalculatorMachineDirection($firstPunch, 'both');
+        $firstPunch->checkInOrOut();
+
+        $nextPunch = $this->calculatorWithPreviousPunch(
+            '2026-01-01 08:00:00',
+            false,
+            '2026-01-01 09:00:00',
+        );
+        $this->setCalculatorMachineDirection($nextPunch, 'both');
+        $nextPunch->checkInOrOut();
+
+        $this->assertFalse($this->getCalculatorLog($firstPunch)->is_out);
+        $this->assertTrue($this->getCalculatorLog($nextPunch)->is_out, implode(PHP_EOL, $nextPunch->getReturnLogs()));
+    }
+
+    public function test_both_direction_keeps_repeated_punches_out_inside_cutoff_window(): void
+    {
+        $shift = Shift::create([
+            'in_time' => '08:00:00',
+            'out_time' => '20:00:00',
+            'set_cutoff' => true,
+            'cutoff_time' => '24:00:00',
+            'is_night_shift' => false,
+        ]);
+        DB::table('shift_musters')->insert([
+            'user_id' => 7,
+            'date' => '2026-01-01',
+            'is_locked' => false,
+            'calculated_shift' => $shift->id,
+        ]);
+        $calculator = $this->calculatorWithPreviousPunch(
+            '2026-01-01 18:00:00',
+            true,
+            '2026-01-02 07:00:00',
+        );
+        $this->setCalculatorMachineDirection($calculator, 'both');
+        $this->createPreviousAttendanceForPunch($calculator, $shift, '2026-01-01');
+
+        $calculator->checkInOrOut();
+
+        $this->assertTrue($this->getCalculatorLog($calculator)->is_out, implode(PHP_EOL, $calculator->getReturnLogs()));
+        $this->assertSame('2026-01-01', (new \ReflectionProperty(AttCalculator::class, 'punchAttendanceDate'))->getValue($calculator));
+    }
+
     public function test_minimum_gap_ignores_a_quick_in_punch_and_accepts_in_after_gap(): void
     {
         GeneralConfiguration::create([
@@ -2851,7 +2958,13 @@ class ProcessPendingLogsTest extends TestCase
         return $calculator;
     }
 
-    private function createPreviousAttendanceForPunch(AttCalculator $calculator, Shift $shift, string $attendanceDate, int $userId = 7): void
+    private function createPreviousAttendanceForPunch(
+        AttCalculator $calculator,
+        Shift $shift,
+        string $attendanceDate,
+        int $userId = 7,
+        ?string $inTime = null,
+    ): void
     {
         $year = Carbon::parse($attendanceDate)->year;
         $table = 'attendances'.$year;
@@ -2864,6 +2977,7 @@ class ProcessPendingLogsTest extends TestCase
                 $table->unsignedBigInteger('shift_id')->nullable();
                 $table->dateTime('shift_in_time')->nullable();
                 $table->dateTime('shift_out_time')->nullable();
+                $table->dateTime('in_time')->nullable();
                 $table->dateTime('out_time')->nullable();
                 $table->unsignedBigInteger('out_log_id')->nullable();
                 $table->unsignedInteger('late_minutes')->default(0);
@@ -2892,9 +3006,17 @@ class ProcessPendingLogsTest extends TestCase
             'shift_in_time' => $shiftStart,
             'shift_out_time' => $shiftEnd,
             'is_night_shift' => $shift->is_night_shift,
+            'in_time' => $inTime === null ? $previousLog->datetime : Carbon::parse($inTime),
             'in_log_id' => $previousLog->id,
             'is_locked' => false,
         ]);
+    }
+
+    private function setCalculatorMachineDirection(AttCalculator $calculator, string $direction): void
+    {
+        $machine = new Machine;
+        $machine->setAttribute('access_direction', $direction);
+        (new \ReflectionProperty(AttCalculator::class, 'machine'))->setValue($calculator, $machine);
     }
 
     private function calculatorWithAbsentRule(
