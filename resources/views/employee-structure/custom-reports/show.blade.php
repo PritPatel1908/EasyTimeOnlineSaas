@@ -47,7 +47,7 @@
                             <tr>
                                 <td>{{ $fieldNameLabels[$field['field_name'] ?? ''] ?? ($field['field_name'] ?? '—') }}</td>
                                 <td>{{ $dateTimeFormatLabels[$field['date_time_format'] ?? 'default'] ?? ($field['date_time_format'] ?? 'Default') }}</td>
-                                <td>{{ filter_var($field['use_in_summary'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 'Yes' : 'No' }}</td>
+                                <td>{{ in_array($field['field_name'] ?? '', \App\Support\CustomReportFieldOptions::dateOnlyFields(), true) ? '—' : (filter_var($field['use_in_summary'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 'Yes' : 'No') }}</td>
                             </tr>
                         @empty
                             <tr><td colspan="3" class="text-center text-muted">No custom report fields configured.</td></tr>
@@ -61,7 +61,7 @@
     <div class="card mt-4">
         <div class="card-header"><h5 class="mb-0">Generate and Download</h5></div>
         <div class="card-body">
-            <p class="text-muted">This creates an empty table with the configured field headings. Report data generation will be added separately.</p>
+            <p class="text-muted">The selected employee fields are filled from matching employees. When Date is included, every date in the selected range is listed in rows for vertical orientation or columns for horizontal orientation. Daily attendance values are not populated yet.</p>
             <form method="POST" action="{{ url('employee-structure/custom-reports/'.$customReport->id.'/generate') }}" class="d-flex align-items-end gap-2 flex-wrap mb-4">
                 @csrf
                 <div>

@@ -6,6 +6,16 @@ namespace App\Support;
 
 final class CustomReportFieldOptions
 {
+    public static function dateOnlyFields(): array
+    {
+        return [
+            'joining_date',
+            'left_date',
+            'birth_date',
+            'date',
+        ];
+    }
+
     public static function all(): array
     {
         return [

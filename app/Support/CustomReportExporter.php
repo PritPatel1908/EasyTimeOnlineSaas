@@ -15,6 +15,7 @@ class CustomReportExporter
 {
     /**
      * @param array<int, string> $headers
+     * @param array<int, array<int, string>> $rows
      */
     public function store(
         ReportFormat $format,
@@ -22,18 +23,20 @@ class CustomReportExporter
         string $reportName,
         string $orientation,
         string $path,
+        array $rows = [],
     ): void {
         match ($format) {
-            ReportFormat::csv => $this->storeCsv($headers, $path),
-            ReportFormat::xlsx => $this->storeXlsx($headers, $path),
-            ReportFormat::pdf => $this->storePdf($headers, $reportName, $orientation, $path),
+            ReportFormat::csv => $this->storeCsv($headers, $rows, $path),
+            ReportFormat::xlsx => $this->storeXlsx($headers, $rows, $path),
+            ReportFormat::pdf => $this->storePdf($headers, $rows, $reportName, $orientation, $path),
         };
     }
 
     /**
      * @param array<int, string> $headers
+     * @param array<int, array<int, string>> $rows
      */
-    private function storeCsv(array $headers, string $path): void
+    private function storeCsv(array $headers, array $rows, string $path): void
     {
         $handle = fopen('php://temp', 'w+');
         if ($handle === false) {
@@ -41,6 +44,9 @@ class CustomReportExporter
         }
 
         fputcsv($handle, $headers);
+        foreach ($rows as $row) {
+            fputcsv($handle, $row);
+        }
         rewind($handle);
         $contents = stream_get_contents($handle);
         fclose($handle);
@@ -52,19 +58,20 @@ class CustomReportExporter
 
     /**
      * @param array<int, string> $headers
+     * @param array<int, array<int, string>> $rows
      */
-    private function storeXlsx(array $headers, string $path): void
+    private function storeXlsx(array $headers, array $rows, string $path): void
     {
-        $export = new class($headers) implements FromArray
+        $export = new class(array_merge([$headers], $rows)) implements FromArray
         {
             /**
-             * @param array<int, string> $headers
+             * @param array<int, array<int, string>> $table
              */
-            public function __construct(private array $headers) {}
+            public function __construct(private array $table) {}
 
             public function array(): array
             {
-                return [$this->headers];
+                return $this->table;
             }
         };
 
@@ -75,8 +82,9 @@ class CustomReportExporter
 
     /**
      * @param array<int, string> $headers
+     * @param array<int, array<int, string>> $rows
      */
-    private function storePdf(array $headers, string $reportName, string $orientation, string $path): void
+    private function storePdf(array $headers, array $rows, string $reportName, string $orientation, string $path): void
     {
         if (! class_exists(\Dompdf\Dompdf::class)) {
             throw new RuntimeException('PDF export is unavailable because the Dompdf package is not installed.');
@@ -85,6 +93,7 @@ class CustomReportExporter
         $pdf = new \Dompdf\Dompdf;
         $pdf->loadHtml(View::make('employee-structure.custom-reports.export', [
             'headers' => $headers,
+            'rows' => $rows,
             'reportName' => $reportName,
         ])->render());
         $pdf->setPaper('a4', $orientation === 'horizontal' ? 'landscape' : 'portrait');

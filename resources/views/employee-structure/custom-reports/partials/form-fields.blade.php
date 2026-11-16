@@ -17,7 +17,12 @@
     if ($reportFieldRows === []) {
         $reportFieldRows = [['field_name' => '', 'date_time_format' => 'default', 'use_in_summary' => false]];
     }
-    $filterValue = is_string($filterInput) ? $filterInput : json_encode($filterInput, $jsonFlags);
+    if (is_string($filterInput)) {
+        $decodedFilter = json_decode($filterInput, true);
+        $filterInput = json_last_error() === JSON_ERROR_NONE && is_array($decodedFilter) ? $decodedFilter : [];
+    }
+    $filterSelections = is_array($filterInput) ? $filterInput : [];
+    $filterValue = json_encode($filterSelections, $jsonFlags);
     $dateRangePreset = old('date_range_preset', $customReport->exists ? 'custom' : 'today');
     $reportOrientation = old('report_orientation', $customReport->report_orientation ?? 'vertical');
     $defaultReportDate = now()->toDateString();
@@ -79,22 +84,22 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-md-4 mb-3 mb-md-0">
+            <div class="col-md-4 mb-3 mb-md-0" data-format-column>
                 <label class="form-label">Date/Time Format <span class="text-danger" aria-hidden="true">*</span></label>
                 <select class="form-control" data-date-time-format data-report-search-select required>
                     <option value="default">Default</option>
-                    <option value="d-m-Y">DD-MM-YYYY</option>
-                    <option value="m-d-Y">MM-DD-YYYY</option>
-                    <option value="Y-m-d">YYYY-MM-DD</option>
-                    <option value="d/m/Y">DD/MM/YYYY</option>
-                    <option value="m/d/Y">MM/DD/YYYY</option>
+                    <option value="d-m-Y" data-date-only>DD-MM-YYYY</option>
+                    <option value="m-d-Y" data-date-only>MM-DD-YYYY</option>
+                    <option value="Y-m-d" data-date-only>YYYY-MM-DD</option>
+                    <option value="d/m/Y" data-date-only>DD/MM/YYYY</option>
+                    <option value="m/d/Y" data-date-only>MM/DD/YYYY</option>
                     <option value="H:i">24-hour time (HH:mm)</option>
                     <option value="h:i A">12-hour time (hh:mm AM/PM)</option>
                     <option value="d-m-Y H:i">DD-MM-YYYY HH:mm</option>
                     <option value="Y-m-d H:i">YYYY-MM-DD HH:mm</option>
                 </select>
             </div>
-            <div class="col-md-3 mb-3 mb-md-0">
+            <div class="col-md-3 mb-3 mb-md-0" data-summary-container>
                 <label class="form-label d-block" data-summary-label>Use in Summary</label>
                 <div class="form-check form-switch">
                     <input class="form-check-input" type="checkbox" role="switch" data-use-in-summary aria-label="Use in Summary">
@@ -114,7 +119,24 @@
 <div class="card mb-4">
     <div class="card-header"><h5 class="mb-0">Custom Report Filter</h5></div>
     <div class="card-body">
-        <div class="mb-0"><label class="form-label" for="custom_report_filter">Custom Report Filter (JSON) <span class="text-danger" aria-hidden="true">*</span></label><textarea id="custom_report_filter" name="custom_report_filter" rows="8" class="form-control font-monospace @error('custom_report_filter') is-invalid @enderror" required>{{ $filterValue }}</textarea><x-validation-error field="custom_report_filter" /></div>
+        <p class="text-muted">Leave the filters empty to include all employees. Multiple selections within one filter match any selected value; different filters narrow the results together. Employee selections further narrow the matching employees.</p>
+        <input id="custom_report_filter" type="hidden" name="custom_report_filter" value="{{ $filterValue }}">
+        <div class="row">
+            @foreach($reportFilterOptions as $filterKey => $filterGroup)
+                @php
+                    $selectedFilterIds = array_map('strval', is_array($filterSelections[$filterKey] ?? null) ? $filterSelections[$filterKey] : []);
+                @endphp
+                <div class="col-md-6 mb-3">
+                    <label class="form-label" for="custom_report_filter_{{ $filterKey }}">{{ $filterGroup['label'] }}</label>
+                    <select id="custom_report_filter_{{ $filterKey }}" class="form-control select2" data-report-filter="{{ $filterKey }}" multiple>
+                        @foreach($filterGroup['options'] as $option)
+                            <option value="{{ $option['id'] }}" @selected(in_array((string) $option['id'], $selectedFilterIds, true))>{{ $option['label'] }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @endforeach
+        </div>
+        <x-validation-error field="custom_report_filter" />
     </div>
 </div>
 @push('scripts')
@@ -174,6 +196,70 @@
 })();
 
 (function () {
+    var filterInput = document.getElementById('custom_report_filter');
+    var filterSelections = @json($filterSelections);
+    var selects = Array.prototype.slice.call(document.querySelectorAll('[data-report-filter]'));
+
+    function selectedValues(select) {
+        if (select.tomselect) {
+            var value = select.tomselect.getValue();
+            return Array.isArray(value) ? value : (value ? [value] : []);
+        }
+
+        return Array.prototype.filter.call(select.options, function (option) {
+            return option.selected;
+        }).map(function (option) {
+            return option.value;
+        });
+    }
+
+    function syncFilters() {
+        var filters = {};
+        selects.forEach(function (select) {
+            var values = selectedValues(select);
+            if (values.length > 0) {
+                filters[select.dataset.reportFilter] = values;
+            }
+        });
+        filterInput.value = JSON.stringify(filters);
+    }
+
+    function initializeFilters() {
+        selects.forEach(function (select) {
+            var selected = Array.isArray(filterSelections[select.dataset.reportFilter])
+                ? filterSelections[select.dataset.reportFilter].map(String)
+                : [];
+            Array.prototype.forEach.call(select.options, function (option) {
+                option.selected = selected.indexOf(option.value) !== -1;
+            });
+
+            if (typeof TomSelect !== 'undefined' && !select.tomselect) {
+                new TomSelect(select, {
+                    plugins: ['remove_button'],
+                    width: '100%',
+                    searchField: ['text'],
+                    placeholder: 'Search or select multiple'
+                });
+            }
+        });
+
+        document.addEventListener('change', function (event) {
+            if (event.target.matches('[data-report-filter]')) {
+                syncFilters();
+            }
+        });
+
+        syncFilters();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeFilters, {once: true});
+    } else {
+        initializeFilters();
+    }
+})();
+
+(function () {
     var form = document.getElementById('custom_report_fields').closest('form');
     var rowsContainer = document.getElementById('custom_report_field_rows');
     var fieldsInput = document.getElementById('custom_report_fields');
@@ -183,6 +269,17 @@
     var submissionAttempted = false;
     var rowNumber = 0;
     var initialFields = @json($reportFieldRows);
+    var dateOnlyFields = @json(\App\Support\CustomReportFieldOptions::dateOnlyFields());
+    var formatOptions = Array.prototype.map.call(
+        template.content.querySelector('[data-date-time-format]').options,
+        function (option) {
+            return {
+                value: option.value,
+                label: option.textContent,
+                dateOnly: option.value === 'default' || option.hasAttribute('data-date-only')
+            };
+        }
+    );
 
     function initializeSelect(select) {
         if (typeof TomSelect !== 'undefined' && !select.tomselect) {
@@ -199,7 +296,8 @@
             return {
                 field_name: row.querySelector('[data-field-name]').value,
                 date_time_format: row.querySelector('[data-date-time-format]').value,
-                use_in_summary: row.querySelector('[data-use-in-summary]').checked
+                use_in_summary: !row.querySelector('[data-summary-container]').classList.contains('d-none')
+                    && row.querySelector('[data-use-in-summary]').checked
             };
         });
 
@@ -207,6 +305,40 @@
         if (submissionAttempted) {
             clientError.classList.toggle('d-none', fields.length > 0);
         }
+    }
+
+    function updateFieldOptions(row, storedFormat) {
+        var fieldName = row.querySelector('[data-field-name]').value;
+        var dateTimeFormat = row.querySelector('[data-date-time-format]');
+        var summaryContainer = row.querySelector('[data-summary-container]');
+        var formatColumn = row.querySelector('[data-format-column]');
+        var isDateOnly = dateOnlyFields.indexOf(fieldName) !== -1;
+        var currentFormat = storedFormat || dateTimeFormat.value || 'default';
+
+        if (dateTimeFormat.tomselect) {
+            dateTimeFormat.tomselect.destroy();
+        }
+        dateTimeFormat.replaceChildren();
+
+        formatOptions.forEach(function (option) {
+            if (!isDateOnly || option.dateOnly) {
+                dateTimeFormat.add(new Option(option.label, option.value));
+            }
+        });
+
+        var hasStoredFormat = Array.prototype.some.call(dateTimeFormat.options, function (option) {
+            return option.value === currentFormat;
+        });
+        dateTimeFormat.value = hasStoredFormat ? currentFormat : 'default';
+        summaryContainer.classList.toggle('d-none', isDateOnly);
+        formatColumn.classList.toggle('col-md-7', isDateOnly);
+        formatColumn.classList.toggle('col-md-4', !isDateOnly);
+
+        if (isDateOnly) {
+            row.querySelector('[data-use-in-summary]').checked = false;
+        }
+
+        initializeSelect(dateTimeFormat);
     }
 
     function addFieldRow(field) {
@@ -221,15 +353,11 @@
         row.querySelector('[data-summary-label]').setAttribute('for', useInSummary.id);
         fieldName.value = field.field_name || '';
         var storedFormat = field.date_time_format || 'default';
-        var hasStoredFormat = Array.prototype.some.call(dateTimeFormat.options, function (option) {
-            return option.value === storedFormat;
-        });
-        dateTimeFormat.value = hasStoredFormat ? storedFormat : 'default';
         useInSummary.checked = field.use_in_summary === true;
 
         rowsContainer.appendChild(fragment);
-        initializeSelect(rowsContainer.lastElementChild.querySelector('[data-field-name]'));
-        initializeSelect(rowsContainer.lastElementChild.querySelector('[data-date-time-format]'));
+        updateFieldOptions(row, storedFormat);
+        initializeSelect(fieldName);
     }
 
     addButton.addEventListener('click', function () {
@@ -237,7 +365,12 @@
         syncFields();
     });
 
-    rowsContainer.addEventListener('change', syncFields);
+    rowsContainer.addEventListener('change', function (event) {
+        if (event.target.matches('[data-field-name]')) {
+            updateFieldOptions(event.target.closest('[data-custom-report-field-row]'));
+        }
+        syncFields();
+    });
     rowsContainer.addEventListener('click', function (event) {
         var removeButton = event.target.closest('[data-remove-report-field]');
         if (removeButton) {

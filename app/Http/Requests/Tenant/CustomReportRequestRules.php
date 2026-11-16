@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests\Tenant;
 
 use App\Support\CustomReportFieldOptions;
+use App\Support\CustomReportFilterOptions;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -27,7 +28,7 @@ final class CustomReportRequestRules
 
     public static function rules(): array
     {
-        return [
+        $rules = [
             'report_name' => ['required', 'string', 'max:255'],
             'from_date' => ['required', 'date'],
             'to_date' => ['required', 'date', 'after_or_equal:from_date'],
@@ -40,5 +41,23 @@ final class CustomReportRequestRules
             'custom_report_fields.*.use_in_summary' => ['required', 'boolean'],
             'custom_report_filter' => ['present', 'array'],
         ];
+
+        foreach (CustomReportFilterOptions::definitions() as $key => $definition) {
+            $rules["custom_report_filter.{$key}"] = ['sometimes', 'array'];
+            $rules["custom_report_filter.{$key}.*"] = [
+                'integer',
+                'distinct',
+                Rule::exists($definition['model']::query()->getModel()->getTable(), 'id'),
+            ];
+        }
+
+        $rules['custom_report_filter.employee_ids'] = ['sometimes', 'array'];
+        $rules['custom_report_filter.employee_ids.*'] = [
+            'integer',
+            'distinct',
+            Rule::exists('users', 'id')->where('user_type', 'employee'),
+        ];
+
+        return $rules;
     }
 }

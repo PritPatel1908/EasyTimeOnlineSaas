@@ -11,6 +11,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Tenant\StoreCustomReportRequest;
 use App\Http\Requests\Tenant\UpdateCustomReportRequest;
 use App\Models\Tenant\CustomReport;
+use App\Support\CustomReportFilterOptions;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -131,6 +132,7 @@ class CustomReportController extends Controller
         return view('employee-structure.custom-reports.add', [
             'customReport' => new CustomReport,
             'customReportDetail' => null,
+            'reportFilterOptions' => CustomReportFilterOptions::forForm(),
         ]);
     }
 
@@ -139,7 +141,7 @@ class CustomReportController extends Controller
         $validated = $request->validated();
         $detail = [
             'custom_report_fields' => $validated['custom_report_fields'],
-            'custom_report_filter' => $validated['custom_report_filter'],
+            'custom_report_filter' => $validated['custom_report_filter'] ?? [],
         ];
         unset($validated['custom_report_fields'], $validated['custom_report_filter']);
 
@@ -160,6 +162,7 @@ class CustomReportController extends Controller
         return view('employee-structure.custom-reports.edit', [
             'customReport' => $customReport,
             'customReportDetail' => $customReport->custom_report_details->first(),
+            'reportFilterOptions' => CustomReportFilterOptions::forForm(),
         ]);
     }
 
@@ -168,7 +171,7 @@ class CustomReportController extends Controller
         $validated = $request->validated();
         $detail = [
             'custom_report_fields' => $validated['custom_report_fields'],
-            'custom_report_filter' => $validated['custom_report_filter'],
+            'custom_report_filter' => $validated['custom_report_filter'] ?? [],
         ];
         unset($validated['custom_report_fields'], $validated['custom_report_filter']);
 

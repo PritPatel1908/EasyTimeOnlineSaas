@@ -6,8 +6,9 @@ namespace App\Jobs\Tenant;
 
 use App\Enums\ReportStatus;
 use App\Models\Tenant\CustomReportGeneration;
+use App\Support\CustomReportEmployeeQuery;
 use App\Support\CustomReportExporter;
-use App\Support\CustomReportFieldOptions;
+use App\Support\CustomReportTableBuilder;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -30,28 +31,35 @@ class GenerateCustomReportExport implements ShouldQueue
         $this->onConnection('database_tenant')->onQueue('export');
     }
 
-    public function handle(CustomReportExporter $exporter): void
+    public function handle(
+        CustomReportExporter $exporter,
+        CustomReportEmployeeQuery $employeeQuery,
+        CustomReportTableBuilder $tableBuilder,
+    ): void
     {
         $generation = CustomReportGeneration::query()
             ->with('custom_report.custom_report_details')
             ->findOrFail($this->generationId);
         $report = $generation->custom_report;
         $detail = $report->custom_report_details->first();
-        $fieldLabels = CustomReportFieldOptions::all();
-        $headers = collect($detail?->custom_report_fields ?? [])
-            ->filter(static fn (mixed $field): bool => is_array($field))
-            ->map(static fn (array $field): string => $fieldLabels[$field['field_name'] ?? ''] ?? (string) ($field['field_name'] ?? ''))
-            ->values()
-            ->all();
+        $employees = $employeeQuery->build($detail?->custom_report_filter ?? [])->get();
+        $table = $tableBuilder->buildForEmployees(
+            $detail?->custom_report_fields ?? [],
+            $report->from_date->toDateString(),
+            $report->to_date->toDateString(),
+            $report->report_orientation,
+            $employees,
+        );
         $extension = $generation->report_format->value;
         $path = 'custom-report-exports/'.Str::slug($this->tenantId).'/'.Str::uuid().'.'.$extension;
 
         $exporter->store(
             $generation->report_format,
-            $headers,
+            $table['headers'],
             $report->report_name,
             $report->report_orientation,
             $path,
+            $table['rows'],
         );
 
         $generation->update([
