@@ -76,7 +76,7 @@ return [
         'attprocess' => [
             'driver' => 'daily',
             'path' => storage_path('logs/attprocess.log'),
-            'level' => env('LOG_LEVEL', 'debug'),
+            'level' => env('ATTPROCESS_LOG_LEVEL', 'info'),
             'days' => env('LOG_DAILY_DAYS', 14),
             'replace_placeholders' => true,
         ],
