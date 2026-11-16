@@ -58,6 +58,14 @@ class TimeCardOvertimeDisplayTest extends TestCase
         $this->assertStringNotContainsString('pagination', $html);
     }
 
+    public function test_records_include_a_refresh_button(): void
+    {
+        $html = $this->renderAttendanceRecord(false, 0, 0, 0);
+
+        $this->assertStringContainsString('class="btn btn-sm btn-light border time-card-refresh"', $html);
+        $this->assertStringContainsString('>Refresh', $html);
+    }
+
     private function renderAttendanceRecord(
         bool $needsOvertimeApproval,
         int $totalOvertimeMinutes,

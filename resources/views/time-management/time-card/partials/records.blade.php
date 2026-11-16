@@ -1,6 +1,9 @@
 <div class="card">
     <div class="card-header d-flex align-items-center justify-content-between flex-wrap row-gap-2">
         <h5 class="mb-0">Attendance Records — {{ $year }}</h5>
+        <button type="button" class="btn btn-sm btn-light border time-card-refresh">
+            <i class="ti ti-refresh me-1" aria-hidden="true"></i>Refresh
+        </button>
     </div>
     <div class="card-body p-0">
         <div class="custom-datatable-filter table-responsive">

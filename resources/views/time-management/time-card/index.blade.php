@@ -114,6 +114,10 @@
             status.className = 'visually-hidden';
             status.textContent = 'Loading attendance records.';
             results.setAttribute('aria-busy', 'true');
+            const refreshButton = results.querySelector('.time-card-refresh');
+            if (refreshButton) {
+                refreshButton.disabled = true;
+            }
 
             try {
                 const response = await fetch(form.action, {
@@ -150,6 +154,10 @@
                 if (activeRequest === request) {
                     activeRequest = null;
                     results.removeAttribute('aria-busy');
+                    const currentRefreshButton = results.querySelector('.time-card-refresh');
+                    if (currentRefreshButton) {
+                        currentRefreshButton.disabled = false;
+                    }
                 }
             }
         }
@@ -188,6 +196,13 @@
         });
 
         results.addEventListener('click', function (event) {
+            const refreshButton = event.target.closest('.time-card-refresh');
+            if (refreshButton) {
+                event.preventDefault();
+                filterTimeCard();
+                return;
+            }
+
             const punchButton = event.target.closest('.time-card-punches');
             if (punchButton) {
                 event.preventDefault();
