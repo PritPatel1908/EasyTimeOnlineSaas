@@ -49,6 +49,10 @@ class AttendanceLog extends Model
 
     protected $table = 'attendance_logs';
 
+    protected $attributes = [
+        'debug_me' => false,
+    ];
+
     protected $casts = [
         'user_id' => 'int',
         'referance_id' => 'int',

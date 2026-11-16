@@ -183,6 +183,20 @@ class AttendanceCategoryCalculationTest extends TestCase
         $this->assertSame(450, $attendance->fresh()->work_time);
     }
 
+    public function test_sync_attendance_work_time_rounds_to_the_nearest_minute(): void
+    {
+        $category = $this->category();
+        $attendance = $this->attendance([
+            'in_time' => '2026-10-25 09:00:30',
+            'out_time' => '2026-10-25 17:00:29',
+        ]);
+        $calculator = $this->calculator($category, $attendance);
+
+        $calculator->syncAttendanceWorkTime();
+
+        $this->assertSame(480, $attendance->fresh()->work_time);
+    }
+
     public function test_fix_work_hours_value_accepts_hhmm_and_decimal_hours(): void
     {
         $rules = CategoryRequestRules::rules();

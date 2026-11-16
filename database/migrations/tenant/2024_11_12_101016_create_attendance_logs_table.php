@@ -26,7 +26,7 @@ return new class extends Migration
 
             // From Attendance Logs
             $table->boolean('is_out')->default(false);
-            $table->boolean('debug_me')->default(true);
+            $table->boolean('debug_me')->default(false);
             $table->boolean('is_calculated')->default(false);
             $table->boolean('is_staged')->default(false);
             $table->boolean('is_manual')->default(false);

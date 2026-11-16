@@ -561,7 +561,7 @@ class WorkHrsReportGenerator
 
             $totalRow = array_fill(0, count($this->selected_columns) - 1, '');
             $totalRow[0] = 'Grand Total';
-            $totalRow[count($this->selected_columns) - 1] = sprintf('%02d:%02d', floor($this->work_hrs / 60), $this->work_hrs % 60);
+            $totalRow[count($this->selected_columns) - 1] = sprintf('%02d:%02d', intdiv($this->work_hrs, 60), $this->work_hrs % 60);
             $csv[] = $totalRow;
 
             $csv[] = [''];
@@ -631,20 +631,20 @@ class WorkHrsReportGenerator
                     break;
                 case 'shift_hrs':
                     if ($attendance->shift_in_time && $attendance->shift_out_time) {
-                        $shift_hrs = $attendance->shift_in_time->diffInMinutes($attendance->shift_out_time);
+                        $shift_hrs = (int) round(abs($attendance->shift_in_time->diffInSeconds($attendance->shift_out_time)) / 60);
                     } else {
                         $shift_hrs = 0;
                     }
-                    $row[] = sprintf('%02d:%02d', floor($shift_hrs / 60), $shift_hrs % 60);
+                    $row[] = sprintf('%02d:%02d', intdiv($shift_hrs, 60), $shift_hrs % 60);
                     break;
                 case 'work_hrs':
                     if ($attendance->in_time && $attendance->out_time) {
-                        $work_hrs = $attendance->in_time->diffInMinutes($attendance->out_time);
+                        $work_hrs = (int) round(abs($attendance->in_time->diffInSeconds($attendance->out_time)) / 60);
                     } else {
                         $work_hrs = 0;
                     }
                     $this->work_hrs += $work_hrs;
-                    $row[] = sprintf('%02d:%02d', floor($work_hrs / 60), $work_hrs % 60);
+                    $row[] = sprintf('%02d:%02d', intdiv($work_hrs, 60), $work_hrs % 60);
                     break;
                     // TODO:Fix machine code in report
                     // case "machine_name":

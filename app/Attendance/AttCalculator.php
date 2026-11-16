@@ -3874,7 +3874,7 @@ class AttCalculator
         }
 
         $workTime = $inTime !== null && $outTime !== null && $outTime->greaterThan($inTime)
-            ? $inTime->diffInMinutes($outTime)
+            ? $this->roundedMinutesBetween($inTime, $outTime)
             : 0;
 
         $workTime = max(0, (int) $workTime);
@@ -4006,6 +4006,11 @@ class AttCalculator
         }
 
         return [$inTime, $outTime];
+    }
+
+    private function roundedMinutesBetween(Carbon $start, Carbon $end): int
+    {
+        return max(0, (int) round(abs($start->diffInSeconds($end)) / 60));
     }
 
     private function fixedWorkTime(int $workTime): int
@@ -4306,7 +4311,7 @@ class AttCalculator
                 : $this->log->datetime;
             $existing->work_time = $existing->out_time === null
                 ? null
-                : $this->log->datetime->diffInMinutes($existing->out_time);
+                : $this->roundedMinutesBetween($this->log->datetime, $existing->out_time);
             $existing->save();
 
             return;
@@ -4324,7 +4329,7 @@ class AttCalculator
                 }
                 $updating->work_time = $updating->out_time === null
                     ? null
-                    : $this->log->datetime->diffInMinutes($updating->out_time);
+                    : $this->roundedMinutesBetween($this->log->datetime, $updating->out_time);
                 $updating->save();
                 $muster = $updating;
             } elseif ($updating->in_time != null && $updating->in_time->eq($this->log->datetime) && $updating->area_id == $this->area?->id) {
@@ -4356,7 +4361,7 @@ class AttCalculator
                             'check_time' => $out_time,
                             'out_time' => $out_time,
                             'out_log_id' => $out_log_id,
-                            'work_time' => $this->log->datetime->diffInMinutes($out_time),
+                            'work_time' => $this->roundedMinutesBetween($this->log->datetime, $out_time),
                             'is_locked' => false,
                             'has_error' => false,
                             'remarks' => null,
