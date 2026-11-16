@@ -24,6 +24,8 @@ class ProcessPendingLogs implements ShouldBeUnique, ShouldQueue
 
     protected $returningLogArray = [];
 
+    private bool $suppressChronologicalReprocessing;
+
     /**
      * The number of seconds after which the job's unique lock will be released.
      *
@@ -42,10 +44,14 @@ class ProcessPendingLogs implements ShouldBeUnique, ShouldQueue
     /**
      * Create a new job instance.
      */
-    public function __construct(AttendanceLog|int $log, $returnLog = false)
-    {
+    public function __construct(
+        AttendanceLog|int $log,
+        $returnLog = false,
+        bool $suppressChronologicalReprocessing = false,
+    ) {
         $this->logId = $log instanceof AttendanceLog ? (int) $log->id : $log;
         $this->returnLog = $returnLog;
+        $this->suppressChronologicalReprocessing = $suppressChronologicalReprocessing;
     }
 
     public function getReturnLogs()
@@ -254,7 +260,7 @@ class ProcessPendingLogs implements ShouldBeUnique, ShouldQueue
 
     private function dispatchChronologicalReprocessingIfNeeded(AttendanceLog $log): void
     {
-        if ($log->user_id === null || $log->datetime === null) {
+        if ($this->suppressChronologicalReprocessing || $log->user_id === null || $log->datetime === null) {
             return;
         }
 
@@ -289,6 +295,8 @@ class ProcessPendingLogs implements ShouldBeUnique, ShouldQueue
             $reprocessStart->toDateTimeString(),
             $reprocessEnd->toDateTimeString(),
             [(int) $log->user_id],
-        );
+        )
+            ->onConnection('database_tenant')
+            ->onQueue('processing');
     }
 }

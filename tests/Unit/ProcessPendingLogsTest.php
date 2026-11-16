@@ -253,7 +253,9 @@ class ProcessPendingLogsTest extends TestCase
         Bus::assertDispatched(ReprocessAttendanceLogs::class, static function (ReprocessAttendanceLogs $job): bool {
             return $job->startDateTime === '2026-03-09 00:00:00'
                 && $job->endDateTime === '2026-03-12 08:00:00'
-                && $job->employeeIds === [7];
+                && $job->employeeIds === [7]
+                && $job->connection === 'database_tenant'
+                && $job->queue === 'processing';
         });
     }
 
@@ -275,6 +277,31 @@ class ProcessPendingLogsTest extends TestCase
         $log = AttendanceLog::query()->findOrFail($punchId);
         $method = new \ReflectionMethod(ProcessPendingLogs::class, 'dispatchChronologicalReprocessingIfNeeded');
         $method->invoke(new ProcessPendingLogs($punchId), $log);
+
+        Bus::assertNotDispatched(ReprocessAttendanceLogs::class);
+    }
+
+    public function test_range_reprocessing_does_not_dispatch_another_chronological_reprocess(): void
+    {
+        Bus::fake();
+
+        $latePunchId = DB::table('attendance_logs')->insertGetId([
+            'user_id' => 7,
+            'datetime' => '2026-03-10 08:00:00',
+            'is_calculated' => true,
+        ]);
+        DB::table('attendance_logs')->insert([
+            'user_id' => 7,
+            'datetime' => '2026-03-12 08:00:00',
+            'is_calculated' => true,
+        ]);
+
+        $log = AttendanceLog::query()->findOrFail($latePunchId);
+        $method = new \ReflectionMethod(ProcessPendingLogs::class, 'dispatchChronologicalReprocessingIfNeeded');
+        $method->invoke(
+            new ProcessPendingLogs($latePunchId, suppressChronologicalReprocessing: true),
+            $log,
+        );
 
         Bus::assertNotDispatched(ReprocessAttendanceLogs::class);
     }

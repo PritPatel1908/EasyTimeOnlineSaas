@@ -149,7 +149,7 @@ class ReprocessAttendanceLogs implements ShouldBeUnique, ShouldQueue
                 $hasCursor = true;
 
                 try {
-                    (new ProcessPendingLogs($cursorId))->handle();
+                    (new ProcessPendingLogs($cursorId, suppressChronologicalReprocessing: true))->handle();
                     $processed++;
                 } catch (Throwable $exception) {
                     $failed++;

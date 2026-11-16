@@ -29,6 +29,7 @@ use App\Models\Tenant\Unit;
 use App\Models\Tenant\BusRoute;
 use App\Models\Tenant\ApprovalFlow;
 use App\Models\Tenant\AbsentRule;
+use App\Models\Tenant\Area;
 use App\Models\Tenant\BloodGroup;
 use App\Models\Tenant\EarlyGoingRule;
 use App\Models\Tenant\HalfDayRule;
@@ -54,6 +55,7 @@ class EmployeeController extends Controller
     private const RELATIONS = [
         'companies' => Company::class,
         'locations' => Location::class,
+        'areas' => Area::class,
         'departments' => Department::class,
         'subDepartments' => SubDepartment::class,
         'categories' => Category::class,
@@ -105,6 +107,7 @@ class EmployeeController extends Controller
             if ($shiftIds !== null) {
                 $employee->shifts()->sync($shiftIds);
             }
+            $employee->areas()->sync($validated['area_id'] ?? []);
             $this->savePersonalInfo($employee, $validated);
             $this->saveAddress($employee, $validated);
             $this->saveEducationAndExperience($employee, $validated);
@@ -154,6 +157,7 @@ class EmployeeController extends Controller
             if ($shiftIds !== null) {
                 $employee->shifts()->sync($shiftIds);
             }
+            $employee->areas()->sync($validated['area_id'] ?? []);
             $this->savePersonalInfo($employee, $validated);
             $this->saveAddress($employee, $validated);
             $this->saveEducationAndExperience($employee, $validated);

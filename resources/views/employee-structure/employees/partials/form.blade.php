@@ -81,7 +81,10 @@
             ? $profilePic
             : tenant_asset($profilePic))
         : '';
-    $selected = fn(string $field): array => array_map('strval', (array) $value($field, []));
+    $selected = fn(string $field): array => array_map('strval', (array) old(
+        $field,
+        $field === 'area_id' ? ($employee?->areas?->pluck('id')->all() ?? []) : $value($field, []),
+    ));
     $selectedShiftIds = array_map('strval', (array) old('shift_ids', $employee?->shifts?->pluck('id')->all() ?? []));
     $weekOffRows = old('week_offs');
     if (!is_array($weekOffRows)) {
@@ -108,6 +111,7 @@
     $singleSelectFields = ['category_id', 'designation_id'];
     $relationFields = [
         'location_id' => ['label' => 'Location', 'options' => $locations],
+        'area_id' => ['label' => 'Area', 'options' => $areas],
         'company_id' => ['label' => 'Company', 'options' => $companies],
         'department_id' => ['label' => 'Department', 'options' => $departments],
         'sub_department_id' => ['label' => 'Sub Department', 'options' => $subDepartments],
@@ -1391,7 +1395,7 @@
                                                 {{ $option->name }}</option>
                                         @endforeach
                                     </select>
-                                    @if ($isRequiredRelation)
+                                    @if ($isRequiredRelation || $field === 'area_id')
                                         <x-validation-error field="{{ $field }}" />
                                     @endif
                                 </div>
