@@ -14,7 +14,6 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -35,14 +34,15 @@ class GenerateCustomReportExport implements ShouldQueue
         CustomReportExporter $exporter,
         CustomReportEmployeeQuery $employeeQuery,
         CustomReportTableBuilder $tableBuilder,
-    ): void
-    {
+    ): void {
         $generation = CustomReportGeneration::query()
             ->with('custom_report.custom_report_details')
             ->findOrFail($this->generationId);
         $report = $generation->custom_report;
         $detail = $report->custom_report_details->first();
-        $employees = $employeeQuery->build($detail?->custom_report_filter ?? [])->get();
+        $employees = $employeeQuery->build($detail?->custom_report_filter ?? [])
+            ->with(['personalInfo', 'addresses', 'roles'])
+            ->get();
         $table = $tableBuilder->buildForEmployees(
             $detail?->custom_report_fields ?? [],
             $report->from_date->toDateString(),

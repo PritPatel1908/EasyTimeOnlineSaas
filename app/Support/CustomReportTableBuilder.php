@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Support;
 
 use App\Models\Tenant\BloodGroup;
-use App\Models\Tenant\BusRoute;
 use App\Models\Tenant\CanteenFacility;
 use App\Models\Tenant\Category;
 use App\Models\Tenant\Company;
@@ -14,8 +13,9 @@ use App\Models\Tenant\Department;
 use App\Models\Tenant\Designation;
 use App\Models\Tenant\LegacyLeaveGroup;
 use App\Models\Tenant\Location;
+use App\Models\Tenant\MasterSnapshot;
+use App\Models\Tenant\Role;
 use App\Models\Tenant\Shift;
-use App\Models\Tenant\SubCategory;
 use App\Models\Tenant\SubDepartment;
 use App\Models\Tenant\Team;
 use App\Models\Tenant\Unit;
@@ -23,12 +23,37 @@ use App\Models\Tenant\User;
 use DateInterval;
 use DatePeriod;
 use DateTimeImmutable;
+use Illuminate\Support\Collection;
 
 final class CustomReportTableBuilder
 {
+    private const SNAPSHOT_FIELDS = [
+        'role' => ['model' => Role::class, 'column' => null, 'value' => 'name'],
+        'data_policy' => ['model' => DataPolicy::class, 'column' => 'data_policy_id', 'value' => 'name'],
+        'location_name' => ['model' => Location::class, 'column' => 'location_id', 'value' => 'name'],
+        'location_code' => ['model' => Location::class, 'column' => 'location_id', 'value' => 'code'],
+        'company_name' => ['model' => Company::class, 'column' => 'company_id', 'value' => 'name'],
+        'company_code' => ['model' => Company::class, 'column' => 'company_id', 'value' => 'code'],
+        'department_name' => ['model' => Department::class, 'column' => 'department_id', 'value' => 'name'],
+        'department_code' => ['model' => Department::class, 'column' => 'department_id', 'value' => 'code'],
+        'sub_department_name' => ['model' => SubDepartment::class, 'column' => 'sub_department_id', 'value' => 'name'],
+        'sub_department_code' => ['model' => SubDepartment::class, 'column' => 'sub_department_id', 'value' => 'code'],
+        'designation_name' => ['model' => Designation::class, 'column' => 'designation_id', 'value' => 'name'],
+        'designation_code' => ['model' => Designation::class, 'column' => 'designation_id', 'value' => 'code'],
+        'unit_mill_name' => ['model' => Unit::class, 'column' => 'unit_id', 'value' => 'name'],
+        'unit_mill_code' => ['model' => Unit::class, 'column' => 'unit_id', 'value' => 'code'],
+        'leave_group_name' => ['model' => LegacyLeaveGroup::class, 'column' => 'leave_group_id', 'value' => 'name'],
+        'team_name' => ['model' => Team::class, 'column' => 'team_id', 'value' => 'name'],
+        'team_code' => ['model' => Team::class, 'column' => 'team_id', 'value' => 'code'],
+        'canteen_facility_name' => ['model' => CanteenFacility::class, 'column' => 'canteen_facility_id', 'value' => 'name'],
+        'canteen_facility_code' => ['model' => CanteenFacility::class, 'column' => 'canteen_facility_id', 'value' => 'code'],
+        'category_name' => ['model' => Category::class, 'column' => 'category_id', 'value' => 'name'],
+        'category_code' => ['model' => Category::class, 'column' => 'category_id', 'value' => 'code'],
+    ];
+
     /**
-     * @param array<int, array<string, mixed>> $fields
-     * @param iterable<User> $employees
+     * @param  array<int, array<string, mixed>>  $fields
+     * @param  iterable<User>  $employees
      * @return array{headers: array<int, string>, rows: array<int, array<int, string>>}
      */
     public function buildForEmployees(
@@ -38,6 +63,7 @@ final class CustomReportTableBuilder
         string $orientation,
         iterable $employees,
     ): array {
+        $employees = collect($employees)->values();
         $fieldLabels = CustomReportFieldOptions::all();
         $fields = array_values(array_filter($fields, 'is_array'));
         $labels = array_map(
@@ -60,7 +86,9 @@ final class CustomReportTableBuilder
             }
         }
 
-        $masterValues = $this->masterValues($fields, $employees);
+        $snapshotFields = array_intersect(array_column($fields, 'field_name'), array_keys(self::SNAPSHOT_FIELDS));
+        $snapshots = $this->snapshots($snapshotFields, $employees);
+        $liveMasterValues = $this->liveMasterValues($fields, $employees);
         $rows = [];
 
         if ($dateIndexes !== [] && $orientation === 'horizontal') {
@@ -82,8 +110,10 @@ final class CustomReportTableBuilder
                         $row[] = $this->employeeValue(
                             $employee,
                             $field['field_name'] ?? '',
-                            $masterValues,
+                            $snapshots,
+                            $liveMasterValues,
                             $field['date_time_format'] ?? 'default',
+                            null,
                         );
                     }
                 }
@@ -100,14 +130,18 @@ final class CustomReportTableBuilder
                     fn (array $field): string => $this->employeeValue(
                         $employee,
                         $field['field_name'] ?? '',
-                        $masterValues,
+                        $snapshots,
+                        $liveMasterValues,
                         $field['date_time_format'] ?? 'default',
+                        null,
                     ),
                     $fields,
                 );
+
                 continue;
             }
 
+            $employeeRows = [];
             foreach ($dates as $date) {
                 $row = [];
                 foreach ($fields as $field) {
@@ -116,76 +150,128 @@ final class CustomReportTableBuilder
                         : $this->employeeValue(
                             $employee,
                             $field['field_name'] ?? '',
-                            $masterValues,
+                            $snapshots,
+                            $liveMasterValues,
                             $field['date_time_format'] ?? 'default',
+                            $date,
                         );
                 }
-                $rows[] = $row;
+                $employeeRows[] = $row;
             }
+            array_push(
+                $rows,
+                ...$this->compressDateRows(
+                    $employeeRows,
+                    $dateIndexes,
+                    $this->dateFormat($fields[$dateIndexes[0]]['date_time_format'] ?? 'default'),
+                ),
+            );
         }
 
         return ['headers' => $headers, 'rows' => $rows];
     }
 
     /**
-     * @param array<int, array<string, mixed>> $fields
-     * @param iterable<User> $employees
+     * @param  array<int, string>  $fields
+     * @param  Collection<int, User>  $employees
+     * @return array{assignments: Collection<int, MasterSnapshot>, values: Collection<int, MasterSnapshot>}
+     */
+    private function snapshots(array $fields, Collection $employees): array
+    {
+        if ($fields === []) {
+            return ['assignments' => collect(), 'values' => collect()];
+        }
+
+        $models = array_values(array_unique(array_map(
+            static fn (string $field): string => self::SNAPSHOT_FIELDS[$field]['model'],
+            $fields,
+        )));
+        $employeeIds = $employees->pluck('id')->filter()->map(static fn ($id): int => (int) $id)->all();
+        $assignments = MasterSnapshot::query()
+            ->whereIn('master_type', $models)
+            ->where('for_all', false)
+            ->whereIn('user_id', $employeeIds)
+            ->orderBy('from_date')
+            ->orderBy('id')
+            ->get();
+
+        $masterIds = $assignments->pluck('master_id')->map(static fn ($id): int => (int) $id)->all();
+        foreach ($fields as $field) {
+            $column = self::SNAPSHOT_FIELDS[$field]['column'];
+            if ($column === null) {
+                foreach ($employees as $employee) {
+                    foreach ($this->roleIds($employee) as $id) {
+                        $masterIds[] = $id;
+                    }
+                }
+
+                continue;
+            }
+
+            foreach ($employees as $employee) {
+                $masterIds = array_merge($masterIds, $this->attributeIds($employee->getAttribute($column)));
+            }
+        }
+        $masterIds = array_values(array_unique($masterIds));
+
+        $values = $masterIds === [] ? collect() : MasterSnapshot::query()
+            ->whereIn('master_type', $models)
+            ->whereIn('master_id', $masterIds)
+            ->where('for_all', true)
+            ->orderBy('from_date')
+            ->orderBy('id')
+            ->get();
+
+        return ['assignments' => $assignments, 'values' => $values];
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $fields
+     * @param  Collection<int, User>  $employees
      * @return array<string, array<int, string>>
      */
-    private function masterValues(array $fields, iterable $employees): array
+    private function liveMasterValues(array $fields, Collection $employees): array
     {
         $relations = [
-            'location_name' => ['column' => 'location_id', 'model' => Location::class, 'value' => 'name'],
-            'location_code' => ['column' => 'location_id', 'model' => Location::class, 'value' => 'code'],
-            'company_name' => ['column' => 'company_id', 'model' => Company::class, 'value' => 'name'],
-            'company_code' => ['column' => 'company_id', 'model' => Company::class, 'value' => 'code'],
-            'department_name' => ['column' => 'department_id', 'model' => Department::class, 'value' => 'name'],
-            'department_code' => ['column' => 'department_id', 'model' => Department::class, 'value' => 'code'],
-            'sub_department_name' => ['column' => 'sub_department_id', 'model' => SubDepartment::class, 'value' => 'name'],
-            'sub_department_code' => ['column' => 'sub_department_id', 'model' => SubDepartment::class, 'value' => 'code'],
-            'designation_name' => ['column' => 'designation_id', 'model' => Designation::class, 'value' => 'name'],
-            'designation_code' => ['column' => 'designation_id', 'model' => Designation::class, 'value' => 'code'],
-            'unit_mill_name' => ['column' => 'unit_id', 'model' => Unit::class, 'value' => 'name'],
-            'unit_mill_code' => ['column' => 'unit_id', 'model' => Unit::class, 'value' => 'code'],
-            'leave_group_name' => ['column' => 'leave_group_id', 'model' => LegacyLeaveGroup::class, 'value' => 'code'],
-            'team_name' => ['column' => 'team_id', 'model' => Team::class, 'value' => 'name'],
-            'team_code' => ['column' => 'team_id', 'model' => Team::class, 'value' => 'code'],
-            'canteen_facility_name' => ['column' => 'canteen_facility_id', 'model' => CanteenFacility::class, 'value' => 'name'],
-            'canteen_facility_code' => ['column' => 'canteen_facility_id', 'model' => CanteenFacility::class, 'value' => 'code'],
-            'category_name' => ['column' => 'category_id', 'model' => Category::class, 'value' => 'name'],
-            'category_code' => ['column' => 'category_id', 'model' => Category::class, 'value' => 'code'],
             'shift_name' => ['column' => 'shift_id', 'model' => Shift::class, 'value' => 'name'],
             'shift_code' => ['column' => 'shift_id', 'model' => Shift::class, 'value' => 'code'],
-            'data_policy' => ['column' => 'data_policy_id', 'model' => DataPolicy::class, 'value' => 'name'],
             'blood_group' => ['column' => 'blood_group_id', 'model' => BloodGroup::class, 'value' => 'name'],
         ];
-        $idsByField = [];
+        $values = [];
 
         foreach ($fields as $field) {
             $name = $field['field_name'] ?? '';
             if (! isset($relations[$name])) {
                 continue;
             }
+
             $relation = $relations[$name];
             $ids = [];
             foreach ($employees as $employee) {
                 $ids = array_merge($ids, $this->attributeIds($employee->getAttribute($relation['column'])));
             }
-            $idsByField[$name] = $relation['model']::query()
+            $values[$name] = $relation['model']::query()
                 ->whereIn('id', array_values(array_unique($ids)))
                 ->get(['id', $relation['value']])
                 ->mapWithKeys(static fn ($record): array => [(int) $record->id => (string) ($record->{$relation['value']} ?? '')])
                 ->all();
         }
 
-        return $idsByField;
+        return $values;
     }
 
     /**
-     * @param array<string, array<int, string>> $masterValues
+     * @param  array{assignments: Collection<int, MasterSnapshot>, values: Collection<int, MasterSnapshot>}  $snapshots
+     * @param  array<string, array<int, string>>  $liveMasterValues
      */
-    private function employeeValue(User $employee, string $field, array $masterValues, mixed $format): string
-    {
+    private function employeeValue(
+        User $employee,
+        string $field,
+        array $snapshots,
+        array $liveMasterValues,
+        mixed $format,
+        ?DateTimeImmutable $date,
+    ): string {
         $columns = [
             'emp_code' => 'code',
             'emp_card' => 'card',
@@ -197,6 +283,10 @@ final class CustomReportTableBuilder
             'left_date' => 'left_date',
             'left_remark' => 'left_reason',
             'last_login' => 'last_login_at',
+            'aadhar_card' => 'aadhar_number',
+            'uan_no' => 'uan_number',
+            'esic_no' => 'esic_number',
+            'pan_no' => 'pan_number',
             'status' => 'status',
             'birth_date' => 'dob',
             'gender' => 'gender',
@@ -204,37 +294,54 @@ final class CustomReportTableBuilder
             'email' => 'email',
         ];
 
-        if (isset($masterValues[$field])) {
-            $relation = [
-                'location_name' => 'location_id',
-                'location_code' => 'location_id',
-                'company_name' => 'company_id',
-                'company_code' => 'company_id',
-                'department_name' => 'department_id',
-                'department_code' => 'department_id',
-                'sub_department_name' => 'sub_department_id',
-                'sub_department_code' => 'sub_department_id',
-                'designation_name' => 'designation_id',
-                'designation_code' => 'designation_id',
-                'unit_mill_name' => 'unit_id',
-                'unit_mill_code' => 'unit_id',
-                'leave_group_name' => 'leave_group_id',
-                'team_name' => 'team_id',
-                'team_code' => 'team_id',
-                'canteen_facility_name' => 'canteen_facility_id',
-                'canteen_facility_code' => 'canteen_facility_id',
-                'category_name' => 'category_id',
-                'category_code' => 'category_id',
+        if (isset(self::SNAPSHOT_FIELDS[$field])) {
+            return $this->snapshotValue($employee, $field, $snapshots, $date);
+        }
+
+        if (isset($liveMasterValues[$field])) {
+            $column = [
                 'shift_name' => 'shift_id',
                 'shift_code' => 'shift_id',
-                'data_policy' => 'data_policy_id',
                 'blood_group' => 'blood_group_id',
             ][$field];
 
             return implode(', ', array_filter(array_map(
-                static fn (int $id): string => $masterValues[$field][$id] ?? '',
-                $this->attributeIds($employee->getAttribute($relation)),
+                static fn (int $id): string => $liveMasterValues[$field][$id] ?? '',
+                $this->attributeIds($employee->getAttribute($column)),
             )));
+        }
+
+        if ($field === 'height' || $field === 'width') {
+            $personalInfo = $employee->relationLoaded('personalInfo') ? $employee->getRelation('personalInfo') : null;
+            $value = $personalInfo?->getAttribute($field === 'height' ? 'height' : 'weight');
+
+            return is_scalar($value) ? (string) $value : '';
+        }
+
+        if ($field === 'address' || $field === 'current_address') {
+            $addresses = $employee->relationLoaded('addresses') ? $employee->getRelation('addresses') : collect();
+            $address = $addresses->firstWhere('is_current_address', true) ?? $addresses->first();
+            if ($address === null) {
+                return '';
+            }
+            $prefix = $field === 'current_address' ? 'current_' : '';
+
+            return implode(', ', array_filter(array_map(
+                static fn (string $part): string => (string) ($address->getAttribute($prefix.$part) ?? ''),
+                ['flat_building', 'house_no', 'flore', 'street', 'landmark', 'city', 'state', 'country', 'pincode'],
+            )));
+        }
+
+        if (in_array($field, ['emergency_contact_name', 'emergency_contact_number', 'emergency_contact_address'], true)) {
+            $personalInfo = $employee->relationLoaded('personalInfo') ? $employee->getRelation('personalInfo') : null;
+            $attribute = [
+                'emergency_contact_name' => 'emergency_name',
+                'emergency_contact_number' => 'emergency_number',
+                'emergency_contact_address' => 'emergency_address',
+            ][$field];
+            $value = $personalInfo?->getAttribute($attribute);
+
+            return is_scalar($value) ? (string) $value : '';
         }
 
         if (! isset($columns[$field])) {
@@ -247,6 +354,135 @@ final class CustomReportTableBuilder
         }
 
         return is_scalar($value) ? (string) $value : '';
+    }
+
+    /**
+     * @param  array{assignments: Collection<int, MasterSnapshot>, values: Collection<int, MasterSnapshot>}  $snapshots
+     */
+    private function snapshotValue(User $employee, string $field, array $snapshots, ?DateTimeImmutable $date): string
+    {
+        $definition = self::SNAPSHOT_FIELDS[$field];
+        $model = $definition['model'];
+        $valueKey = $definition['value'];
+        $assignedIds = $definition['column'] === null
+            ? $this->roleIds($employee)
+            : $this->attributeIds($employee->getAttribute($definition['column']));
+
+        if ($date !== null && $employee->getKey() !== null) {
+            $assignmentHistory = $snapshots['assignments']
+                ->where('master_type', $model)
+                ->where('user_id', $employee->getKey());
+
+            if ($assignmentHistory->isNotEmpty()) {
+                $effectiveAssignments = $assignmentHistory
+                    ->filter(fn (MasterSnapshot $snapshot): bool => $this->coversDate($snapshot, $date))
+                    ->unique('master_id');
+                $assignedIds = $effectiveAssignments->pluck('master_id')->map(static fn ($id): int => (int) $id)->all();
+            }
+        }
+
+        $dateString = ($date ?? new DateTimeImmutable('today'))->format('Y-m-d');
+        $result = [];
+        foreach ($assignedIds as $id) {
+            $snapshot = $snapshots['values']
+                ->where('master_type', $model)
+                ->where('master_id', $id)
+                ->filter(fn (MasterSnapshot $candidate): bool => $this->coversDate($candidate, new DateTimeImmutable($dateString)))
+                ->sortByDesc(static fn (MasterSnapshot $candidate): string => $candidate->from_date->format('Y-m-d').'-'.str_pad((string) $candidate->id, 12, '0', STR_PAD_LEFT))
+                ->first();
+
+            $value = $snapshot?->value[$valueKey] ?? null;
+            if ($field === 'leave_group_name' && ($value === null || $value === '')) {
+                $value = $snapshot?->value['code'] ?? null;
+            }
+            if (is_scalar($value) && (string) $value !== '') {
+                $result[] = (string) $value;
+            }
+        }
+
+        return implode(', ', array_values(array_unique($result)));
+    }
+
+    private function coversDate(MasterSnapshot $snapshot, DateTimeImmutable $date): bool
+    {
+        $day = $date->format('Y-m-d');
+
+        return $snapshot->from_date->format('Y-m-d') <= $day
+            && ($snapshot->to_date === null || $snapshot->to_date->format('Y-m-d') > $day);
+    }
+
+    /**
+     * @param  array<int, array<int, string>>  $rows
+     * @param  array<int, int>  $dateIndexes
+     * @return array<int, array<int, string>>
+     */
+    private function compressDateRows(array $rows, array $dateIndexes, string $dateFormat): array
+    {
+        $distinctRows = [];
+        foreach ($rows as $row) {
+            foreach ($dateIndexes as $index) {
+                unset($row[$index]);
+            }
+            $distinctRows[serialize(array_values($row))] = true;
+        }
+        if (count($distinctRows) < 2) {
+            return $rows;
+        }
+
+        $compressed = [];
+        foreach ($rows as $row) {
+            $dateIndex = $dateIndexes[0];
+            $date = DateTimeImmutable::createFromFormat('!'.$dateFormat, $row[$dateIndex]);
+            if ($date === false) {
+                throw new \RuntimeException('Unable to parse the custom report date.');
+            }
+            $comparison = $row;
+            foreach ($dateIndexes as $index) {
+                unset($comparison[$index]);
+            }
+            $comparison = array_values($comparison);
+
+            $lastIndex = array_key_last($compressed);
+            if ($lastIndex !== null && $compressed[$lastIndex]['values'] === $comparison) {
+                $compressed[$lastIndex]['end'] = $date;
+
+                continue;
+            }
+
+            $compressed[] = [
+                'row' => $row,
+                'values' => $comparison,
+                'start' => $date,
+                'end' => $date,
+            ];
+        }
+
+        return array_map(function (array $period) use ($dateIndexes, $dateFormat): array {
+            $range = $period['start']->format($dateFormat);
+            if ($period['start'] != $period['end']) {
+                $range .= ' - '.$period['end']->format($dateFormat);
+            }
+            foreach ($dateIndexes as $index) {
+                $period['row'][$index] = $range;
+            }
+
+            return $period['row'];
+        }, $compressed);
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function roleIds(User $employee): array
+    {
+        if (! $employee->relationLoaded('roles')) {
+            return [];
+        }
+
+        return $employee->getRelation('roles')
+            ->pluck('id')
+            ->map(static fn ($id): int => (int) $id)
+            ->all();
     }
 
     /**
