@@ -54,6 +54,13 @@
     <script src="{{URL::asset('build/plugins/chartjs/chart-data.js')}}"></script>
 @endif
 
+@if (Route::is('*.tenant.dashboard'))
+    <script src="{{URL::asset('build/plugins/apexchart/apexcharts.min.js')}}"></script>
+    <script src="{{URL::asset('build/plugins/apexchart/chart-data.js')}}"></script>
+    <script src="{{URL::asset('build/plugins/chartjs/chart.min.js')}}"></script>
+    <script src="{{URL::asset('build/plugins/chartjs/chart-data.js')}}"></script>
+@endif
+
 @if (Route::is(['ai-attendance-insights', 'ai-payroll-forecast', 'asset-dashboard', 'attendance-dashboard', 'client-details', 'employee-dashboard', 'help-desk-dashboard', 'index', '/', 'it-admin-dashboard', 'layout-box', 'layout-dark', 'layout-detached', 'layout-horizontal', 'layout-horizontal-box', 'layout-horizontal-fullwidth', 'layout-horizontal-overlay', 'layout-horizontal-sidemenu', 'layout-horizontal-single', 'layout-hovered', 'layout-modern', 'layout-rtl', 'layout-stacked', 'layout-two-column', 'layout-vertical-transparent', 'layout-without-header', 'payroll-dashboard', 'project-details', 'recruitment-dashboard', 'task-details', 'tasks', 'todo', 'todo-list']))
     <!-- Custom JS -->
     <script src="{{URL::asset('build/js/todo.js')}}"></script>
