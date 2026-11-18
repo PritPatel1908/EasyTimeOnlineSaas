@@ -306,6 +306,73 @@ class ProcessPendingLogsTest extends TestCase
         Bus::assertNotDispatched(ReprocessAttendanceLogs::class);
     }
 
+    public function test_manual_punch_before_existing_attendance_reprocesses_through_last_out(): void
+    {
+        Bus::fake();
+        $this->createExistingAttendanceForPunchReprocessing('2026-03-10 09:00:00', '2026-03-10 18:00:00');
+        $punchId = DB::table('attendance_logs')->insertGetId([
+            'user_id' => 7,
+            'datetime' => '2026-03-10 08:30:00',
+            'is_manual' => true,
+            'is_calculated' => true,
+        ]);
+
+        $log = AttendanceLog::query()->findOrFail($punchId);
+        $method = new \ReflectionMethod(ProcessPendingLogs::class, 'dispatchChronologicalReprocessingIfNeeded');
+        $method->invoke(new ProcessPendingLogs($punchId), $log);
+
+        Bus::assertDispatched(ReprocessAttendanceLogs::class, static function (ReprocessAttendanceLogs $job): bool {
+            return $job->startDateTime === '2026-03-10 08:30:00'
+                && $job->endDateTime === '2026-03-10 18:00:00'
+                && $job->employeeIds === [7];
+        });
+    }
+
+    public function test_manual_punch_between_existing_attendance_times_reprocesses_from_in_time(): void
+    {
+        Bus::fake();
+        $this->createExistingAttendanceForPunchReprocessing('2026-03-10 09:00:00', '2026-03-10 18:00:00');
+        $punchId = DB::table('attendance_logs')->insertGetId([
+            'user_id' => 7,
+            'datetime' => '2026-03-10 12:00:00',
+            'is_manual' => true,
+            'is_calculated' => true,
+        ]);
+
+        $log = AttendanceLog::query()->findOrFail($punchId);
+        $method = new \ReflectionMethod(ProcessPendingLogs::class, 'dispatchChronologicalReprocessingIfNeeded');
+        $method->invoke(new ProcessPendingLogs($punchId), $log);
+
+        Bus::assertDispatched(ReprocessAttendanceLogs::class, static function (ReprocessAttendanceLogs $job): bool {
+            return $job->startDateTime === '2026-03-10 09:00:00'
+                && $job->endDateTime === '2026-03-10 18:00:00'
+                && $job->employeeIds === [7];
+        });
+    }
+
+    public function test_manual_punch_after_existing_attendance_does_not_reprocess_later_punches(): void
+    {
+        Bus::fake();
+        $this->createExistingAttendanceForPunchReprocessing('2026-03-10 09:00:00', '2026-03-10 18:00:00');
+        $punchId = DB::table('attendance_logs')->insertGetId([
+            'user_id' => 7,
+            'datetime' => '2026-03-10 19:00:00',
+            'is_manual' => true,
+            'is_calculated' => true,
+        ]);
+        DB::table('attendance_logs')->insert([
+            'user_id' => 7,
+            'datetime' => '2026-03-12 08:00:00',
+            'is_calculated' => true,
+        ]);
+
+        $log = AttendanceLog::query()->findOrFail($punchId);
+        $method = new \ReflectionMethod(ProcessPendingLogs::class, 'dispatchChronologicalReprocessingIfNeeded');
+        $method->invoke(new ProcessPendingLogs($punchId), $log);
+
+        Bus::assertNotDispatched(ReprocessAttendanceLogs::class);
+    }
+
     public function test_debug_attendance_log_does_not_enable_persistent_query_logging(): void
     {
         $connection = DB::connection();
@@ -2935,6 +3002,48 @@ class ProcessPendingLogsTest extends TestCase
         $updateStatusMuster->invoke($calculator, 'PCO', 0.5, true);
 
         $this->assertDatabaseCount('status_musters', 0);
+    }
+
+    private function createExistingAttendanceForPunchReprocessing(string $inTime, string $outTime): void
+    {
+        DB::table('users')->insert(['id' => 7]);
+
+        Schema::create('attendances2026', function ($table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('date');
+            $table->dateTime('in_time')->nullable();
+            $table->dateTime('out_time')->nullable();
+            $table->boolean('is_locked')->default(false);
+            $table->timestamps();
+        });
+        Schema::create('in_out_musters2026', function ($table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('date');
+            $table->dateTime('in_time')->nullable();
+            $table->dateTime('out_time')->nullable();
+            $table->boolean('is_locked')->default(false);
+            $table->timestamps();
+        });
+
+        Attendance::year(2026);
+        InOutMuster::year(2026);
+
+        DB::table('attendances2026')->insert([
+            'user_id' => 7,
+            'date' => '2026-03-10',
+            'in_time' => $inTime,
+            'out_time' => $outTime,
+            'is_locked' => false,
+        ]);
+        DB::table('in_out_musters2026')->insert([
+            'user_id' => 7,
+            'date' => '2026-03-10',
+            'in_time' => $inTime,
+            'out_time' => $outTime,
+            'is_locked' => false,
+        ]);
     }
 
     private function calculatorWithPreviousPunch(string $previousDatetime, bool $previousIsOut, string $currentDatetime, int $userId = 7): AttCalculator

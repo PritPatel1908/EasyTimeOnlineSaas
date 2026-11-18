@@ -3,7 +3,9 @@
 namespace App\Jobs\Tenant;
 
 use App\Attendance\AttCalculator;
+use App\Models\Tenant\Attendance;
 use App\Models\Tenant\AttendanceLog;
+use App\Models\Tenant\InOutMuster;
 use App\Models\Tenant\ManualPunch;
 use App\Models\Tenant\ShortLeaveApplication;
 use Illuminate\Bus\Queueable;
@@ -13,6 +15,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Schema;
 
 class ProcessPendingLogs implements ShouldBeUnique, ShouldQueue
 {
@@ -264,6 +267,10 @@ class ProcessPendingLogs implements ShouldBeUnique, ShouldQueue
             return;
         }
 
+        if ($log->is_manual && $this->dispatchExistingAttendanceReprocessingIfNeeded($log)) {
+            return;
+        }
+
         $latestLaterPunch = AttendanceLog::query()
             ->where('user_id', $log->user_id)
             ->where('is_calculated', true)
@@ -298,5 +305,61 @@ class ProcessPendingLogs implements ShouldBeUnique, ShouldQueue
         )
             ->onConnection('database_tenant')
             ->onQueue('processing');
+    }
+
+    private function dispatchExistingAttendanceReprocessingIfNeeded(AttendanceLog $log): bool
+    {
+        $year = $log->datetime->year;
+        if (
+            ! Schema::hasTable('attendances'.$year)
+            || ! Schema::hasTable('in_out_musters'.$year)
+        ) {
+            return false;
+        }
+
+        $attendance = Attendance::year($year)
+            ->where('user_id', $log->user_id)
+            ->whereDate('date', $log->datetime->toDateString())
+            ->where('is_locked', false)
+            ->whereNotNull('in_time')
+            ->whereNotNull('out_time')
+            ->first();
+
+        if ($attendance === null) {
+            return false;
+        }
+
+        $hasCompletedMuster = InOutMuster::year($year)
+            ->where('user_id', $log->user_id)
+            ->whereDate('date', $attendance->date->toDateString())
+            ->where('is_locked', false)
+            ->whereNotNull('out_time')
+            ->exists();
+        if (! $hasCompletedMuster) {
+            return false;
+        }
+
+        $punchTime = $log->datetime;
+        $inTime = Carbon::parse($attendance->in_time);
+        $outTime = Carbon::parse($attendance->out_time);
+
+        if ($outTime->lessThan($inTime)) {
+            return false;
+        }
+
+        if ($punchTime->greaterThan($outTime)) {
+            return true;
+        }
+
+        $reprocessStart = $punchTime->lessThan($inTime) ? $punchTime : $inTime;
+        ReprocessAttendanceLogs::dispatch(
+            $reprocessStart->toDateTimeString(),
+            $outTime->toDateTimeString(),
+            [(int) $log->user_id],
+        )
+            ->onConnection('database_tenant')
+            ->onQueue('processing');
+
+        return true;
     }
 }
