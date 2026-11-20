@@ -42,7 +42,7 @@ class CustomReportController extends Controller
             'customReport' => CustomReport::query()
                 ->with([
                     'custom_report_details',
-                    'generations' => static fn ($query) => $query->latest()->limit(10),
+                    'generations' => static fn ($query) => $query->latest(),
                 ])
                 ->findOrFail($request->route('custom_report')),
         ]);

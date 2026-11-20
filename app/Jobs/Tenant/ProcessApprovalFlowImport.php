@@ -7,6 +7,7 @@ namespace App\Jobs\Tenant;
 use App\Models\Tenant\ApprovalFlow;
 use App\Models\Tenant\User;
 use App\Notifications\Tenant\ApprovalFlowImportExportCompleted;
+use App\Services\Tenant\MasterSnapshotService;
 use App\Support\CsvImportTemplate;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -42,7 +43,7 @@ class ProcessApprovalFlowImport implements ShouldQueue
         }
 
         $headers = array_map(
-            static fn($header): string => CsvImportTemplate::normalizeHeader((string) $header),
+            static fn ($header): string => CsvImportTemplate::normalizeHeader((string) $header),
             fgetcsv($handle) ?: [],
         );
         $groups = [];
@@ -58,16 +59,19 @@ class ProcessApprovalFlowImport implements ShouldQueue
             $row = array_combine($headers, array_pad(array_slice($values, 0, count($headers)), count($headers), ''));
             if (! is_array($row)) {
                 $errors[] = "Row {$rowNumber} could not be read.";
+
                 continue;
             }
 
             $code = trim((string) ($row['approval_flow_code'] ?? ''));
             if ($code === '') {
                 $errors[] = "Row {$rowNumber} is missing an approval flow code.";
+
                 continue;
             }
             if (mb_strlen($code) > 255) {
                 $errors[] = "Row {$rowNumber} has an approval flow code longer than 255 characters.";
+
                 continue;
             }
 
@@ -79,6 +83,7 @@ class ProcessApprovalFlowImport implements ShouldQueue
                     $errors[] = "Row {$rowNumber} has approvers but no level.";
                     $groups[$code]['invalid'] = true;
                 }
+
                 continue;
             }
 
@@ -86,6 +91,7 @@ class ProcessApprovalFlowImport implements ShouldQueue
             if ($levelAssignments === null) {
                 $errors[] = "Row {$rowNumber} requires a positive level and at least one approver.";
                 $groups[$code]['invalid'] = true;
+
                 continue;
             }
 
@@ -104,6 +110,7 @@ class ProcessApprovalFlowImport implements ShouldQueue
                     if ($approver === null) {
                         $errors[] = "Row {$rowNumber} references an unknown approver: {$token}.";
                         $groups[$code]['invalid'] = true;
+
                         continue;
                     }
                     $userIds[] = (int) $approver->id;
@@ -130,6 +137,7 @@ class ProcessApprovalFlowImport implements ShouldQueue
             $flow = ApprovalFlow::query()->where('approval_flow_code', $code)->first();
             if ($flow !== null && ! $this->updateDuplicateRecords) {
                 $errors[] = "Duplicate approval flow code {$code}.";
+
                 continue;
             }
 
@@ -147,13 +155,14 @@ class ProcessApprovalFlowImport implements ShouldQueue
                     $detail = $flow->approval_flow_details()->create(['level' => $level]);
                     $detail->users()->sync($userIds);
                 }
+                app(MasterSnapshotService::class)->captureApproverSnapshotsForFlow($flow);
             });
         }
 
         Storage::disk('local')->delete($this->filePath);
         $message = $errors === []
             ? "Imported {$created} new approval flow(s) and updated {$updated} existing flow(s)."
-            : "Import completed with {$created} new approval flow(s), {$updated} updated flow(s), and errors: " . implode('; ', array_slice($errors, 0, 5));
+            : "Import completed with {$created} new approval flow(s), {$updated} updated flow(s), and errors: ".implode('; ', array_slice($errors, 0, 5));
         $user->notify(new ApprovalFlowImportExportCompleted('import', $message));
     }
 
@@ -169,7 +178,7 @@ class ProcessApprovalFlowImport implements ShouldQueue
 
         if (
             count($levels) !== count($approverGroups)
-            || collect($levels)->contains(static fn(string $level): bool => ! ctype_digit($level) || (int) $level < 1)
+            || collect($levels)->contains(static fn (string $level): bool => ! ctype_digit($level) || (int) $level < 1)
         ) {
             return null;
         }
@@ -178,7 +187,7 @@ class ProcessApprovalFlowImport implements ShouldQueue
         foreach ($levels as $index => $level) {
             $users = array_values(array_filter(
                 array_map('trim', explode('|', $approverGroups[$index])),
-                static fn(string $token): bool => $token !== '',
+                static fn (string $token): bool => $token !== '',
             ));
             if ($users === []) {
                 return null;

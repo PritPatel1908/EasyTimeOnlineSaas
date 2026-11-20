@@ -6,6 +6,7 @@ namespace Tests\Feature;
 
 use App\Models\Tenant\Location;
 use App\Models\Tenant\MasterSnapshot;
+use App\Models\Tenant\Shift;
 use App\Models\Tenant\User;
 use App\Support\CustomReportTableBuilder;
 use Illuminate\Database\Schema\Blueprint;
@@ -118,6 +119,30 @@ class CustomReportSnapshotExportTest extends TestCase
         $this->assertSame([['E002', 'Current Location']], $table['rows']);
     }
 
+    public function test_shift_name_and_code_are_read_from_master_snapshots(): void
+    {
+        $employee = new User;
+        $employee->setRawAttributes([
+            'id' => 9,
+            'shift_id' => 12,
+        ], true);
+        $this->snapshot(12, ['name' => 'Night Shift', 'code' => 'NS'], today()->toDateString(), null, null, true, Shift::class);
+
+        $table = (new CustomReportTableBuilder)->buildForEmployees(
+            [
+                ['field_name' => 'shift_name'],
+                ['field_name' => 'shift_code'],
+            ],
+            today()->toDateString(),
+            today()->toDateString(),
+            'vertical',
+            [$employee],
+        );
+
+        $this->assertSame(['Shift Name', 'Shift Code'], $table['headers']);
+        $this->assertSame([['Night Shift', 'NS']], $table['rows']);
+    }
+
     private function snapshot(
         int $masterId,
         array $value,
@@ -125,9 +150,10 @@ class CustomReportSnapshotExportTest extends TestCase
         ?string $toDate,
         ?int $userId,
         bool $forAll,
+        string $masterType = Location::class,
     ): void {
         MasterSnapshot::query()->create([
-            'master_type' => Location::class,
+            'master_type' => $masterType,
             'master_id' => $masterId,
             'type' => 'both',
             'value' => $value,

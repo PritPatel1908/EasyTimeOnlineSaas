@@ -9,6 +9,7 @@ use App\Jobs\Tenant\GenerateApprovalFlowExport;
 use App\Jobs\Tenant\ProcessApprovalFlowImport;
 use App\Models\Tenant\ApprovalFlow;
 use App\Models\Tenant\User;
+use App\Services\Tenant\MasterSnapshotService;
 use App\Support\CsvImportTemplate;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
@@ -125,6 +126,7 @@ class ApprovalFlowController extends Controller
             ]);
             $this->syncDetails($flow, $validated['details'] ?? []);
             $this->syncEmployeeAssignments($flow, $validated['employee_assignments'] ?? []);
+            app(MasterSnapshotService::class)->captureApproverSnapshotsForFlow($flow);
         });
 
         return redirect(url(self::INDEX_URL))->with('success', 'Approval flow created successfully.');
@@ -145,7 +147,7 @@ class ApprovalFlowController extends Controller
 
         $details = $approvalFlow->approval_flow_details
             ->sortBy('level')
-            ->map(fn($detail): array => [
+            ->map(fn ($detail): array => [
                 'level' => $detail->level,
                 'users' => $detail->users->pluck('id')->all(),
             ])
@@ -168,14 +170,16 @@ class ApprovalFlowController extends Controller
     {
         $approvalFlow = ApprovalFlow::query()->findOrFail($request->route('approvalFlow'));
         $validated = $this->validateFlow($request, $approvalFlow);
+        $previousEmployeeIds = $this->employeeIdsAssignedToFlow($approvalFlow);
 
-        DB::transaction(function () use ($validated, $approvalFlow): void {
+        DB::transaction(function () use ($validated, $approvalFlow, $previousEmployeeIds): void {
             $approvalFlow->update([
                 'approval_flow_code' => trim($validated['approval_flow_code']),
                 'status' => (int) $validated['status'],
             ]);
             $this->syncDetails($approvalFlow, $validated['details'] ?? []);
             $this->syncEmployeeAssignments($approvalFlow, $validated['employee_assignments'] ?? []);
+            app(MasterSnapshotService::class)->captureApproverSnapshotsForFlow($approvalFlow, $previousEmployeeIds);
         });
 
         return redirect(url(self::INDEX_URL))->with('success', 'Approval flow updated successfully.');
@@ -189,7 +193,7 @@ class ApprovalFlowController extends Controller
         if (
             $approvalFlow->users()->exists()
             || $approvalFlow->approval_statuses()->exists()
-            || $approvalFlow->approval_flow_details->contains(fn($detail): bool => $detail->users->isNotEmpty())
+            || $approvalFlow->approval_flow_details->contains(fn ($detail): bool => $detail->users->isNotEmpty())
         ) {
             return redirect(url(self::INDEX_URL))->with('error', 'This approval flow cannot be deleted because it is still in use.');
         }
@@ -201,7 +205,7 @@ class ApprovalFlowController extends Controller
 
     public function export(): RedirectResponse
     {
-        $fileName = 'approval_flows_' . now()->format('Ymd_His') . '.csv';
+        $fileName = 'approval_flows_'.now()->format('Ymd_His').'.csv';
         GenerateApprovalFlowExport::dispatch(Auth::guard('tenant')->id(), $fileName)
             ->onConnection('database_tenant')
             ->onQueue('export');
@@ -240,7 +244,7 @@ class ApprovalFlowController extends Controller
 
         $storedPath = $file->storeAs(
             'approval-flow-imports',
-            'approval_flow_import_' . now()->format('Ymd_His') . '_' . uniqid('', true) . '.' . $file->getClientOriginalExtension(),
+            'approval_flow_import_'.now()->format('Ymd_His').'_'.uniqid('', true).'.'.$file->getClientOriginalExtension(),
         );
         if ($storedPath === false) {
             throw new \RuntimeException('The approval flow import file could not be stored.');
@@ -259,7 +263,7 @@ class ApprovalFlowController extends Controller
     {
         $fileName = basename($file ?? $tenant);
         abort_unless(preg_match('/\Aapproval_flows_\d{8}_\d{6}\.csv\z/', $fileName) === 1, 404);
-        $path = 'approval-flow-exports/' . $fileName;
+        $path = 'approval-flow-exports/'.$fileName;
         if (! Storage::disk('local')->exists($path)) {
             (new GenerateApprovalFlowExport(Auth::guard('tenant')->id(), $fileName))->handle();
         }
@@ -369,5 +373,27 @@ class ApprovalFlowController extends Controller
         }
 
         return $employeeAssignments;
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function employeeIdsAssignedToFlow(ApprovalFlow $approvalFlow): array
+    {
+        $employeeIds = [];
+        foreach ($this->employeeAssignmentsForFlow($approvalFlow) as $ids) {
+            $employeeIds = array_merge($employeeIds, $ids);
+        }
+        $employeeIds = array_merge(
+            $employeeIds,
+            User::query()
+                ->where('user_type', 'employee')
+                ->where('approval_flow_id', $approvalFlow->getKey())
+                ->pluck('id')
+                ->map(static fn (mixed $id): int => (int) $id)
+                ->all(),
+        );
+
+        return array_values(array_unique(array_map('intval', $employeeIds)));
     }
 }

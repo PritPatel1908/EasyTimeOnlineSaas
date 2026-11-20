@@ -85,4 +85,83 @@ final class CustomReportFilterOptions
 
         return $options;
     }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return array<string, array{label: string, values: array<int, string>}>
+     */
+    public static function selectedLabels(array $filters): array
+    {
+        $selectedLabels = [];
+
+        foreach (self::definitions() as $key => $definition) {
+            $ids = self::selectedIds($filters[$key] ?? []);
+            if ($ids === []) {
+                continue;
+            }
+
+            $labelColumn = $definition['label_column'] ?? 'name';
+            $records = $definition['model']::query()
+                ->whereIn('id', $ids)
+                ->orderBy($labelColumn)
+                ->get(array_values(array_unique(['id', $labelColumn, 'code'])))
+                ->keyBy('id');
+
+            $selectedLabels[$key] = [
+                'label' => $definition['label'],
+                'values' => array_map(static function (int $id) use ($records, $labelColumn): string {
+                    $record = $records->get($id);
+                    if ($record === null) {
+                        return 'ID '.$id;
+                    }
+
+                    $label = (string) ($record->{$labelColumn} ?? '');
+                    if ($labelColumn !== 'code' && $record->code) {
+                        $label .= ' ('.$record->code.')';
+                    }
+
+                    return $label;
+                }, $ids),
+            ];
+        }
+
+        $employeeIds = self::selectedIds($filters['employee_ids'] ?? []);
+        if ($employeeIds !== []) {
+            $employees = User::query()
+                ->where('user_type', 'employee')
+                ->whereIn('id', $employeeIds)
+                ->orderBy('name')
+                ->get(['id', 'name', 'code'])
+                ->keyBy('id');
+
+            $selectedLabels['employee_ids'] = [
+                'label' => 'Employees',
+                'values' => array_map(static function (int $id) use ($employees): string {
+                    $employee = $employees->get($id);
+                    if ($employee === null) {
+                        return 'ID '.$id;
+                    }
+
+                    return trim(($employee->code ? $employee->code.' - ' : '').$employee->name);
+                }, $employeeIds),
+            ];
+        }
+
+        return $selectedLabels;
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private static function selectedIds(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_unique(array_filter(
+            array_map(static fn (mixed $id): int => is_numeric($id) ? (int) $id : 0, $value),
+            static fn (int $id): bool => $id > 0,
+        )));
+    }
 }

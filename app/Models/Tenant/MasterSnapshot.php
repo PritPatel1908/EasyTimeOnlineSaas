@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class MasterSnapshot extends Model
 {
+    public const APPROVERS_SNAPSHOT_TYPE = 'employee_approvers';
+
     protected $fillable = [
         'master_type',
         'master_id',

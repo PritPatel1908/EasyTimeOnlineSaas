@@ -58,6 +58,20 @@ class CustomReportExporterTest extends TestCase
         $this->assertSame([['E001', 'Employee One', '', '']], $table['rows']);
     }
 
+    public function test_last_login_can_be_formatted_as_a_combined_date_and_time(): void
+    {
+        $employee = new User(['last_login_at' => '2026-11-20 09:14:00']);
+        $table = (new CustomReportTableBuilder)->buildForEmployees(
+            [['field_name' => 'last_login', 'date_time_format' => 'd-m-Y H:i']],
+            '2026-11-20',
+            '2026-11-20',
+            'vertical',
+            [$employee],
+        );
+
+        $this->assertSame([['20-11-2026 09:14']], $table['rows']);
+    }
+
     public function test_csv_export_contains_the_header_row_without_data_rows(): void
     {
         Storage::fake('local');

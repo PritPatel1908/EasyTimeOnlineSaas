@@ -8,12 +8,63 @@ final class CustomReportFieldOptions
 {
     public static function dateOnlyFields(): array
     {
+        return ['joining_date', 'left_date', 'birth_date', 'date'];
+    }
+
+    public static function dateTimeOnlyFields(): array
+    {
+        return ['last_login'];
+    }
+
+    public static function dateDetailFields(): array
+    {
         return [
-            'joining_date',
-            'left_date',
-            'birth_date',
-            'date',
+            'attendance_specific_status',
+            'attendance_status',
+            'attendance_in_time',
+            'attendance_out_time',
+            'shift_in_time',
+            'shift_out_time',
+            'early_minutes',
+            'late_minutes',
+            'working_hrs',
+            'overtime_minutes',
+            'approved_overtime_minutes',
+            'week_off',
+            'no_punch',
+            'single_punch',
+            'machine_in_out',
+            'break_hrs',
+            'manual_punch',
+            'month_total_days',
+            'leave_balance',
+            'leave_add',
+            'leave_taken',
+            'break_start',
+            'break_end',
+            'holiday',
+            'leave',
         ];
+    }
+
+    public static function dateTimeFields(): array
+    {
+        return array_merge(self::dateOnlyFields(), self::dateTimeOnlyFields(), self::dateDetailFields());
+    }
+
+    public static function summaryFields(): array
+    {
+        return self::dateDetailFields();
+    }
+
+    public static function supportsDateTimeFormat(string $fieldName): bool
+    {
+        return in_array($fieldName, self::dateTimeFields(), true);
+    }
+
+    public static function supportsSummary(string $fieldName): bool
+    {
+        return in_array($fieldName, self::summaryFields(), true);
     }
 
     public static function all(): array

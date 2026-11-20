@@ -27,34 +27,6 @@ use Illuminate\Support\Collection;
 
 final class CustomReportTableBuilder
 {
-    private const DATE_DETAIL_FIELDS = [
-        'attendance_specific_status',
-        'attendance_status',
-        'attendance_in_time',
-        'attendance_out_time',
-        'shift_in_time',
-        'shift_out_time',
-        'early_minutes',
-        'late_minutes',
-        'working_hrs',
-        'overtime_minutes',
-        'approved_overtime_minutes',
-        'week_off',
-        'no_punch',
-        'single_punch',
-        'machine_in_out',
-        'break_hrs',
-        'manual_punch',
-        'month_total_days',
-        'leave_balance',
-        'leave_add',
-        'leave_taken',
-        'break_start',
-        'break_end',
-        'holiday',
-        'leave',
-    ];
-
     private const SNAPSHOT_FIELDS = [
         'role' => ['model' => Role::class, 'column' => null, 'value' => 'name'],
         'data_policy' => ['model' => DataPolicy::class, 'column' => 'data_policy_id', 'value' => 'name'],
@@ -77,6 +49,8 @@ final class CustomReportTableBuilder
         'canteen_facility_code' => ['model' => CanteenFacility::class, 'column' => 'canteen_facility_id', 'value' => 'code'],
         'category_name' => ['model' => Category::class, 'column' => 'category_id', 'value' => 'name'],
         'category_code' => ['model' => Category::class, 'column' => 'category_id', 'value' => 'code'],
+        'shift_name' => ['model' => Shift::class, 'column' => 'shift_id', 'value' => 'name'],
+        'shift_code' => ['model' => Shift::class, 'column' => 'shift_id', 'value' => 'code'],
     ];
 
     /**
@@ -114,7 +88,10 @@ final class CustomReportTableBuilder
             }
         }
 
-        $snapshotFields = array_intersect(array_column($fields, 'field_name'), array_keys(self::SNAPSHOT_FIELDS));
+        $snapshotFields = array_intersect(
+            array_column($fields, 'field_name'),
+            array_merge(array_keys(self::SNAPSHOT_FIELDS), ['approvers']),
+        );
         $snapshots = $this->snapshots($snapshotFields, $employees);
         $liveMasterValues = $this->liveMasterValues($fields, $employees);
         $rows = [];
@@ -157,7 +134,7 @@ final class CustomReportTableBuilder
             foreach ($fields as $index => $field) {
                 if (($field['field_name'] ?? '') === 'date') {
                     $detailIndexes[] = $index;
-                } elseif (in_array($field['field_name'] ?? '', self::DATE_DETAIL_FIELDS, true)) {
+                } elseif (in_array($field['field_name'] ?? '', CustomReportFieldOptions::dateDetailFields(), true)) {
                     $detailIndexes[] = $index;
                 } else {
                     $masterIndexes[] = $index;
@@ -182,13 +159,16 @@ final class CustomReportTableBuilder
                 $masterValues = [];
                 foreach ($masterIndexes as $index) {
                     $field = $fields[$index];
+                    $masterDate = ($field['field_name'] ?? '') === 'approvers'
+                        ? new DateTimeImmutable($toDate)
+                        : $startDate;
                     $masterValues[$index] = $this->employeeValue(
                         $employee,
                         $field['field_name'] ?? '',
                         $snapshots,
                         $liveMasterValues,
                         $field['date_time_format'] ?? 'default',
-                        $startDate,
+                        $masterDate,
                     );
                 }
                 $masterHeaders = array_map(static fn (int $index): string => $labels[$index], $masterIndexes);
@@ -248,20 +228,21 @@ final class CustomReportTableBuilder
     /**
      * @param  array<int, string>  $fields
      * @param  Collection<int, User>  $employees
-     * @return array{assignments: Collection<int, MasterSnapshot>, values: Collection<int, MasterSnapshot>}
+     * @return array{assignments: Collection<int, MasterSnapshot>, values: Collection<int, MasterSnapshot>, approvers: Collection<int, MasterSnapshot>}
      */
     private function snapshots(array $fields, Collection $employees): array
     {
         if ($fields === []) {
-            return ['assignments' => collect(), 'values' => collect()];
+            return ['assignments' => collect(), 'values' => collect(), 'approvers' => collect()];
         }
 
+        $snapshotFields = array_intersect($fields, array_keys(self::SNAPSHOT_FIELDS));
         $models = array_values(array_unique(array_map(
             static fn (string $field): string => self::SNAPSHOT_FIELDS[$field]['model'],
-            $fields,
+            $snapshotFields,
         )));
         $employeeIds = $employees->pluck('id')->filter()->map(static fn ($id): int => (int) $id)->all();
-        $assignments = MasterSnapshot::query()
+        $assignments = $models === [] ? collect() : MasterSnapshot::query()
             ->whereIn('master_type', $models)
             ->where('for_all', false)
             ->whereIn('user_id', $employeeIds)
@@ -270,7 +251,7 @@ final class CustomReportTableBuilder
             ->get();
 
         $masterIds = $assignments->pluck('master_id')->map(static fn ($id): int => (int) $id)->all();
-        foreach ($fields as $field) {
+        foreach ($snapshotFields as $field) {
             $column = self::SNAPSHOT_FIELDS[$field]['column'];
             if ($column === null) {
                 foreach ($employees as $employee) {
@@ -288,7 +269,7 @@ final class CustomReportTableBuilder
         }
         $masterIds = array_values(array_unique($masterIds));
 
-        $values = $masterIds === [] ? collect() : MasterSnapshot::query()
+        $values = $masterIds === [] || $models === [] ? collect() : MasterSnapshot::query()
             ->whereIn('master_type', $models)
             ->whereIn('master_id', $masterIds)
             ->where('for_all', true)
@@ -296,7 +277,18 @@ final class CustomReportTableBuilder
             ->orderBy('id')
             ->get();
 
-        return ['assignments' => $assignments, 'values' => $values];
+        $approvers = in_array('approvers', $fields, true) && $employeeIds !== []
+            ? MasterSnapshot::query()
+                ->where('master_type', MasterSnapshot::APPROVERS_SNAPSHOT_TYPE)
+                ->whereIn('master_id', $employeeIds)
+                ->whereIn('user_id', $employeeIds)
+                ->where('for_all', false)
+                ->orderBy('from_date')
+                ->orderBy('id')
+                ->get()
+            : collect();
+
+        return ['assignments' => $assignments, 'values' => $values, 'approvers' => $approvers];
     }
 
     /**
@@ -307,8 +299,6 @@ final class CustomReportTableBuilder
     private function liveMasterValues(array $fields, Collection $employees): array
     {
         $relations = [
-            'shift_name' => ['column' => 'shift_id', 'model' => Shift::class, 'value' => 'name'],
-            'shift_code' => ['column' => 'shift_id', 'model' => Shift::class, 'value' => 'code'],
             'blood_group' => ['column' => 'blood_group_id', 'model' => BloodGroup::class, 'value' => 'name'],
         ];
         $values = [];
@@ -335,7 +325,7 @@ final class CustomReportTableBuilder
     }
 
     /**
-     * @param  array{assignments: Collection<int, MasterSnapshot>, values: Collection<int, MasterSnapshot>}  $snapshots
+     * @param  array{assignments: Collection<int, MasterSnapshot>, values: Collection<int, MasterSnapshot>, approvers: Collection<int, MasterSnapshot>}  $snapshots
      * @param  array<string, array<int, string>>  $liveMasterValues
      */
     private function employeeValue(
@@ -346,6 +336,71 @@ final class CustomReportTableBuilder
         mixed $format,
         ?DateTimeImmutable $date,
     ): string {
+        if ($field === 'approvers') {
+            $employeeId = $employee->getKey();
+            if ($employeeId === null) {
+                return '';
+            }
+
+            $dateToCheck = $date ?? new DateTimeImmutable('today');
+            $snapshot = $snapshots['approvers']
+                ->where('user_id', $employeeId)
+                ->where('master_id', $employeeId)
+                ->filter(fn (MasterSnapshot $candidate): bool => $this->coversDate($candidate, $dateToCheck))
+                ->sortByDesc(static fn (MasterSnapshot $candidate): string => $candidate->from_date->format('Y-m-d').'-'.str_pad((string) $candidate->id, 12, '0', STR_PAD_LEFT))
+                ->first();
+            $approvalFlows = $snapshot?->value['approval_flows'] ?? null;
+            if (! is_array($approvalFlows)) {
+                $legacyApprovers = $snapshot?->value['approvers'] ?? [];
+
+                return is_array($legacyApprovers)
+                    ? implode(', ', array_filter(array_map(static fn (mixed $name): string => is_scalar($name) ? (string) $name : '', $legacyApprovers)))
+                    : '';
+            }
+
+            $flowDescriptions = [];
+            foreach ($approvalFlows as $approvalFlow) {
+                if (! is_array($approvalFlow)) {
+                    continue;
+                }
+
+                $levels = [];
+                foreach ($approvalFlow['levels'] ?? [] as $level) {
+                    if (! is_array($level)) {
+                        continue;
+                    }
+
+                    $approvers = [];
+                    foreach ($level['approvers'] ?? [] as $approver) {
+                        if (! is_array($approver)) {
+                            continue;
+                        }
+
+                        $name = trim((string) ($approver['name'] ?? ''));
+                        $code = trim((string) ($approver['code'] ?? ''));
+                        $identity = $name !== '' ? $name : $code;
+                        if ($identity === '') {
+                            $identity = (string) ($approver['id'] ?? '');
+                        } elseif ($code !== '' && $code !== $name) {
+                            $identity .= ' ('.$code.')';
+                        }
+                        if ($identity !== '') {
+                            $approvers[] = $identity;
+                        }
+                    }
+
+                    $levels[] = 'Level '.(int) ($level['level'] ?? 0).': '.($approvers === [] ? '—' : implode(', ', $approvers));
+                }
+
+                $module = trim((string) ($approvalFlow['module'] ?? 'Approval Flow'));
+                $flowCode = trim((string) ($approvalFlow['flow_code'] ?? ''));
+                $flowLabel = $module.($flowCode !== '' ? ' ('.$flowCode.')' : '');
+                $flowDescriptions[] = $flowLabel.($levels === [] ? '' : ' - '.implode('; ', $levels));
+            }
+
+            return implode(' | ', $flowDescriptions);
+        }
+
         $columns = [
             'emp_code' => 'code',
             'emp_card' => 'card',
@@ -373,15 +428,9 @@ final class CustomReportTableBuilder
         }
 
         if (isset($liveMasterValues[$field])) {
-            $column = [
-                'shift_name' => 'shift_id',
-                'shift_code' => 'shift_id',
-                'blood_group' => 'blood_group_id',
-            ][$field];
-
             return implode(', ', array_filter(array_map(
                 static fn (int $id): string => $liveMasterValues[$field][$id] ?? '',
-                $this->attributeIds($employee->getAttribute($column)),
+                $this->attributeIds($employee->getAttribute('blood_group_id')),
             )));
         }
 
@@ -431,7 +480,7 @@ final class CustomReportTableBuilder
     }
 
     /**
-     * @param  array{assignments: Collection<int, MasterSnapshot>, values: Collection<int, MasterSnapshot>}  $snapshots
+     * @param  array{assignments: Collection<int, MasterSnapshot>, values: Collection<int, MasterSnapshot>, approvers: Collection<int, MasterSnapshot>}  $snapshots
      */
     private function snapshotValue(User $employee, string $field, array $snapshots, ?DateTimeImmutable $date): string
     {
@@ -520,7 +569,7 @@ final class CustomReportTableBuilder
 
     private function dateFormat(mixed $format): string
     {
-        return in_array($format, ['d-m-Y', 'm-d-Y', 'Y-m-d', 'd/m/Y', 'm/d/Y'], true)
+        return in_array($format, ['d-m-Y', 'm-d-Y', 'Y-m-d', 'd/m/Y', 'm/d/Y', 'H:i', 'h:i A', 'd-m-Y H:i', 'Y-m-d H:i'], true)
             ? $format
             : 'Y-m-d';
     }

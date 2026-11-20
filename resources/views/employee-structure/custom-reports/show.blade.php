@@ -2,21 +2,11 @@
 @section('content')
 @php
     $customReportDetail = $customReport->custom_report_details->first();
-    $jsonFlags = JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
     $customReportFields = array_values(array_filter($customReportDetail?->custom_report_fields ?? [], 'is_array'));
     $fieldNameLabels = \App\Support\CustomReportFieldOptions::all();
-    $dateTimeFormatLabels = [
-        'default' => 'Default',
-        'd-m-Y' => 'DD-MM-YYYY',
-        'm-d-Y' => 'MM-DD-YYYY',
-        'Y-m-d' => 'YYYY-MM-DD',
-        'd/m/Y' => 'DD/MM/YYYY',
-        'm/d/Y' => 'MM/DD/YYYY',
-        'H:i' => '24-hour time (HH:mm)',
-        'h:i A' => '12-hour time (hh:mm AM/PM)',
-        'd-m-Y H:i' => 'DD-MM-YYYY HH:mm',
-        'Y-m-d H:i' => 'YYYY-MM-DD HH:mm',
-    ];
+    $customReportFilters = $customReportDetail?->custom_report_filter;
+    $customReportFilters = is_array($customReportFilters) ? $customReportFilters : [];
+    $selectedFilterLabels = \App\Support\CustomReportFilterOptions::selectedLabels($customReportFilters);
 @endphp
 <div class="page-wrapper"><div class="content">
     @include('partials.flash-alerts')
@@ -43,26 +33,39 @@
     </div></div></div>
     <div class="card mb-4">
         <div class="card-header"><h5 class="mb-0">Custom Report Fields</h5></div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table">
-                    <thead><tr><th>Field Name</th><th>Date/Time Format</th><th>Use in Summary</th></tr></thead>
-                    <tbody>
-                        @forelse($customReportFields as $field)
-                            <tr>
-                                <td>{{ $fieldNameLabels[$field['field_name'] ?? ''] ?? ($field['field_name'] ?? '—') }}</td>
-                                <td>{{ $dateTimeFormatLabels[$field['date_time_format'] ?? 'default'] ?? ($field['date_time_format'] ?? 'Default') }}</td>
-                                <td>{{ in_array($field['field_name'] ?? '', \App\Support\CustomReportFieldOptions::dateOnlyFields(), true) ? '—' : (filter_var($field['use_in_summary'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 'Yes' : 'No') }}</td>
-                            </tr>
-                        @empty
-                            <tr><td colspan="3" class="text-center text-muted">No custom report fields configured.</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
+        <div class="card-body py-2">
+            @if($customReportFields === [])
+                <p class="text-center text-muted mb-0 py-2">No custom report fields configured.</p>
+            @else
+                <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-0">
+                    @foreach($customReportFields as $field)
+                        @php
+                            $fieldName = $field['field_name'] ?? '';
+                        @endphp
+                        <div class="col border-bottom py-2 px-2">
+                            {{ $fieldNameLabels[$fieldName] ?? ($fieldName ?: '—') }}
+                        </div>
+                    @endforeach
+                </div>
+            @endif
         </div>
     </div>
-    <div class="card"><div class="card-header"><h5 class="mb-0">Custom Report Filter</h5></div><div class="card-body"><pre class="mb-0">{{ json_encode($customReportDetail?->custom_report_filter ?? [], $jsonFlags) }}</pre></div></div>
+    <div class="card"><div class="card-header"><h5 class="mb-0">Custom Report Filter</h5></div><div class="card-body py-2">
+        @if($selectedFilterLabels === [])
+            <p class="text-muted mb-0 py-2">No filters applied. All employees are included.</p>
+        @else
+            <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-2">
+                @foreach($selectedFilterLabels as $filter)
+                    <div class="col">
+                        <div class="border rounded p-2 h-100">
+                            <strong class="d-block mb-1">{{ $filter['label'] }}</strong>
+                            <div class="text-muted">{{ implode(', ', $filter['values']) }}</div>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        @endif
+    </div></div>
     <div class="card mt-4">
         <div class="card-header"><h5 class="mb-0">Generate and Download</h5></div>
         <div class="card-body">
@@ -80,7 +83,7 @@
                 <button type="submit" class="btn btn-primary"><i class="ti ti-file-export me-1"></i>Generate report</button>
             </form>
             <div class="table-responsive">
-                <table class="table">
+                <table class="table datatable">
                     <thead><tr><th>Requested</th><th>Format</th><th>Status</th><th></th></tr></thead>
                     <tbody>
                         @forelse($customReport->generations as $generation)

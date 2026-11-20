@@ -79,34 +79,38 @@
 <template id="custom_report_field_template">
     <div class="border rounded p-3 mb-3" data-custom-report-field-row>
         <div class="row align-items-end">
-            <div class="col-md-4 mb-3 mb-md-0">
-                <label class="form-label">Field Name <span class="text-danger" aria-hidden="true">*</span></label>
-                <select class="form-control" data-field-name data-report-search-select required>
-                    <option value="">Select Field</option>
-                    @foreach(\App\Support\CustomReportFieldOptions::all() as $value => $label)
-                        <option value="{{ $value }}">{{ $label }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="col-md-4 mb-3 mb-md-0" data-format-column>
-                <label class="form-label">Date/Time Format <span class="text-danger" aria-hidden="true">*</span></label>
-                <select class="form-control" data-date-time-format data-report-search-select required>
-                    <option value="default">Default</option>
-                    <option value="d-m-Y" data-date-only>DD-MM-YYYY</option>
-                    <option value="m-d-Y" data-date-only>MM-DD-YYYY</option>
-                    <option value="Y-m-d" data-date-only>YYYY-MM-DD</option>
-                    <option value="d/m/Y" data-date-only>DD/MM/YYYY</option>
-                    <option value="m/d/Y" data-date-only>MM/DD/YYYY</option>
-                    <option value="H:i">24-hour time (HH:mm)</option>
-                    <option value="h:i A">12-hour time (hh:mm AM/PM)</option>
-                    <option value="d-m-Y H:i">DD-MM-YYYY HH:mm</option>
-                    <option value="Y-m-d H:i">YYYY-MM-DD HH:mm</option>
-                </select>
-            </div>
-            <div class="col-md-3 mb-3 mb-md-0" data-summary-container>
-                <label class="form-label d-block" data-summary-label>Use in Summary</label>
-                <div class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" role="switch" data-use-in-summary aria-label="Use in Summary">
+            <div class="col-md-11">
+                <div class="row">
+                    <div class="col-md-12 mb-3 mb-md-0" data-field-column>
+                        <label class="form-label">Field Name <span class="text-danger" aria-hidden="true">*</span></label>
+                        <select class="form-control" data-field-name data-report-search-select required>
+                            <option value="">Select Field</option>
+                            @foreach(\App\Support\CustomReportFieldOptions::all() as $value => $label)
+                                <option value="{{ $value }}">{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3 mb-md-0" data-format-column>
+                        <label class="form-label">Date/Time Format <span class="text-danger" aria-hidden="true">*</span></label>
+                        <select class="form-control" data-date-time-format data-report-search-select required>
+                            <option value="default">Default</option>
+                            <option value="d-m-Y" data-date-only>DD-MM-YYYY</option>
+                            <option value="m-d-Y" data-date-only>MM-DD-YYYY</option>
+                            <option value="Y-m-d" data-date-only>YYYY-MM-DD</option>
+                            <option value="d/m/Y" data-date-only>DD/MM/YYYY</option>
+                            <option value="m/d/Y" data-date-only>MM/DD/YYYY</option>
+                            <option value="H:i">24-hour time (HH:mm)</option>
+                            <option value="h:i A">12-hour time (hh:mm AM/PM)</option>
+                            <option value="d-m-Y H:i" data-date-time>DD-MM-YYYY HH:mm</option>
+                            <option value="Y-m-d H:i" data-date-time>YYYY-MM-DD HH:mm</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-3 mb-md-0" data-summary-container>
+                        <label class="form-label d-block" data-summary-label>Use in Summary</label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" data-use-in-summary aria-label="Use in Summary">
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="col-md-1 d-flex align-items-center justify-content-end gap-1 mt-3 mt-md-0">
@@ -293,13 +297,17 @@
     var rowNumber = 0;
     var initialFields = @json($reportFieldRows);
     var dateOnlyFields = @json(\App\Support\CustomReportFieldOptions::dateOnlyFields());
+    var dateTimeOnlyFields = @json(\App\Support\CustomReportFieldOptions::dateTimeOnlyFields());
+    var dateTimeFields = @json(\App\Support\CustomReportFieldOptions::dateTimeFields());
+    var summaryFields = @json(\App\Support\CustomReportFieldOptions::summaryFields());
     var formatOptions = Array.prototype.map.call(
         template.content.querySelector('[data-date-time-format]').options,
         function (option) {
             return {
                 value: option.value,
                 label: option.textContent,
-                dateOnly: option.value === 'default' || option.hasAttribute('data-date-only')
+                dateOnly: option.value === 'default' || option.hasAttribute('data-date-only'),
+                dateTime: option.value === 'default' || option.hasAttribute('data-date-time')
             };
         }
     );
@@ -309,17 +317,22 @@
             new TomSelect(select, {
                 width: '100%',
                 searchField: ['text'],
-                placeholder: 'Search or select'
+                placeholder: 'Search or select',
+                maxOptions: null
             });
         }
     }
 
     function syncFields() {
         var fields = Array.prototype.map.call(rowsContainer.querySelectorAll('[data-custom-report-field-row]'), function (row) {
+            var fieldName = row.querySelector('[data-field-name]').value;
+
             return {
-                field_name: row.querySelector('[data-field-name]').value,
-                date_time_format: row.querySelector('[data-date-time-format]').value,
-                use_in_summary: !row.querySelector('[data-summary-container]').classList.contains('d-none')
+                field_name: fieldName,
+                date_time_format: dateTimeFields.indexOf(fieldName) !== -1
+                    ? row.querySelector('[data-date-time-format]').value
+                    : 'default',
+                use_in_summary: summaryFields.indexOf(fieldName) !== -1
                     && row.querySelector('[data-use-in-summary]').checked
             };
         });
@@ -335,8 +348,12 @@
         var dateTimeFormat = row.querySelector('[data-date-time-format]');
         var summaryContainer = row.querySelector('[data-summary-container]');
         var formatColumn = row.querySelector('[data-format-column]');
+        var fieldColumn = row.querySelector('[data-field-column]');
         var isDateOnly = dateOnlyFields.indexOf(fieldName) !== -1;
-        var currentFormat = storedFormat || dateTimeFormat.value || 'default';
+        var isDateTimeOnly = dateTimeOnlyFields.indexOf(fieldName) !== -1;
+        var supportsDateTimeFormat = dateTimeFields.indexOf(fieldName) !== -1;
+        var supportsSummary = summaryFields.indexOf(fieldName) !== -1;
+        var currentFormat = supportsDateTimeFormat ? (storedFormat || dateTimeFormat.value || 'default') : 'default';
 
         if (dateTimeFormat.tomselect) {
             dateTimeFormat.tomselect.destroy();
@@ -344,7 +361,9 @@
         dateTimeFormat.replaceChildren();
 
         formatOptions.forEach(function (option) {
-            if (!isDateOnly || option.dateOnly) {
+            if ((isDateOnly && option.dateOnly)
+                || (isDateTimeOnly && option.dateTime)
+                || (!isDateOnly && !isDateTimeOnly)) {
                 dateTimeFormat.add(new Option(option.label, option.value));
             }
         });
@@ -353,11 +372,15 @@
             return option.value === currentFormat;
         });
         dateTimeFormat.value = hasStoredFormat ? currentFormat : 'default';
-        summaryContainer.classList.toggle('d-none', isDateOnly);
-        formatColumn.classList.toggle('col-md-7', isDateOnly);
-        formatColumn.classList.toggle('col-md-4', !isDateOnly);
+        formatColumn.classList.toggle('d-none', !supportsDateTimeFormat);
+        summaryContainer.classList.toggle('d-none', !supportsSummary);
+        formatColumn.classList.toggle('col-md-4', supportsSummary);
+        formatColumn.classList.toggle('col-md-6', !supportsSummary);
+        fieldColumn.classList.toggle('col-md-4', supportsSummary);
+        fieldColumn.classList.toggle('col-md-6', supportsDateTimeFormat && !supportsSummary);
+        fieldColumn.classList.toggle('col-md-12', !supportsDateTimeFormat && !supportsSummary);
 
-        if (isDateOnly) {
+        if (!supportsSummary) {
             row.querySelector('[data-use-in-summary]').checked = false;
         }
 
