@@ -23,6 +23,8 @@ final class CustomReportFieldOptions
             'attendance_status',
             'attendance_in_time',
             'attendance_out_time',
+            'shift_name',
+            'shift_code',
             'shift_in_time',
             'shift_out_time',
             'early_minutes',

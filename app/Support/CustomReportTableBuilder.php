@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Support;
 
+use App\Models\Tenant\Attendance;
 use App\Models\Tenant\BloodGroup;
 use App\Models\Tenant\CanteenFacility;
 use App\Models\Tenant\Category;
@@ -15,7 +16,6 @@ use App\Models\Tenant\LegacyLeaveGroup;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\MasterSnapshot;
 use App\Models\Tenant\Role;
-use App\Models\Tenant\Shift;
 use App\Models\Tenant\SubDepartment;
 use App\Models\Tenant\Team;
 use App\Models\Tenant\Unit;
@@ -49,8 +49,6 @@ final class CustomReportTableBuilder
         'canteen_facility_code' => ['model' => CanteenFacility::class, 'column' => 'canteen_facility_id', 'value' => 'code'],
         'category_name' => ['model' => Category::class, 'column' => 'category_id', 'value' => 'name'],
         'category_code' => ['model' => Category::class, 'column' => 'category_id', 'value' => 'code'],
-        'shift_name' => ['model' => Shift::class, 'column' => 'shift_id', 'value' => 'name'],
-        'shift_code' => ['model' => Shift::class, 'column' => 'shift_id', 'value' => 'code'],
     ];
 
     /**
@@ -94,6 +92,7 @@ final class CustomReportTableBuilder
         );
         $snapshots = $this->snapshots($snapshotFields, $employees);
         $liveMasterValues = $this->liveMasterValues($fields, $employees);
+        $attendanceValues = $this->attendanceShiftValues($fields, $employees, $fromDate, $toDate);
         $rows = [];
 
         if ($dateIndexes !== [] && $orientation === 'horizontal') {
@@ -117,6 +116,7 @@ final class CustomReportTableBuilder
                             $field['field_name'] ?? '',
                             $snapshots,
                             $liveMasterValues,
+                            $attendanceValues,
                             $field['date_time_format'] ?? 'default',
                             null,
                         );
@@ -167,6 +167,7 @@ final class CustomReportTableBuilder
                         $field['field_name'] ?? '',
                         $snapshots,
                         $liveMasterValues,
+                        $attendanceValues,
                         $field['date_time_format'] ?? 'default',
                         $masterDate,
                     );
@@ -196,6 +197,7 @@ final class CustomReportTableBuilder
                             $fieldName,
                             $snapshots,
                             $liveMasterValues,
+                            $attendanceValues,
                             $field['date_time_format'] ?? 'default',
                             $date,
                         );
@@ -215,6 +217,7 @@ final class CustomReportTableBuilder
                     $field['field_name'] ?? '',
                     $snapshots,
                     $liveMasterValues,
+                    $attendanceValues,
                     $field['date_time_format'] ?? 'default',
                     null,
                 ),
@@ -325,14 +328,63 @@ final class CustomReportTableBuilder
     }
 
     /**
+     * @param  array<int, array<string, mixed>>  $fields
+     * @param  Collection<int, User>  $employees
+     * @return array<int, array<string, array<string, string>>>
+     */
+    private function attendanceShiftValues(array $fields, Collection $employees, string $fromDate, string $toDate): array
+    {
+        $shiftFields = array_intersect(
+            array_column($fields, 'field_name'),
+            ['shift_name', 'shift_code'],
+        );
+        $employeeIds = $employees->pluck('id')->filter()->map(static fn (mixed $id): int => (int) $id)->all();
+        if ($shiftFields === [] || $employeeIds === []) {
+            return [];
+        }
+
+        $values = [];
+        $firstYear = (int) (new DateTimeImmutable($fromDate))->format('Y');
+        $lastYear = (int) (new DateTimeImmutable($toDate))->format('Y');
+
+        for ($year = $firstYear; $year <= $lastYear; $year++) {
+            $yearStart = max($fromDate, $year.'-01-01');
+            $yearEnd = min($toDate, $year.'-12-31');
+            $attendances = Attendance::year($year)
+                ->with('shift')
+                ->whereIn('user_id', $employeeIds)
+                ->whereBetween('date', [$yearStart, $yearEnd])
+                ->get();
+
+            foreach ($attendances as $attendance) {
+                $employeeId = (int) $attendance->user_id;
+                $date = $attendance->date->toDateString();
+                $shiftName = (string) ($attendance->shift?->name ?? '');
+                $shiftCode = (string) (($attendance->shift_code ?: $attendance->shift?->code) ?? '');
+
+                if ($shiftName !== '') {
+                    $values[$employeeId][$date]['shift_name'] = $shiftName;
+                }
+                if ($shiftCode !== '') {
+                    $values[$employeeId][$date]['shift_code'] = $shiftCode;
+                }
+            }
+        }
+
+        return $values;
+    }
+
+    /**
      * @param  array{assignments: Collection<int, MasterSnapshot>, values: Collection<int, MasterSnapshot>, approvers: Collection<int, MasterSnapshot>}  $snapshots
      * @param  array<string, array<int, string>>  $liveMasterValues
+     * @param  array<int, array<string, array<string, string>>>  $attendanceValues
      */
     private function employeeValue(
         User $employee,
         string $field,
         array $snapshots,
         array $liveMasterValues,
+        array $attendanceValues,
         mixed $format,
         ?DateTimeImmutable $date,
     ): string {
@@ -399,6 +451,18 @@ final class CustomReportTableBuilder
             }
 
             return implode(' | ', $flowDescriptions);
+        }
+
+        if (in_array($field, ['shift_name', 'shift_code'], true)) {
+            $employeeValues = $attendanceValues[(int) $employee->getKey()] ?? [];
+            if ($date !== null) {
+                return $employeeValues[$date->format('Y-m-d')][$field] ?? '';
+            }
+
+            return implode(', ', array_values(array_unique(array_filter(array_map(
+                static fn (array $dailyValues): string => $dailyValues[$field] ?? '',
+                $employeeValues,
+            )))));
         }
 
         $columns = [
