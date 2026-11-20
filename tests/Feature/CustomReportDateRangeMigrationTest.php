@@ -73,4 +73,40 @@ class CustomReportDateRangeMigrationTest extends TestCase
         $this->assertNotNull($report->to_date);
         $this->assertFalse(Schema::hasColumn('custom_reports', 'date_range_preset'));
     }
+
+    public function test_summary_orientation_migration_preserves_existing_report_orientation(): void
+    {
+        DB::table('custom_reports')->insert([
+            [
+                'report_name' => 'Vertical report',
+                'from_date' => '2026-11-01',
+                'to_date' => '2026-11-02',
+                'status' => 1,
+                'report_orientation' => 'vertical',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'report_name' => 'Horizontal report',
+                'from_date' => '2026-11-01',
+                'to_date' => '2026-11-02',
+                'status' => 1,
+                'report_orientation' => 'horizontal',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $migration = require base_path('database/migrations/tenant/2026_11_20_152000_add_summary_orientation_to_custom_reports_table.php');
+        $migration->up();
+
+        $this->assertSame(
+            ['vertical', 'horizontal'],
+            DB::table('custom_reports')->orderBy('id')->pluck('summary_orientation')->all(),
+        );
+
+        $migration->down();
+
+        $this->assertFalse(Schema::hasColumn('custom_reports', 'summary_orientation'));
+    }
 }

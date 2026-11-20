@@ -10,6 +10,7 @@ use App\Support\CustomReportExporter;
 use App\Support\CustomReportTableBuilder;
 use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Style\Border;
 use Tests\TestCase;
 
 class CustomReportExporterTest extends TestCase
@@ -33,6 +34,7 @@ class CustomReportExporterTest extends TestCase
         $this->assertSame([
             ['Emp Code', 'Name'],
             ['E001', 'Employee One'],
+            [],
             ['Date'],
             ['14/11/2026'],
             ['15/11/2026'],
@@ -54,8 +56,13 @@ class CustomReportExporterTest extends TestCase
             [$employee],
         );
 
-        $this->assertSame(['Emp Code', 'Name', '2026-11-14', '2026-11-15'], $table['headers']);
-        $this->assertSame([['E001', 'Employee One', '', '']], $table['rows']);
+        $this->assertSame([], $table['headers']);
+        $this->assertSame([
+            ['Emp Code', 'Name'],
+            ['E001', 'Employee One'],
+            [],
+            ['Date', '2026-11-14', '2026-11-15'],
+        ], $table['rows']);
     }
 
     public function test_last_login_can_be_formatted_as_a_combined_date_and_time(): void
@@ -166,8 +173,17 @@ class CustomReportExporterTest extends TestCase
             [
                 ['Emp Code', 'Name'],
                 ['E001', 'Employee One'],
+                [],
                 ['Date', 'Attendance Status'],
                 ['2026-11-14', 'PP'],
+                [],
+                ['Summary'],
+                ['Late Minutes', '5'],
+                [],
+                ['Emp Code', 'Name'],
+                ['E002', 'Employee Two'],
+                ['Date', 'Attendance Status'],
+                ['2026-11-14', 'AA'],
             ],
         );
 
@@ -175,8 +191,37 @@ class CustomReportExporterTest extends TestCase
         $this->assertSame([
             ['Emp Code', 'Name'],
             ['E001', 'Employee One'],
+            [null, null],
             ['Date', 'Attendance Status'],
             ['2026-11-14', 'PP'],
+            [null, null],
+            ['Summary', null],
+            ['Late Minutes', '5'],
+            [null, null],
+            ['Emp Code', 'Name'],
+            ['E002', 'Employee Two'],
+            ['Date', 'Attendance Status'],
+            ['2026-11-14', 'AA'],
         ], $spreadsheet->getActiveSheet()->toArray());
+        $this->assertSame(
+            Border::BORDER_THIN,
+            $spreadsheet->getActiveSheet()->getStyle('B5')->getBorders()->getLeft()->getBorderStyle(),
+        );
+        $this->assertSame(
+            Border::BORDER_THIN,
+            $spreadsheet->getActiveSheet()->getStyle('B5')->getBorders()->getBottom()->getBorderStyle(),
+        );
+        $this->assertSame(
+            Border::BORDER_MEDIUM,
+            $spreadsheet->getActiveSheet()->getStyle('B8')->getBorders()->getBottom()->getBorderStyle(),
+        );
+        $this->assertSame(
+            Border::BORDER_NONE,
+            $spreadsheet->getActiveSheet()->getStyle('B6')->getBorders()->getLeft()->getBorderStyle(),
+        );
+        $this->assertSame(
+            Border::BORDER_MEDIUM,
+            $spreadsheet->getActiveSheet()->getStyle('A10')->getBorders()->getTop()->getBorderStyle(),
+        );
     }
 }

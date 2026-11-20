@@ -51,12 +51,28 @@ final class CustomReportFieldOptions
 
     public static function dateTimeFields(): array
     {
-        return array_merge(self::dateOnlyFields(), self::dateTimeOnlyFields(), self::dateDetailFields());
+        return array_values(array_diff(
+            array_merge(self::dateOnlyFields(), self::dateTimeOnlyFields(), self::dateDetailFields()),
+            array_merge(self::minuteFormatFields(), ['attendance_status', 'shift_name', 'shift_code']),
+        ));
+    }
+
+    public static function timeOnlyFields(): array
+    {
+        return ['attendance_in_time', 'attendance_out_time'];
+    }
+
+    public static function minuteFormatFields(): array
+    {
+        return ['late_minutes', 'early_minutes', 'working_hrs', 'overtime_minutes', 'approved_overtime_minutes'];
     }
 
     public static function summaryFields(): array
     {
-        return self::dateDetailFields();
+        return array_values(array_diff(
+            self::dateDetailFields(),
+            ['attendance_in_time', 'attendance_out_time', 'shift_name', 'shift_code'],
+        ));
     }
 
     public static function supportsDateTimeFormat(string $fieldName): bool
@@ -67,6 +83,11 @@ final class CustomReportFieldOptions
     public static function supportsSummary(string $fieldName): bool
     {
         return in_array($fieldName, self::summaryFields(), true);
+    }
+
+    public static function supportsMinuteFormat(string $fieldName): bool
+    {
+        return in_array($fieldName, self::minuteFormatFields(), true);
     }
 
     public static function all(): array

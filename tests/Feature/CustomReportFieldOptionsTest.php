@@ -50,7 +50,17 @@ class CustomReportFieldOptionsTest extends TestCase
         $this->assertTrue(CustomReportFieldOptions::supportsDateTimeFormat('date'));
         $this->assertFalse(CustomReportFieldOptions::supportsSummary('date'));
         $this->assertTrue(CustomReportFieldOptions::supportsDateTimeFormat('attendance_in_time'));
-        $this->assertTrue(CustomReportFieldOptions::supportsSummary('attendance_in_time'));
+        $this->assertContains('attendance_in_time', CustomReportFieldOptions::timeOnlyFields());
+        $this->assertFalse(CustomReportFieldOptions::supportsSummary('attendance_in_time'));
+        $this->assertFalse(CustomReportFieldOptions::supportsDateTimeFormat('shift_name'));
+        $this->assertFalse(CustomReportFieldOptions::supportsSummary('shift_name'));
+        $this->assertFalse(CustomReportFieldOptions::supportsDateTimeFormat('attendance_status'));
+        $this->assertTrue(CustomReportFieldOptions::supportsSummary('attendance_status'));
+        foreach (CustomReportFieldOptions::minuteFormatFields() as $fieldName) {
+            $this->assertTrue(CustomReportFieldOptions::supportsMinuteFormat($fieldName));
+            $this->assertFalse(CustomReportFieldOptions::supportsDateTimeFormat($fieldName));
+            $this->assertTrue(CustomReportFieldOptions::supportsSummary($fieldName));
+        }
     }
 
     public function test_attendance_fields_are_available_in_the_field_selector_options(): void

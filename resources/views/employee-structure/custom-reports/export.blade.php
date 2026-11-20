@@ -1,3 +1,9 @@
+@php
+    $columnCount = max(1, count($headers));
+    foreach ($rows as $row) {
+        $columnCount = max($columnCount, count($row));
+    }
+@endphp
 <!doctype html>
 <html lang="en">
 <head>
@@ -9,6 +15,7 @@
         table { border-collapse: collapse; width: 100%; }
         th, td { border: 1px solid #777; padding: 6px; text-align: left; }
         th { background: #eee; }
+        .spacer-row td { border: 0; height: 12px; padding: 0; }
     </style>
 </head>
 <body>
@@ -21,7 +28,11 @@
         @endif
         <tbody>
             @foreach($rows as $row)
-                <tr>@foreach($row as $cell)<td>{{ $cell }}</td>@endforeach</tr>
+                @if($row === [])
+                    <tr class="spacer-row"><td colspan="{{ $columnCount }}">&nbsp;</td></tr>
+                @else
+                    <tr>@foreach($row as $cell)<td>{{ $cell }}</td>@endforeach</tr>
+                @endif
             @endforeach
         </tbody>
     </table>

@@ -12,6 +12,7 @@ class CustomReport extends Model
         'to_date',
         'date_range_preset',
         'report_orientation',
+        'summary_orientation',
         'status',
     ];
 
@@ -20,6 +21,7 @@ class CustomReport extends Model
         'to_date' => 'date',
         'date_range_preset' => 'string',
         'report_orientation' => 'string',
+        'summary_orientation' => 'string',
         'status' => 'integer',
     ];
 

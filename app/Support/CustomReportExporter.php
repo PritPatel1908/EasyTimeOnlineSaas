@@ -8,7 +8,11 @@ use App\Enums\ReportFormat;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\View;
 use Maatwebsite\Excel\Concerns\FromArray;
+use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Facades\Excel;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use RuntimeException;
 
 class CustomReportExporter
@@ -65,7 +69,8 @@ class CustomReportExporter
     private function storeXlsx(array $headers, array $rows, string $path): void
     {
         $table = $headers === [] ? $rows : array_merge([$headers], $rows);
-        $export = new class($table) implements FromArray
+        $table = array_map(static fn (array $row): array => $row === [] ? [' '] : $row, $table);
+        $export = new class($table) implements FromArray, WithStyles
         {
             /**
              * @param array<int, array<int, string>> $table
@@ -75,6 +80,69 @@ class CustomReportExporter
             public function array(): array
             {
                 return $this->table;
+            }
+
+            public function styles(Worksheet $sheet): ?array
+            {
+                if ($this->table === []) {
+                    return [];
+                }
+
+                $sectionStart = null;
+                $sectionEnd = null;
+                $sectionColumnCount = 0;
+                $applySectionOutline = static function (int $startRow, int $endRow, int $columnCount) use ($sheet): void {
+                    $range = 'A'.$startRow.':'.Coordinate::stringFromColumnIndex($columnCount).$endRow;
+                    $sheet->getStyle($range)->applyFromArray([
+                        'borders' => [
+                            'outline' => [
+                                'borderStyle' => Border::BORDER_MEDIUM,
+                                'color' => ['argb' => 'FF404040'],
+                            ],
+                        ],
+                    ]);
+                };
+
+                foreach ($this->table as $index => $row) {
+                    $hasContent = array_filter(
+                        $row,
+                        static fn (mixed $value): bool => $value !== null && trim((string) $value) !== '',
+                    ) !== [];
+
+                    if (! $hasContent) {
+                        $nextRowFirstValue = trim((string) ($this->table[$index + 1][0] ?? ''));
+                        $isEmployeeSeparator = ! in_array($nextRowFirstValue, ['Date', 'Summary'], true);
+                        if ($isEmployeeSeparator && $sectionStart !== null) {
+                            $applySectionOutline($sectionStart, $sectionEnd, $sectionColumnCount);
+                            $sectionStart = null;
+                            $sectionEnd = null;
+                            $sectionColumnCount = 0;
+                        }
+                        $sheet->getCell('A'.($index + 1))->setValue(null);
+                        $sheet->getRowDimension($index + 1)->setRowHeight(12);
+
+                        continue;
+                    }
+
+                    $sectionStart ??= $index + 1;
+                    $sectionEnd = $index + 1;
+                    $sectionColumnCount = max($sectionColumnCount, count($row));
+                    $rowRange = 'A'.($index + 1).':'.Coordinate::stringFromColumnIndex(count($row)).($index + 1);
+                    $sheet->getStyle($rowRange)->applyFromArray([
+                        'borders' => [
+                            'allBorders' => [
+                                'borderStyle' => Border::BORDER_THIN,
+                                'color' => ['argb' => 'FFD9D9D9'],
+                            ],
+                        ],
+                    ]);
+                }
+
+                if ($sectionStart !== null) {
+                    $applySectionOutline($sectionStart, $sectionEnd, $sectionColumnCount);
+                }
+
+                return [];
             }
         };
 

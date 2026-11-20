@@ -34,11 +34,13 @@ final class CustomReportRequestRules
             'from_date' => ['exclude_unless:date_range_preset,custom', 'required', 'date'],
             'to_date' => ['exclude_unless:date_range_preset,custom', 'required', 'date', 'after_or_equal:from_date'],
             'report_orientation' => ['required', 'string', 'in:vertical,horizontal'],
+            'summary_orientation' => ['required', 'string', 'in:vertical,horizontal'],
             'status' => ['required', 'integer', 'in:1,0'],
             'custom_report_fields' => ['required', 'array', 'min:1'],
             'custom_report_fields.*' => ['required', 'array'],
             'custom_report_fields.*.field_name' => ['required', 'string', Rule::in(array_keys(CustomReportFieldOptions::all()))],
             'custom_report_fields.*.date_time_format' => ['required', 'string', 'in:default,d-m-Y,m-d-Y,Y-m-d,d/m/Y,m/d/Y,H:i,h:i A,d-m-Y H:i,Y-m-d H:i'],
+            'custom_report_fields.*.minute_format' => ['required', 'string', 'in:default,hh_mm,decimal'],
             'custom_report_fields.*.use_in_summary' => ['required', 'boolean'],
             'custom_report_filter' => ['present', 'array'],
         ];

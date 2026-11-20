@@ -56,6 +56,7 @@ class GenerateCustomReportExport implements ShouldQueue
             $dateRange['to']->toDateString(),
             $report->report_orientation,
             $employees,
+            $report->summary_orientation ?? $report->report_orientation,
         );
         $extension = $generation->report_format->value;
         $path = 'custom-report-exports/'.Str::slug($this->tenantId).'/'.Str::uuid().'.'.$extension;

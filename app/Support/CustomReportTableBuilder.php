@@ -16,6 +16,8 @@ use App\Models\Tenant\LegacyLeaveGroup;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\MasterSnapshot;
 use App\Models\Tenant\Role;
+use App\Models\Tenant\Shift;
+use App\Models\Tenant\StatusMaster;
 use App\Models\Tenant\SubDepartment;
 use App\Models\Tenant\Team;
 use App\Models\Tenant\Unit;
@@ -62,6 +64,7 @@ final class CustomReportTableBuilder
         string $toDate,
         string $orientation,
         iterable $employees,
+        string $summaryOrientation = 'vertical',
     ): array {
         $employees = collect($employees)->values();
         $fieldLabels = CustomReportFieldOptions::all();
@@ -92,40 +95,88 @@ final class CustomReportTableBuilder
         );
         $snapshots = $this->snapshots($snapshotFields, $employees);
         $liveMasterValues = $this->liveMasterValues($fields, $employees);
-        $attendanceValues = $this->attendanceShiftValues($fields, $employees, $fromDate, $toDate);
+        $attendanceValues = $this->attendanceValues($fields, $employees, $fromDate, $toDate);
         $rows = [];
 
         if ($dateIndexes !== [] && $orientation === 'horizontal') {
-            $headers = [];
+            $masterIndexes = [];
+            $detailIndexes = [];
             foreach ($fields as $index => $field) {
-                if (($field['field_name'] ?? '') !== 'date') {
-                    $headers[] = $labels[$index];
+                $fieldName = $field['field_name'] ?? '';
+                if ($fieldName === 'date') {
+                    continue;
+                }
+                if (in_array($fieldName, CustomReportFieldOptions::dateDetailFields(), true)) {
+                    $detailIndexes[] = $index;
+                } else {
+                    $masterIndexes[] = $index;
                 }
             }
+
             $dateFormat = $this->dateFormat($fields[$dateIndexes[0]]['date_time_format'] ?? 'default');
-            foreach ($dates as $date) {
-                $headers[] = $date->format($dateFormat);
-            }
 
             foreach ($employees as $employee) {
-                $row = [];
-                foreach ($fields as $field) {
-                    if (($field['field_name'] ?? '') !== 'date') {
-                        $row[] = $this->employeeValue(
+                if ($rows !== []) {
+                    $rows[] = [];
+                }
+
+                $masterHeaders = array_map(static fn (int $index): string => $labels[$index], $masterIndexes);
+                $masterValues = [];
+                foreach ($masterIndexes as $index) {
+                    $field = $fields[$index];
+                    $masterDate = ($field['field_name'] ?? '') === 'approvers'
+                        ? new DateTimeImmutable($toDate)
+                        : null;
+                    $masterValues[] = $this->employeeValue(
+                        $employee,
+                        $field['field_name'] ?? '',
+                        $snapshots,
+                        $liveMasterValues,
+                        $attendanceValues,
+                        $this->fieldFormat($field),
+                        $masterDate,
+                    );
+                }
+                if ($masterHeaders === []) {
+                    $masterHeaders = ['Employee'];
+                    $masterValues[] = (string) ($employee->name ?: $employee->code ?: $employee->getKey());
+                }
+                $rows[] = $masterHeaders;
+                $rows[] = array_values($masterValues);
+
+                $rows[] = [];
+                $rows[] = array_merge(
+                    ['Date'],
+                    array_map(static fn (DateTimeImmutable $date): string => $date->format($dateFormat), $dates),
+                );
+                foreach ($detailIndexes as $index) {
+                    $field = $fields[$index];
+                    $fieldName = $field['field_name'] ?? '';
+                    $detailRow = [$labels[$index]];
+                    foreach ($dates as $date) {
+                        $detailRow[] = $this->employeeValue(
                             $employee,
-                            $field['field_name'] ?? '',
+                            $fieldName,
                             $snapshots,
                             $liveMasterValues,
                             $attendanceValues,
-                            $field['date_time_format'] ?? 'default',
-                            null,
+                            $this->fieldFormat($field),
+                            $date,
                         );
                     }
+                    $rows[] = $detailRow;
                 }
-                $rows[] = array_merge($row, array_fill(0, count($dates), ''));
+
+                $employeeId = (int) $employee->getKey();
+                $this->appendSummaryRows(
+                    $rows,
+                    $fields,
+                    [$employeeId => $attendanceValues[$employeeId] ?? []],
+                    $summaryOrientation,
+                );
             }
 
-            return ['headers' => $headers, 'rows' => $rows];
+            return ['headers' => [], 'rows' => $rows];
         }
 
         if ($dateIndexes !== []) {
@@ -168,7 +219,7 @@ final class CustomReportTableBuilder
                         $snapshots,
                         $liveMasterValues,
                         $attendanceValues,
-                        $field['date_time_format'] ?? 'default',
+                        $this->fieldFormat($field),
                         $masterDate,
                     );
                 }
@@ -179,6 +230,7 @@ final class CustomReportTableBuilder
                 }
                 $rows[] = $masterHeaders;
                 $rows[] = array_values($masterValues);
+                $rows[] = [];
                 $rows[] = $detailHeaders;
 
                 foreach ($dates as $date) {
@@ -198,34 +250,232 @@ final class CustomReportTableBuilder
                             $snapshots,
                             $liveMasterValues,
                             $attendanceValues,
-                            $field['date_time_format'] ?? 'default',
+                            $this->fieldFormat($field),
                             $date,
                         );
                     }
                     $rows[] = $row;
                 }
+
+                $employeeId = (int) $employee->getKey();
+                $this->appendSummaryRows(
+                    $rows,
+                    $fields,
+                    [$employeeId => $attendanceValues[$employeeId] ?? []],
+                    $summaryOrientation,
+                );
             }
 
             return ['headers' => $headers, 'rows' => $rows];
         }
 
         $headers = $labels;
+        $statusCodes = $summaryOrientation === 'horizontal'
+            ? $this->summaryStatusCodes($fields, $attendanceValues)
+            : [];
+        if ($summaryOrientation === 'horizontal') {
+            $headers = array_merge($headers, $this->horizontalSummaryHeaders($fields, $statusCodes));
+        }
         foreach ($employees as $employee) {
-            $rows[] = array_map(
+            $employeeId = (int) $employee->getKey();
+            $row = array_map(
                 fn (array $field): string => $this->employeeValue(
                     $employee,
                     $field['field_name'] ?? '',
                     $snapshots,
                     $liveMasterValues,
                     $attendanceValues,
-                    $field['date_time_format'] ?? 'default',
+                    $this->fieldFormat($field),
                     null,
                 ),
                 $fields,
             );
+            if ($summaryOrientation === 'horizontal') {
+                $row = array_merge(
+                    $row,
+                    $this->horizontalSummaryValues($fields, $attendanceValues[$employeeId] ?? [], $statusCodes),
+                );
+                $rows[] = $row;
+            } else {
+                $rows[] = $row;
+                $this->appendSummaryRows(
+                    $rows,
+                    $fields,
+                    [$employeeId => $attendanceValues[$employeeId] ?? []],
+                    $summaryOrientation,
+                );
+            }
         }
 
         return ['headers' => $headers, 'rows' => $rows];
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $fields
+     */
+    private function fieldFormat(array $field): mixed
+    {
+        return CustomReportFieldOptions::supportsMinuteFormat((string) ($field['field_name'] ?? ''))
+            ? $this->minuteFormat($field)
+            : ($field['date_time_format'] ?? 'default');
+    }
+
+    /**
+     * @param  array<string, mixed>  $field
+     */
+    private function minuteFormat(array $field): string
+    {
+        if (isset($field['minute_format'])) {
+            return (string) $field['minute_format'];
+        }
+
+        return in_array($field['date_time_format'] ?? 'default', ['H:i', 'h:i A'], true)
+            ? 'hh_mm'
+            : 'default';
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $fields
+     * @param  array<int, array<string, array<string, string>>>  $attendanceValues
+     * @return array{minute_totals: array<string, string>, status_counts: array<string, int>, status_selected: bool}
+     */
+    private function summaryData(array $fields, array $attendanceValues): array
+    {
+        $summaryFields = array_values(array_filter(
+            $fields,
+            static fn (array $field): bool => filter_var($field['use_in_summary'] ?? false, FILTER_VALIDATE_BOOLEAN)
+                && (CustomReportFieldOptions::supportsMinuteFormat((string) ($field['field_name'] ?? ''))
+                    || ($field['field_name'] ?? '') === 'attendance_status'),
+        ));
+        $minuteTotals = [];
+        $statusSelected = in_array('attendance_status', array_column($summaryFields, 'field_name'), true);
+
+        foreach ($summaryFields as $field) {
+            $fieldName = (string) ($field['field_name'] ?? '');
+            if (! CustomReportFieldOptions::supportsMinuteFormat($fieldName)) {
+                continue;
+            }
+
+            $total = 0;
+            foreach ($attendanceValues as $dailyValues) {
+                foreach ($dailyValues as $values) {
+                    $minutes = $values[$fieldName] ?? null;
+                    if (is_numeric($minutes)) {
+                        $total += (int) $minutes;
+                    }
+                }
+            }
+            $minuteTotals[$fieldName] = $this->formatMinutes($total, $this->minuteFormat($field));
+        }
+
+        $statusCounts = [];
+        if ($statusSelected) {
+            foreach ($attendanceValues as $dailyValues) {
+                foreach ($dailyValues as $values) {
+                    $status = $values['attendance_status'] ?? '';
+                    if ($status !== '') {
+                        $statusCounts[$status] = ($statusCounts[$status] ?? 0) + 1;
+                    }
+                }
+            }
+            ksort($statusCounts);
+        }
+
+        return [
+            'minute_totals' => $minuteTotals,
+            'status_counts' => $statusCounts,
+            'status_selected' => $statusSelected,
+        ];
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $fields
+     * @param  array<int, array<string, array<string, string>>>  $attendanceValues
+     * @return array<int, string>
+     */
+    private function summaryStatusCodes(array $fields, array $attendanceValues): array
+    {
+        return array_keys($this->summaryData($fields, $attendanceValues)['status_counts']);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $fields
+     * @param  array<int, string>  $statusCodes
+     * @return array<int, string>
+     */
+    private function horizontalSummaryHeaders(array $fields, array $statusCodes): array
+    {
+        $summary = $this->summaryData($fields, []);
+        $headers = array_map(
+            static fn (string $fieldName): string => 'Summary - '.CustomReportFieldOptions::all()[$fieldName],
+            array_keys($summary['minute_totals']),
+        );
+
+        foreach ($statusCodes as $statusCode) {
+            $headers[] = 'Summary - Attendance Status '.$statusCode.' Count';
+        }
+
+        return $headers;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $fields
+     * @param  array<string, array<string, string>>  $employeeAttendanceValues
+     * @param  array<int, string>  $statusCodes
+     * @return array<int, string>
+     */
+    private function horizontalSummaryValues(array $fields, array $employeeAttendanceValues, array $statusCodes): array
+    {
+        $summary = $this->summaryData($fields, [0 => $employeeAttendanceValues]);
+        $values = array_values($summary['minute_totals']);
+        foreach ($statusCodes as $statusCode) {
+            $values[] = (string) ($summary['status_counts'][$statusCode] ?? 0);
+        }
+
+        return $values;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $fields
+     * @param  array<int, array<string, array<string, string>>>  $attendanceValues
+     * @param  array<int, array<int, string>>  $rows
+     */
+    private function appendSummaryRows(array &$rows, array $fields, array $attendanceValues, string $orientation): void
+    {
+        $summary = $this->summaryData($fields, $attendanceValues);
+        if ($summary['minute_totals'] === [] && ! $summary['status_selected']) {
+            return;
+        }
+
+        $rows[] = [];
+        $rows[] = ['Summary'];
+        if ($orientation === 'horizontal') {
+            if ($summary['minute_totals'] !== []) {
+                $rows[] = array_map(
+                    static fn (string $fieldName): string => CustomReportFieldOptions::all()[$fieldName],
+                    array_keys($summary['minute_totals']),
+                );
+                $rows[] = array_values($summary['minute_totals']);
+            }
+            if ($summary['status_selected']) {
+                $rows[] = ['Attendance Status Summary'];
+                $rows[] = array_merge(['Status'], array_keys($summary['status_counts']));
+                $rows[] = array_merge(['Count'], array_map('strval', array_values($summary['status_counts'])));
+            }
+
+            return;
+        }
+
+        foreach ($summary['minute_totals'] as $fieldName => $total) {
+            $rows[] = [CustomReportFieldOptions::all()[$fieldName], $total];
+        }
+        if ($summary['status_selected']) {
+            $rows[] = ['Attendance Status Summary'];
+            $rows[] = ['Status', 'Count'];
+            foreach ($summary['status_counts'] as $status => $count) {
+                $rows[] = [(string) $status, (string) $count];
+            }
+        }
     }
 
     /**
@@ -332,18 +582,53 @@ final class CustomReportTableBuilder
      * @param  Collection<int, User>  $employees
      * @return array<int, array<string, array<string, string>>>
      */
-    private function attendanceShiftValues(array $fields, Collection $employees, string $fromDate, string $toDate): array
+    private function attendanceValues(array $fields, Collection $employees, string $fromDate, string $toDate): array
     {
-        $shiftFields = array_intersect(
+        $attendanceColumns = [
+            'attendance_in_time' => 'in_time',
+            'attendance_out_time' => 'out_time',
+            'late_minutes' => 'late_minutes',
+            'early_minutes' => 'early_minutes',
+            'working_hrs' => 'work_time',
+            'overtime_minutes' => 'total_overtime_minutes',
+            'approved_overtime_minutes' => 'approved_overtime_minutes',
+        ];
+        $requestedFields = array_values(array_intersect(
             array_column($fields, 'field_name'),
-            ['shift_name', 'shift_code'],
-        );
+            array_merge(array_keys($attendanceColumns), ['attendance_status', 'shift_name', 'shift_code']),
+        ));
         $employeeIds = $employees->pluck('id')->filter()->map(static fn (mixed $id): int => (int) $id)->all();
-        if ($shiftFields === [] || $employeeIds === []) {
+        if ($requestedFields === [] || $employeeIds === []) {
             return [];
         }
 
         $values = [];
+        $attendanceRows = [];
+        $shiftIds = [];
+        $statusMasterIds = [];
+        $fieldFormats = [];
+        foreach ($fields as $field) {
+            $fieldFormats[$field['field_name'] ?? ''] = $this->fieldFormat($field);
+        }
+        $columns = ['user_id', 'date'];
+        foreach ($requestedFields as $field) {
+            if (isset($attendanceColumns[$field])) {
+                $columns[] = $attendanceColumns[$field];
+            }
+            if ($field === 'shift_name' || $field === 'shift_code') {
+                $columns[] = 'shift_id';
+            }
+            if ($field === 'attendance_status') {
+                $columns[] = 'status_master_id';
+            }
+            if ($field === 'late_minutes') {
+                $columns[] = 'is_late';
+            }
+            if ($field === 'early_minutes') {
+                $columns[] = 'is_early';
+            }
+        }
+        $columns = array_values(array_unique($columns));
         $firstYear = (int) (new DateTimeImmutable($fromDate))->format('Y');
         $lastYear = (int) (new DateTimeImmutable($toDate))->format('Y');
 
@@ -351,22 +636,89 @@ final class CustomReportTableBuilder
             $yearStart = max($fromDate, $year.'-01-01');
             $yearEnd = min($toDate, $year.'-12-31');
             $attendances = Attendance::year($year)
-                ->with('shift')
                 ->whereIn('user_id', $employeeIds)
                 ->whereBetween('date', [$yearStart, $yearEnd])
-                ->get();
+                ->get($columns);
 
             foreach ($attendances as $attendance) {
-                $employeeId = (int) $attendance->user_id;
-                $date = $attendance->date->toDateString();
-                $shiftName = (string) ($attendance->shift?->name ?? '');
-                $shiftCode = (string) (($attendance->shift_code ?: $attendance->shift?->code) ?? '');
-
-                if ($shiftName !== '') {
-                    $values[$employeeId][$date]['shift_name'] = $shiftName;
+                $attendanceRows[] = $attendance;
+                if (in_array('shift_id', $columns, true) && $attendance->shift_id !== null) {
+                    $shiftIds[] = (int) $attendance->shift_id;
                 }
-                if ($shiftCode !== '') {
-                    $values[$employeeId][$date]['shift_code'] = $shiftCode;
+                if (in_array('status_master_id', $columns, true) && $attendance->status_master_id !== null) {
+                    $statusMasterIds[] = (int) $attendance->status_master_id;
+                }
+            }
+        }
+
+        $shiftIds = array_values(array_unique($shiftIds));
+        $statusMasterIds = array_values(array_unique($statusMasterIds));
+        $shiftSnapshots = in_array('shift_id', $columns, true) && $shiftIds !== []
+            ? MasterSnapshot::query()
+                ->where('master_type', Shift::class)
+                ->where('for_all', true)
+                ->whereNull('user_id')
+                ->whereIn('master_id', $shiftIds)
+                ->whereDate('from_date', '<=', $toDate)
+                ->where(static function ($query) use ($fromDate): void {
+                    $query->whereNull('to_date')
+                        ->orWhereDate('to_date', '>', $fromDate);
+                })
+                ->orderBy('from_date')
+                ->orderBy('id')
+                ->get()
+            : collect();
+        $attendanceStatuses = in_array('status_master_id', $columns, true) && $statusMasterIds !== []
+            ? StatusMaster::query()->whereIn('id', $statusMasterIds)->pluck('code', 'id')->all()
+            : [];
+
+        foreach ($attendanceRows as $attendance) {
+            $date = $attendance->date->toDateString();
+            $employeeId = (int) $attendance->user_id;
+
+            if (in_array('status_master_id', $columns, true)) {
+                $statusCode = $attendanceStatuses[(int) $attendance->status_master_id] ?? null;
+                if (is_scalar($statusCode) && (string) $statusCode !== '') {
+                    $values[$employeeId][$date]['attendance_status'] = (string) $statusCode;
+                }
+            }
+
+            if (in_array('shift_id', $columns, true) && $attendance->shift_id !== null) {
+                $snapshot = $shiftSnapshots
+                    ->where('master_id', (int) $attendance->shift_id)
+                    ->filter(fn (MasterSnapshot $candidate): bool => $this->coversDate(
+                        $candidate,
+                        new DateTimeImmutable($date),
+                    ))
+                    ->sortByDesc(static fn (MasterSnapshot $candidate): string => $candidate->from_date->format('Y-m-d').'-'.str_pad((string) $candidate->id, 12, '0', STR_PAD_LEFT))
+                    ->first();
+
+                foreach (['shift_name' => 'name', 'shift_code' => 'code'] as $field => $snapshotKey) {
+                    if (! in_array($field, $requestedFields, true)) {
+                        continue;
+                    }
+                    $value = $snapshot?->value[$snapshotKey] ?? null;
+                    if (is_scalar($value) && (string) $value !== '') {
+                        $values[$employeeId][$date][$field] = (string) $value;
+                    }
+                }
+            }
+
+            foreach ($attendanceColumns as $field => $column) {
+                if (! in_array($field, $requestedFields, true)
+                    || ($field === 'late_minutes' && ! $attendance->is_late)
+                    || ($field === 'early_minutes' && ! $attendance->is_early)) {
+                    continue;
+                }
+
+                $value = $attendance->getAttribute($column);
+                if ($value instanceof \DateTimeInterface) {
+                    $fieldFormat = $fieldFormats[$field] ?? 'default';
+                    $format = $fieldFormat === 'default' ? 'H:i:s' : $this->dateFormat($fieldFormat);
+                    $value = $value->format($format);
+                }
+                if (is_scalar($value)) {
+                    $values[$employeeId][$date][$field] = (string) $value;
                 }
             }
         }
@@ -453,14 +805,35 @@ final class CustomReportTableBuilder
             return implode(' | ', $flowDescriptions);
         }
 
-        if (in_array($field, ['shift_name', 'shift_code'], true)) {
+        if (in_array($field, [
+            'shift_name',
+            'shift_code',
+            'attendance_in_time',
+            'attendance_out_time',
+            'attendance_status',
+            'late_minutes',
+            'early_minutes',
+            'working_hrs',
+            'overtime_minutes',
+            'approved_overtime_minutes',
+        ], true)) {
             $employeeValues = $attendanceValues[(int) $employee->getKey()] ?? [];
+            $formatValue = fn (string $value): string => CustomReportFieldOptions::supportsMinuteFormat($field)
+                ? $this->formatMinutes((int) $value, $format)
+                : $value;
             if ($date !== null) {
-                return $employeeValues[$date->format('Y-m-d')][$field] ?? '';
+                $value = $employeeValues[$date->format('Y-m-d')][$field] ?? '';
+                if ($value === '' && in_array($field, ['late_minutes', 'early_minutes'], true)) {
+                    return $this->formatMinutes(0, $format);
+                }
+
+                return $value === '' ? '' : $formatValue($value);
             }
 
             return implode(', ', array_values(array_unique(array_filter(array_map(
-                static fn (array $dailyValues): string => $dailyValues[$field] ?? '',
+                fn (array $dailyValues): string => isset($dailyValues[$field])
+                    ? $formatValue($dailyValues[$field])
+                    : '',
                 $employeeValues,
             )))));
         }
@@ -636,5 +1009,14 @@ final class CustomReportTableBuilder
         return in_array($format, ['d-m-Y', 'm-d-Y', 'Y-m-d', 'd/m/Y', 'm/d/Y', 'H:i', 'h:i A', 'd-m-Y H:i', 'Y-m-d H:i'], true)
             ? $format
             : 'Y-m-d';
+    }
+
+    private function formatMinutes(int $minutes, mixed $format): string
+    {
+        return match ($format) {
+            'hh_mm' => ($minutes < 0 ? '-' : '').sprintf('%02d:%02d', intdiv(abs($minutes), 60), abs($minutes) % 60),
+            'decimal' => number_format($minutes / 60, 2, '.', ''),
+            default => (string) $minutes,
+        };
     }
 }

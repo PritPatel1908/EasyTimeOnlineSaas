@@ -11,11 +11,12 @@
         return [
             'field_name' => $field['field_name'] ?? '',
             'date_time_format' => $field['date_time_format'] ?? 'default',
+            'minute_format' => $field['minute_format'] ?? (in_array($field['date_time_format'] ?? 'default', ['H:i', 'h:i A'], true) ? 'hh_mm' : 'default'),
             'use_in_summary' => filter_var($field['use_in_summary'] ?? false, FILTER_VALIDATE_BOOLEAN),
         ];
     }, $reportFieldRows);
     if ($reportFieldRows === []) {
-        $reportFieldRows = [['field_name' => '', 'date_time_format' => 'default', 'use_in_summary' => false]];
+        $reportFieldRows = [['field_name' => '', 'date_time_format' => 'default', 'minute_format' => 'default', 'use_in_summary' => false]];
     }
     if (is_string($filterInput)) {
         $decodedFilter = json_decode($filterInput, true);
@@ -25,6 +26,7 @@
     $filterValue = json_encode($filterSelections, $jsonFlags);
     $dateRangePreset = old('date_range_preset', $customReport->date_range_preset ?? 'today');
     $reportOrientation = old('report_orientation', $customReport->report_orientation ?? 'vertical');
+    $summaryOrientation = old('summary_orientation', $customReport->summary_orientation ?? $reportOrientation);
     $defaultReportDate = now()->toDateString();
     $fromDate = old('from_date', $customReport->from_date?->format('Y-m-d') ?? $defaultReportDate);
     $toDate = old('to_date', $customReport->to_date?->format('Y-m-d') ?? $defaultReportDate);
@@ -41,6 +43,14 @@
             <option value="horizontal" @selected($reportOrientation === 'horizontal')>Horizontal</option>
         </select>
         <x-validation-error field="report_orientation" />
+    </div>
+    <div class="col-md-12 mb-3">
+        <label class="form-label" for="custom_report_summary_orientation">Summary Orientation <span class="text-danger" aria-hidden="true">*</span></label>
+        <select id="custom_report_summary_orientation" name="summary_orientation" class="form-control select @error('summary_orientation') is-invalid @enderror" required>
+            <option value="vertical" @selected($summaryOrientation === 'vertical')>Vertical</option>
+            <option value="horizontal" @selected($summaryOrientation === 'horizontal')>Horizontal</option>
+        </select>
+        <x-validation-error field="summary_orientation" />
     </div>
     <div class="col-md-12 mb-3">
         <label class="form-label" for="custom_report_date_range">Date Range <span class="text-danger" aria-hidden="true">*</span></label>
@@ -91,7 +101,7 @@
                         </select>
                     </div>
                     <div class="col-md-6 mb-3 mb-md-0" data-format-column>
-                        <label class="form-label">Date/Time Format <span class="text-danger" aria-hidden="true">*</span></label>
+                        <label class="form-label" data-format-label>Date/Time Format <span class="text-danger" aria-hidden="true">*</span></label>
                         <select class="form-control" data-date-time-format data-report-search-select required>
                             <option value="default">Default</option>
                             <option value="d-m-Y" data-date-only>DD-MM-YYYY</option>
@@ -103,6 +113,14 @@
                             <option value="h:i A">12-hour time (hh:mm AM/PM)</option>
                             <option value="d-m-Y H:i" data-date-time>DD-MM-YYYY HH:mm</option>
                             <option value="Y-m-d H:i" data-date-time>YYYY-MM-DD HH:mm</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3 mb-md-0 d-none" data-minute-format-column>
+                        <label class="form-label">Minutes Format <span class="text-danger" aria-hidden="true">*</span></label>
+                        <select class="form-control" data-minute-format data-report-search-select required>
+                            <option value="default">Default (Minutes)</option>
+                            <option value="hh_mm">HH:mm</option>
+                            <option value="decimal">Decimal</option>
                         </select>
                     </div>
                     <div class="col-md-4 mb-3 mb-md-0" data-summary-container>
@@ -298,7 +316,9 @@
     var initialFields = @json($reportFieldRows);
     var dateOnlyFields = @json(\App\Support\CustomReportFieldOptions::dateOnlyFields());
     var dateTimeOnlyFields = @json(\App\Support\CustomReportFieldOptions::dateTimeOnlyFields());
+    var timeOnlyFields = @json(\App\Support\CustomReportFieldOptions::timeOnlyFields());
     var dateTimeFields = @json(\App\Support\CustomReportFieldOptions::dateTimeFields());
+    var minuteFormatFields = @json(\App\Support\CustomReportFieldOptions::minuteFormatFields());
     var summaryFields = @json(\App\Support\CustomReportFieldOptions::summaryFields());
     var formatOptions = Array.prototype.map.call(
         template.content.querySelector('[data-date-time-format]').options,
@@ -307,7 +327,8 @@
                 value: option.value,
                 label: option.textContent,
                 dateOnly: option.value === 'default' || option.hasAttribute('data-date-only'),
-                dateTime: option.value === 'default' || option.hasAttribute('data-date-time')
+                dateTime: option.value === 'default' || option.hasAttribute('data-date-time'),
+                timeOnly: ['default', 'H:i', 'h:i A'].indexOf(option.value) !== -1
             };
         }
     );
@@ -332,6 +353,9 @@
                 date_time_format: dateTimeFields.indexOf(fieldName) !== -1
                     ? row.querySelector('[data-date-time-format]').value
                     : 'default',
+                minute_format: minuteFormatFields.indexOf(fieldName) !== -1
+                    ? row.querySelector('[data-minute-format]').value
+                    : 'default',
                 use_in_summary: summaryFields.indexOf(fieldName) !== -1
                     && row.querySelector('[data-use-in-summary]').checked
             };
@@ -346,14 +370,20 @@
     function updateFieldOptions(row, storedFormat) {
         var fieldName = row.querySelector('[data-field-name]').value;
         var dateTimeFormat = row.querySelector('[data-date-time-format]');
+        var minuteFormat = row.querySelector('[data-minute-format]');
         var summaryContainer = row.querySelector('[data-summary-container]');
         var formatColumn = row.querySelector('[data-format-column]');
+        var minuteFormatColumn = row.querySelector('[data-minute-format-column]');
         var fieldColumn = row.querySelector('[data-field-column]');
         var isDateOnly = dateOnlyFields.indexOf(fieldName) !== -1;
         var isDateTimeOnly = dateTimeOnlyFields.indexOf(fieldName) !== -1;
+        var isTimeOnly = timeOnlyFields.indexOf(fieldName) !== -1;
         var supportsDateTimeFormat = dateTimeFields.indexOf(fieldName) !== -1;
+        var supportsMinuteFormat = minuteFormatFields.indexOf(fieldName) !== -1;
         var supportsSummary = summaryFields.indexOf(fieldName) !== -1;
         var currentFormat = supportsDateTimeFormat ? (storedFormat || dateTimeFormat.value || 'default') : 'default';
+        var currentMinuteFormat = minuteFormat.value || 'default';
+        row.querySelector('[data-format-label]').firstChild.textContent = isTimeOnly ? 'Time Format ' : 'Date/Time Format ';
 
         if (dateTimeFormat.tomselect) {
             dateTimeFormat.tomselect.destroy();
@@ -363,7 +393,8 @@
         formatOptions.forEach(function (option) {
             if ((isDateOnly && option.dateOnly)
                 || (isDateTimeOnly && option.dateTime)
-                || (!isDateOnly && !isDateTimeOnly)) {
+                || (isTimeOnly && option.timeOnly)
+                || (!isDateOnly && !isDateTimeOnly && !isTimeOnly)) {
                 dateTimeFormat.add(new Option(option.label, option.value));
             }
         });
@@ -373,25 +404,33 @@
         });
         dateTimeFormat.value = hasStoredFormat ? currentFormat : 'default';
         formatColumn.classList.toggle('d-none', !supportsDateTimeFormat);
+        minuteFormatColumn.classList.toggle('d-none', !supportsMinuteFormat);
         summaryContainer.classList.toggle('d-none', !supportsSummary);
-        formatColumn.classList.toggle('col-md-4', supportsSummary);
-        formatColumn.classList.toggle('col-md-6', !supportsSummary);
-        fieldColumn.classList.toggle('col-md-4', supportsSummary);
-        fieldColumn.classList.toggle('col-md-6', supportsDateTimeFormat && !supportsSummary);
-        fieldColumn.classList.toggle('col-md-12', !supportsDateTimeFormat && !supportsSummary);
+        var optionCount = Number(supportsDateTimeFormat) + Number(supportsMinuteFormat) + Number(supportsSummary);
+        var columnWidth = optionCount === 0 ? 12 : (optionCount === 1 ? 6 : (optionCount === 2 ? 4 : 3));
+        fieldColumn.classList.remove('col-md-3', 'col-md-4', 'col-md-6', 'col-md-12');
+        fieldColumn.classList.add('col-md-' + columnWidth);
+        [formatColumn, minuteFormatColumn, summaryContainer].forEach(function (column) {
+            column.classList.remove('col-md-3', 'col-md-4', 'col-md-6', 'col-md-12');
+            column.classList.add('col-md-' + columnWidth);
+        });
+        minuteFormat.value = Array.prototype.some.call(minuteFormat.options, function (option) {
+            return option.value === currentMinuteFormat;
+        }) ? currentMinuteFormat : 'default';
 
         if (!supportsSummary) {
             row.querySelector('[data-use-in-summary]').checked = false;
         }
 
         initializeSelect(dateTimeFormat);
+        initializeSelect(minuteFormat);
     }
 
     function addFieldRow(field) {
         var fragment = template.content.cloneNode(true);
         var row = fragment.querySelector('[data-custom-report-field-row]');
         var fieldName = row.querySelector('[data-field-name]');
-        var dateTimeFormat = row.querySelector('[data-date-time-format]');
+        var minuteFormat = row.querySelector('[data-minute-format]');
         var useInSummary = row.querySelector('[data-use-in-summary]');
 
         rowNumber += 1;
@@ -399,6 +438,7 @@
         row.querySelector('[data-summary-label]').setAttribute('for', useInSummary.id);
         fieldName.value = field.field_name || '';
         var storedFormat = field.date_time_format || 'default';
+        minuteFormat.value = field.minute_format || 'default';
         useInSummary.checked = field.use_in_summary === true;
 
         rowsContainer.appendChild(fragment);
@@ -423,8 +463,10 @@
             var row = removeButton.closest('[data-custom-report-field-row]');
             var fieldName = row.querySelector('[data-field-name]');
             var dateTimeFormat = row.querySelector('[data-date-time-format]');
+            var minuteFormat = row.querySelector('[data-minute-format]');
             if (fieldName.tomselect) fieldName.tomselect.destroy();
             if (dateTimeFormat.tomselect) dateTimeFormat.tomselect.destroy();
+            if (minuteFormat.tomselect) minuteFormat.tomselect.destroy();
             row.remove();
             syncFields();
         }
