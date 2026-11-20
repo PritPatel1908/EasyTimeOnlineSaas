@@ -18,6 +18,12 @@
             @endif
             @if(\App\Support\TenantPermissions::userCan('CustomReport', 'write'))
                 <a class="me-2" href="{{ url('employee-structure/custom-reports/'.$customReport->id.'/edit') }}" title="Edit"><i class="ti ti-edit"></i></a>
+                <form class="d-inline" method="POST" action="{{ url('employee-structure/custom-reports/'.$customReport->id.'/toggle-status') }}">
+                    @csrf
+                    <button type="submit" class="me-2" title="{{ $customReport->status === 1 ? 'Close report' : 'Reopen report' }}" aria-label="{{ $customReport->status === 1 ? 'Close report '.$customReport->report_name : 'Reopen report '.$customReport->report_name }}">
+                        <i class="ti {{ $customReport->status === 1 ? 'ti-circle-x text-danger' : 'ti-refresh text-success' }}"></i>
+                    </button>
+                </form>
             @endif
             @if(\App\Support\TenantPermissions::userCan('CustomReport', 'delete'))
                 <a href="javascript:void(0)" class="text-danger delete-custom-report-btn" data-url="{{ url('employee-structure/custom-reports/'.$customReport->id) }}" data-name="{{ $customReport->report_name }}" data-bs-toggle="modal" data-bs-target="#delete_custom_report_modal" title="Delete"><i class="ti ti-trash"></i></a>

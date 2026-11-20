@@ -128,6 +128,18 @@ class CustomReportController extends Controller
         ]);
     }
 
+    public function toggleStatus(Request $request): RedirectResponse
+    {
+        $customReport = CustomReport::query()->findOrFail($request->route('custom_report'));
+        $status = $customReport->status === 1 ? 0 : 1;
+        $customReport->update(['status' => $status]);
+
+        return redirect(url(self::INDEX_URL))->with(
+            'success',
+            $status === 1 ? 'Custom report reopened successfully.' : 'Custom report closed successfully.',
+        );
+    }
+
     public function create(): View
     {
         return view('employee-structure.custom-reports.add', [

@@ -762,6 +762,7 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                     Route::post('custom-reports/{custom_report}/generate', [CustomReportController::class, 'generate'])->middleware('tenant.permission:CustomReport,read')->name('custom-reports.generate');
                     Route::post('custom-reports/{custom_report}/generations/{generation}/regenerate', [CustomReportController::class, 'regenerate'])->middleware('tenant.permission:CustomReport,read')->name('custom-reports.generations.regenerate');
                     Route::get('custom-reports/{custom_report}/generations/{generation}/download', [CustomReportController::class, 'downloadGeneration'])->middleware('tenant.permission:CustomReport,read')->name('custom-reports.generations.download');
+                    Route::post('custom-reports/{custom_report}/toggle-status', [CustomReportController::class, 'toggleStatus'])->middleware('tenant.permission:CustomReport,write')->name('custom-reports.toggle-status');
                     Route::resource('custom-reports', CustomReportController::class)->except(['create'])
                         ->middlewareFor('index', 'tenant.permission:CustomReport,read')
                         ->middlewareFor('show', 'tenant.permission:CustomReport,read')
