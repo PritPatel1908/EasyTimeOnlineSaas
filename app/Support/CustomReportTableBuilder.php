@@ -27,6 +27,34 @@ use Illuminate\Support\Collection;
 
 final class CustomReportTableBuilder
 {
+    private const DATE_DETAIL_FIELDS = [
+        'attendance_specific_status',
+        'attendance_status',
+        'attendance_in_time',
+        'attendance_out_time',
+        'shift_in_time',
+        'shift_out_time',
+        'early_minutes',
+        'late_minutes',
+        'working_hrs',
+        'overtime_minutes',
+        'approved_overtime_minutes',
+        'week_off',
+        'no_punch',
+        'single_punch',
+        'machine_in_out',
+        'break_hrs',
+        'manual_punch',
+        'month_total_days',
+        'leave_balance',
+        'leave_add',
+        'leave_taken',
+        'break_start',
+        'break_end',
+        'holiday',
+        'leave',
+    ];
+
     private const SNAPSHOT_FIELDS = [
         'role' => ['model' => Role::class, 'column' => null, 'value' => 'name'],
         'data_policy' => ['model' => DataPolicy::class, 'column' => 'data_policy_id', 'value' => 'name'],
@@ -123,48 +151,94 @@ final class CustomReportTableBuilder
             return ['headers' => $headers, 'rows' => $rows];
         }
 
-        $headers = $labels;
-        foreach ($employees as $employee) {
-            if ($dateIndexes === []) {
-                $rows[] = array_map(
-                    fn (array $field): string => $this->employeeValue(
+        if ($dateIndexes !== []) {
+            $masterIndexes = [];
+            $detailIndexes = [];
+            foreach ($fields as $index => $field) {
+                if (($field['field_name'] ?? '') === 'date') {
+                    $detailIndexes[] = $index;
+                } elseif (in_array($field['field_name'] ?? '', self::DATE_DETAIL_FIELDS, true)) {
+                    $detailIndexes[] = $index;
+                } else {
+                    $masterIndexes[] = $index;
+                }
+            }
+            usort($detailIndexes, static function (int $left, int $right) use ($fields): int {
+                $leftIsDate = ($fields[$left]['field_name'] ?? '') === 'date';
+                $rightIsDate = ($fields[$right]['field_name'] ?? '') === 'date';
+
+                return $leftIsDate === $rightIsDate ? $left <=> $right : ($leftIsDate ? -1 : 1);
+            });
+
+            $headers = [];
+            $detailHeaders = array_map(static fn (int $index): string => $labels[$index], $detailIndexes);
+            $startDate = new DateTimeImmutable($fromDate);
+
+            foreach ($employees as $employeeIndex => $employee) {
+                if ($employeeIndex > 0) {
+                    $rows[] = [];
+                }
+
+                $masterValues = [];
+                foreach ($masterIndexes as $index) {
+                    $field = $fields[$index];
+                    $masterValues[$index] = $this->employeeValue(
                         $employee,
                         $field['field_name'] ?? '',
                         $snapshots,
                         $liveMasterValues,
                         $field['date_time_format'] ?? 'default',
-                        null,
-                    ),
-                    $fields,
-                );
+                        $startDate,
+                    );
+                }
+                $masterHeaders = array_map(static fn (int $index): string => $labels[$index], $masterIndexes);
+                if ($masterHeaders === []) {
+                    $masterHeaders = ['Employee'];
+                    $masterValues[] = (string) ($employee->name ?: $employee->code ?: $employee->getKey());
+                }
+                $rows[] = $masterHeaders;
+                $rows[] = array_values($masterValues);
+                $rows[] = $detailHeaders;
 
-                continue;
-            }
+                foreach ($dates as $date) {
+                    $row = [];
+                    foreach ($detailIndexes as $index) {
+                        $field = $fields[$index];
+                        $fieldName = $field['field_name'] ?? '';
+                        if ($fieldName === 'date') {
+                            $row[] = $date->format($this->dateFormat($field['date_time_format'] ?? 'default'));
 
-            $employeeRows = [];
-            foreach ($dates as $date) {
-                $row = [];
-                foreach ($fields as $field) {
-                    $row[] = ($field['field_name'] ?? '') === 'date'
-                        ? $date->format($this->dateFormat($field['date_time_format'] ?? 'default'))
-                        : $this->employeeValue(
+                            continue;
+                        }
+
+                        $row[] = $this->employeeValue(
                             $employee,
-                            $field['field_name'] ?? '',
+                            $fieldName,
                             $snapshots,
                             $liveMasterValues,
                             $field['date_time_format'] ?? 'default',
                             $date,
                         );
+                    }
+                    $rows[] = $row;
                 }
-                $employeeRows[] = $row;
             }
-            array_push(
-                $rows,
-                ...$this->compressDateRows(
-                    $employeeRows,
-                    $dateIndexes,
-                    $this->dateFormat($fields[$dateIndexes[0]]['date_time_format'] ?? 'default'),
+
+            return ['headers' => $headers, 'rows' => $rows];
+        }
+
+        $headers = $labels;
+        foreach ($employees as $employee) {
+            $rows[] = array_map(
+                fn (array $field): string => $this->employeeValue(
+                    $employee,
+                    $field['field_name'] ?? '',
+                    $snapshots,
+                    $liveMasterValues,
+                    $field['date_time_format'] ?? 'default',
+                    null,
                 ),
+                $fields,
             );
         }
 
@@ -409,65 +483,6 @@ final class CustomReportTableBuilder
 
         return $snapshot->from_date->format('Y-m-d') <= $day
             && ($snapshot->to_date === null || $snapshot->to_date->format('Y-m-d') > $day);
-    }
-
-    /**
-     * @param  array<int, array<int, string>>  $rows
-     * @param  array<int, int>  $dateIndexes
-     * @return array<int, array<int, string>>
-     */
-    private function compressDateRows(array $rows, array $dateIndexes, string $dateFormat): array
-    {
-        $distinctRows = [];
-        foreach ($rows as $row) {
-            foreach ($dateIndexes as $index) {
-                unset($row[$index]);
-            }
-            $distinctRows[serialize(array_values($row))] = true;
-        }
-        if (count($distinctRows) < 2) {
-            return $rows;
-        }
-
-        $compressed = [];
-        foreach ($rows as $row) {
-            $dateIndex = $dateIndexes[0];
-            $date = DateTimeImmutable::createFromFormat('!'.$dateFormat, $row[$dateIndex]);
-            if ($date === false) {
-                throw new \RuntimeException('Unable to parse the custom report date.');
-            }
-            $comparison = $row;
-            foreach ($dateIndexes as $index) {
-                unset($comparison[$index]);
-            }
-            $comparison = array_values($comparison);
-
-            $lastIndex = array_key_last($compressed);
-            if ($lastIndex !== null && $compressed[$lastIndex]['values'] === $comparison) {
-                $compressed[$lastIndex]['end'] = $date;
-
-                continue;
-            }
-
-            $compressed[] = [
-                'row' => $row,
-                'values' => $comparison,
-                'start' => $date,
-                'end' => $date,
-            ];
-        }
-
-        return array_map(function (array $period) use ($dateIndexes, $dateFormat): array {
-            $range = $period['start']->format($dateFormat);
-            if ($period['start'] != $period['end']) {
-                $range .= ' - '.$period['end']->format($dateFormat);
-            }
-            foreach ($dateIndexes as $index) {
-                $period['row'][$index] = $range;
-            }
-
-            return $period['row'];
-        }, $compressed);
     }
 
     /**

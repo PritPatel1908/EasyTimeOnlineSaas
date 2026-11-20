@@ -6,6 +6,7 @@ namespace App\Jobs\Tenant;
 
 use App\Enums\ReportStatus;
 use App\Models\Tenant\CustomReportGeneration;
+use App\Support\CustomReportDateRange;
 use App\Support\CustomReportEmployeeQuery;
 use App\Support\CustomReportExporter;
 use App\Support\CustomReportTableBuilder;
@@ -33,6 +34,7 @@ class GenerateCustomReportExport implements ShouldQueue
     public function handle(
         CustomReportExporter $exporter,
         CustomReportEmployeeQuery $employeeQuery,
+        CustomReportDateRange $dateRangeResolver,
         CustomReportTableBuilder $tableBuilder,
     ): void {
         $generation = CustomReportGeneration::query()
@@ -43,10 +45,15 @@ class GenerateCustomReportExport implements ShouldQueue
         $employees = $employeeQuery->build($detail?->custom_report_filter ?? [])
             ->with(['personalInfo', 'addresses', 'roles'])
             ->get();
+        $dateRange = $dateRangeResolver->resolve(
+            $report->date_range_preset ?? 'custom',
+            $report->from_date,
+            $report->to_date,
+        );
         $table = $tableBuilder->buildForEmployees(
             $detail?->custom_report_fields ?? [],
-            $report->from_date->toDateString(),
-            $report->to_date->toDateString(),
+            $dateRange['from']->toDateString(),
+            $dateRange['to']->toDateString(),
             $report->report_orientation,
             $employees,
         );

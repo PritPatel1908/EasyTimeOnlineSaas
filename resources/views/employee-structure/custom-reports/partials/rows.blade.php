@@ -1,8 +1,13 @@
 @forelse($customReports as $customReport)
 <tr>
     <td><h6 class="fw-medium fs-14 mb-0">{{ $customReport->report_name }}</h6></td>
-    <td>{{ $customReport->from_date->format('Y-m-d') }}</td>
-    <td>{{ $customReport->to_date->format('Y-m-d') }}</td>
+    <td>
+        @if($customReport->date_range_preset === 'custom')
+            {{ $customReport->from_date?->format('Y-m-d') }} – {{ $customReport->to_date?->format('Y-m-d') }}
+        @else
+            {{ ucwords(str_replace('_', ' ', $customReport->date_range_preset)) }} (dynamic)
+        @endif
+    </td>
     <td>{{ ucfirst($customReport->report_orientation) }}</td>
     <td><span class="badge {{ $customReport->status === 1 ? 'badge-success' : 'badge-danger' }}">{{ $customReport->status === 1 ? 'Active' : 'Inactive' }}</span></td>
     <td class="text-center">
@@ -21,5 +26,5 @@
     </td>
 </tr>
 @empty
-<tr><td colspan="6" class="py-4 text-center text-muted">No custom reports found.</td></tr>
+<tr><td colspan="5" class="py-4 text-center text-muted">No custom reports found.</td></tr>
 @endforelse

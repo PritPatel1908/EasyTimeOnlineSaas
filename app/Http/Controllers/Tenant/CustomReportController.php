@@ -6,10 +6,10 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Enums\ReportFormat;
 use App\Enums\ReportStatus;
-use App\Jobs\Tenant\GenerateCustomReportExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tenant\StoreCustomReportRequest;
 use App\Http\Requests\Tenant\UpdateCustomReportRequest;
+use App\Jobs\Tenant\GenerateCustomReportExport;
 use App\Models\Tenant\CustomReport;
 use App\Support\CustomReportFilterOptions;
 use Illuminate\Contracts\View\View;
@@ -19,6 +19,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CustomReportController extends Controller
 {
@@ -85,7 +86,7 @@ class CustomReportController extends Controller
             ->with('success', 'Custom report regeneration has started. Refresh this page to check its status.');
     }
 
-    public function downloadGeneration(Request $request): \Symfony\Component\HttpFoundation\StreamedResponse
+    public function downloadGeneration(Request $request): StreamedResponse
     {
         $customReport = CustomReport::query()->findOrFail($request->route('custom_report'));
         $generation = $customReport->generations()->findOrFail($request->route('generation'));
@@ -139,6 +140,10 @@ class CustomReportController extends Controller
     public function store(StoreCustomReportRequest $request): RedirectResponse
     {
         $validated = $request->validated();
+        if ($validated['date_range_preset'] !== 'custom') {
+            $validated['from_date'] = null;
+            $validated['to_date'] = null;
+        }
         $detail = [
             'custom_report_fields' => $validated['custom_report_fields'],
             'custom_report_filter' => $validated['custom_report_filter'] ?? [],
@@ -169,6 +174,10 @@ class CustomReportController extends Controller
     public function update(UpdateCustomReportRequest $request): RedirectResponse
     {
         $validated = $request->validated();
+        if ($validated['date_range_preset'] !== 'custom') {
+            $validated['from_date'] = null;
+            $validated['to_date'] = null;
+        }
         $detail = [
             'custom_report_fields' => $validated['custom_report_fields'],
             'custom_report_filter' => $validated['custom_report_filter'] ?? [],

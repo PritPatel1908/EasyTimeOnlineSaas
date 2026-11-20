@@ -30,8 +30,9 @@ final class CustomReportRequestRules
     {
         $rules = [
             'report_name' => ['required', 'string', 'max:255'],
-            'from_date' => ['required', 'date'],
-            'to_date' => ['required', 'date', 'after_or_equal:from_date'],
+            'date_range_preset' => ['required', 'string', 'in:today,yesterday,this_week,last_week,this_month,last_month,this_quarter,last_quarter,this_year,last_year,custom'],
+            'from_date' => ['exclude_unless:date_range_preset,custom', 'required', 'date'],
+            'to_date' => ['exclude_unless:date_range_preset,custom', 'required', 'date', 'after_or_equal:from_date'],
             'report_orientation' => ['required', 'string', 'in:vertical,horizontal'],
             'status' => ['required', 'integer', 'in:1,0'],
             'custom_report_fields' => ['required', 'array', 'min:1'],

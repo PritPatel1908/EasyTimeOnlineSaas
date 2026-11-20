@@ -38,7 +38,7 @@
                 <div class="table-responsive">
                     <table class="table datatable">
                         <thead class="thead-light">
-                            <tr><th>Report Name</th><th>From Date</th><th>To Date</th><th>Orientation</th><th>Status</th><th></th></tr>
+                            <tr><th>Report Name</th><th>Date Range</th><th>Orientation</th><th>Status</th><th></th></tr>
                         </thead>
                         <tbody>@include('employee-structure.custom-reports.partials.rows')</tbody>
                     </table>

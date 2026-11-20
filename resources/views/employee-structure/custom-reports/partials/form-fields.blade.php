@@ -23,7 +23,7 @@
     }
     $filterSelections = is_array($filterInput) ? $filterInput : [];
     $filterValue = json_encode($filterSelections, $jsonFlags);
-    $dateRangePreset = old('date_range_preset', $customReport->exists ? 'custom' : 'today');
+    $dateRangePreset = old('date_range_preset', $customReport->date_range_preset ?? 'today');
     $reportOrientation = old('report_orientation', $customReport->report_orientation ?? 'vertical');
     $defaultReportDate = now()->toDateString();
     $fromDate = old('from_date', $customReport->from_date?->format('Y-m-d') ?? $defaultReportDate);
@@ -48,16 +48,20 @@
             <option value="today" @selected($dateRangePreset === 'today')>Today</option>
             <option value="yesterday" @selected($dateRangePreset === 'yesterday')>Yesterday</option>
             <option value="this_week" @selected($dateRangePreset === 'this_week')>This Week</option>
+            <option value="last_week" @selected($dateRangePreset === 'last_week')>Last Week</option>
             <option value="this_month" @selected($dateRangePreset === 'this_month')>This Month</option>
+            <option value="last_month" @selected($dateRangePreset === 'last_month')>Last Month</option>
             <option value="this_quarter" @selected($dateRangePreset === 'this_quarter')>This Quarter</option>
+            <option value="last_quarter" @selected($dateRangePreset === 'last_quarter')>Last Quarter</option>
             <option value="this_year" @selected($dateRangePreset === 'this_year')>This Year</option>
+            <option value="last_year" @selected($dateRangePreset === 'last_year')>Last Year</option>
             <option value="custom" @selected($dateRangePreset === 'custom')>Custom</option>
         </select>
     </div>
     <div id="custom_report_custom_dates" class="col-12 mb-3 {{ $dateRangePreset === 'custom' ? '' : 'd-none' }}">
         <div class="row">
-            <div class="col-md-6 mb-3 mb-md-0"><label class="form-label" for="custom_report_from_date">From Date <span class="text-danger" aria-hidden="true">*</span></label><input id="custom_report_from_date" type="date" name="from_date" class="form-control @error('from_date') is-invalid @enderror" value="{{ $fromDate }}" required><x-validation-error field="from_date" /></div>
-            <div class="col-md-6"><label class="form-label" for="custom_report_to_date">To Date <span class="text-danger" aria-hidden="true">*</span></label><input id="custom_report_to_date" type="date" name="to_date" class="form-control @error('to_date') is-invalid @enderror" value="{{ $toDate }}" required><x-validation-error field="to_date" /></div>
+            <div class="col-md-6 mb-3 mb-md-0"><label class="form-label" for="custom_report_from_date">From Date <span class="text-danger" aria-hidden="true">*</span></label><input id="custom_report_from_date" type="date" name="from_date" class="form-control @error('from_date') is-invalid @enderror" value="{{ $fromDate }}" @required($dateRangePreset === 'custom') @disabled($dateRangePreset !== 'custom')><x-validation-error field="from_date" /></div>
+            <div class="col-md-6"><label class="form-label" for="custom_report_to_date">To Date <span class="text-danger" aria-hidden="true">*</span></label><input id="custom_report_to_date" type="date" name="to_date" class="form-control @error('to_date') is-invalid @enderror" value="{{ $toDate }}" @required($dateRangePreset === 'custom') @disabled($dateRangePreset !== 'custom')><x-validation-error field="to_date" /></div>
         </div>
     </div>
 </div></div></div>
@@ -164,9 +168,14 @@
 
     function updateDateRange() {
         var preset = rangeSelect.value;
-        customDates.classList.toggle('d-none', preset !== 'custom');
+        var customPreset = preset === 'custom';
+        customDates.classList.toggle('d-none', !customPreset);
+        fromDateInput.required = customPreset;
+        toDateInput.required = customPreset;
+        fromDateInput.disabled = !customPreset;
+        toDateInput.disabled = !customPreset;
 
-        if (preset === 'custom') {
+        if (customPreset) {
             return;
         }
 
@@ -179,12 +188,26 @@
             to = new Date(from);
         } else if (preset === 'this_week') {
             from.setDate(from.getDate() - ((from.getDay() + 6) % 7));
+        } else if (preset === 'last_week') {
+            from.setDate(from.getDate() - ((from.getDay() + 6) % 7) - 7);
+            to = new Date(from);
+            to.setDate(to.getDate() + 6);
         } else if (preset === 'this_month') {
             from.setDate(1);
+        } else if (preset === 'last_month') {
+            from.setDate(1);
+            from.setMonth(from.getMonth() - 1);
+            to = new Date(today.getFullYear(), today.getMonth(), 0);
         } else if (preset === 'this_quarter') {
             from.setMonth(Math.floor(from.getMonth() / 3) * 3, 1);
+        } else if (preset === 'last_quarter') {
+            from.setMonth(Math.floor(from.getMonth() / 3) * 3 - 3, 1);
+            to = new Date(from.getFullYear(), from.getMonth() + 3, 0);
         } else if (preset === 'this_year') {
             from.setMonth(0, 1);
+        } else if (preset === 'last_year') {
+            from.setFullYear(from.getFullYear() - 1, 0, 1);
+            to = new Date(from.getFullYear(), 11, 31);
         }
 
         fromDateInput.value = formatDate(from);

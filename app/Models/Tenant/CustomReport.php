@@ -10,6 +10,7 @@ class CustomReport extends Model
         'report_name',
         'from_date',
         'to_date',
+        'date_range_preset',
         'report_orientation',
         'status',
     ];
@@ -17,6 +18,7 @@ class CustomReport extends Model
     protected $casts = [
         'from_date' => 'date',
         'to_date' => 'date',
+        'date_range_preset' => 'string',
         'report_orientation' => 'string',
         'status' => 'integer',
     ];

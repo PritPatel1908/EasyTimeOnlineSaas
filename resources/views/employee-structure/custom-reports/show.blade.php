@@ -32,8 +32,13 @@
     <div class="card mb-4"><div class="card-header"><h5 class="mb-0">Basic Information</h5></div><div class="card-body"><div class="row">
         <div class="col-md-4 mb-3"><small class="text-muted d-block">Report Name</small>{{ $customReport->report_name }}</div>
         <div class="col-md-2 mb-3"><small class="text-muted d-block">Orientation</small>{{ ucfirst($customReport->report_orientation) }}</div>
-        <div class="col-md-2 mb-3"><small class="text-muted d-block">From Date</small>{{ $customReport->from_date->format('Y-m-d') }}</div>
-        <div class="col-md-2 mb-3"><small class="text-muted d-block">To Date</small>{{ $customReport->to_date->format('Y-m-d') }}</div>
+        <div class="col-md-4 mb-3"><small class="text-muted d-block">Date Range</small>
+            @if($customReport->date_range_preset === 'custom')
+                {{ $customReport->from_date?->format('Y-m-d') }} – {{ $customReport->to_date?->format('Y-m-d') }}
+            @else
+                {{ ucwords(str_replace('_', ' ', $customReport->date_range_preset)) }} (calculated when generated)
+            @endif
+        </div>
         <div class="col-md-2 mb-3"><small class="text-muted d-block">Status</small><span class="badge {{ $customReport->status === 1 ? 'badge-success' : 'badge-danger' }}">{{ $customReport->status === 1 ? 'Active' : 'Inactive' }}</span></div>
     </div></div></div>
     <div class="card mb-4">
@@ -61,7 +66,7 @@
     <div class="card mt-4">
         <div class="card-header"><h5 class="mb-0">Generate and Download</h5></div>
         <div class="card-body">
-            <p class="text-muted">The selected employee fields are filled from matching employees. When Date is included, every date in the selected range is listed in rows for vertical orientation or columns for horizontal orientation. Daily attendance values are not populated yet.</p>
+            <p class="text-muted">The selected employee fields are filled from matching employees. Date presets are recalculated each time the report is generated; manual dates are used only for Custom. With Date selected, vertical exports show each employee's master details once above their date-wise rows; horizontal exports show dates as columns. Daily attendance values are not populated yet.</p>
             <form method="POST" action="{{ url('employee-structure/custom-reports/'.$customReport->id.'/generate') }}" class="d-flex align-items-end gap-2 flex-wrap mb-4">
                 @csrf
                 <div>

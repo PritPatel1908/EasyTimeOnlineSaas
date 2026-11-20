@@ -43,7 +43,9 @@ class CustomReportExporter
             throw new RuntimeException('Unable to create the custom report CSV.');
         }
 
-        fputcsv($handle, $headers);
+        if ($headers !== []) {
+            fputcsv($handle, $headers);
+        }
         foreach ($rows as $row) {
             fputcsv($handle, $row);
         }
@@ -62,7 +64,8 @@ class CustomReportExporter
      */
     private function storeXlsx(array $headers, array $rows, string $path): void
     {
-        $export = new class(array_merge([$headers], $rows)) implements FromArray
+        $table = $headers === [] ? $rows : array_merge([$headers], $rows);
+        $export = new class($table) implements FromArray
         {
             /**
              * @param array<int, array<int, string>> $table

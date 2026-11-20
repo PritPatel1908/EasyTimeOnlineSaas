@@ -56,7 +56,7 @@ class CustomReportSnapshotExportTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_date_report_uses_effective_snapshot_values_and_collapses_unchanged_dates(): void
+    public function test_date_report_groups_employee_details_above_report_rows(): void
     {
         $employee = new User;
         $employee->setRawAttributes([
@@ -82,10 +82,14 @@ class CustomReportSnapshotExportTest extends TestCase
             [$employee],
         );
 
-        $this->assertSame(['Emp Code', 'Date', 'Location Name'], $table['headers']);
+        $this->assertSame([], $table['headers']);
         $this->assertSame([
-            ['E001', '14/01/2026', 'Old Location'],
-            ['E001', '15/01/2026 - 16/01/2026', 'New Location'],
+            ['Emp Code', 'Location Name'],
+            ['E001', 'Old Location'],
+            ['Date'],
+            ['14/01/2026'],
+            ['15/01/2026'],
+            ['16/01/2026'],
         ], $table['rows']);
     }
 
