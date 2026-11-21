@@ -24762,7 +24762,10 @@ body.layout-mode-rtl .nav-list::before {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  align-content: flex-start;
   gap: 4px;
+  max-height: 92px;
+  overflow-y: auto;
   padding: 0 10px !important;
 }
 .ts-wrapper.multi .ts-control .item {
@@ -24798,6 +24801,10 @@ body.layout-mode-rtl .nav-list::before {
   height: 26px !important;
   line-height: 26px !important;
   font-size: 13px !important;
+}
+.select2-container--default .select2-selection--multiple .select2-selection__rendered {
+  max-height: 92px;
+  overflow-y: auto;
 }
 .ts-wrapper.plugin-clear_button .ts-control {
   padding-right: 30px;

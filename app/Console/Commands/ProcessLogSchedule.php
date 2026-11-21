@@ -35,6 +35,12 @@ class ProcessLogSchedule extends Command
                 ->onConnection('database_tenant')
                 ->onQueue('processing');
         } else {
+            if (! ProcessPendingLogsBatch::hasPendingLogs()) {
+                Log::channel('attprocess')->debug('No pending local punches; skipping batch dispatch');
+
+                return self::SUCCESS;
+            }
+
             Log::channel('attprocess')->debug('Dispatching chunked job for pending local logs');
             ProcessPendingLogsBatch::dispatch()
                 ->onConnection('database_tenant')

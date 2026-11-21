@@ -354,7 +354,7 @@ final class CustomReportTableBuilder
     /**
      * @param  array<int, array<string, mixed>>  $fields
      * @param  array<int, array<string, array<string, string>>>  $attendanceValues
-     * @return array{minute_totals: array<string, string>, status_counts: array<string, int>, status_selected: bool}
+     * @return array{minute_totals: array<string, string>, status_counts: array<string, int|float>}
      */
     private function summaryData(array $fields, array $attendanceValues): array
     {
@@ -393,6 +393,7 @@ final class CustomReportTableBuilder
             $statusField = in_array('attendance_specific_status', array_column($summaryFields, 'field_name'), true)
                 ? 'attendance_specific_status'
                 : 'attendance_status';
+            $halfStatusCountAsHalf = $this->countsHalfStatusAsHalf($summaryFields);
 
             foreach ($summaryFields as $field) {
                 if (($field['field_name'] ?? '') !== 'attendance_specific_status') {
@@ -409,17 +410,23 @@ final class CustomReportTableBuilder
                 foreach ($dailyValues as $values) {
                     $status = $values[$statusField] ?? '';
                     if ($status !== '') {
-                        $statusCounts[$status] = ($statusCounts[$status] ?? 0) + 1;
+                        $count = $halfStatusCountAsHalf && ($values['is_half_day'] ?? '0') === '1'
+                            ? 0.5
+                            : 1;
+                        $statusCounts[$status] = ($statusCounts[$status] ?? 0) + $count;
                     }
                 }
             }
+            $statusCounts = array_filter(
+                $statusCounts,
+                static fn (int|float $count): bool => $count > 0,
+            );
             ksort($statusCounts);
         }
 
         return [
             'minute_totals' => $minuteTotals,
             'status_counts' => $statusCounts,
-            'status_selected' => $statusSelected,
         ];
     }
 
@@ -449,6 +456,9 @@ final class CustomReportTableBuilder
         foreach ($statusCodes as $statusCode) {
             $headers[] = 'Summary - Attendance Status '.$statusCode.' Count';
         }
+        if ($statusCodes !== []) {
+            $headers[] = 'Summary - Attendance Status Grand Total Count';
+        }
 
         return $headers;
     }
@@ -464,7 +474,11 @@ final class CustomReportTableBuilder
         $summary = $this->summaryData($fields, [0 => $employeeAttendanceValues]);
         $values = array_values($summary['minute_totals']);
         foreach ($statusCodes as $statusCode) {
-            $values[] = (string) ($summary['status_counts'][$statusCode] ?? 0);
+            $count = $summary['status_counts'][$statusCode] ?? 0;
+            $values[] = $count > 0 ? (string) $count : '';
+        }
+        if ($statusCodes !== []) {
+            $values[] = (string) array_sum($summary['status_counts']);
         }
 
         return $values;
@@ -478,7 +492,7 @@ final class CustomReportTableBuilder
     private function appendSummaryRows(array &$rows, array $fields, array $attendanceValues, string $orientation): void
     {
         $summary = $this->summaryData($fields, $attendanceValues);
-        if ($summary['minute_totals'] === [] && ! $summary['status_selected']) {
+        if ($summary['minute_totals'] === [] && $summary['status_counts'] === []) {
             return;
         }
 
@@ -492,10 +506,14 @@ final class CustomReportTableBuilder
                 );
                 $rows[] = array_values($summary['minute_totals']);
             }
-            if ($summary['status_selected']) {
+            if ($summary['status_counts'] !== []) {
                 $rows[] = ['Attendance Status'];
-                $rows[] = array_merge(['Status'], array_keys($summary['status_counts']));
-                $rows[] = array_merge(['Count'], array_map('strval', array_values($summary['status_counts'])));
+                $rows[] = array_merge(['Status'], array_keys($summary['status_counts']), ['Grand Total']);
+                $rows[] = array_merge(
+                    ['Count'],
+                    array_map('strval', array_values($summary['status_counts'])),
+                    [(string) array_sum($summary['status_counts'])],
+                );
             }
 
             return;
@@ -504,12 +522,13 @@ final class CustomReportTableBuilder
         foreach ($summary['minute_totals'] as $fieldName => $total) {
             $rows[] = [CustomReportFieldOptions::all()[$fieldName], $total];
         }
-        if ($summary['status_selected']) {
+        if ($summary['status_counts'] !== []) {
             $rows[] = ['Attendance Status'];
             $rows[] = ['Status', 'Count'];
             foreach ($summary['status_counts'] as $status => $count) {
                 $rows[] = [(string) $status, (string) $count];
             }
+            $rows[] = ['Grand Total', (string) array_sum($summary['status_counts'])];
         }
     }
 
@@ -538,6 +557,22 @@ final class CustomReportTableBuilder
         }
 
         return array_values(array_unique($ids));
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $fields
+     */
+    private function countsHalfStatusAsHalf(array $fields): bool
+    {
+        foreach ($fields as $field) {
+            if (in_array($field['field_name'] ?? '', ['attendance_status', 'attendance_specific_status'], true)
+                && filter_var($field['use_in_summary'] ?? false, FILTER_VALIDATE_BOOLEAN)
+                && filter_var($field['half_status_count_as_half'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -660,6 +695,7 @@ final class CustomReportTableBuilder
             array_merge(array_keys($attendanceColumns), ['attendance_specific_status', 'attendance_status', 'shift_name', 'shift_code']),
         ));
         $statusMasterFilterIds = $this->selectedStatusMasterIds($fields);
+        $halfStatusCountAsHalf = $this->countsHalfStatusAsHalf($fields);
         $employeeIds = $employees->pluck('id')->filter()->map(static fn (mixed $id): int => (int) $id)->all();
         if ($requestedFields === [] || $employeeIds === []) {
             return [];
@@ -674,6 +710,9 @@ final class CustomReportTableBuilder
             $fieldFormats[$field['field_name'] ?? ''] = $this->fieldFormat($field);
         }
         $columns = ['user_id', 'date'];
+        if ($halfStatusCountAsHalf) {
+            $columns[] = 'is_half_day';
+        }
         foreach ($requestedFields as $field) {
             if (isset($attendanceColumns[$field])) {
                 $columns[] = $attendanceColumns[$field];
@@ -749,6 +788,9 @@ final class CustomReportTableBuilder
                         && ($statusMasterFilterIds === [] || in_array((int) $attendance->status_master_id, $statusMasterFilterIds, true))) {
                         $values[$employeeId][$date]['attendance_specific_status'] = (string) $statusCode;
                     }
+                }
+                if (in_array('is_half_day', $columns, true)) {
+                    $values[$employeeId][$date]['is_half_day'] = $attendance->is_half_day ? '1' : '0';
                 }
             }
 

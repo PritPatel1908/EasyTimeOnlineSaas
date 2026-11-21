@@ -34,6 +34,12 @@ class ProcessStagingLogSchedule extends Command
                 $log->save();
             }
         });
+        if (! ProcessPendingLogsBatch::hasPendingLogs(true)) {
+            Log::channel('attprocess')->debug('No pending staged punches; skipping batch dispatch');
+
+            return self::SUCCESS;
+        }
+
         Log::channel('attprocess')->debug('Dispatching chunked staging job');
         ProcessPendingLogsBatch::dispatch(true)
             ->onConnection('database_tenant')

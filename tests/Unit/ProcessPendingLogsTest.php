@@ -425,6 +425,39 @@ class ProcessPendingLogsTest extends TestCase
         $this->assertSame(0, (int) $log->is_staged);
     }
 
+    public function test_local_log_schedule_does_not_dispatch_when_there_are_no_eligible_pending_logs(): void
+    {
+        Bus::fake();
+        DB::table('attendance_logs')->insert([
+            'user_code' => 'DISABLED',
+            'datetime' => '2026-03-10 09:00:00',
+            'status' => 0,
+            'is_calculated' => false,
+            'is_staged' => false,
+        ]);
+
+        $this->artisan('app:process-log-schedule', ['--local-only' => true])
+            ->assertExitCode(0);
+
+        Bus::assertNotDispatched(ProcessPendingLogsBatch::class);
+    }
+
+    public function test_local_log_schedule_dispatches_when_pending_punches_exist(): void
+    {
+        Bus::fake();
+        DB::table('attendance_logs')->insert([
+            'user_code' => 'PENDING',
+            'datetime' => '2026-03-10 09:00:00',
+            'is_calculated' => false,
+            'is_staged' => false,
+        ]);
+
+        $this->artisan('app:process-log-schedule', ['--local-only' => true])
+            ->assertExitCode(0);
+
+        Bus::assertDispatched(ProcessPendingLogsBatch::class, static fn (ProcessPendingLogsBatch $job): bool => ! $job->staged);
+    }
+
     public function test_pending_batch_marks_a_failed_log_and_continues_with_later_logs(): void
     {
         $failedLogId = DB::table('attendance_logs')->insertGetId([

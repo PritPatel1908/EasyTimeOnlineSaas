@@ -53,6 +53,7 @@ class CustomReportSnapshotExportTest extends TestCase
             $table->unsignedBigInteger('shift_id')->nullable();
             $table->unsignedBigInteger('status_master_id')->nullable();
             $table->string('shift_code')->nullable();
+            $table->boolean('is_half_day')->default(false);
             $table->dateTime('in_time')->nullable();
             $table->dateTime('out_time')->nullable();
             $table->boolean('is_late')->default(false);
@@ -172,6 +173,7 @@ class CustomReportSnapshotExportTest extends TestCase
             'date' => '2026-11-20',
             'shift_id' => 12,
             'status_master_id' => 2,
+            'is_half_day' => true,
             'shift_code' => 'DIRECT-VALUE',
             'in_time' => '2026-11-20 08:00:00',
             'out_time' => '2026-11-20 16:00:00',
@@ -251,6 +253,7 @@ class CustomReportSnapshotExportTest extends TestCase
             ['Status', 'Count'],
             ['HD', '1'],
             ['P', '1'],
+            ['Grand Total', '2'],
             [],
             ['Emp Code'],
             ['E010'],
@@ -280,6 +283,7 @@ class CustomReportSnapshotExportTest extends TestCase
             ['Attendance Status'],
             ['Status', 'Count'],
             ['P', '1'],
+            ['Grand Total', '1'],
         ], $table['rows']);
 
         $horizontalTable = (new CustomReportTableBuilder)->buildForEmployees(
@@ -310,6 +314,7 @@ class CustomReportSnapshotExportTest extends TestCase
             ['Status', 'Count'],
             ['HD', '1'],
             ['P', '1'],
+            ['Grand Total', '2'],
         ], $horizontalTable['rows']);
 
         $statusFilteredTable = (new CustomReportTableBuilder)->buildForEmployees(
@@ -334,8 +339,98 @@ class CustomReportSnapshotExportTest extends TestCase
         $this->assertContains(['2026-11-30', ''], $statusFilteredTable['rows']);
         $this->assertCount(60, $statusDateRows);
         $this->assertContains(['HD', '1'], $statusFilteredTable['rows']);
-        $this->assertContains(['HD', '0'], $statusFilteredTable['rows']);
+        $this->assertContains(['Grand Total', '1'], $statusFilteredTable['rows']);
+        $this->assertNotContains(['HD', '0'], $statusFilteredTable['rows']);
+        $this->assertSame(
+            1,
+            count(array_filter(
+                $statusFilteredTable['rows'],
+                static fn (array $row): bool => $row === ['Attendance Status'],
+            )),
+        );
         $this->assertNotContains(['2026-11-19', 'P'], $statusFilteredTable['rows']);
+
+        $halfStatusSummary = (new CustomReportTableBuilder)->buildForEmployees(
+            [
+                ['field_name' => 'emp_code'],
+                [
+                    'field_name' => 'attendance_specific_status',
+                    'status_master_ids' => [2],
+                    'use_in_summary' => true,
+                    'half_status_count_as_half' => true,
+                ],
+                ['field_name' => 'date'],
+            ],
+            '2026-11-19',
+            '2026-11-20',
+            'vertical',
+            [$employee],
+        );
+        $this->assertContains(['HD', '0.5'], $halfStatusSummary['rows']);
+        $this->assertContains(['Grand Total', '0.5'], $halfStatusSummary['rows']);
+
+        $horizontalHalfStatusSummary = (new CustomReportTableBuilder)->buildForEmployees(
+            [
+                ['field_name' => 'emp_code'],
+                [
+                    'field_name' => 'attendance_specific_status',
+                    'status_master_ids' => [2],
+                    'use_in_summary' => true,
+                    'half_status_count_as_half' => true,
+                ],
+                ['field_name' => 'date'],
+            ],
+            '2026-11-19',
+            '2026-11-20',
+            'vertical',
+            [$employee],
+            'horizontal',
+        );
+        $this->assertContains(['Count', '0.5', '0.5'], $horizontalHalfStatusSummary['rows']);
+
+        $horizontalStatusSummary = (new CustomReportTableBuilder)->buildForEmployees(
+            [
+                ['field_name' => 'emp_code'],
+                ['field_name' => 'attendance_specific_status', 'status_master_ids' => [2], 'use_in_summary' => true],
+                ['field_name' => 'date'],
+            ],
+            '2026-11-19',
+            '2026-11-20',
+            'vertical',
+            [$employee, $secondEmployee],
+            'horizontal',
+        );
+        $this->assertSame(
+            1,
+            count(array_filter(
+                $horizontalStatusSummary['rows'],
+                static fn (array $row): bool => $row === ['Attendance Status'],
+            )),
+        );
+        $this->assertContains(['Status', 'HD', 'Grand Total'], $horizontalStatusSummary['rows']);
+        $this->assertContains(['Count', '1', '1'], $horizontalStatusSummary['rows']);
+
+        $horizontalEmployeeSummary = (new CustomReportTableBuilder)->buildForEmployees(
+            [
+                ['field_name' => 'emp_code'],
+                ['field_name' => 'attendance_specific_status', 'status_master_ids' => [2], 'use_in_summary' => true],
+            ],
+            '2026-11-19',
+            '2026-11-20',
+            'vertical',
+            [$employee, $secondEmployee],
+            'horizontal',
+        );
+        $this->assertSame(
+            [
+                'Emp Code',
+                'Attendance Specific Status',
+                'Summary - Attendance Status HD Count',
+                'Summary - Attendance Status Grand Total Count',
+            ],
+            $horizontalEmployeeSummary['headers'],
+        );
+        $this->assertSame(['E010', '', '', '0'], $horizontalEmployeeSummary['rows'][1]);
 
         $horizontalSummaryTable = (new CustomReportTableBuilder)->buildForEmployees(
             [
@@ -363,8 +458,8 @@ class CustomReportSnapshotExportTest extends TestCase
             ['Late Minutes'],
             ['5'],
             ['Attendance Status'],
-            ['Status', 'HD', 'P'],
-            ['Count', '1', '1'],
+            ['Status', 'HD', 'P', 'Grand Total'],
+            ['Count', '1', '1', '2'],
         ], $horizontalSummaryTable['rows']);
 
         $legacyFormatTable = (new CustomReportTableBuilder)->buildForEmployees(

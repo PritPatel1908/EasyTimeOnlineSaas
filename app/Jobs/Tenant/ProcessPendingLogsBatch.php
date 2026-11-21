@@ -6,6 +6,7 @@ use App\Models\Tenant\AttendanceLog;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
@@ -28,6 +29,11 @@ class ProcessPendingLogsBatch implements ShouldBeUnique, ShouldQueue
         return (string) tenant('id') . ':' . ($this->staged ? 'staged' : 'pending');
     }
 
+    public static function hasPendingLogs(bool $staged = false): bool
+    {
+        return self::pendingLogsQuery($staged)->exists();
+    }
+
     public function handle(): void
     {
         $cursorDate = null;
@@ -37,13 +43,7 @@ class ProcessPendingLogsBatch implements ShouldBeUnique, ShouldQueue
         $failed = 0;
 
         while (true) {
-            $query = AttendanceLog::query()
-                ->where('is_calculated', false)
-                ->where('is_ignored', false)
-                ->where('has_error', false)
-                ->where('is_staged', $this->staged)
-                ->where('is_locked', false)
-                ->where('status', '!=', 0);
+            $query = self::pendingLogsQuery($this->staged);
 
             if ($hasCursor) {
                 $query->where(function ($query) use ($cursorDate, $cursorId): void {
@@ -91,6 +91,20 @@ class ProcessPendingLogsBatch implements ShouldBeUnique, ShouldQueue
         Log::channel('attprocess')->debug(
             'Processed ' . $processed . ' ' . ($this->staged ? 'staged ' : '') . 'attendance logs in chunks; failed: ' . $failed
         );
+    }
+
+    /**
+     * @return Builder<AttendanceLog>
+     */
+    private static function pendingLogsQuery(bool $staged): Builder
+    {
+        return AttendanceLog::query()
+            ->where('is_calculated', false)
+            ->where('is_ignored', false)
+            ->where('has_error', false)
+            ->where('is_staged', $staged)
+            ->where('is_locked', false)
+            ->where('status', '!=', 0);
     }
 
     protected function processLog(int $logId): void

@@ -20,10 +20,11 @@
                 static fn (string $id): bool => $id !== '',
             )),
             'use_in_summary' => filter_var($field['use_in_summary'] ?? false, FILTER_VALIDATE_BOOLEAN),
+            'half_status_count_as_half' => filter_var($field['half_status_count_as_half'] ?? false, FILTER_VALIDATE_BOOLEAN),
         ];
     }, $reportFieldRows);
     if ($reportFieldRows === []) {
-        $reportFieldRows = [['field_name' => '', 'date_time_format' => 'default', 'minute_format' => 'default', 'use_in_summary' => false]];
+        $reportFieldRows = [['field_name' => '', 'date_time_format' => 'default', 'minute_format' => 'default', 'use_in_summary' => false, 'half_status_count_as_half' => false]];
     }
     if (is_string($filterInput)) {
         $decodedFilter = json_decode($filterInput, true);
@@ -142,6 +143,12 @@
                         <label class="form-label d-block" data-summary-label>Use in Summary</label>
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" role="switch" data-use-in-summary aria-label="Use in Summary">
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3 mb-md-0 d-none" data-half-status-count-container>
+                        <label class="form-label d-block" data-half-status-count-label>Count half-day status as 0.5</label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" data-half-status-count aria-label="Count half-day status as 0.5">
                         </div>
                     </div>
                 </div>
@@ -410,7 +417,9 @@
                     ? selectedStatusMasterIds(row.querySelector('[data-status-master]'))
                     : [],
                 use_in_summary: summaryFields.indexOf(fieldName) !== -1
-                    && row.querySelector('[data-use-in-summary]').checked
+                    && row.querySelector('[data-use-in-summary]').checked,
+                half_status_count_as_half: supportsStatusSelection
+                    && row.querySelector('[data-half-status-count]').checked
             };
         });
 
@@ -428,6 +437,7 @@
         var formatColumn = row.querySelector('[data-format-column]');
         var statusColumn = row.querySelector('[data-status-column]');
         var minuteFormatColumn = row.querySelector('[data-minute-format-column]');
+        var halfStatusCountContainer = row.querySelector('[data-half-status-count-container]');
         var fieldColumn = row.querySelector('[data-field-column]');
         var statusMaster = row.querySelector('[data-status-master]');
         var isDateOnly = dateOnlyFields.indexOf(fieldName) !== -1;
@@ -466,16 +476,21 @@
         statusColumn.classList.toggle('d-none', !supportsStatusSelection);
         minuteFormatColumn.classList.toggle('d-none', !supportsMinuteFormat);
         summaryContainer.classList.toggle('d-none', !supportsSummary);
+        halfStatusCountContainer.classList.toggle('d-none', !supportsStatusSelection);
         var optionCount = Number(supportsDateTimeFormat)
             + Number(supportsStatusSelection)
             + Number(supportsMinuteFormat)
-            + Number(supportsSummary);
+            + Number(supportsSummary)
+            + Number(supportsStatusSelection);
         var columnWidth = optionCount === 0 ? 12 : (optionCount === 1 ? 6 : (optionCount === 2 ? 4 : 3));
+        var columnWidths = supportsStatusSelection
+            ? [6, columnWidth, 6, columnWidth, 6, 6]
+            : [columnWidth, columnWidth, columnWidth, columnWidth, columnWidth, columnWidth];
         fieldColumn.classList.remove('col-md-3', 'col-md-4', 'col-md-6', 'col-md-12');
-        fieldColumn.classList.add('col-md-' + columnWidth);
-        [formatColumn, statusColumn, minuteFormatColumn, summaryContainer].forEach(function (column) {
+        fieldColumn.classList.add('col-md-' + columnWidths[0]);
+        [formatColumn, statusColumn, minuteFormatColumn, summaryContainer, halfStatusCountContainer].forEach(function (column, index) {
             column.classList.remove('col-md-3', 'col-md-4', 'col-md-6', 'col-md-12');
-            column.classList.add('col-md-' + columnWidth);
+            column.classList.add('col-md-' + columnWidths[index + 1]);
         });
         setStatusMasterIds(statusMaster, supportsStatusSelection ? selectedStatusIds : []);
         minuteFormat.value = Array.prototype.some.call(minuteFormat.options, function (option) {
@@ -484,6 +499,9 @@
 
         if (!supportsSummary) {
             row.querySelector('[data-use-in-summary]').checked = false;
+        }
+        if (!supportsStatusSelection) {
+            row.querySelector('[data-half-status-count]').checked = false;
         }
 
         initializeSelect(dateTimeFormat);
@@ -499,6 +517,7 @@
         var fieldName = row.querySelector('[data-field-name]');
         var minuteFormat = row.querySelector('[data-minute-format]');
         var useInSummary = row.querySelector('[data-use-in-summary]');
+        var halfStatusCount = row.querySelector('[data-half-status-count]');
 
         rowNumber += 1;
         useInSummary.id = 'custom_report_use_in_summary_' + rowNumber;
@@ -507,6 +526,7 @@
         var storedFormat = field.date_time_format || 'default';
         minuteFormat.value = field.minute_format || 'default';
         useInSummary.checked = field.use_in_summary === true;
+        halfStatusCount.checked = field.half_status_count_as_half === true;
 
         rowsContainer.appendChild(fragment);
         updateFieldOptions(row, storedFormat, field.status_master_ids || []);

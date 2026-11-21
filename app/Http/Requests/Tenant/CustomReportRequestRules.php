@@ -73,6 +73,7 @@ final class CustomReportRequestRules
                 Rule::exists('status_masters', 'id'),
             ],
             'custom_report_fields.*.use_in_summary' => ['required', 'boolean'],
+            'custom_report_fields.*.half_status_count_as_half' => ['sometimes', 'boolean'],
             'custom_report_filter' => ['present', 'array'],
         ];
 
