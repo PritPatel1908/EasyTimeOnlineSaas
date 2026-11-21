@@ -312,6 +312,21 @@ class CustomReportSnapshotExportTest extends TestCase
             ['P', '1'],
         ], $horizontalTable['rows']);
 
+        $statusFilteredTable = (new CustomReportTableBuilder)->buildForEmployees(
+            [
+                ['field_name' => 'emp_code'],
+                ['field_name' => 'attendance_specific_status', 'status_master_ids' => [2]],
+                ['field_name' => 'date'],
+            ],
+            '2026-11-19',
+            '2026-11-20',
+            'vertical',
+            [$employee, $secondEmployee],
+        );
+
+        $this->assertContains(['2026-11-20', 'HD'], $statusFilteredTable['rows']);
+        $this->assertNotContains(['2026-11-19', 'P'], $statusFilteredTable['rows']);
+
         $horizontalSummaryTable = (new CustomReportTableBuilder)->buildForEmployees(
             [
                 ['field_name' => 'emp_code'],

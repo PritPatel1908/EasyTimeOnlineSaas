@@ -56,6 +56,8 @@ class CustomReportFieldOptionsTest extends TestCase
         $this->assertFalse(CustomReportFieldOptions::supportsSummary('shift_name'));
         $this->assertFalse(CustomReportFieldOptions::supportsDateTimeFormat('attendance_status'));
         $this->assertTrue(CustomReportFieldOptions::supportsSummary('attendance_status'));
+        $this->assertFalse(CustomReportFieldOptions::supportsDateTimeFormat('attendance_specific_status'));
+        $this->assertTrue(CustomReportFieldOptions::supportsStatusSelection('attendance_specific_status'));
         foreach (CustomReportFieldOptions::minuteFormatFields() as $fieldName) {
             $this->assertTrue(CustomReportFieldOptions::supportsMinuteFormat($fieldName));
             $this->assertFalse(CustomReportFieldOptions::supportsDateTimeFormat($fieldName));

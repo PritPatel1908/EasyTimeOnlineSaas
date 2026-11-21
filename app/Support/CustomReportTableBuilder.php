@@ -69,6 +69,7 @@ final class CustomReportTableBuilder
         $employees = collect($employees)->values();
         $fieldLabels = CustomReportFieldOptions::all();
         $fields = array_values(array_filter($fields, 'is_array'));
+        $statusMasterFilterIds = $this->selectedStatusMasterIds($fields);
         $labels = array_map(
             static fn (array $field): string => $fieldLabels[$field['field_name'] ?? ''] ?? (string) ($field['field_name'] ?? ''),
             $fields,
@@ -116,6 +117,8 @@ final class CustomReportTableBuilder
             $dateFormat = $this->dateFormat($fields[$dateIndexes[0]]['date_time_format'] ?? 'default');
 
             foreach ($employees as $employee) {
+                $employeeId = (int) $employee->getKey();
+                $employeeDates = $this->datesForEmployee($dates, $attendanceValues, $employeeId, $statusMasterFilterIds);
                 if ($rows !== []) {
                     $rows[] = [];
                 }
@@ -147,13 +150,13 @@ final class CustomReportTableBuilder
                 $rows[] = [];
                 $rows[] = array_merge(
                     ['Date'],
-                    array_map(static fn (DateTimeImmutable $date): string => $date->format($dateFormat), $dates),
+                    array_map(static fn (DateTimeImmutable $date): string => $date->format($dateFormat), $employeeDates),
                 );
                 foreach ($detailIndexes as $index) {
                     $field = $fields[$index];
                     $fieldName = $field['field_name'] ?? '';
                     $detailRow = [$labels[$index]];
-                    foreach ($dates as $date) {
+                    foreach ($employeeDates as $date) {
                         $detailRow[] = $this->employeeValue(
                             $employee,
                             $fieldName,
@@ -167,7 +170,6 @@ final class CustomReportTableBuilder
                     $rows[] = $detailRow;
                 }
 
-                $employeeId = (int) $employee->getKey();
                 $this->appendSummaryRows(
                     $rows,
                     $fields,
@@ -203,6 +205,8 @@ final class CustomReportTableBuilder
             $startDate = new DateTimeImmutable($fromDate);
 
             foreach ($employees as $employeeIndex => $employee) {
+                $employeeId = (int) $employee->getKey();
+                $employeeDates = $this->datesForEmployee($dates, $attendanceValues, $employeeId, $statusMasterFilterIds);
                 if ($employeeIndex > 0) {
                     $rows[] = [];
                 }
@@ -233,7 +237,7 @@ final class CustomReportTableBuilder
                 $rows[] = [];
                 $rows[] = $detailHeaders;
 
-                foreach ($dates as $date) {
+                foreach ($employeeDates as $date) {
                     $row = [];
                     foreach ($detailIndexes as $index) {
                         $field = $fields[$index];
@@ -257,7 +261,6 @@ final class CustomReportTableBuilder
                     $rows[] = $row;
                 }
 
-                $employeeId = (int) $employee->getKey();
                 $this->appendSummaryRows(
                     $rows,
                     $fields,
@@ -345,10 +348,13 @@ final class CustomReportTableBuilder
             $fields,
             static fn (array $field): bool => filter_var($field['use_in_summary'] ?? false, FILTER_VALIDATE_BOOLEAN)
                 && (CustomReportFieldOptions::supportsMinuteFormat((string) ($field['field_name'] ?? ''))
-                    || ($field['field_name'] ?? '') === 'attendance_status'),
+                    || in_array($field['field_name'] ?? '', ['attendance_status', 'attendance_specific_status'], true)),
         ));
         $minuteTotals = [];
-        $statusSelected = in_array('attendance_status', array_column($summaryFields, 'field_name'), true);
+        $statusSelected = array_intersect(
+            ['attendance_status', 'attendance_specific_status'],
+            array_column($summaryFields, 'field_name'),
+        ) !== [];
 
         foreach ($summaryFields as $field) {
             $fieldName = (string) ($field['field_name'] ?? '');
@@ -479,6 +485,57 @@ final class CustomReportTableBuilder
     }
 
     /**
+     * @param  array<int, array<string, mixed>>  $fields
+     * @return array<int, int>
+     */
+    private function selectedStatusMasterIds(array $fields): array
+    {
+        $ids = [];
+        foreach ($fields as $field) {
+            if (! CustomReportFieldOptions::supportsStatusSelection((string) ($field['field_name'] ?? ''))) {
+                continue;
+            }
+
+            $selectedIds = $field['status_master_ids'] ?? [];
+            if (! is_array($selectedIds)) {
+                continue;
+            }
+
+            foreach ($selectedIds as $id) {
+                if (is_numeric($id) && (int) $id > 0) {
+                    $ids[] = (int) $id;
+                }
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    /**
+     * @param  array<int, DateTimeImmutable>  $dates
+     * @param  array<int, array<string, array<string, string>>>  $attendanceValues
+     * @param  array<int, int>  $statusMasterFilterIds
+     * @return array<int, DateTimeImmutable>
+     */
+    private function datesForEmployee(
+        array $dates,
+        array $attendanceValues,
+        int $employeeId,
+        array $statusMasterFilterIds,
+    ): array {
+        if ($statusMasterFilterIds === []) {
+            return $dates;
+        }
+
+        $matchingDates = array_fill_keys(array_keys($attendanceValues[$employeeId] ?? []), true);
+
+        return array_values(array_filter(
+            $dates,
+            static fn (DateTimeImmutable $date): bool => isset($matchingDates[$date->format('Y-m-d')]),
+        ));
+    }
+
+    /**
      * @param  array<int, string>  $fields
      * @param  Collection<int, User>  $employees
      * @return array{assignments: Collection<int, MasterSnapshot>, values: Collection<int, MasterSnapshot>, approvers: Collection<int, MasterSnapshot>}
@@ -595,8 +652,9 @@ final class CustomReportTableBuilder
         ];
         $requestedFields = array_values(array_intersect(
             array_column($fields, 'field_name'),
-            array_merge(array_keys($attendanceColumns), ['attendance_status', 'shift_name', 'shift_code']),
+            array_merge(array_keys($attendanceColumns), ['attendance_specific_status', 'attendance_status', 'shift_name', 'shift_code']),
         ));
+        $statusMasterFilterIds = $this->selectedStatusMasterIds($fields);
         $employeeIds = $employees->pluck('id')->filter()->map(static fn (mixed $id): int => (int) $id)->all();
         if ($requestedFields === [] || $employeeIds === []) {
             return [];
@@ -618,7 +676,7 @@ final class CustomReportTableBuilder
             if ($field === 'shift_name' || $field === 'shift_code') {
                 $columns[] = 'shift_id';
             }
-            if ($field === 'attendance_status') {
+            if ($field === 'attendance_status' || $field === 'attendance_specific_status') {
                 $columns[] = 'status_master_id';
             }
             if ($field === 'late_minutes') {
@@ -635,10 +693,13 @@ final class CustomReportTableBuilder
         for ($year = $firstYear; $year <= $lastYear; $year++) {
             $yearStart = max($fromDate, $year.'-01-01');
             $yearEnd = min($toDate, $year.'-12-31');
-            $attendances = Attendance::year($year)
+            $attendanceQuery = Attendance::year($year)
                 ->whereIn('user_id', $employeeIds)
-                ->whereBetween('date', [$yearStart, $yearEnd])
-                ->get($columns);
+                ->whereBetween('date', [$yearStart, $yearEnd]);
+            if ($statusMasterFilterIds !== []) {
+                $attendanceQuery->whereIn('status_master_id', $statusMasterFilterIds);
+            }
+            $attendances = $attendanceQuery->get($columns);
 
             foreach ($attendances as $attendance) {
                 $attendanceRows[] = $attendance;
@@ -679,7 +740,12 @@ final class CustomReportTableBuilder
             if (in_array('status_master_id', $columns, true)) {
                 $statusCode = $attendanceStatuses[(int) $attendance->status_master_id] ?? null;
                 if (is_scalar($statusCode) && (string) $statusCode !== '') {
-                    $values[$employeeId][$date]['attendance_status'] = (string) $statusCode;
+                    if (in_array('attendance_status', $requestedFields, true)) {
+                        $values[$employeeId][$date]['attendance_status'] = (string) $statusCode;
+                    }
+                    if (in_array('attendance_specific_status', $requestedFields, true)) {
+                        $values[$employeeId][$date]['attendance_specific_status'] = (string) $statusCode;
+                    }
                 }
             }
 
@@ -810,6 +876,7 @@ final class CustomReportTableBuilder
             'shift_code',
             'attendance_in_time',
             'attendance_out_time',
+            'attendance_specific_status',
             'attendance_status',
             'late_minutes',
             'early_minutes',

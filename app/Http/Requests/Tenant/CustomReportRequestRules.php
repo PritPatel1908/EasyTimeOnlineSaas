@@ -6,6 +6,7 @@ namespace App\Http\Requests\Tenant;
 
 use App\Support\CustomReportFieldOptions;
 use App\Support\CustomReportFilterOptions;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -26,6 +27,30 @@ final class CustomReportRequestRules
         }
     }
 
+    public static function withValidator(FormRequest $request, Validator $validator): void
+    {
+        $validator->after(static function (Validator $validator) use ($request): void {
+            $fields = $request->input('custom_report_fields', []);
+            if (! is_array($fields)) {
+                return;
+            }
+
+            foreach ($fields as $index => $field) {
+                if (! is_array($field)
+                    || ! CustomReportFieldOptions::supportsStatusSelection((string) ($field['field_name'] ?? ''))) {
+                    continue;
+                }
+
+                if (! is_array($field['status_master_ids'] ?? null) || $field['status_master_ids'] === []) {
+                    $validator->errors()->add(
+                        "custom_report_fields.{$index}.status_master_ids",
+                        'Select at least one attendance status.',
+                    );
+                }
+            }
+        });
+    }
+
     public static function rules(): array
     {
         $rules = [
@@ -41,6 +66,12 @@ final class CustomReportRequestRules
             'custom_report_fields.*.field_name' => ['required', 'string', Rule::in(array_keys(CustomReportFieldOptions::all()))],
             'custom_report_fields.*.date_time_format' => ['required', 'string', 'in:default,d-m-Y,m-d-Y,Y-m-d,d/m/Y,m/d/Y,H:i,h:i A,d-m-Y H:i,Y-m-d H:i'],
             'custom_report_fields.*.minute_format' => ['required', 'string', 'in:default,hh_mm,decimal'],
+            'custom_report_fields.*.status_master_ids' => ['nullable', 'array'],
+            'custom_report_fields.*.status_master_ids.*' => [
+                'integer',
+                'distinct',
+                Rule::exists('status_masters', 'id'),
+            ],
             'custom_report_fields.*.use_in_summary' => ['required', 'boolean'],
             'custom_report_filter' => ['present', 'array'],
         ];

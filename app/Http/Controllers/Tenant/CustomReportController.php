@@ -11,8 +11,10 @@ use App\Http\Requests\Tenant\StoreCustomReportRequest;
 use App\Http\Requests\Tenant\UpdateCustomReportRequest;
 use App\Jobs\Tenant\GenerateCustomReportExport;
 use App\Models\Tenant\CustomReport;
+use App\Models\Tenant\StatusMaster;
 use App\Support\CustomReportFilterOptions;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -150,6 +152,7 @@ class CustomReportController extends Controller
             'customReport' => $customReport ?? new CustomReport,
             'customReportDetail' => $customReportDetail,
             'reportFilterOptions' => CustomReportFilterOptions::forForm(),
+            'statusMasterOptions' => $this->statusMasterOptions(),
         ]);
     }
 
@@ -184,7 +187,18 @@ class CustomReportController extends Controller
             'customReport' => $customReport,
             'customReportDetail' => $customReport->custom_report_details->first(),
             'reportFilterOptions' => CustomReportFilterOptions::forForm(),
+            'statusMasterOptions' => $this->statusMasterOptions(),
         ]);
+    }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Collection<int, StatusMaster>
+     */
+    private function statusMasterOptions(): Collection
+    {
+        return StatusMaster::query()
+            ->orderBy('code')
+            ->get(['id', 'code', 'alias', 'description']);
     }
 
     public function update(UpdateCustomReportRequest $request): RedirectResponse

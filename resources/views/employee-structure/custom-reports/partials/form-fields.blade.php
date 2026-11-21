@@ -12,6 +12,13 @@
             'field_name' => $field['field_name'] ?? '',
             'date_time_format' => $field['date_time_format'] ?? 'default',
             'minute_format' => $field['minute_format'] ?? (in_array($field['date_time_format'] ?? 'default', ['H:i', 'h:i A'], true) ? 'hh_mm' : 'default'),
+            'status_master_ids' => array_values(array_filter(
+                array_map(
+                    static fn (mixed $id): string => is_scalar($id) ? (string) $id : '',
+                    is_array($field['status_master_ids'] ?? null) ? $field['status_master_ids'] : [],
+                ),
+                static fn (string $id): bool => $id !== '',
+            )),
             'use_in_summary' => filter_var($field['use_in_summary'] ?? false, FILTER_VALIDATE_BOOLEAN),
         ];
     }, $reportFieldRows);
@@ -113,6 +120,14 @@
                             <option value="h:i A">12-hour time (hh:mm AM/PM)</option>
                             <option value="d-m-Y H:i" data-date-time>DD-MM-YYYY HH:mm</option>
                             <option value="Y-m-d H:i" data-date-time>YYYY-MM-DD HH:mm</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3 mb-md-0 d-none" data-status-column>
+                        <label class="form-label">Attendance Status <span class="text-danger" aria-hidden="true">*</span></label>
+                        <select class="form-control" data-status-master multiple>
+                            @foreach($statusMasterOptions as $statusMaster)
+                                <option value="{{ $statusMaster->id }}">{{ $statusMaster->code }} - {{ $statusMaster->description }}</option>
+                            @endforeach
                         </select>
                     </div>
                     <div class="col-md-6 mb-3 mb-md-0 d-none" data-minute-format-column>
@@ -320,6 +335,7 @@
     var dateTimeFields = @json(\App\Support\CustomReportFieldOptions::dateTimeFields());
     var minuteFormatFields = @json(\App\Support\CustomReportFieldOptions::minuteFormatFields());
     var summaryFields = @json(\App\Support\CustomReportFieldOptions::summaryFields());
+    var statusSelectionFields = @json(\App\Support\CustomReportFieldOptions::statusSelectionFields());
     var formatOptions = Array.prototype.map.call(
         template.content.querySelector('[data-date-time-format]').options,
         function (option) {
@@ -335,18 +351,51 @@
 
     function initializeSelect(select) {
         if (typeof TomSelect !== 'undefined' && !select.tomselect) {
-            new TomSelect(select, {
+            var options = {
                 width: '100%',
                 searchField: ['text'],
                 placeholder: 'Search or select',
                 maxOptions: null
-            });
+            };
+            if (select.multiple) {
+                options.plugins = ['remove_button'];
+            }
+            new TomSelect(select, options);
         }
+    }
+
+    function selectedStatusMasterIds(select) {
+        var selected = select.tomselect
+            ? select.tomselect.getValue()
+            : Array.prototype.filter.call(select.options, function (option) {
+                return option.selected;
+            }).map(function (option) {
+                return option.value;
+            });
+
+        if (!Array.isArray(selected)) {
+            selected = selected ? [selected] : [];
+        }
+
+        return selected.map(String);
+    }
+
+    function setStatusMasterIds(select, selectedIds) {
+        var values = Array.isArray(selectedIds) ? selectedIds.map(String) : [];
+        if (select.tomselect) {
+            select.tomselect.setValue(values, true);
+            return;
+        }
+
+        Array.prototype.forEach.call(select.options, function (option) {
+            option.selected = values.indexOf(option.value) !== -1;
+        });
     }
 
     function syncFields() {
         var fields = Array.prototype.map.call(rowsContainer.querySelectorAll('[data-custom-report-field-row]'), function (row) {
             var fieldName = row.querySelector('[data-field-name]').value;
+            var supportsStatusSelection = statusSelectionFields.indexOf(fieldName) !== -1;
 
             return {
                 field_name: fieldName,
@@ -356,6 +405,9 @@
                 minute_format: minuteFormatFields.indexOf(fieldName) !== -1
                     ? row.querySelector('[data-minute-format]').value
                     : 'default',
+                status_master_ids: supportsStatusSelection
+                    ? selectedStatusMasterIds(row.querySelector('[data-status-master]'))
+                    : [],
                 use_in_summary: summaryFields.indexOf(fieldName) !== -1
                     && row.querySelector('[data-use-in-summary]').checked
             };
@@ -367,20 +419,26 @@
         }
     }
 
-    function updateFieldOptions(row, storedFormat) {
+    function updateFieldOptions(row, storedFormat, storedStatusMasterIds) {
         var fieldName = row.querySelector('[data-field-name]').value;
         var dateTimeFormat = row.querySelector('[data-date-time-format]');
         var minuteFormat = row.querySelector('[data-minute-format]');
         var summaryContainer = row.querySelector('[data-summary-container]');
         var formatColumn = row.querySelector('[data-format-column]');
+        var statusColumn = row.querySelector('[data-status-column]');
         var minuteFormatColumn = row.querySelector('[data-minute-format-column]');
         var fieldColumn = row.querySelector('[data-field-column]');
+        var statusMaster = row.querySelector('[data-status-master]');
         var isDateOnly = dateOnlyFields.indexOf(fieldName) !== -1;
         var isDateTimeOnly = dateTimeOnlyFields.indexOf(fieldName) !== -1;
         var isTimeOnly = timeOnlyFields.indexOf(fieldName) !== -1;
         var supportsDateTimeFormat = dateTimeFields.indexOf(fieldName) !== -1;
         var supportsMinuteFormat = minuteFormatFields.indexOf(fieldName) !== -1;
         var supportsSummary = summaryFields.indexOf(fieldName) !== -1;
+        var supportsStatusSelection = statusSelectionFields.indexOf(fieldName) !== -1;
+        var selectedStatusIds = Array.isArray(storedStatusMasterIds)
+            ? storedStatusMasterIds.map(String)
+            : selectedStatusMasterIds(statusMaster);
         var currentFormat = supportsDateTimeFormat ? (storedFormat || dateTimeFormat.value || 'default') : 'default';
         var currentMinuteFormat = minuteFormat.value || 'default';
         row.querySelector('[data-format-label]').firstChild.textContent = isTimeOnly ? 'Time Format ' : 'Date/Time Format ';
@@ -404,16 +462,21 @@
         });
         dateTimeFormat.value = hasStoredFormat ? currentFormat : 'default';
         formatColumn.classList.toggle('d-none', !supportsDateTimeFormat);
+        statusColumn.classList.toggle('d-none', !supportsStatusSelection);
         minuteFormatColumn.classList.toggle('d-none', !supportsMinuteFormat);
         summaryContainer.classList.toggle('d-none', !supportsSummary);
-        var optionCount = Number(supportsDateTimeFormat) + Number(supportsMinuteFormat) + Number(supportsSummary);
+        var optionCount = Number(supportsDateTimeFormat)
+            + Number(supportsStatusSelection)
+            + Number(supportsMinuteFormat)
+            + Number(supportsSummary);
         var columnWidth = optionCount === 0 ? 12 : (optionCount === 1 ? 6 : (optionCount === 2 ? 4 : 3));
         fieldColumn.classList.remove('col-md-3', 'col-md-4', 'col-md-6', 'col-md-12');
         fieldColumn.classList.add('col-md-' + columnWidth);
-        [formatColumn, minuteFormatColumn, summaryContainer].forEach(function (column) {
+        [formatColumn, statusColumn, minuteFormatColumn, summaryContainer].forEach(function (column) {
             column.classList.remove('col-md-3', 'col-md-4', 'col-md-6', 'col-md-12');
             column.classList.add('col-md-' + columnWidth);
         });
+        setStatusMasterIds(statusMaster, supportsStatusSelection ? selectedStatusIds : []);
         minuteFormat.value = Array.prototype.some.call(minuteFormat.options, function (option) {
             return option.value === currentMinuteFormat;
         }) ? currentMinuteFormat : 'default';
@@ -424,6 +487,9 @@
 
         initializeSelect(dateTimeFormat);
         initializeSelect(minuteFormat);
+        if (supportsStatusSelection) {
+            initializeSelect(statusMaster);
+        }
     }
 
     function addFieldRow(field) {
@@ -442,7 +508,7 @@
         useInSummary.checked = field.use_in_summary === true;
 
         rowsContainer.appendChild(fragment);
-        updateFieldOptions(row, storedFormat);
+        updateFieldOptions(row, storedFormat, field.status_master_ids || []);
         initializeSelect(fieldName);
     }
 

@@ -53,8 +53,18 @@ final class CustomReportFieldOptions
     {
         return array_values(array_diff(
             array_merge(self::dateOnlyFields(), self::dateTimeOnlyFields(), self::dateDetailFields()),
-            array_merge(self::minuteFormatFields(), ['attendance_status', 'shift_name', 'shift_code']),
+            array_merge(self::minuteFormatFields(), ['attendance_specific_status', 'attendance_status', 'shift_name', 'shift_code']),
         ));
+    }
+
+    public static function statusSelectionFields(): array
+    {
+        return ['attendance_specific_status'];
+    }
+
+    public static function supportsStatusSelection(string $fieldName): bool
+    {
+        return in_array($fieldName, self::statusSelectionFields(), true);
     }
 
     public static function timeOnlyFields(): array
