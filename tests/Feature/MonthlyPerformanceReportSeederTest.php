@@ -6,6 +6,7 @@ namespace Tests\Feature;
 
 use App\Models\Tenant\CustomReport;
 use App\Support\CustomReportDateRange;
+use Database\Seeders\Tenant\AttendanceSpecificStatusReportSeeder;
 use Database\Seeders\Tenant\MonthlyPerformanceReportSeeder;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -49,6 +50,10 @@ class MonthlyPerformanceReportSeederTest extends TestCase
             $table->json('custom_report_fields');
             $table->json('custom_report_filter');
             $table->timestamps();
+        });
+        Schema::create('status_masters', function (Blueprint $table): void {
+            $table->id();
+            $table->string('code');
         });
     }
 
@@ -105,6 +110,42 @@ class MonthlyPerformanceReportSeederTest extends TestCase
         $this->assertTrue($fields[11]['use_in_summary']);
         $this->assertTrue($fields[16]['use_in_summary']);
         $this->assertSame([], $detail->custom_report_filter);
+        $this->assertSame(1, DB::table('custom_reports')->count());
+        $this->assertSame(1, DB::table('custom_report_details')->count());
+    }
+
+    public function test_it_seeds_the_attendance_specific_status_report_with_selected_status_codes_once(): void
+    {
+        $statusCodes = ['HLA', 'AHL', 'WOP', 'AWO', 'PA', 'AP', 'AA'];
+        foreach ($statusCodes as $index => $code) {
+            DB::table('status_masters')->insert([
+                'id' => 10 + $index,
+                'code' => $code,
+            ]);
+        }
+
+        app(AttendanceSpecificStatusReportSeeder::class)->run();
+        app(AttendanceSpecificStatusReportSeeder::class)->run();
+
+        $report = CustomReport::query()
+            ->with('custom_report_details')
+            ->where('report_name', 'Attendance Specific Status Report')
+            ->firstOrFail();
+        $detail = $report->custom_report_details->first();
+        $this->assertNotNull($detail);
+        $fields = $detail->custom_report_fields;
+        $statusField = $fields[array_search('attendance_specific_status', array_column($fields, 'field_name'), true)];
+
+        $this->assertSame('this_month', $report->date_range_preset);
+        $this->assertSame('vertical', $report->report_orientation);
+        $this->assertSame('horizontal', $report->summary_orientation);
+        $this->assertSame(
+            ['emp_code', 'emp_card', 'name', 'company_name', 'department_name', 'designation_name', 'category_name', 'date', 'attendance_specific_status'],
+            array_column($fields, 'field_name'),
+        );
+        $this->assertSame([16, 15, 14, 13, 12, 11, 10], $statusField['status_master_ids']);
+        $this->assertTrue($statusField['use_in_summary']);
+        $this->assertFalse($statusField['half_status_count_as_half']);
         $this->assertSame(1, DB::table('custom_reports')->count());
         $this->assertSame(1, DB::table('custom_report_details')->count());
     }
