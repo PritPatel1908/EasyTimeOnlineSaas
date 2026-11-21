@@ -140,11 +140,15 @@ class CustomReportController extends Controller
         );
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
+        $customReport = $this->cloneForCreate($request, CustomReport::class);
+        $customReport?->load('custom_report_details');
+        $customReportDetail = $customReport?->custom_report_details->first();
+
         return view('employee-structure.custom-reports.add', [
-            'customReport' => new CustomReport,
-            'customReportDetail' => null,
+            'customReport' => $customReport ?? new CustomReport,
+            'customReportDetail' => $customReportDetail,
             'reportFilterOptions' => CustomReportFilterOptions::forForm(),
         ]);
     }

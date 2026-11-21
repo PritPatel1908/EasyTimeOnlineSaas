@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Tenant\Category;
+use App\Models\Tenant\CustomReport;
 use App\Models\Tenant\Designation;
 use App\Models\Tenant\GradeWiseMonthlyLeaveDetail;
 use App\Models\Tenant\GradeWiseYearlyLeaveDetail;
@@ -52,6 +53,30 @@ class EmployeeStructureRouteTest extends TestCase
 
         $this->assertStringContainsString('employee-structure/employees/create?clone=1', $html);
         $this->assertStringContainsString('title="Clone"', $html);
+    }
+
+    public function test_custom_report_rows_render_clone_action(): void
+    {
+        $user = new User();
+        $user->id = 1;
+        Auth::guard('tenant')->setUser($user);
+
+        $customReport = new CustomReport([
+            'report_name' => 'Monthly Report',
+            'date_range_preset' => 'this_month',
+            'report_orientation' => 'vertical',
+            'status' => 1,
+        ]);
+        $customReport->id = 25;
+
+        $html = view('employee-structure.custom-reports.partials.rows', [
+            'customReports' => collect([$customReport]),
+        ])->render();
+
+        $this->assertStringContainsString('employee-structure/custom-reports/create?clone=25', $html);
+        $this->assertStringContainsString('title="Clone"', $html);
+        $this->assertStringContainsString('viewBox="0 0 24 24"', $html);
+        $this->assertStringContainsString('title="Close report"', $html);
     }
 
     public function test_inactive_employee_row_renders_activate_action(): void

@@ -73,9 +73,9 @@
             <p class="text-muted">The selected employee fields are filled from matching employees. Date presets are recalculated each time the report is generated; manual dates are used only for Custom. With Date selected, vertical exports show each employee's master details above date-wise rows; horizontal exports show master details first, then dates as columns and attendance fields as rows.</p>
             <form method="POST" action="{{ url('employee-structure/custom-reports/'.$customReport->id.'/generate') }}" class="d-flex align-items-end gap-2 flex-wrap mb-4">
                 @csrf
-                <div>
+                <div class="custom-report-format-select">
                     <label class="form-label" for="custom_report_format">File format</label>
-                    <select id="custom_report_format" name="report_format" class="form-control select2" required>
+                    <select id="custom_report_format" name="report_format" class="form-control select2" style="width: 225px" required>
                         <option value="csv">CSV</option>
                         <option value="xlsx">Excel (.xlsx)</option>
                         <option value="pdf">PDF</option>
