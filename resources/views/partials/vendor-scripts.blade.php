@@ -193,6 +193,20 @@
 @endif
 
 @if (Route::is([
+    'tenant.*.tenant.company-structure.*.create',
+    'tenant.*.tenant.company-structure.*.edit',
+    'tenant.*.tenant.employee-structure.*.create',
+    'tenant.*.tenant.employee-structure.*.edit',
+    'tenant.*.tenant.data-policy.create',
+    'tenant.*.tenant.data-policy.edit',
+]) && !Route::is([
+    'tenant.myapp_com.tenant.company-structure.areas.create',
+    'tenant.myapp_com.tenant.company-structure.areas.edit',
+]))
+    <script src="{{URL::asset('build/js/custom-tom-select.js')}}"></script>
+@endif
+
+@if (Route::is([
     'tenant.settings.show',
     'tenant.*.tenant.settings.show',
     'tenant.settings.page',

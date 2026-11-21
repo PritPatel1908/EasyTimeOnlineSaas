@@ -169,7 +169,7 @@
                 @endphp
                 <div class="col-md-6 mb-3">
                     <label class="form-label" for="custom_report_filter_{{ $filterKey }}">{{ $filterGroup['label'] }}</label>
-                    <select id="custom_report_filter_{{ $filterKey }}" class="form-control select2" data-report-filter="{{ $filterKey }}" multiple>
+                    <select id="custom_report_filter_{{ $filterKey }}" class="form-control" data-report-filter="{{ $filterKey }}" multiple>
                         @foreach($filterGroup['options'] as $option)
                             <option value="{{ $option['id'] }}" @selected(in_array((string) $option['id'], $selectedFilterIds, true))>{{ $option['label'] }}</option>
                         @endforeach
@@ -231,6 +231,7 @@
             to.setDate(to.getDate() + 6);
         } else if (preset === 'this_month') {
             from.setDate(1);
+            to = new Date(today.getFullYear(), today.getMonth() + 1, 0);
         } else if (preset === 'last_month') {
             from.setDate(1);
             from.setMonth(from.getMonth() - 1);
@@ -354,7 +355,7 @@
             var options = {
                 width: '100%',
                 searchField: ['text'],
-                placeholder: 'Search or select',
+                placeholder: select.multiple ? 'Search or select multiple' : 'Search or select',
                 maxOptions: null
             };
             if (select.multiple) {
@@ -548,12 +549,22 @@
     });
 
     initialFields.forEach(addFieldRow);
+    function initializeInitialSelects() {
+        rowsContainer.querySelectorAll('[data-report-search-select]').forEach(initializeSelect);
+        rowsContainer.querySelectorAll('[data-custom-report-field-row]').forEach(function (row) {
+            var fieldName = row.querySelector('[data-field-name]').value;
+            if (statusSelectionFields.indexOf(fieldName) !== -1) {
+                initializeSelect(row.querySelector('[data-status-master]'));
+            }
+        });
+    }
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () {
-            rowsContainer.querySelectorAll('[data-report-search-select]').forEach(initializeSelect);
+            initializeInitialSelects();
         }, {once: true});
     } else {
-        rowsContainer.querySelectorAll('[data-report-search-select]').forEach(initializeSelect);
+        initializeInitialSelects();
     }
     syncFields();
     new Sortable(rowsContainer, {

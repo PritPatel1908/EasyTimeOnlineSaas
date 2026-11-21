@@ -247,7 +247,7 @@ class CustomReportSnapshotExportTest extends TestCase
             ['Working Hrs', '16.50'],
             ['Overtime Minutes', '75'],
             ['Approved Overtime Minutes', '00:40'],
-            ['Attendance Status Summary'],
+            ['Attendance Status'],
             ['Status', 'Count'],
             ['HD', '1'],
             ['P', '1'],
@@ -277,7 +277,7 @@ class CustomReportSnapshotExportTest extends TestCase
             ['Working Hrs', '1.00'],
             ['Overtime Minutes', '0'],
             ['Approved Overtime Minutes', '00:00'],
-            ['Attendance Status Summary'],
+            ['Attendance Status'],
             ['Status', 'Count'],
             ['P', '1'],
         ], $table['rows']);
@@ -306,7 +306,7 @@ class CustomReportSnapshotExportTest extends TestCase
             [],
             ['Summary'],
             ['Late Minutes', '5'],
-            ['Attendance Status Summary'],
+            ['Attendance Status'],
             ['Status', 'Count'],
             ['HD', '1'],
             ['P', '1'],
@@ -315,16 +315,26 @@ class CustomReportSnapshotExportTest extends TestCase
         $statusFilteredTable = (new CustomReportTableBuilder)->buildForEmployees(
             [
                 ['field_name' => 'emp_code'],
-                ['field_name' => 'attendance_specific_status', 'status_master_ids' => [2]],
+                ['field_name' => 'attendance_specific_status', 'status_master_ids' => [2], 'use_in_summary' => true],
                 ['field_name' => 'date'],
             ],
-            '2026-11-19',
-            '2026-11-20',
+            '2026-11-01',
+            '2026-11-30',
             'vertical',
             [$employee, $secondEmployee],
         );
 
+        $statusDateRows = array_values(array_filter(
+            $statusFilteredTable['rows'],
+            static fn (array $row): bool => isset($row[0]) && preg_match('/^2026-11-\d{2}$/', $row[0]) === 1,
+        ));
         $this->assertContains(['2026-11-20', 'HD'], $statusFilteredTable['rows']);
+        $this->assertContains(['2026-11-19', ''], $statusFilteredTable['rows']);
+        $this->assertContains(['2026-11-01', ''], $statusFilteredTable['rows']);
+        $this->assertContains(['2026-11-30', ''], $statusFilteredTable['rows']);
+        $this->assertCount(60, $statusDateRows);
+        $this->assertContains(['HD', '1'], $statusFilteredTable['rows']);
+        $this->assertContains(['HD', '0'], $statusFilteredTable['rows']);
         $this->assertNotContains(['2026-11-19', 'P'], $statusFilteredTable['rows']);
 
         $horizontalSummaryTable = (new CustomReportTableBuilder)->buildForEmployees(
@@ -352,7 +362,7 @@ class CustomReportSnapshotExportTest extends TestCase
             ['Summary'],
             ['Late Minutes'],
             ['5'],
-            ['Attendance Status Summary'],
+            ['Attendance Status'],
             ['Status', 'HD', 'P'],
             ['Count', '1', '1'],
         ], $horizontalSummaryTable['rows']);

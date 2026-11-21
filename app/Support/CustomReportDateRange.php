@@ -28,7 +28,7 @@ final class CustomReportDateRange
                 'from' => $today->startOfWeek()->subWeek(),
                 'to' => $today->startOfWeek()->subWeek()->endOfWeek(),
             ],
-            'this_month' => ['from' => $today->startOfMonth(), 'to' => $today],
+            'this_month' => ['from' => $today->startOfMonth(), 'to' => $today->endOfMonth()],
             'last_month' => [
                 'from' => $today->startOfMonth()->subMonth(),
                 'to' => $today->startOfMonth()->subMonth()->endOfMonth(),

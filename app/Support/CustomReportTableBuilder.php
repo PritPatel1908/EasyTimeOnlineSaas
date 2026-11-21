@@ -70,6 +70,20 @@ final class CustomReportTableBuilder
         $fieldLabels = CustomReportFieldOptions::all();
         $fields = array_values(array_filter($fields, 'is_array'));
         $statusMasterFilterIds = $this->selectedStatusMasterIds($fields);
+        $selectedStatusCodes = $statusMasterFilterIds === []
+            ? []
+            : StatusMaster::query()
+                ->whereIn('id', $statusMasterFilterIds)
+                ->orderBy('code')
+                ->pluck('code')
+                ->map(static fn (mixed $code): string => (string) $code)
+                ->all();
+        foreach ($fields as &$field) {
+            if (CustomReportFieldOptions::supportsStatusSelection((string) ($field['field_name'] ?? ''))) {
+                $field['_selected_status_codes'] = $selectedStatusCodes;
+            }
+        }
+        unset($field);
         $labels = array_map(
             static fn (array $field): string => $fieldLabels[$field['field_name'] ?? ''] ?? (string) ($field['field_name'] ?? ''),
             $fields,
@@ -118,7 +132,7 @@ final class CustomReportTableBuilder
 
             foreach ($employees as $employee) {
                 $employeeId = (int) $employee->getKey();
-                $employeeDates = $this->datesForEmployee($dates, $attendanceValues, $employeeId, $statusMasterFilterIds);
+                $employeeDates = $dates;
                 if ($rows !== []) {
                     $rows[] = [];
                 }
@@ -206,7 +220,7 @@ final class CustomReportTableBuilder
 
             foreach ($employees as $employeeIndex => $employee) {
                 $employeeId = (int) $employee->getKey();
-                $employeeDates = $this->datesForEmployee($dates, $attendanceValues, $employeeId, $statusMasterFilterIds);
+                $employeeDates = $dates;
                 if ($employeeIndex > 0) {
                     $rows[] = [];
                 }
@@ -376,9 +390,24 @@ final class CustomReportTableBuilder
 
         $statusCounts = [];
         if ($statusSelected) {
+            $statusField = in_array('attendance_specific_status', array_column($summaryFields, 'field_name'), true)
+                ? 'attendance_specific_status'
+                : 'attendance_status';
+
+            foreach ($summaryFields as $field) {
+                if (($field['field_name'] ?? '') !== 'attendance_specific_status') {
+                    continue;
+                }
+                foreach ($field['_selected_status_codes'] ?? [] as $statusCode) {
+                    if (is_string($statusCode) && $statusCode !== '') {
+                        $statusCounts[$statusCode] = 0;
+                    }
+                }
+            }
+
             foreach ($attendanceValues as $dailyValues) {
                 foreach ($dailyValues as $values) {
-                    $status = $values['attendance_status'] ?? '';
+                    $status = $values[$statusField] ?? '';
                     if ($status !== '') {
                         $statusCounts[$status] = ($statusCounts[$status] ?? 0) + 1;
                     }
@@ -464,7 +493,7 @@ final class CustomReportTableBuilder
                 $rows[] = array_values($summary['minute_totals']);
             }
             if ($summary['status_selected']) {
-                $rows[] = ['Attendance Status Summary'];
+                $rows[] = ['Attendance Status'];
                 $rows[] = array_merge(['Status'], array_keys($summary['status_counts']));
                 $rows[] = array_merge(['Count'], array_map('strval', array_values($summary['status_counts'])));
             }
@@ -476,7 +505,7 @@ final class CustomReportTableBuilder
             $rows[] = [CustomReportFieldOptions::all()[$fieldName], $total];
         }
         if ($summary['status_selected']) {
-            $rows[] = ['Attendance Status Summary'];
+            $rows[] = ['Attendance Status'];
             $rows[] = ['Status', 'Count'];
             foreach ($summary['status_counts'] as $status => $count) {
                 $rows[] = [(string) $status, (string) $count];
@@ -509,30 +538,6 @@ final class CustomReportTableBuilder
         }
 
         return array_values(array_unique($ids));
-    }
-
-    /**
-     * @param  array<int, DateTimeImmutable>  $dates
-     * @param  array<int, array<string, array<string, string>>>  $attendanceValues
-     * @param  array<int, int>  $statusMasterFilterIds
-     * @return array<int, DateTimeImmutable>
-     */
-    private function datesForEmployee(
-        array $dates,
-        array $attendanceValues,
-        int $employeeId,
-        array $statusMasterFilterIds,
-    ): array {
-        if ($statusMasterFilterIds === []) {
-            return $dates;
-        }
-
-        $matchingDates = array_fill_keys(array_keys($attendanceValues[$employeeId] ?? []), true);
-
-        return array_values(array_filter(
-            $dates,
-            static fn (DateTimeImmutable $date): bool => isset($matchingDates[$date->format('Y-m-d')]),
-        ));
     }
 
     /**
@@ -696,9 +701,6 @@ final class CustomReportTableBuilder
             $attendanceQuery = Attendance::year($year)
                 ->whereIn('user_id', $employeeIds)
                 ->whereBetween('date', [$yearStart, $yearEnd]);
-            if ($statusMasterFilterIds !== []) {
-                $attendanceQuery->whereIn('status_master_id', $statusMasterFilterIds);
-            }
             $attendances = $attendanceQuery->get($columns);
 
             foreach ($attendances as $attendance) {
@@ -743,7 +745,8 @@ final class CustomReportTableBuilder
                     if (in_array('attendance_status', $requestedFields, true)) {
                         $values[$employeeId][$date]['attendance_status'] = (string) $statusCode;
                     }
-                    if (in_array('attendance_specific_status', $requestedFields, true)) {
+                    if (in_array('attendance_specific_status', $requestedFields, true)
+                        && ($statusMasterFilterIds === [] || in_array((int) $attendance->status_master_id, $statusMasterFilterIds, true))) {
                         $values[$employeeId][$date]['attendance_specific_status'] = (string) $statusCode;
                     }
                 }

@@ -33,7 +33,7 @@ class CustomReportDateRangeTest extends TestCase
         $this->assertSame('2026-11-21', $nextRange['to']->toDateString());
     }
 
-    public function test_period_presets_resolve_from_the_period_start_through_today(): void
+    public function test_period_presets_resolve_to_the_end_of_their_period(): void
     {
         Carbon::setTestNow('2026-11-20 09:00:00');
 
@@ -45,7 +45,7 @@ class CustomReportDateRangeTest extends TestCase
         $lastYear = $resolver->resolve('last_year');
 
         $this->assertSame('2026-11-01', $month['from']->toDateString());
-        $this->assertSame('2026-11-20', $month['to']->toDateString());
+        $this->assertSame('2026-11-30', $month['to']->toDateString());
         $this->assertSame('2026-11-09', $lastWeek['from']->toDateString());
         $this->assertSame('2026-11-15', $lastWeek['to']->toDateString());
         $this->assertSame('2026-10-01', $lastMonth['from']->toDateString());

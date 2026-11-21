@@ -24788,6 +24788,9 @@ body.layout-mode-rtl .nav-list::before {
   opacity: 1;
   background: transparent;
 }
+.ts-wrapper.plugin-remove_button .remove {
+  display: none !important;
+}
 .ts-wrapper.multi .ts-control input {
   margin: 0 !important;
   padding: 0 4px !important;
