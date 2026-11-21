@@ -19,6 +19,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $id
  * @property string $code
  * @property string $description
+ * @property bool $mark_late_on_absent
+ * @property bool $mark_early_on_absent
  * @property int $work_hr_less_than_minutes
  * @property int $status
  * @property bool $allow_single_punch
@@ -65,6 +67,8 @@ class AbsentRule extends Model
 
     protected $casts = [
         'work_hr_less_than_minutes' => 'int',
+        'mark_late_on_absent' => 'bool',
+        'mark_early_on_absent' => 'bool',
         'allow_single_punch' => 'bool',
         'late_coming_minutes' => 'int',
         'no_of_late' => 'float',
@@ -83,6 +87,8 @@ class AbsentRule extends Model
     protected $fillable = [
         'code',
         'description',
+        'mark_late_on_absent',
+        'mark_early_on_absent',
         'work_hr_less_than_minutes',
         'allow_single_punch',
         'late_coming_minutes',

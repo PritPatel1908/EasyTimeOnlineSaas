@@ -18,6 +18,8 @@ class StoreAbsentRuleRequest extends FormRequest
     {
         $this->merge([
             'allow_single_punch' => $this->input('allow_single_punch', false),
+            'mark_late_on_absent' => $this->input('mark_late_on_absent', false),
+            'mark_early_on_absent' => $this->input('mark_early_on_absent', false),
             'ignore_month_end_late' => $this->input('ignore_month_end_late', false),
             'ignore_month_end_early' => $this->input('ignore_month_end_early', false),
             'status' => $this->input('status', 1),
@@ -34,6 +36,8 @@ class StoreAbsentRuleRequest extends FormRequest
             'description' => ['nullable', 'string'],
             'work_hr_less_than_minutes' => ['required', 'integer', 'min:0', 'max:2147483647'],
             'allow_single_punch' => ['required', 'boolean'],
+            'mark_late_on_absent' => ['required', 'boolean'],
+            'mark_early_on_absent' => ['required', 'boolean'],
             'late_coming_minutes' => ['nullable', 'integer', 'min:0', 'max:2147483647'],
             'no_of_late' => ['nullable', 'numeric', 'min:0'],
             'consecutive_late_coming' => ['nullable', 'numeric', 'min:0'],

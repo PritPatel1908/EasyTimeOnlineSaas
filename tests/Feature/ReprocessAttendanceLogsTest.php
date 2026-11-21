@@ -118,6 +118,8 @@ class ReprocessAttendanceLogsTest extends TestCase
 
         Schema::create('categories', function ($table): void {
             $table->id();
+            $table->boolean('is_week_off_paid')->nullable();
+            $table->boolean('is_holiday_paid')->nullable();
             $table->softDeletes();
         });
 
@@ -378,6 +380,83 @@ class ReprocessAttendanceLogsTest extends TestCase
         $this->assertSame('2026-03-12', $attendances[2]->date);
         $this->assertSame($absentStatusId, (int) $attendances[2]->status_master_id);
         $this->assertSame(0, DB::table('attendances2026')->where('user_id', $otherUserId)->count());
+    }
+
+    public function test_reprocessing_clears_absent_for_paid_week_offs_and_holidays_based_on_all_categories(): void
+    {
+        DB::table('locations')->insert(['id' => 1]);
+        DB::table('categories')->insert([
+            ['id' => 1, 'is_week_off_paid' => true, 'is_holiday_paid' => true],
+            ['id' => 2, 'is_week_off_paid' => false, 'is_holiday_paid' => false],
+        ]);
+        $paidUserId = DB::table('users')->insertGetId([
+            'user_type' => 'employee',
+            'name' => 'Paid Category Employee',
+            'location_id' => json_encode([1]),
+            'category_id' => json_encode([1]),
+        ]);
+        $mixedCategoryUserId = DB::table('users')->insertGetId([
+            'user_type' => 'employee',
+            'name' => 'Mixed Category Employee',
+            'location_id' => json_encode([1]),
+            'category_id' => json_encode([1, 2]),
+        ]);
+        foreach ([$paidUserId, $mixedCategoryUserId] as $userId) {
+            DB::table('week_off_musters')->insert([
+                'user_id' => $userId,
+                'date' => '2026-03-10',
+                'wo_type' => 1,
+                'is_locked' => false,
+            ]);
+        }
+
+        $holidayId = DB::table('holidays')->insertGetId([
+            'name' => 'Paid Category Holiday',
+            'date' => '2026-03-11',
+        ]);
+        DB::table('holiday_locations')->insert([
+            'holiday_id' => $holidayId,
+            'location_id' => 1,
+        ]);
+        DB::table('holiday_categories')->insert([
+            ['holiday_id' => $holidayId, 'category_id' => 1],
+            ['holiday_id' => $holidayId, 'category_id' => 2],
+        ]);
+        $absentStatusId = DB::table('status_masters')->insertGetId(['code' => 'AA']);
+        DB::table('status_masters')->insert([
+            ['code' => 'WO'],
+            ['code' => 'HL'],
+        ]);
+        foreach ([$paidUserId, $mixedCategoryUserId] as $userId) {
+            DB::table('attendances2026')->insert([
+                'user_id' => $userId,
+                'date' => '2026-03-10',
+                'is_absent' => true,
+                'status_master_id' => $absentStatusId,
+            ]);
+            DB::table('attendances2026')->insert([
+                'user_id' => $userId,
+                'date' => '2026-03-11',
+                'is_absent' => true,
+                'status_master_id' => $absentStatusId,
+            ]);
+        }
+
+        (new ReprocessAttendanceLogs(
+            '2026-03-10 00:00:00',
+            '2026-03-11 23:59:59',
+        ))->handle();
+
+        foreach (['2026-03-10', '2026-03-11'] as $date) {
+            $this->assertFalse((bool) DB::table('attendances2026')
+                ->where('user_id', $paidUserId)
+                ->whereDate('date', $date)
+                ->value('is_absent'));
+            $this->assertTrue((bool) DB::table('attendances2026')
+                ->where('user_id', $mixedCategoryUserId)
+                ->whereDate('date', $date)
+                ->value('is_absent'));
+        }
     }
 
     public function test_reprocessing_uses_approved_half_day_leave_and_preserves_sandwich_muster_result(): void

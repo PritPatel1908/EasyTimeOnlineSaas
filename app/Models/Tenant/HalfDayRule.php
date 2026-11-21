@@ -19,6 +19,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $id
  * @property string $code
  * @property string $description
+ * @property bool $mark_late_on_half_day
+ * @property bool $mark_early_on_half_day
  * @property bool $single_punch_allowed
  * @property int $status
  * @property int $late_coming_minutes
@@ -65,6 +67,8 @@ class HalfDayRule extends Model
 
     protected $casts = [
         'single_punch_allowed' => 'bool',
+        'mark_late_on_half_day' => 'bool',
+        'mark_early_on_half_day' => 'bool',
         'late_coming_minutes' => 'int',
         'work_hr_less_than_minutes' => 'int',
         'no_of_late' => 'float',
@@ -84,6 +88,8 @@ class HalfDayRule extends Model
         'code',
         'description',
         'single_punch_allowed',
+        'mark_late_on_half_day',
+        'mark_early_on_half_day',
         'late_coming_minutes',
         'work_hr_less_than_minutes',
         'status',

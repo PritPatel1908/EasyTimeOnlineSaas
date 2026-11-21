@@ -2259,6 +2259,68 @@ class ProcessPendingLogsTest extends TestCase
         $this->assertTrue($attendance->fresh()->is_absent);
     }
 
+    public function test_absent_rule_flags_control_late_and_early_attendance_markers(): void
+    {
+        DB::table('status_masters')->insert([
+            'code' => 'AA',
+            'alias' => 'Absent',
+            'description' => 'Absent',
+        ]);
+
+        foreach ([
+            [
+                'date' => '2026-04-15',
+                'mark_late' => true,
+                'mark_early' => false,
+                'expected_late' => true,
+                'expected_early' => false,
+            ],
+            [
+                'date' => '2026-04-16',
+                'mark_late' => false,
+                'mark_early' => true,
+                'expected_late' => false,
+                'expected_early' => true,
+            ],
+        ] as $case) {
+            [$calculator, $attendance] = $this->calculatorWithAbsentRule(
+                ruleAttributes: [
+                    'mark_late_on_absent' => $case['mark_late'],
+                    'mark_early_on_absent' => $case['mark_early'],
+                ],
+                attendanceDate: $case['date'],
+            );
+            $attendance->is_late = true;
+            $attendance->is_early = true;
+            $attendance->save();
+            $attendance->process_tags()->create(['name' => 'Late Coming', 'color' => 'danger']);
+            $attendance->process_tags()->create(['name' => 'Early Going', 'color' => 'danger']);
+
+            $calculator->checkAbsentRule();
+
+            $savedAttendance = $attendance->fresh();
+            $this->assertTrue((bool) $savedAttendance->is_absent);
+            $this->assertSame($case['expected_late'], (bool) $savedAttendance->is_late);
+            $this->assertSame($case['expected_early'], (bool) $savedAttendance->is_early);
+            $this->assertSame(
+                $case['expected_late'],
+                DB::table('process_tags')
+                    ->where('taggable_type', Attendance::class)
+                    ->where('taggable_id', $attendance->id)
+                    ->where('name', 'Late Coming')
+                    ->exists(),
+            );
+            $this->assertSame(
+                $case['expected_early'],
+                DB::table('process_tags')
+                    ->where('taggable_type', Attendance::class)
+                    ->where('taggable_id', $attendance->id)
+                    ->where('name', 'Early Going')
+                    ->exists(),
+            );
+        }
+    }
+
     public function test_absent_rule_skips_single_punch_even_when_rule_allows_it(): void
     {
         StatusMaster::create([
@@ -2772,16 +2834,10 @@ class ProcessPendingLogsTest extends TestCase
     public function test_half_day_clears_the_timing_flag_for_the_absent_half(): void
     {
         DB::table('users')->insert(['id' => 7]);
-        foreach ([
+        DB::table('status_masters')->insert([
             ['code' => 'PA', 'alias' => 'Present + Absent'],
             ['code' => 'AP', 'alias' => 'Absent + Present'],
-        ] as $status) {
-            StatusMaster::create([
-                'code' => $status['code'],
-                'alias' => $status['alias'],
-                'description' => 'Half-day attendance',
-            ]);
-        }
+        ]);
 
         $rule = new HalfDayRule;
         $rule->setAttribute('status', 1);
@@ -2799,8 +2855,10 @@ class ProcessPendingLogsTest extends TestCase
                 'in' => '08:00:00',
                 'out' => '12:00:00',
                 'half_day_tag' => 'Half Day | Is First Half',
-                'cleared_flag' => 'is_early',
-                'remaining_flag' => 'is_late',
+                'mark_late' => true,
+                'mark_early' => false,
+                'expected_late' => true,
+                'expected_early' => false,
                 'cleared_tag' => 'Early Going',
             ],
             [
@@ -2808,11 +2866,16 @@ class ProcessPendingLogsTest extends TestCase
                 'in' => '13:00:00',
                 'out' => '17:00:00',
                 'half_day_tag' => 'Half Day | Is Second Half',
-                'cleared_flag' => 'is_late',
-                'remaining_flag' => 'is_early',
+                'mark_late' => false,
+                'mark_early' => true,
+                'expected_late' => false,
+                'expected_early' => true,
                 'cleared_tag' => 'Late Coming',
             ],
         ] as $case) {
+            $rule->setAttribute('mark_late_on_half_day', $case['mark_late']);
+            $rule->setAttribute('mark_early_on_half_day', $case['mark_early']);
+
             StatusMuster::create([
                 'date' => $case['date'],
                 'user_id' => 7,
@@ -2857,8 +2920,8 @@ class ProcessPendingLogsTest extends TestCase
 
             $calculatedAttendance = $attendance->fresh();
             $this->assertTrue((bool) $calculatedAttendance->is_half_day);
-            $this->assertFalse((bool) $calculatedAttendance->{$case['cleared_flag']});
-            $this->assertTrue((bool) $calculatedAttendance->{$case['remaining_flag']});
+            $this->assertSame($case['expected_late'], (bool) $calculatedAttendance->is_late);
+            $this->assertSame($case['expected_early'], (bool) $calculatedAttendance->is_early);
             $this->assertDatabaseHas('process_tags', [
                 'taggable_type' => Attendance::class,
                 'taggable_id' => $attendance->id,

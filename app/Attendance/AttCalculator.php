@@ -1983,6 +1983,8 @@ class AttCalculator
             $this->applySinglePunchPresentStatus()
             && ! ($this->hasSinglePunch() && $this->curatt->is_late)
         ) {
+            $this->syncHalfDayTimingFlags();
+
             return;
         }
 
@@ -2038,6 +2040,7 @@ class AttCalculator
 
             if ($this->hasSinglePunch() && $this->curatt->is_late) {
                 $this->applyLateOccurrenceHalfDayForSinglePunch();
+                $this->syncHalfDayTimingFlags();
 
                 return;
             }
@@ -2319,7 +2322,7 @@ class AttCalculator
                 }
             }
 
-            $this->clearOppositeTimingFlagForHalfDay();
+            $this->syncHalfDayTimingFlags();
         }
     }
 
@@ -2589,9 +2592,19 @@ class AttCalculator
         ]);
     }
 
-    private function clearOppositeTimingFlagForHalfDay(): void
+    private function syncHalfDayTimingFlags(): void
     {
         if (! $this->curatt->is_half_day) {
+            return;
+        }
+
+        $halfdayRule = $this->log->user?->half_day_rule;
+        if ($halfdayRule !== null && (int) $halfdayRule->status === 1) {
+            $this->clearTimingFlags(
+                ! (bool) $halfdayRule->mark_late_on_half_day,
+                ! (bool) $halfdayRule->mark_early_on_half_day,
+            );
+
             return;
         }
 
@@ -2600,13 +2613,47 @@ class AttCalculator
             ->pluck('name');
 
         if ($halfDayTags->contains('Half Day | Is First Half')) {
-            $this->curatt->is_early = false;
-            $this->curatt->save();
-            $this->curatt->process_tags()->where('name', 'Early Going')->delete();
+            $this->clearTimingFlags(false, true);
         } elseif ($halfDayTags->contains('Half Day | Is Second Half')) {
+            $this->clearTimingFlags(true, false);
+        }
+    }
+
+    private function syncAbsentTimingFlags(): void
+    {
+        if (! $this->curatt->is_absent) {
+            return;
+        }
+
+        $absentRule = $this->log->user?->absent_rule;
+        if ($absentRule === null || (int) $absentRule->status !== 1) {
+            return;
+        }
+
+        $this->clearTimingFlags(
+            ! (bool) $absentRule->mark_late_on_absent,
+            ! (bool) $absentRule->mark_early_on_absent,
+        );
+    }
+
+    private function clearTimingFlags(bool $clearLate, bool $clearEarly): void
+    {
+        $attendanceChanged = false;
+
+        if ($clearLate) {
+            $attendanceChanged = $attendanceChanged || (bool) $this->curatt->is_late;
             $this->curatt->is_late = false;
-            $this->curatt->save();
             $this->curatt->process_tags()->where('name', 'Late Coming')->delete();
+        }
+
+        if ($clearEarly) {
+            $attendanceChanged = $attendanceChanged || (bool) $this->curatt->is_early;
+            $this->curatt->is_early = false;
+            $this->curatt->process_tags()->where('name', 'Early Going')->delete();
+        }
+
+        if ($attendanceChanged) {
+            $this->curatt->save();
         }
     }
 
@@ -2918,6 +2965,7 @@ class AttCalculator
                     && (int) $this->curatt->work_time <= 0
                 ) {
                     $this->debug('Skipping absent rules because recorded work time is not greater than zero');
+                    $this->syncAbsentTimingFlags();
 
                     return;
                 }
@@ -3308,6 +3356,7 @@ class AttCalculator
                 }
             }
 
+            $this->syncAbsentTimingFlags();
         }
     }
 

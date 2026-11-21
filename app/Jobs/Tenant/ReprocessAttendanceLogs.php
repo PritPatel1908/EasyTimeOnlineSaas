@@ -280,6 +280,37 @@ class ReprocessAttendanceLogs implements ShouldBeUnique, ShouldQueue
             return;
         }
 
+        $categoryIdsByUser = [];
+        $categoryIds = [];
+        foreach ($users as $user) {
+            $userCategoryIds = array_values(array_unique(array_filter(
+                array_map(static fn (mixed $categoryId): int => (int) $categoryId, (array) $user->category_id),
+                static fn (int $categoryId): bool => $categoryId > 0,
+            )));
+            $categoryIdsByUser[$user->id] = $userCategoryIds;
+            $categoryIds = array_merge($categoryIds, $userCategoryIds);
+        }
+
+        $categoryPaidFlags = [];
+        foreach (DB::table('categories')
+            ->whereNull('deleted_at')
+            ->whereIn('id', array_values(array_unique($categoryIds)))
+            ->get(['id', 'is_week_off_paid', 'is_holiday_paid']) as $category) {
+            $categoryPaidFlags[(int) $category->id] = [
+                'week_off' => (bool) $category->is_week_off_paid,
+                'holiday' => (bool) $category->is_holiday_paid,
+            ];
+        }
+
+        $paidFlagsByUser = [];
+        foreach ($users as $user) {
+            $userCategoryIds = $categoryIdsByUser[$user->id];
+            $paidFlagsByUser[$user->id] = [
+                'week_off' => $this->allCategoriesHavePaidFlag($userCategoryIds, $categoryPaidFlags, 'week_off'),
+                'holiday' => $this->allCategoriesHavePaidFlag($userCategoryIds, $categoryPaidFlags, 'holiday'),
+            ];
+        }
+
         $statusMasterIds = StatusMaster::query()
             ->pluck('id', 'code');
 
@@ -304,6 +335,14 @@ class ReprocessAttendanceLogs implements ShouldBeUnique, ShouldQueue
                     ? 'HL'
                     : ($isHalfWeekOff ? ($weekOffType === 3 ? 'AWO' : 'WOA') : 'WO');
                 $statusMasterId = $statusMasterIds->get($statusCode);
+                $isPaidSpecialDay = (
+                    $isHoliday
+                    && ($paidFlagsByUser[$userId]['holiday'] ?? false)
+                ) || (
+                    $isWeekOff
+                    && ! $isHalfWeekOff
+                    && ($paidFlagsByUser[$userId]['week_off'] ?? false)
+                );
 
                 if (isset($attendanceType['leave_status_code'])) {
                     $leaveStatusMasterId = $statusMasterIds->get($attendanceType['leave_status_code']);
@@ -342,21 +381,41 @@ class ReprocessAttendanceLogs implements ShouldBeUnique, ShouldQueue
                     throw new RuntimeException('Status master '.$statusCode.' is missing while creating attendance.');
                 }
 
+                $attendanceValues = [
+                    'is_holiday' => $isHoliday,
+                    'is_weekoff' => $isWeekOff,
+                    'is_half_day' => $isHalfWeekOff,
+                    'status_master_id' => $statusMasterId,
+                ];
+                if ($isPaidSpecialDay) {
+                    $attendanceValues['is_absent'] = false;
+                }
+
                 Attendance::year($year)->updateOrCreate(
                     [
                         'user_id' => $userId,
                         'date' => $date,
                         'is_locked' => false,
                     ],
-                    [
-                        'is_holiday' => $isHoliday,
-                        'is_weekoff' => $isWeekOff,
-                        'is_half_day' => $isHalfWeekOff,
-                        'status_master_id' => $statusMasterId,
-                    ],
+                    $attendanceValues,
                 );
             }
         }
+    }
+
+    private function allCategoriesHavePaidFlag(array $categoryIds, array $categoryPaidFlags, string $flag): bool
+    {
+        if ($categoryIds === []) {
+            return false;
+        }
+
+        foreach ($categoryIds as $categoryId) {
+            if (! ($categoryPaidFlags[$categoryId][$flag] ?? false)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function createMissingAbsentAttendances(): void

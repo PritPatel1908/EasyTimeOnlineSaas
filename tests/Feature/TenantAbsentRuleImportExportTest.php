@@ -40,6 +40,19 @@ class TenantAbsentRuleImportExportTest extends TestCase
         ], AbsentRule::IMPORT_EXPORT_COLUMNS);
     }
 
+    public function test_marking_flags_are_fillable_boolean_attributes(): void
+    {
+        $rule = new AbsentRule([
+            'mark_late_on_absent' => '1',
+            'mark_early_on_absent' => '0',
+        ]);
+
+        $this->assertArrayHasKey('mark_late_on_absent', $rule->getAttributes());
+        $this->assertArrayHasKey('mark_early_on_absent', $rule->getAttributes());
+        $this->assertTrue($rule->mark_late_on_absent);
+        $this->assertFalse($rule->mark_early_on_absent);
+    }
+
     public function test_import_sample_matches_the_model_columns(): void
     {
         $response = app(AbsentRuleController::class)->downloadImportSample();

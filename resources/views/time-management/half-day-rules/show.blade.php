@@ -43,6 +43,7 @@
                     <div class="col-md-6 mb-3"><small class="text-muted d-block">Number of Late Occurrences</small><span>{{ $halfDayRule->no_of_late ?? '—' }}</span></div>
                     <div class="col-md-6 mb-3"><small class="text-muted d-block">Consecutive Late Coming</small><span>{{ $halfDayRule->consecutive_late_coming ?? '—' }}</span></div>
                     <div class="col-md-6 mb-3"><small class="text-muted d-block">Ignore Month-end Late</small><span>{{ $halfDayRule->ignore_month_end_late ? 'Yes' : 'No' }}</span></div>
+                    <div class="col-md-6 mb-3"><small class="text-muted d-block">Mark Late on Half Day</small><span>{{ $halfDayRule->mark_late_on_half_day ? 'Yes' : 'No' }}</span></div>
                 </div>
             </div>
         </div>
@@ -54,6 +55,7 @@
                     <div class="col-md-6 mb-3"><small class="text-muted d-block">Number of Early Departures</small><span>{{ $halfDayRule->no_of_early ?? '—' }}</span></div>
                     <div class="col-md-6 mb-3"><small class="text-muted d-block">Consecutive Early Going</small><span>{{ $halfDayRule->consecutive_early_going ?? '—' }}</span></div>
                     <div class="col-md-6 mb-3"><small class="text-muted d-block">Ignore Month-end Early</small><span>{{ $halfDayRule->ignore_month_end_early ? 'Yes' : 'No' }}</span></div>
+                    <div class="col-md-6 mb-3"><small class="text-muted d-block">Mark Early on Half Day</small><span>{{ $halfDayRule->mark_early_on_half_day ? 'Yes' : 'No' }}</span></div>
                 </div>
             </div>
         </div>

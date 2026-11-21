@@ -40,6 +40,19 @@ class TenantHalfDayRuleImportExportTest extends TestCase
         ], HalfDayRule::IMPORT_EXPORT_COLUMNS);
     }
 
+    public function test_marking_flags_are_fillable_boolean_attributes(): void
+    {
+        $rule = new HalfDayRule([
+            'mark_late_on_half_day' => '1',
+            'mark_early_on_half_day' => '0',
+        ]);
+
+        $this->assertArrayHasKey('mark_late_on_half_day', $rule->getAttributes());
+        $this->assertArrayHasKey('mark_early_on_half_day', $rule->getAttributes());
+        $this->assertTrue($rule->mark_late_on_half_day);
+        $this->assertFalse($rule->mark_early_on_half_day);
+    }
+
     public function test_import_sample_matches_the_model_columns(): void
     {
         $response = app(HalfDayRuleController::class)->downloadImportSample();

@@ -18,6 +18,8 @@ class StoreHalfDayRuleRequest extends FormRequest
     {
         $this->merge([
             'single_punch_allowed' => $this->input('single_punch_allowed', false),
+            'mark_late_on_half_day' => $this->input('mark_late_on_half_day', false),
+            'mark_early_on_half_day' => $this->input('mark_early_on_half_day', false),
             'ignore_month_end_late' => $this->input('ignore_month_end_late', false),
             'ignore_month_end_early' => $this->input('ignore_month_end_early', false),
             'status' => $this->input('status', 1),
@@ -33,6 +35,8 @@ class StoreHalfDayRuleRequest extends FormRequest
             'code' => ['required', 'string', 'max:255', Rule::unique('half_day_rules', 'code')],
             'description' => ['nullable', 'string'],
             'single_punch_allowed' => ['required', 'boolean'],
+            'mark_late_on_half_day' => ['required', 'boolean'],
+            'mark_early_on_half_day' => ['required', 'boolean'],
             'work_hr_less_than_minutes' => ['nullable', 'integer', 'min:0', 'max:2147483647'],
             'late_coming_minutes' => ['nullable', 'integer', 'min:0', 'max:2147483647'],
             'no_of_late' => ['nullable', 'numeric', 'min:0'],

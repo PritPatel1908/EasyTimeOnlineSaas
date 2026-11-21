@@ -80,7 +80,7 @@
                         <x-validation-error field="allow_single_punch" />
                     </div>
                 @elseif ($groupTitle === 'Late Coming')
-                    <div class="col-md-6 mb-3">
+                    <div class="col-md-3 mb-3">
                         <label class="form-label d-block" for="ignore_month_end_late">Ignore month-end late coming</label>
                         <div class="form-check form-check-lg form-switch ps-0">
                             <input type="hidden" name="ignore_month_end_late" value="0">
@@ -91,8 +91,19 @@
                         </div>
                         <x-validation-error field="ignore_month_end_late" />
                     </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label d-block" for="mark_late_on_absent">Mark Late on Absent</label>
+                        <div class="form-check form-check-lg form-switch ps-0">
+                            <input type="hidden" name="mark_late_on_absent" value="0">
+                            <input id="mark_late_on_absent" name="mark_late_on_absent" type="checkbox" value="1"
+                                role="switch"
+                                class="form-check-input ms-0 @error('mark_late_on_absent') is-invalid @enderror"
+                                @checked(old('mark_late_on_absent', $absentRule?->mark_late_on_absent ?? false))>
+                        </div>
+                        <x-validation-error field="mark_late_on_absent" />
+                    </div>
                 @elseif ($groupTitle === 'Early Going')
-                    <div class="col-md-6 mb-3">
+                    <div class="col-md-3 mb-3">
                         <label class="form-label d-block" for="ignore_month_end_early">Ignore month-end early</label>
                         <div class="form-check form-check-lg form-switch ps-0">
                             <input type="hidden" name="ignore_month_end_early" value="0">
@@ -102,6 +113,17 @@
                                 @checked(old('ignore_month_end_early', $absentRule?->ignore_month_end_early ?? false))>
                         </div>
                         <x-validation-error field="ignore_month_end_early" />
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label d-block" for="mark_early_on_absent">Mark Early on Absent</label>
+                        <div class="form-check form-check-lg form-switch ps-0">
+                            <input type="hidden" name="mark_early_on_absent" value="0">
+                            <input id="mark_early_on_absent" name="mark_early_on_absent" type="checkbox" value="1"
+                                role="switch"
+                                class="form-check-input ms-0 @error('mark_early_on_absent') is-invalid @enderror"
+                                @checked(old('mark_early_on_absent', $absentRule?->mark_early_on_absent ?? false))>
+                        </div>
+                        <x-validation-error field="mark_early_on_absent" />
                     </div>
                 @endif
             </div>
