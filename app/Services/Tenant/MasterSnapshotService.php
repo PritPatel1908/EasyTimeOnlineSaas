@@ -151,6 +151,9 @@ class MasterSnapshotService
         }
 
         $attributes = $changedFields === [] ? array_keys($employee->getAttributes()) : $changedFields;
+        $snapshotStartDate = $changedFields === []
+            ? $this->employeeSnapshotStartDate($employee)
+            : today()->toDateString();
         if ($changedFields === [] || array_intersect(self::EMPLOYEE_APPROVAL_FLOW_FIELDS, $attributes) !== []) {
             $this->captureApproversForEmployee($employee);
         }
@@ -185,7 +188,7 @@ class MasterSnapshotService
             $removedIds = array_values(array_diff($oldIds, $newIds));
             $addedIds = array_values(array_diff($newIds, $oldIds));
 
-            DB::transaction(function () use ($employee, $relatedModel, $type, $removedIds, $addedIds): void {
+            DB::transaction(function () use ($employee, $relatedModel, $type, $removedIds, $addedIds, $snapshotStartDate): void {
                 if ($removedIds !== []) {
                     MasterSnapshot::query()
                         ->where('master_type', $type)
@@ -197,13 +200,33 @@ class MasterSnapshotService
                 }
 
                 foreach ($addedIds as $masterId) {
+                    $hasOpenSnapshot = MasterSnapshot::query()
+                        ->where('master_type', $type)
+                        ->where('master_id', $masterId)
+                        ->where('user_id', $employee->getKey())
+                        ->where('for_all', false)
+                        ->whereNull('to_date')
+                        ->exists();
+                    if ($hasOpenSnapshot) {
+                        continue;
+                    }
+
                     $values = $this->relatedValues($relatedModel, $masterId);
                     if ($values !== []) {
-                        $this->createSnapshot($type, $masterId, $values, $employee->getKey(), false);
+                        $this->createSnapshot($type, $masterId, $values, $employee->getKey(), false, $snapshotStartDate);
                     }
                 }
             });
         }
+    }
+
+    private function employeeSnapshotStartDate(User $employee): string
+    {
+        $startDate = $employee->getAttribute('join_date') ?? $employee->getAttribute('created_at');
+
+        return $startDate instanceof \DateTimeInterface
+            ? $startDate->format('Y-m-d')
+            : today()->toDateString();
     }
 
     public function captureApproverSnapshotsForFlow(ApprovalFlow $flow, array $previousEmployeeIds = []): void
@@ -372,14 +395,20 @@ class MasterSnapshotService
         )));
     }
 
-    private function createSnapshot(string $masterType, int|string|null $masterId, array $values, ?int $userId, bool $forAll): void
-    {
+    private function createSnapshot(
+        string $masterType,
+        int|string|null $masterId,
+        array $values,
+        ?int $userId,
+        bool $forAll,
+        ?string $fromDate = null,
+    ): void {
         MasterSnapshot::query()->create([
             'master_type' => $masterType,
             'master_id' => $masterId,
             'type' => $this->valueType($values),
             'value' => $values,
-            'from_date' => today()->toDateString(),
+            'from_date' => $fromDate ?? today()->toDateString(),
             'to_date' => null,
             'user_id' => $userId,
             'for_all' => $forAll,

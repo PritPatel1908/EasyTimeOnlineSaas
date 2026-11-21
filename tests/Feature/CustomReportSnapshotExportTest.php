@@ -71,6 +71,12 @@ class CustomReportSnapshotExportTest extends TestCase
             $table->id();
             $table->string('code');
         });
+        Schema::create('locations', function (Blueprint $table): void {
+            $table->id();
+            $table->string('name')->nullable();
+            $table->string('code')->nullable();
+            $table->softDeletes();
+        });
     }
 
     protected function tearDown(): void

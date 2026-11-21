@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Support;
 
 use App\Models\Tenant\Attendance;
+use App\Models\Tenant\AttendanceLog;
 use App\Models\Tenant\BloodGroup;
 use App\Models\Tenant\CanteenFacility;
 use App\Models\Tenant\Category;
@@ -14,6 +15,7 @@ use App\Models\Tenant\Department;
 use App\Models\Tenant\Designation;
 use App\Models\Tenant\LegacyLeaveGroup;
 use App\Models\Tenant\Location;
+use App\Models\Tenant\Machine;
 use App\Models\Tenant\MasterSnapshot;
 use App\Models\Tenant\Role;
 use App\Models\Tenant\Shift;
@@ -69,6 +71,8 @@ final class CustomReportTableBuilder
         $employees = collect($employees)->values();
         $fieldLabels = CustomReportFieldOptions::all();
         $fields = array_values(array_filter($fields, 'is_array'));
+        $machineInOutSequences = $this->machineInOutSequenceDefinitions($fields);
+        $hasMachineInOut = in_array('machine_in_out', array_column($fields, 'field_name'), true);
         $statusMasterFilterIds = $this->selectedStatusMasterIds($fields);
         $selectedStatusCodes = $statusMasterFilterIds === []
             ? []
@@ -96,7 +100,7 @@ final class CustomReportTableBuilder
         }
 
         $dates = [];
-        if ($dateIndexes !== []) {
+        if ($dateIndexes !== [] || $hasMachineInOut) {
             $start = new DateTimeImmutable($fromDate);
             $end = (new DateTimeImmutable($toDate))->modify('+1 day');
             foreach (new DatePeriod($start, new DateInterval('P1D'), $end) as $date) {
@@ -109,11 +113,11 @@ final class CustomReportTableBuilder
             array_merge(array_keys(self::SNAPSHOT_FIELDS), ['approvers']),
         );
         $snapshots = $this->snapshots($snapshotFields, $employees);
-        $liveMasterValues = $this->liveMasterValues($fields, $employees);
-        $attendanceValues = $this->attendanceValues($fields, $employees, $fromDate, $toDate);
+        $liveMasterValues = $this->liveMasterValues($fields, $employees, $snapshots['assignments']);
+        $attendanceValues = $this->attendanceValues($fields, $employees, $fromDate, $toDate, $machineInOutSequences);
         $rows = [];
 
-        if ($dateIndexes !== [] && $orientation === 'horizontal') {
+        if (($dateIndexes !== [] || $hasMachineInOut) && $orientation === 'horizontal') {
             $masterIndexes = [];
             $detailIndexes = [];
             foreach ($fields as $index => $field) {
@@ -128,7 +132,9 @@ final class CustomReportTableBuilder
                 }
             }
 
-            $dateFormat = $this->dateFormat($fields[$dateIndexes[0]]['date_time_format'] ?? 'default');
+            $dateFormat = $dateIndexes === []
+                ? 'Y-m-d'
+                : $this->dateFormat($fields[$dateIndexes[0]]['date_time_format'] ?? 'default');
 
             foreach ($employees as $employee) {
                 $employeeId = (int) $employee->getKey();
@@ -143,7 +149,7 @@ final class CustomReportTableBuilder
                     $field = $fields[$index];
                     $masterDate = ($field['field_name'] ?? '') === 'approvers'
                         ? new DateTimeImmutable($toDate)
-                        : null;
+                        : new DateTimeImmutable($fromDate);
                     $masterValues[] = $this->employeeValue(
                         $employee,
                         $field['field_name'] ?? '',
@@ -169,6 +175,30 @@ final class CustomReportTableBuilder
                 foreach ($detailIndexes as $index) {
                     $field = $fields[$index];
                     $fieldName = $field['field_name'] ?? '';
+                    if ($fieldName === 'machine_in_out') {
+                        $sequences = $machineInOutSequences[$index] ?? [];
+                        if ($sequences === []) {
+                            $detailRow = [$labels[$index]];
+                            foreach ($employeeDates as $_date) {
+                                $detailRow[] = '';
+                            }
+                            $rows[] = $detailRow;
+
+                            continue;
+                        }
+
+                        foreach ($sequences as $sequence => $definition) {
+                            $detailRow = [$definition['label']];
+                            foreach ($employeeDates as $date) {
+                                $dateKey = $date->format('Y-m-d');
+                                $detailRow[] = $attendanceValues[$employeeId][$dateKey]['machine_in_out'][$index][$sequence] ?? '';
+                            }
+                            $rows[] = $detailRow;
+                        }
+
+                        continue;
+                    }
+
                     $detailRow = [$labels[$index]];
                     foreach ($employeeDates as $date) {
                         $detailRow[] = $this->employeeValue(
@@ -195,7 +225,7 @@ final class CustomReportTableBuilder
             return ['headers' => [], 'rows' => $rows];
         }
 
-        if ($dateIndexes !== []) {
+        if ($dateIndexes !== [] || $hasMachineInOut) {
             $masterIndexes = [];
             $detailIndexes = [];
             foreach ($fields as $index => $field) {
@@ -215,8 +245,30 @@ final class CustomReportTableBuilder
             });
 
             $headers = [];
-            $detailHeaders = array_map(static fn (int $index): string => $labels[$index], $detailIndexes);
+            $detailHeaders = ['Date'];
+            foreach ($detailIndexes as $index) {
+                $fieldName = $fields[$index]['field_name'] ?? '';
+                if ($fieldName === 'date') {
+                    continue;
+                }
+                if ($fieldName === 'machine_in_out') {
+                    $sequences = $machineInOutSequences[$index] ?? [];
+                    if ($sequences === []) {
+                        $detailHeaders[] = $labels[$index];
+                    } else {
+                        foreach ($sequences as $definition) {
+                            $detailHeaders[] = $definition['label'];
+                        }
+                    }
+
+                    continue;
+                }
+                $detailHeaders[] = $labels[$index];
+            }
             $startDate = new DateTimeImmutable($fromDate);
+            $dateFormat = $dateIndexes === []
+                ? 'Y-m-d'
+                : $this->dateFormat($fields[$dateIndexes[0]]['date_time_format'] ?? 'default');
 
             foreach ($employees as $employeeIndex => $employee) {
                 $employeeId = (int) $employee->getKey();
@@ -252,12 +304,23 @@ final class CustomReportTableBuilder
                 $rows[] = $detailHeaders;
 
                 foreach ($employeeDates as $date) {
-                    $row = [];
+                    $row = [$date->format($dateFormat)];
                     foreach ($detailIndexes as $index) {
                         $field = $fields[$index];
                         $fieldName = $field['field_name'] ?? '';
                         if ($fieldName === 'date') {
-                            $row[] = $date->format($this->dateFormat($field['date_time_format'] ?? 'default'));
+                            continue;
+                        }
+                        if ($fieldName === 'machine_in_out') {
+                            $sequences = $machineInOutSequences[$index] ?? [];
+                            if ($sequences === []) {
+                                $row[] = '';
+                            } else {
+                                $dateKey = $date->format('Y-m-d');
+                                foreach ($sequences as $sequence => $_definition) {
+                                    $row[] = $attendanceValues[$employeeId][$dateKey]['machine_in_out'][$index][$sequence] ?? '';
+                                }
+                            }
 
                             continue;
                         }
@@ -644,31 +707,61 @@ final class CustomReportTableBuilder
     /**
      * @param  array<int, array<string, mixed>>  $fields
      * @param  Collection<int, User>  $employees
+     * @param  Collection<int, MasterSnapshot>  $assignmentSnapshots
      * @return array<string, array<int, string>>
      */
-    private function liveMasterValues(array $fields, Collection $employees): array
+    private function liveMasterValues(array $fields, Collection $employees, Collection $assignmentSnapshots): array
     {
         $relations = [
             'blood_group' => ['column' => 'blood_group_id', 'model' => BloodGroup::class, 'value' => 'name'],
         ];
-        $values = [];
-
+        $models = [];
         foreach ($fields as $field) {
-            $name = $field['field_name'] ?? '';
-            if (! isset($relations[$name])) {
+            $fieldName = (string) ($field['field_name'] ?? '');
+            $definition = self::SNAPSHOT_FIELDS[$fieldName] ?? $relations[$fieldName] ?? null;
+            if ($definition === null) {
                 continue;
             }
 
-            $relation = $relations[$name];
+            $model = $definition['model'];
+            $column = $definition['column'] ?? null;
             $ids = [];
             foreach ($employees as $employee) {
-                $ids = array_merge($ids, $this->attributeIds($employee->getAttribute($relation['column'])));
+                $ids = array_merge(
+                    $ids,
+                    $column === null
+                        ? $this->roleIds($employee)
+                        : $this->attributeIds($employee->getAttribute($column)),
+                );
             }
-            $values[$name] = $relation['model']::query()
-                ->whereIn('id', array_values(array_unique($ids)))
-                ->get(['id', $relation['value']])
-                ->mapWithKeys(static fn ($record): array => [(int) $record->id => (string) ($record->{$relation['value']} ?? '')])
-                ->all();
+            $ids = array_merge(
+                $ids,
+                $assignmentSnapshots
+                    ->where('master_type', $model)
+                    ->pluck('master_id')
+                    ->map(static fn (mixed $id): int => (int) $id)
+                    ->all(),
+            );
+            $models[$model]['ids'] = array_merge($models[$model]['ids'] ?? [], $ids);
+            $models[$model]['fields'][$fieldName] = $definition['value'];
+        }
+
+        $values = [];
+        foreach ($models as $model => $modelDefinition) {
+            $ids = array_values(array_unique($modelDefinition['ids']));
+            if ($ids === []) {
+                continue;
+            }
+
+            $columns = array_values(array_unique(array_merge(['id'], array_values($modelDefinition['fields']))));
+            foreach ($model::query()->whereIn('id', $ids)->get($columns) as $record) {
+                foreach ($modelDefinition['fields'] as $fieldName => $valueColumn) {
+                    $value = $record->getAttribute($valueColumn);
+                    if (is_scalar($value) && (string) $value !== '') {
+                        $values[$fieldName][(int) $record->getKey()] = (string) $value;
+                    }
+                }
+            }
         }
 
         return $values;
@@ -677,10 +770,16 @@ final class CustomReportTableBuilder
     /**
      * @param  array<int, array<string, mixed>>  $fields
      * @param  Collection<int, User>  $employees
-     * @return array<int, array<string, array<string, string>>>
+     * @param  array<int, array<int, array{label: string, sub_sequences: array<int, array<int, array{machine_id: int, machine_name: string, dms_device_id: int|null, access_direction: string|null}>>}>>  $machineInOutSequences
+     * @return array<int, array<string, array<string, mixed>>>
      */
-    private function attendanceValues(array $fields, Collection $employees, string $fromDate, string $toDate): array
-    {
+    private function attendanceValues(
+        array $fields,
+        Collection $employees,
+        string $fromDate,
+        string $toDate,
+        array $machineInOutSequences,
+    ): array {
         $attendanceColumns = [
             'attendance_in_time' => 'in_time',
             'attendance_out_time' => 'out_time',
@@ -692,12 +791,13 @@ final class CustomReportTableBuilder
         ];
         $requestedFields = array_values(array_intersect(
             array_column($fields, 'field_name'),
-            array_merge(array_keys($attendanceColumns), ['attendance_specific_status', 'attendance_status', 'shift_name', 'shift_code']),
+            array_merge(array_keys($attendanceColumns), ['attendance_specific_status', 'attendance_status', 'shift_name', 'shift_code', 'machine_in_out']),
         ));
+        $requestedAttendanceFields = array_values(array_diff($requestedFields, ['machine_in_out']));
         $statusMasterFilterIds = $this->selectedStatusMasterIds($fields);
         $halfStatusCountAsHalf = $this->countsHalfStatusAsHalf($fields);
         $employeeIds = $employees->pluck('id')->filter()->map(static fn (mixed $id): int => (int) $id)->all();
-        if ($requestedFields === [] || $employeeIds === []) {
+        if ($employeeIds === [] || ($requestedAttendanceFields === [] && $machineInOutSequences === [])) {
             return [];
         }
 
@@ -734,7 +834,7 @@ final class CustomReportTableBuilder
         $firstYear = (int) (new DateTimeImmutable($fromDate))->format('Y');
         $lastYear = (int) (new DateTimeImmutable($toDate))->format('Y');
 
-        for ($year = $firstYear; $year <= $lastYear; $year++) {
+        for ($year = $firstYear; $requestedAttendanceFields !== [] && $year <= $lastYear; $year++) {
             $yearStart = max($fromDate, $year.'-01-01');
             $yearEnd = min($toDate, $year.'-12-31');
             $attendanceQuery = Attendance::year($year)
@@ -834,7 +934,207 @@ final class CustomReportTableBuilder
             }
         }
 
+        if ($machineInOutSequences !== []) {
+            $values = $this->machineInOutAttendanceValues(
+                $values,
+                $employees,
+                $machineInOutSequences,
+                $fromDate,
+                $toDate,
+            );
+        }
+
         return $values;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $fields
+     * @return array<int, array<int, array{label: string, sub_sequences: array<int, array<int, array{machine_id: int, machine_name: string, dms_device_id: int|null, access_direction: string|null}>>}>
+     */
+    private function machineInOutSequenceDefinitions(array $fields): array
+    {
+        $assignments = [];
+        $machineIds = [];
+        foreach ($fields as $fieldIndex => $field) {
+            if (($field['field_name'] ?? '') !== 'machine_in_out' || ! is_array($field['machine_in_out'] ?? null)) {
+                continue;
+            }
+
+            foreach ($field['machine_in_out'] as $assignment) {
+                if (! is_array($assignment)) {
+                    continue;
+                }
+                $machineId = filter_var($assignment['machine_id'] ?? null, FILTER_VALIDATE_INT);
+                $sequence = filter_var($assignment['sequence'] ?? null, FILTER_VALIDATE_INT);
+                $subSequence = filter_var($assignment['sub_sequence'] ?? null, FILTER_VALIDATE_INT);
+                if ($machineId === false || $machineId < 1 || $sequence === false || $sequence < 1
+                    || $subSequence === false || $subSequence < 1) {
+                    continue;
+                }
+
+                $machineIds[] = $machineId;
+                $assignments[$fieldIndex][$sequence][$subSequence][] = $machineId;
+            }
+        }
+
+        $machines = $machineIds === []
+            ? collect()
+            : Machine::query()
+                ->whereIn('id', array_values(array_unique($machineIds)))
+                ->get(['id', 'name', 'dms_device_id', 'access_direction'])
+                ->keyBy('id');
+        $definitions = [];
+
+        foreach ($assignments as $fieldIndex => $sequences) {
+            ksort($sequences, SORT_NUMERIC);
+            foreach ($sequences as $sequence => $subSequences) {
+                ksort($subSequences, SORT_NUMERIC);
+                $machineNames = [];
+                foreach ($subSequences as $subSequence => $ids) {
+                    $subSequences[$subSequence] = [];
+                    foreach (array_values(array_unique($ids)) as $machineId) {
+                        $machine = $machines->get($machineId);
+                        $machineName = (string) ($machine?->name ?: 'Machine '.$machineId);
+                        $machineNames[] = $machineName;
+                        $subSequences[$subSequence][] = [
+                            'machine_id' => $machineId,
+                            'machine_name' => $machineName,
+                            'dms_device_id' => $machine?->dms_device_id === null ? null : (int) $machine->dms_device_id,
+                            'access_direction' => $machine?->access_direction === null
+                                ? null
+                                : strtolower((string) $machine->access_direction),
+                        ];
+                    }
+                }
+                $machineNames = array_values(array_unique($machineNames));
+                $label = 'Device Seq '.$sequence;
+                if ($machineNames !== []) {
+                    $label .= ' ('.implode(', ', $machineNames).')';
+                }
+                $definitions[$fieldIndex][$sequence] = [
+                    'label' => $label,
+                    'sub_sequences' => $subSequences,
+                ];
+            }
+        }
+
+        return $definitions;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $values
+     * @param  Collection<int, User>  $employees
+     * @param  array<int, array<int, array{label: string, sub_sequences: array<int, array<int, array{machine_id: int, machine_name: string, dms_device_id: int|null, access_direction: string|null}>>}>>  $machineInOutSequences
+     * @return array<int, array<string, array<string, mixed>>>
+     */
+    private function machineInOutAttendanceValues(
+        array $values,
+        Collection $employees,
+        array $machineInOutSequences,
+        string $fromDate,
+        string $toDate,
+    ): array {
+        $deviceAssignments = [];
+        foreach ($machineInOutSequences as $fieldIndex => $sequences) {
+            foreach ($sequences as $sequence => $definition) {
+                foreach ($definition['sub_sequences'] as $subSequence => $machines) {
+                    foreach ($machines as $machine) {
+                        if ($machine['dms_device_id'] === null) {
+                            continue;
+                        }
+                        $deviceAssignments[$machine['dms_device_id']][] = [
+                            'field_index' => $fieldIndex,
+                            'sequence' => $sequence,
+                            'sub_sequence' => $subSequence,
+                            'access_direction' => $machine['access_direction'],
+                        ];
+                    }
+                }
+            }
+        }
+
+        if ($deviceAssignments === []) {
+            return $values;
+        }
+
+        $punches = [];
+        foreach (AttendanceLog::query()
+            ->whereIn('user_id', $employees->pluck('id')->filter()->map(static fn (mixed $id): int => (int) $id)->all())
+            ->whereIn('dms_device_id', array_keys($deviceAssignments))
+            ->whereBetween('datetime', [$fromDate.' 00:00:00', $toDate.' 23:59:59'])
+            ->where('is_ignored', false)
+            ->orderBy('datetime')
+            ->select(['user_id', 'dms_device_id', 'datetime', 'is_out'])
+            ->cursor() as $punch) {
+            if ($punch->datetime === null) {
+                continue;
+            }
+            foreach ($deviceAssignments[(int) $punch->dms_device_id] ?? [] as $assignment) {
+                // Both-direction devices use the punch direction resolved during attendance processing.
+                $direction = (bool) $punch->is_out ? 'out' : 'in';
+                $accessDirection = $assignment['access_direction'];
+                if (in_array($accessDirection, ['in', '1'], true)) {
+                    $direction = 'in';
+                } elseif (in_array($accessDirection, ['out', '2'], true)) {
+                    $direction = 'out';
+                }
+                $punchSlot = &$punches[(int) $punch->user_id][$punch->datetime->format('Y-m-d')][$assignment['field_index']][$assignment['sequence']][$assignment['sub_sequence']][$direction];
+                if ($direction === 'out' || ! isset($punchSlot)) {
+                    $punchSlot = $punch->datetime;
+                }
+                unset($punchSlot);
+            }
+        }
+
+        foreach ($punches as $employeeId => $dailyPunches) {
+            foreach ($dailyPunches as $date => $fieldPunches) {
+                foreach ($fieldPunches as $fieldIndex => $sequencePunches) {
+                    foreach ($sequencePunches as $sequence => $subSequencePunches) {
+                        $inTime = null;
+                        // Ordered sub-sequences define which configured endpoint is used for each direction.
+                        foreach ($machineInOutSequences[$fieldIndex][$sequence]['sub_sequences'] ?? [] as $subSequence => $_machines) {
+                            $time = $subSequencePunches[$subSequence]['in'] ?? null;
+                            if ($time !== null) {
+                                $inTime = $time;
+                                break;
+                            }
+                        }
+
+                        $outTime = null;
+                        foreach (array_reverse($machineInOutSequences[$fieldIndex][$sequence]['sub_sequences'] ?? [], true) as $subSequence => $_machines) {
+                            $time = $subSequencePunches[$subSequence]['out'] ?? null;
+                            if ($time !== null) {
+                                $outTime = $time;
+                                break;
+                            }
+                        }
+
+                        $values[$employeeId][$date]['machine_in_out'][$fieldIndex][$sequence]
+                            = $this->formatMachineInOutPair($inTime, $outTime);
+                    }
+                }
+            }
+        }
+
+        return $values;
+    }
+
+    private function formatMachineInOutPair(?\DateTimeInterface $inTime, ?\DateTimeInterface $outTime): string
+    {
+        $in = $inTime?->format('h:i A') ?? '';
+        $out = $outTime?->format('h:i A') ?? '';
+        if ($in === '' && $out === '') {
+            return '';
+        }
+        if ($in === '' || $out === '') {
+            return $in.' - '.$out;
+        }
+
+        $duration = $outTime->getTimestamp() >= $inTime->getTimestamp()
+            ? ' ('.$this->formatMinutes((int) floor(($outTime->getTimestamp() - $inTime->getTimestamp()) / 60), 'hh_mm').')'
+            : '';
+
+        return $in.' - '.$out.$duration;
     }
 
     /**
@@ -973,7 +1273,7 @@ final class CustomReportTableBuilder
         ];
 
         if (isset(self::SNAPSHOT_FIELDS[$field])) {
-            return $this->snapshotValue($employee, $field, $snapshots, $date);
+            return $this->snapshotValue($employee, $field, $snapshots, $liveMasterValues, $date);
         }
 
         if (isset($liveMasterValues[$field])) {
@@ -1030,9 +1330,15 @@ final class CustomReportTableBuilder
 
     /**
      * @param  array{assignments: Collection<int, MasterSnapshot>, values: Collection<int, MasterSnapshot>, approvers: Collection<int, MasterSnapshot>}  $snapshots
+     * @param  array<string, array<int, string>>  $liveMasterValues
      */
-    private function snapshotValue(User $employee, string $field, array $snapshots, ?DateTimeImmutable $date): string
-    {
+    private function snapshotValue(
+        User $employee,
+        string $field,
+        array $snapshots,
+        array $liveMasterValues,
+        ?DateTimeImmutable $date,
+    ): string {
         $definition = self::SNAPSHOT_FIELDS[$field];
         $model = $definition['model'];
         $valueKey = $definition['value'];
@@ -1064,6 +1370,9 @@ final class CustomReportTableBuilder
                 ->first();
 
             $value = $snapshot?->value[$valueKey] ?? null;
+            if (! is_scalar($value) || trim((string) $value) === '') {
+                $value = $liveMasterValues[$field][$id] ?? null;
+            }
             if ($field === 'leave_group_name' && ($value === null || $value === '')) {
                 $value = $snapshot?->value['code'] ?? null;
             }

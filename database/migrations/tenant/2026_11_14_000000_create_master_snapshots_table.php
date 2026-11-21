@@ -140,11 +140,21 @@ return new class extends Migration
                 continue;
             }
 
-            foreach (DB::table('users')->where('user_type', 'employee')->get(['id', $attribute]) as $employee) {
+            $employeeColumns = ['id', $attribute];
+            if (Schema::hasColumn('users', 'join_date')) {
+                $employeeColumns[] = 'join_date';
+            }
+            if (Schema::hasColumn('users', 'created_at')) {
+                $employeeColumns[] = 'created_at';
+            }
+
+            foreach (DB::table('users')->where('user_type', 'employee')->get($employeeColumns) as $employee) {
                 $ids = $this->normalizeIds($employee->{$attribute});
                 if ($ids === []) {
                     continue;
                 }
+                $employeeStartDate = $employee->join_date ?? $employee->created_at ?? $date;
+                $employeeStartDate = substr((string) $employeeStartDate, 0, 10);
 
                 foreach (DB::table($tableName)->whereIn('id', $ids)->get(array_merge(['id'], $fields)) as $record) {
                     $values = [];
@@ -152,7 +162,7 @@ return new class extends Migration
                         $values[$field] = $record->{$field};
                     }
 
-                    $this->insertSnapshot($modelType, (int) $record->id, $values, (int) $employee->id, false, $date, $timestamp);
+                    $this->insertSnapshot($modelType, (int) $record->id, $values, (int) $employee->id, false, $employeeStartDate, $timestamp);
                 }
             }
         }
@@ -168,6 +178,20 @@ return new class extends Migration
         string $timestamp,
     ): void {
         if ($values === []) {
+            return;
+        }
+
+        $existing = DB::table('master_snapshots')
+            ->where('master_type', $modelType)
+            ->where('master_id', $masterId)
+            ->where('for_all', $forAll)
+            ->whereNull('to_date');
+        if ($userId === null) {
+            $existing->whereNull('user_id');
+        } else {
+            $existing->where('user_id', $userId);
+        }
+        if ($existing->exists()) {
             return;
         }
 

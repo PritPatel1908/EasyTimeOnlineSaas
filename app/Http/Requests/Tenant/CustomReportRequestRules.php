@@ -36,6 +36,14 @@ final class CustomReportRequestRules
             }
 
             foreach ($fields as $index => $field) {
+                if (is_array($field) && ($field['field_name'] ?? '') === 'machine_in_out'
+                    && (! is_array($field['machine_in_out'] ?? null) || $field['machine_in_out'] === [])) {
+                    $validator->errors()->add(
+                        "custom_report_fields.{$index}.machine_in_out",
+                        'Add at least one machine with a sequence and sub sequence.',
+                    );
+                }
+
                 if (! is_array($field)
                     || ! CustomReportFieldOptions::supportsStatusSelection((string) ($field['field_name'] ?? ''))) {
                     continue;
@@ -66,6 +74,11 @@ final class CustomReportRequestRules
             'custom_report_fields.*.field_name' => ['required', 'string', Rule::in(array_keys(CustomReportFieldOptions::all()))],
             'custom_report_fields.*.date_time_format' => ['required', 'string', 'in:default,d-m-Y,m-d-Y,Y-m-d,d/m/Y,m/d/Y,H:i,h:i A,d-m-Y H:i,Y-m-d H:i'],
             'custom_report_fields.*.minute_format' => ['required', 'string', 'in:default,hh_mm,decimal'],
+            'custom_report_fields.*.machine_in_out' => ['nullable', 'array'],
+            'custom_report_fields.*.machine_in_out.*' => ['required', 'array'],
+            'custom_report_fields.*.machine_in_out.*.machine_id' => ['required', 'integer', Rule::exists('machines', 'id')],
+            'custom_report_fields.*.machine_in_out.*.sequence' => ['required', 'integer', 'min:1'],
+            'custom_report_fields.*.machine_in_out.*.sub_sequence' => ['required', 'integer', 'min:1'],
             'custom_report_fields.*.status_master_ids' => ['nullable', 'array'],
             'custom_report_fields.*.status_master_ids.*' => [
                 'integer',

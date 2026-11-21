@@ -19,6 +19,10 @@
                 ),
                 static fn (string $id): bool => $id !== '',
             )),
+            'machine_in_out' => array_values(array_filter(
+                is_array($field['machine_in_out'] ?? null) ? $field['machine_in_out'] : [],
+                static fn (mixed $assignment): bool => is_array($assignment),
+            )),
             'use_in_summary' => filter_var($field['use_in_summary'] ?? false, FILTER_VALIDATE_BOOLEAN),
             'half_status_count_as_half' => filter_var($field['half_status_count_as_half'] ?? false, FILTER_VALIDATE_BOOLEAN),
         ];
@@ -161,6 +165,49 @@
                     <i class="ti ti-trash"></i>
                 </button>
             </div>
+        </div>
+        <div class="mt-3 d-none" data-machine-in-out-container>
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <h6 class="mb-0">Machine In Out</h6>
+                <button type="button" class="btn btn-outline-primary btn-sm" data-add-machine-in-out>
+                    <i class="ti ti-plus me-1"></i>Add Machine
+                </button>
+            </div>
+            <div data-machine-in-out-rows></div>
+        </div>
+    </div>
+</template>
+<template id="custom_report_machine_in_out_template">
+    <div class="row align-items-end mb-2" data-machine-in-out-row>
+        <div class="col-md-6 mb-2 mb-md-0">
+            <label class="form-label">Machine</label>
+            <select class="form-control" data-machine-select data-report-search-select required>
+                <option value="">Select Machine</option>
+                @foreach($machineOptions as $machine)
+                    @php
+                        $machineDirectionLabel = match (strtolower((string) $machine->access_direction)) {
+                            'in', '1' => 'In',
+                            'out', '2' => 'Out',
+                            'both', '0' => 'Both',
+                            default => null,
+                        };
+                    @endphp
+                    <option value="{{ $machine->id }}">{{ $machine->name }}{{ $machineDirectionLabel ? ' ('.$machineDirectionLabel.')' : '' }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="col-md-2 mb-2 mb-md-0">
+            <label class="form-label">Sequence</label>
+            <input type="number" min="1" step="1" class="form-control" data-machine-sequence required>
+        </div>
+        <div class="col-md-2 mb-2 mb-md-0">
+            <label class="form-label">Sub Sequence</label>
+            <input type="number" min="1" step="1" class="form-control" data-machine-sub-sequence required>
+        </div>
+        <div class="col-md-2 d-flex justify-content-end">
+            <button type="button" class="btn btn-outline-danger btn-sm" data-remove-machine-in-out aria-label="Remove machine">
+                <i class="ti ti-trash"></i>
+            </button>
         </div>
     </div>
 </template>
@@ -333,6 +380,7 @@
     var fieldsInput = document.getElementById('custom_report_fields');
     var addButton = document.getElementById('add_custom_report_field');
     var template = document.getElementById('custom_report_field_template');
+    var machineInOutTemplate = document.getElementById('custom_report_machine_in_out_template');
     var clientError = document.getElementById('custom_report_fields_client_error');
     var submissionAttempted = false;
     var rowNumber = 0;
@@ -400,6 +448,24 @@
         });
     }
 
+    function addMachineInOutRow(container, assignment) {
+        var fragment = machineInOutTemplate.content.cloneNode(true);
+        var row = fragment.querySelector('[data-machine-in-out-row]');
+        assignment = assignment || {};
+        row.querySelector('[data-machine-select]').value = assignment.machine_id || '';
+        row.querySelector('[data-machine-sequence]').value = assignment.sequence || '';
+        row.querySelector('[data-machine-sub-sequence]').value = assignment.sub_sequence || '';
+        container.appendChild(fragment);
+        initializeSelect(row.querySelector('[data-machine-select]'));
+    }
+
+    function clearMachineInOutRows(container) {
+        container.querySelectorAll('[data-machine-select]').forEach(function (select) {
+            if (select.tomselect) select.tomselect.destroy();
+        });
+        container.replaceChildren();
+    }
+
     function syncFields() {
         var fields = Array.prototype.map.call(rowsContainer.querySelectorAll('[data-custom-report-field-row]'), function (row) {
             var fieldName = row.querySelector('[data-field-name]').value;
@@ -416,6 +482,15 @@
                 status_master_ids: supportsStatusSelection
                     ? selectedStatusMasterIds(row.querySelector('[data-status-master]'))
                     : [],
+                machine_in_out: fieldName === 'machine_in_out'
+                    ? Array.prototype.map.call(row.querySelectorAll('[data-machine-in-out-row]'), function (machineRow) {
+                        return {
+                            machine_id: machineRow.querySelector('[data-machine-select]').value,
+                            sequence: machineRow.querySelector('[data-machine-sequence]').value,
+                            sub_sequence: machineRow.querySelector('[data-machine-sub-sequence]').value
+                        };
+                    })
+                    : [],
                 use_in_summary: summaryFields.indexOf(fieldName) !== -1
                     && row.querySelector('[data-use-in-summary]').checked,
                 half_status_count_as_half: supportsStatusSelection
@@ -429,7 +504,7 @@
         }
     }
 
-    function updateFieldOptions(row, storedFormat, storedStatusMasterIds) {
+    function updateFieldOptions(row, storedFormat, storedStatusMasterIds, storedMachineInOut) {
         var fieldName = row.querySelector('[data-field-name]').value;
         var dateTimeFormat = row.querySelector('[data-date-time-format]');
         var minuteFormat = row.querySelector('[data-minute-format]');
@@ -438,14 +513,19 @@
         var statusColumn = row.querySelector('[data-status-column]');
         var minuteFormatColumn = row.querySelector('[data-minute-format-column]');
         var halfStatusCountContainer = row.querySelector('[data-half-status-count-container]');
+        var machineInOutContainer = row.querySelector('[data-machine-in-out-container]');
+        var machineInOutRows = row.querySelector('[data-machine-in-out-rows]');
         var fieldColumn = row.querySelector('[data-field-column]');
         var statusMaster = row.querySelector('[data-status-master]');
         var isDateOnly = dateOnlyFields.indexOf(fieldName) !== -1;
         var isDateTimeOnly = dateTimeOnlyFields.indexOf(fieldName) !== -1;
         var isTimeOnly = timeOnlyFields.indexOf(fieldName) !== -1;
+        var isMachineInOut = fieldName === 'machine_in_out';
         var supportsDateTimeFormat = dateTimeFields.indexOf(fieldName) !== -1;
         var supportsMinuteFormat = minuteFormatFields.indexOf(fieldName) !== -1;
         var supportsSummary = summaryFields.indexOf(fieldName) !== -1;
+        var showDateTimeFormat = supportsDateTimeFormat && !isMachineInOut;
+        var showSummary = supportsSummary && !isMachineInOut;
         var supportsStatusSelection = statusSelectionFields.indexOf(fieldName) !== -1;
         var selectedStatusIds = Array.isArray(storedStatusMasterIds)
             ? storedStatusMasterIds.map(String)
@@ -472,15 +552,16 @@
             return option.value === currentFormat;
         });
         dateTimeFormat.value = hasStoredFormat ? currentFormat : 'default';
-        formatColumn.classList.toggle('d-none', !supportsDateTimeFormat);
+        formatColumn.classList.toggle('d-none', !showDateTimeFormat);
         statusColumn.classList.toggle('d-none', !supportsStatusSelection);
         minuteFormatColumn.classList.toggle('d-none', !supportsMinuteFormat);
-        summaryContainer.classList.toggle('d-none', !supportsSummary);
+        summaryContainer.classList.toggle('d-none', !showSummary);
+        machineInOutContainer.classList.toggle('d-none', !isMachineInOut);
         halfStatusCountContainer.classList.toggle('d-none', !supportsStatusSelection);
-        var optionCount = Number(supportsDateTimeFormat)
+        var optionCount = Number(showDateTimeFormat)
             + Number(supportsStatusSelection)
             + Number(supportsMinuteFormat)
-            + Number(supportsSummary)
+            + Number(showSummary)
             + Number(supportsStatusSelection);
         var columnWidth = optionCount === 0 ? 12 : (optionCount === 1 ? 6 : (optionCount === 2 ? 4 : 3));
         var columnWidths = supportsStatusSelection
@@ -499,6 +580,18 @@
 
         if (!supportsSummary) {
             row.querySelector('[data-use-in-summary]').checked = false;
+        }
+        if (isMachineInOut && machineInOutRows.children.length === 0) {
+            var assignments = Array.isArray(storedMachineInOut) ? storedMachineInOut : [];
+            if (assignments.length === 0) {
+                addMachineInOutRow(machineInOutRows);
+            } else {
+                assignments.forEach(function (assignment) {
+                    addMachineInOutRow(machineInOutRows, assignment);
+                });
+            }
+        } else if (!isMachineInOut && machineInOutRows.children.length > 0) {
+            clearMachineInOutRows(machineInOutRows);
         }
         if (!supportsStatusSelection) {
             row.querySelector('[data-half-status-count]').checked = false;
@@ -529,7 +622,7 @@
         halfStatusCount.checked = field.half_status_count_as_half === true;
 
         rowsContainer.appendChild(fragment);
-        updateFieldOptions(row, storedFormat, field.status_master_ids || []);
+        updateFieldOptions(row, storedFormat, field.status_master_ids || [], field.machine_in_out || []);
         initializeSelect(fieldName);
     }
 
@@ -545,16 +638,39 @@
         syncFields();
     });
     rowsContainer.addEventListener('click', function (event) {
+        var addMachineButton = event.target.closest('[data-add-machine-in-out]');
+        if (addMachineButton) {
+            addMachineInOutRow(addMachineButton.closest('[data-custom-report-field-row]').querySelector('[data-machine-in-out-rows]'));
+            syncFields();
+            return;
+        }
+
+        var removeMachineButton = event.target.closest('[data-remove-machine-in-out]');
+        if (removeMachineButton) {
+            var machineRow = removeMachineButton.closest('[data-machine-in-out-row]');
+            var machineSelect = machineRow.querySelector('[data-machine-select]');
+            if (machineSelect.tomselect) machineSelect.tomselect.destroy();
+            machineRow.remove();
+            syncFields();
+            return;
+        }
+
         var removeButton = event.target.closest('[data-remove-report-field]');
         if (removeButton) {
             var row = removeButton.closest('[data-custom-report-field-row]');
             var fieldName = row.querySelector('[data-field-name]');
             var dateTimeFormat = row.querySelector('[data-date-time-format]');
             var minuteFormat = row.querySelector('[data-minute-format]');
+            clearMachineInOutRows(row.querySelector('[data-machine-in-out-rows]'));
             if (fieldName.tomselect) fieldName.tomselect.destroy();
             if (dateTimeFormat.tomselect) dateTimeFormat.tomselect.destroy();
             if (minuteFormat.tomselect) minuteFormat.tomselect.destroy();
             row.remove();
+            syncFields();
+        }
+    });
+    rowsContainer.addEventListener('input', function (event) {
+        if (event.target.matches('[data-machine-sequence], [data-machine-sub-sequence]')) {
             syncFields();
         }
     });

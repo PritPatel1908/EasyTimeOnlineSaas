@@ -44,6 +44,7 @@ class TenantMasterSnapshotTest extends TestCase
             $table->id();
             $table->string('user_type')->nullable();
             $table->json('location_id')->nullable();
+            $table->date('join_date')->nullable();
             $table->timestamps();
         });
 
@@ -152,8 +153,10 @@ class TenantMasterSnapshotTest extends TestCase
             'id' => 8,
             'user_type' => 'employee',
             'location_id' => '[4]',
+            'join_date' => '2020-02-15',
         ]);
 
+        app(MasterSnapshotService::class)->captureCreated($employee);
         app(MasterSnapshotService::class)->captureCreated($employee);
 
         $snapshot = MasterSnapshot::query()->sole();
@@ -161,6 +164,7 @@ class TenantMasterSnapshotTest extends TestCase
         $this->assertSame(4, $snapshot->master_id);
         $this->assertSame(['name' => 'Employee Location', 'code' => 'EMP'], $snapshot->value);
         $this->assertSame(8, $snapshot->user_id);
+        $this->assertSame('2020-02-15', $snapshot->from_date->toDateString());
         $this->assertFalse($snapshot->for_all);
         $this->assertNull($snapshot->to_date);
     }
@@ -178,6 +182,15 @@ class TenantMasterSnapshotTest extends TestCase
             'id' => 7,
             'user_type' => 'employee',
             'location_id' => '[3]',
+            'join_date' => '2018-03-14',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('users')->insert([
+            'id' => 8,
+            'user_type' => 'employee',
+            'location_id' => '[3]',
+            'join_date' => '2020-07-22',
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -187,11 +200,12 @@ class TenantMasterSnapshotTest extends TestCase
         $migration->up();
 
         $snapshots = MasterSnapshot::query()->orderByDesc('for_all')->get();
-        $this->assertCount(2, $snapshots);
+        $this->assertCount(3, $snapshots);
         $this->assertSame(today()->toDateString(), $snapshots[0]->from_date->toDateString());
         $this->assertSame(Location::class, $snapshots[0]->master_type);
         $this->assertSame(['name' => 'Current Location', 'code' => 'CUR'], $snapshots[0]->value);
-        $this->assertSame(7, $snapshots[1]->user_id);
-        $this->assertFalse($snapshots[1]->for_all);
+        $employeeSnapshots = $snapshots->where('for_all', false)->keyBy('user_id');
+        $this->assertSame('2018-03-14', $employeeSnapshots[7]->from_date->toDateString());
+        $this->assertSame('2020-07-22', $employeeSnapshots[8]->from_date->toDateString());
     }
 }
