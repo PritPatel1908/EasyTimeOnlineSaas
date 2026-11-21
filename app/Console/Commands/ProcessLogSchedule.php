@@ -15,7 +15,7 @@ class ProcessLogSchedule extends Command
      *
      * @var string
      */
-    protected $signature = 'app:process-log-schedule';
+    protected $signature = 'app:process-log-schedule {--local-only : Process logs already stored in the tenant database without fetching from DMS}';
 
     /**
      * The console command description.
@@ -29,13 +29,13 @@ class ProcessLogSchedule extends Command
      */
     public function handle()
     {
-        if (config('fetch_att_logs', 0) != 1) {
+        if (! $this->option('local-only') && config('fetch_att_logs', 0) != 1) {
             Log::channel('attprocess')->debug('Fetching New jobs for pending logs');
             FetchLogsFromDms::dispatch()
                 ->onConnection('database_tenant')
                 ->onQueue('processing');
         } else {
-            Log::channel('attprocess')->debug('Dispatching chunked job for pending logs');
+            Log::channel('attprocess')->debug('Dispatching chunked job for pending local logs');
             ProcessPendingLogsBatch::dispatch()
                 ->onConnection('database_tenant')
                 ->onQueue('processing');
@@ -45,5 +45,7 @@ class ProcessLogSchedule extends Command
                 ['value' => date('Y-m-d H:i:s')]
             );
         }
+
+        return self::SUCCESS;
     }
 }

@@ -4,8 +4,8 @@ use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 
-Schedule::command('tenants:run app:create-leave-muster')
-    ->daily()
+Schedule::command('app:dispatch-due-tenant-cronjobs')
+    ->everyMinute()
     ->withoutOverlapping();
 
 Artisan::command('inspire', function () {

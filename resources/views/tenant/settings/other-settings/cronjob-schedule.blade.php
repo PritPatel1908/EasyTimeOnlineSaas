@@ -94,101 +94,43 @@
 								<div class="col-md-6 col-sm-8">
 									<div
 										class="d-flex justify-content-sm-end align-items-center flex-wrap row-gap-2">
-										<a href="{{url('add-language')}}" class="btn btn-primary" data-bs-toggle="modal"
-											data-bs-target="#add_cronjobschedule"><i
-												class="ti ti-circle-plus me-2"></i>Add Schedule</a>
+										<span class="text-muted">One run per day, in the application/server timezone</span>
 									</div>
 								</div>
 							</div>
 						</div>
 						<div class="card-body pb-0">
+							@if ($cronJob->last_status === 'failed' && $cronJob->last_error)
+								<div class="alert alert-danger mx-3" role="alert">
+									Last run failed: {{ $cronJob->last_error }}
+								</div>
+							@endif
 							<div class="card mb-3">
 								<div class="card-header">
-									<div class="row align-items-center g-3">
-										<div class="col-sm-8">
-											<h6>Cron Schedule List</h6>
-										</div>
-										<div class="col-sm-4">
-											<div class="position-relative search-input">
-												<input type="text" class="form-control" placeholder="Search">
-												<div class="search-addon">
-													<span><i class="ti ti-search"></i></span>
-												</div>
-											</div>
-										</div>
-									</div>
+									<h6>Daily Cron Schedule</h6>
 								</div>
 								<div class="card-body p-0">
 									<div class="table-responsive">
 										<table class="table">
 											<thead class="thead-light">
 												<tr>
-													<th class="no-sort">
-														<div class="form-check form-check-md">
-															<input class="form-check-input" type="checkbox"
-																id="select-all">
-														</div>
-													</th>
-													<th>Name</th>
-													<th>Interval</th>
-													<th>Enable</th>
-													<th></th>
+													<th>Task</th>
+													<th>Daily run time</th>
+													<th>Status</th>
 												</tr>
 											</thead>
 											<tbody>
 												<tr>
+													<td><h6 class="fw-medium">Leave Muster</h6></td>
 													<td>
-														<div class="form-check form-check-md">
-															<input class="form-check-input" type="checkbox">
-														</div>
+														<form method="POST" action="{{ url('cronjob/'.$cronJob->id.'/schedule') }}" class="d-flex align-items-center gap-2">
+															@csrf
+															@method('PUT')
+															<input type="time" name="schedule_time" class="form-control" value="{{ substr($cronJob->schedule_time, 0, 5) }}" required>
+															<button type="submit" class="btn btn-primary">Save</button>
+														</form>
 													</td>
-													<td>
-														<h6 class="fw-medium">5 minutes</h6>
-													</td>
-													<td>5 seconds</td>
-													<td>
-														<div class="form-check form-check-md form-switch me-2">
-															<input class="form-check-input me-2" type="checkbox"
-																role="switch">
-														</div>
-													</td>
-													<td>
-														<div class="action-icon d-inline-flex">
-															<a href="#" class="me-2" data-bs-toggle="modal"
-																data-bs-target="#edit_cronjobschedule"><i
-																	class="ti ti-edit"></i></a>
-															<a href="javascript:void(0);" data-bs-toggle="modal"
-																data-bs-target="#delete_modal"><i
-																	class="ti ti-trash"></i></a>
-														</div>
-													</td>
-												</tr>
-												<tr>
-													<td>
-														<div class="form-check form-check-md">
-															<input class="form-check-input" type="checkbox">
-														</div>
-													</td>
-													<td>
-														<h6 class="fw-medium">3 minutes</h6>
-													</td>
-													<td>3 seconds</td>
-													<td>
-														<div class="form-check form-check-md form-switch me-2">
-															<input class="form-check-input me-2" type="checkbox"
-																role="switch">
-														</div>
-													</td>
-													<td>
-														<div class="action-icon d-inline-flex">
-															<a href="#" class="me-2" data-bs-toggle="modal"
-																data-bs-target="#edit_cronjobschedule"><i
-																	class="ti ti-edit"></i></a>
-															<a href="javascript:void(0);" data-bs-toggle="modal"
-																data-bs-target="#delete_modal"><i
-																	class="ti ti-trash"></i></a>
-														</div>
-													</td>
+													<td>{{ $cronJob->enabled ? 'Enabled' : 'Paused' }}</td>
 												</tr>
 											</tbody>
 										</table>

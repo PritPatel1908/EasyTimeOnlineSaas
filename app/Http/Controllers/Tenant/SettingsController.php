@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\Tenant\SendTenantEmailVerification;
+use App\Models\Central\TenantCronJob;
 use App\Models\Tenant\BloodGroup;
 use App\Models\Tenant\EmailConfiguration;
 use App\Models\Tenant\EmailTemplate;
@@ -218,9 +219,103 @@ class SettingsController extends Controller
                 'passwordHistories' => $passwordHistories,
                 'lastPasswordChangedAt' => $passwordHistories->first()?->created_at,
             ];
+        } elseif (in_array($page, ['cronjob', 'cronjob-schedule'], true)) {
+            $data['cronJobs'] = TenantCronJob::query()
+                ->where('tenant_id', $tenant)
+                ->orderBy('id')
+                ->get();
+            $data['availableCronTasks'] = array_diff_key(
+                TenantCronJob::TASKS,
+                array_flip($data['cronJobs']->pluck('task_key')->all()),
+            );
+        }
+
+        if ($page === 'cronjob-schedule') {
+            return view('tenant.settings.other-settings.cronjob', $data);
         }
 
         return view($this->viewPath($page), $data);
+    }
+
+    public function storeCronJob(Request $request): RedirectResponse
+    {
+        $validated = $this->validateCronJob($request);
+        $taskKey = $validated['task_key'];
+        $scheduleType = $validated['schedule_type'];
+        $scheduleTime = $scheduleType === 'daily'
+            ? $validated['schedule_time'].':00'
+            : '00:00:00';
+        $intervalMinutes = $scheduleType === 'interval'
+            ? (int) $validated['interval_minutes']
+            : null;
+
+        TenantCronJob::query()->create([
+            'tenant_id' => $this->tenantId($request),
+            'task_key' => $taskKey,
+            'name' => $validated['name'],
+            'schedule_type' => $scheduleType,
+            'schedule_time' => $scheduleTime,
+            'interval_minutes' => $intervalMinutes,
+            'enabled' => true,
+            'next_run_at' => TenantCronJob::nextRunAt($scheduleType, $scheduleTime, $intervalMinutes),
+            'last_status' => 'never',
+        ]);
+
+        return redirect()->to(url('cronjob'))
+            ->with('success', 'Cron job added successfully.');
+    }
+
+    public function updateCronJob(Request $request): RedirectResponse
+    {
+        $cronJob = $this->tenantCronJob($request);
+        $validated = $this->validateCronJob($request, $cronJob);
+        $scheduleType = $validated['schedule_type'];
+        $scheduleTime = $scheduleType === 'daily'
+            ? $validated['schedule_time'].':00'
+            : '00:00:00';
+        $intervalMinutes = $scheduleType === 'interval'
+            ? (int) $validated['interval_minutes']
+            : null;
+
+        $cronJob->update([
+            'task_key' => $validated['task_key'],
+            'name' => $validated['name'],
+            'schedule_type' => $scheduleType,
+            'schedule_time' => $scheduleTime,
+            'interval_minutes' => $intervalMinutes,
+            'next_run_at' => TenantCronJob::nextRunAt($scheduleType, $scheduleTime, $intervalMinutes),
+        ]);
+
+        return redirect()->to(url('cronjob'))
+            ->with('success', 'Cron job updated successfully.');
+    }
+
+    public function toggleCronJob(Request $request): RedirectResponse
+    {
+        $cronJob = $this->tenantCronJob($request);
+        $enabled = ! $cronJob->enabled;
+
+        $cronJob->update([
+            'enabled' => $enabled,
+            'next_run_at' => $enabled
+                ? TenantCronJob::nextRunAt(
+                    $cronJob->schedule_type,
+                    $cronJob->schedule_time,
+                    $cronJob->interval_minutes,
+                )
+                : $cronJob->next_run_at,
+        ]);
+
+        return redirect()->to(url('cronjob'))
+            ->with('success', $enabled ? 'Cron job resumed.' : 'Cron job paused.');
+    }
+
+    public function destroyCronJob(Request $request): RedirectResponse
+    {
+        $this->tenantCronJob($request)->delete();
+
+        return redirect()->to(url('cronjob'))
+            ->with('success', 'Cron job deleted successfully.');
     }
 
     public function storeEmailTemplate(Request $request): RedirectResponse
@@ -996,6 +1091,66 @@ class SettingsController extends Controller
         abort_unless($user instanceof User, 403);
 
         return $user;
+    }
+
+    private function tenantCronJob(Request $request): TenantCronJob
+    {
+        return TenantCronJob::query()
+            ->where('tenant_id', $this->tenantId($request))
+            ->findOrFail((int) $request->route('cronJob'));
+    }
+
+    private function tenantId(Request $request): string
+    {
+        $tenantId = $request->route('tenant');
+
+        abort_unless(is_string($tenantId), 404);
+
+        return $tenantId;
+    }
+
+    /**
+     * @return array{name: string, task_key: string, schedule_type: string, schedule_time?: string, interval_minutes?: int|string}
+     */
+    private function validateCronJob(Request $request, ?TenantCronJob $existingCronJob = null): array
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'task_key' => ['required', Rule::in(array_keys(TenantCronJob::TASKS))],
+            'schedule_type' => ['required', Rule::in(['daily', 'interval'])],
+            'schedule_time' => ['nullable', 'required_if:schedule_type,daily', 'date_format:H:i'],
+            'interval_minutes' => [
+                'nullable',
+                'required_if:schedule_type,interval',
+                'integer',
+                'min:1',
+                'max:1440',
+            ],
+        ]);
+        $taskKey = $validated['task_key'];
+
+        if ($taskKey === TenantCronJob::TASK_LEAVE_MUSTER && $validated['schedule_type'] !== 'daily') {
+            throw ValidationException::withMessages([
+                'schedule_type' => 'Leave Muster can only be scheduled once per day.',
+            ]);
+        }
+
+        $excludeId = $existingCronJob?->id;
+        $duplicate = TenantCronJob::query()
+            ->where('tenant_id', $this->tenantId($request))
+            ->where('task_key', $taskKey)
+            ->when($excludeId !== null, fn ($query) => $query->where('id', '!=', $excludeId))
+            ->exists();
+
+        if ($duplicate) {
+            throw ValidationException::withMessages([
+                'task_key' => 'This task already has a cron job. Edit or delete the existing one first.',
+            ]);
+        }
+
+        $validated['task_key'] = $taskKey;
+
+        return $validated;
     }
 
     private function normalizeSmtpPassword(string $host, string $password): string

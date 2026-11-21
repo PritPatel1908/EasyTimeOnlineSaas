@@ -108,6 +108,18 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                     return redirect('/dashboard');
                 });
 
+                Route::post('/cronjob', [SettingsController::class, 'storeCronJob'])
+                    ->name('tenant.cronjob.store');
+                Route::put('/cronjob/{cronJob}', [SettingsController::class, 'updateCronJob'])
+                    ->whereNumber('cronJob')
+                    ->name('tenant.cronjob.update');
+                Route::post('/cronjob/{cronJob}/toggle', [SettingsController::class, 'toggleCronJob'])
+                    ->whereNumber('cronJob')
+                    ->name('tenant.cronjob.toggle');
+                Route::delete('/cronjob/{cronJob}', [SettingsController::class, 'destroyCronJob'])
+                    ->whereNumber('cronJob')
+                    ->name('tenant.cronjob.destroy');
+
                 Route::get('/dashboard', [DashboardController::class, 'index'])->name('tenant.dashboard');
                 Route::get('/index', function () {
                     return redirect()->route('tenant.dashboard', ['tenant' => request()->route('tenant')]);

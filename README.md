@@ -74,7 +74,6 @@ QUEUE_NAMES=notifications,import,export,activity-log,processing,low bash queue-w
 
 php artisan queue:work database_tenant --queue=tenant,notifications,import,export,activity-log,processing,low --sleep=3 --tries=3 --timeout=3600
 
-php artisan tenants:run app:create-leave-muster
 php artisan tenants:run app:check-leave-balance
 
 Queue tables are stored in the central database. Tenant jobs must not be stored in an
@@ -82,3 +81,19 @@ individual tenant database: a shared worker reads the central queue first, then 
 the tenant from the job payload. Restart queue workers after changing queue configuration.
 For production or sustained concurrent queue workloads, use MySQL/PostgreSQL for the
 application and central queue tables instead of relying on SQLite locking behavior.
+
+## Scheduler
+
+Configure the host cron to run Laravel's scheduler once per minute:
+
+```cron
+* * * * * cd /path/to/application && php artisan schedule:run >> /dev/null 2>&1
+```
+
+Run `php artisan migrate --force` during deployment to create/update the central cron configuration table.
+The tenant Settings > Other Settings > Cronjob page manages Leave Muster and Punch Process
+tasks per tenant. Leave Muster runs daily; Punch Process can run daily or at a configured
+minute interval. Daily times use Laravel's `TIMEZONE` setting. Both tasks are queued on
+`database_tenant:processing`, so the existing tenant queue worker processes them. The
+scheduled Punch Process handles pending attendance logs already stored in the tenant
+database and does not fetch logs from DMS; the scheduler does not start or scale workers.

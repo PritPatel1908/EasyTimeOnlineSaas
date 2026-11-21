@@ -91,16 +91,25 @@
 								<div class="col-md-6 col-sm-8">
 									<div
 										class="d-flex justify-content-sm-end align-items-center flex-wrap row-gap-2">
-										<a href="{{url('cronjob-schedule')}}" class="btn btn-dark me-2"><i
-												class="ti ti-clock-hour-4 me-2"></i>Cron Schedule</a>
-										<a href="#" class="btn btn-primary" data-bs-toggle="modal"
-											data-bs-target="#add_cronjob"><i class="ti ti-circle-plus me-2"></i>Add
-											Cronjob</a>
+										@if (count($availableCronTasks) > 0)
+											<button type="button" class="btn btn-primary" data-bs-toggle="modal"
+												data-bs-target="#add_cronjob">
+												<i class="ti ti-circle-plus me-2"></i>Add Cronjob
+											</button>
+										@endif
 									</div>
 								</div>
 							</div>
 						</div>
 						<div class="card-body pb-0">
+							@if (session('success'))
+								<div class="alert alert-success mx-3" role="alert">{{ session('success') }}</div>
+							@endif
+							@if ($errors->any())
+								<div class="alert alert-danger mx-3" role="alert">
+									{{ $errors->first() }}
+								</div>
+							@endif
 							<div class="card mb-3">
 								<div
 									class="card-header d-flex align-items-center justify-content-between flex-wrap row-gap-3">
@@ -111,13 +120,8 @@
 										<table class="table">
 											<thead class="thead-light">
 												<tr>
-													<th class="no-sort">
-														<div class="form-check form-check-md">
-															<input class="form-check-input" type="checkbox"
-																id="select-all">
-														</div>
-													</th>
 													<th>Name</th>
+													<th>Task</th>
 													<th>Schedule</th>
 													<th>Next Run</th>
 													<th>Last Run</th>
@@ -126,91 +130,69 @@
 												</tr>
 											</thead>
 											<tbody>
-												<tr>
-													<td>
-														<div class="form-check form-check-md">
-															<input class="form-check-input" type="checkbox">
-														</div>
-													</td>
-													<td>
-														<h6 class="fw-medium">Report Generation Cron</h6>
-													</td>
-													<td>5 minutes</td>
-													<td>
-														<div>
-															<p class="mb-0">09 Sep 2024</p>
-															<p class="mb-0">10:15:38</p>
-														</div>
-													</td>
-													<td>
-														<div>
-															<p class="mb-0">09 Sep 2024</p>
-															<p class="mb-0">10:28:38</p>
-														</div>
-													</td>
-													<td>
-														<span
-															class="badge badge-success d-flex align-items-center badge-xs">
-															<i class="ti ti-point-filled me-1"></i>Running
-														</span>
-													</td>
-													<td>
-														<div class="action-icon d-inline-flex">
-															<a href="#" class="me-2"><i
-																	class="ti ti-player-pause"></i></a>
-															<a href="#" class="me-2" data-bs-toggle="modal"
-																data-bs-target="#edit_cronjob"><i
-																	class="ti ti-edit"></i></a>
-															<a href="#" class=""><i
-																	class="ti ti-clock-bolt"></i></a>
-														</div>
-													</td>
-												</tr>
-												<tr>
-													<td>
-														<div class="form-check form-check-md">
-															<input class="form-check-input" type="checkbox">
-														</div>
-													</td>
-													<td>
-														<h6 class="fw-medium">Job Expired Cron</h6>
-													</td>
-													<td>3 minutes</td>
-													<td>
-														<div>
-															<p class="mb-0">09 Sep 2024</p>
-															<p class="mb-0">10:15:38</p>
-														</div>
-													</td>
-													<td>
-														<div>
-															<p class="mb-0">09 Sep 2024</p>
-															<p class="mb-0">10:28:38</p>
-														</div>
-													</td>
-													<td>
-														<span
-															class="badge badge-success d-flex align-items-center badge-xs">
-															<i class="ti ti-point-filled me-1"></i>Running
-														</span>
-													</td>
-													<td>
-														<div class="action-icon d-inline-flex">
-															<a href="#" class="me-2"><i
-																	class="ti ti-player-pause"></i></a>
-															<a href="#" class="me-2" data-bs-toggle="modal"
-																data-bs-target="#edit_cronjob"><i
-																	class="ti ti-edit"></i></a>
-															<a href="#" class=""><i
-																	class="ti ti-clock-bolt"></i></a>
-														</div>
-													</td>
-												</tr>
+												@forelse ($cronJobs as $cronJob)
+													<tr>
+														<td>
+															<h6 class="fw-medium">{{ $cronJob->name }}</h6>
+															<small class="text-muted">
+																{{ $cronJob->task_key === \App\Models\Central\TenantCronJob::TASK_LEAVE_MUSTER
+																	? 'Queues leave and balance batches'
+																	: 'Fetches or processes attendance punch logs' }}
+															</small>
+															@if ($cronJob->last_status === 'failed' && $cronJob->last_error)
+																<small class="text-danger">Last error: {{ $cronJob->last_error }}</small>
+															@endif
+														</td>
+														<td>{{ \App\Models\Central\TenantCronJob::TASKS[$cronJob->task_key] ?? $cronJob->task_key }}</td>
+														<td>
+															{{ $cronJob->schedule_type === 'daily'
+																? 'Daily at '.substr($cronJob->schedule_time, 0, 5)
+																: 'Every '.$cronJob->interval_minutes.' minutes' }}
+														</td>
+														<td>{{ $cronJob->enabled ? $cronJob->next_run_at?->format('d M Y H:i') : 'Paused' }}</td>
+														<td>{{ $cronJob->last_run_at?->format('d M Y H:i') ?? 'Never' }}</td>
+														<td>
+															<span class="badge {{ $cronJob->enabled ? 'badge-success' : 'badge-secondary' }} d-flex align-items-center badge-xs">
+																<i class="ti ti-point-filled me-1"></i>
+																{{ $cronJob->enabled ? ucfirst($cronJob->last_status) : 'Paused' }}
+															</span>
+														</td>
+														<td>
+															<div class="action-icon d-inline-flex align-items-center">
+																<form method="POST" action="{{ url('cronjob/'.$cronJob->id.'/toggle') }}">
+																	@csrf
+																	<button type="submit" class="btn btn-link p-0 me-2" aria-label="{{ $cronJob->enabled ? 'Pause' : 'Resume' }} cron job">
+																		<i class="ti {{ $cronJob->enabled ? 'ti-player-pause' : 'ti-player-play' }}"></i>
+																	</button>
+																</form>
+																<button type="button" class="btn btn-link p-0 me-2" data-bs-toggle="modal"
+																	data-bs-target="#edit_cronjob_{{ $cronJob->id }}" aria-label="Edit cron job">
+																	<i class="ti ti-edit"></i>
+																</button>
+																<form method="POST" action="{{ url('cronjob/'.$cronJob->id) }}"
+																	onsubmit="return confirm('Delete this cron job?')">
+																	@csrf
+																	@method('DELETE')
+																	<button type="submit" class="btn btn-link p-0" aria-label="Delete cron job">
+																		<i class="ti ti-trash"></i>
+																	</button>
+																</form>
+															</div>
+														</td>
+													</tr>
+												@empty
+													<tr>
+														<td colspan="7" class="text-center py-4">No cron jobs configured yet.</td>
+													</tr>
+												@endforelse
 											</tbody>
 										</table>
 									</div>
 								</div>
 							</div>
+							@if (count($availableCronTasks) === 0)
+								<p class="text-muted px-3">All supported tasks are configured. Edit or delete an existing task to change the selection.</p>
+							@endif
 						</div>
 					</div>
 				</div>
@@ -221,6 +203,153 @@
 		@include('partials.footer')
 
 	</div>
+
+	@if (count($availableCronTasks) > 0)
+		<div class="modal fade" id="add_cronjob" tabindex="-1" aria-hidden="true">
+			<div class="modal-dialog modal-dialog-centered">
+				<div class="modal-content">
+					<form method="POST" action="{{ url('cronjob') }}" class="cron-job-form" data-mode="create">
+						@csrf
+						<div class="modal-header">
+							<h5 class="modal-title">Add Cronjob</h5>
+							<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+						</div>
+						<div class="modal-body">
+							<div class="mb-3">
+								<label class="form-label" for="cron-job-name">Name</label>
+								<input id="cron-job-name" class="form-control" name="name" maxlength="100" required>
+							</div>
+							<div class="mb-3">
+								<label class="form-label" for="cron-job-task">Task</label>
+								<select id="cron-job-task" class="form-control select2 cron-task-select" name="task_key" required>
+									@foreach (\App\Models\Central\TenantCronJob::TASKS as $taskKey => $taskLabel)
+										@php($taskAlreadyAdded = $cronJobs->contains('task_key', $taskKey))
+										<option value="{{ $taskKey }}" data-label="{{ $taskLabel }}" @disabled($taskAlreadyAdded)>
+											{{ $taskLabel }}{{ $taskAlreadyAdded ? ' (already added)' : '' }}
+										</option>
+									@endforeach
+								</select>
+							</div>
+							@include('tenant.settings.other-settings.partials.cron-schedule-fields', ['cronJob' => null])
+						</div>
+						<div class="modal-footer">
+							<button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+							<button type="submit" class="btn btn-primary">Add Cronjob</button>
+						</div>
+					</form>
+				</div>
+			</div>
+		</div>
+	@endif
+
+	@foreach ($cronJobs as $cronJob)
+		<div class="modal fade" id="edit_cronjob_{{ $cronJob->id }}" tabindex="-1" aria-hidden="true">
+			<div class="modal-dialog modal-dialog-centered">
+				<div class="modal-content">
+					<form method="POST" action="{{ url('cronjob/'.$cronJob->id) }}" class="cron-job-form" data-mode="edit" data-task="{{ $cronJob->task_key }}">
+						@csrf
+						@method('PUT')
+						<div class="modal-header">
+							<h5 class="modal-title">Edit Cronjob</h5>
+							<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+						</div>
+						<div class="modal-body">
+							<div class="mb-3">
+								<label class="form-label">Task</label>
+								<select name="task_key" class="form-control select2 cron-task-select" required>
+									@foreach (\App\Models\Central\TenantCronJob::TASKS as $taskKey => $taskLabel)
+										@php($taskAlreadyAdded = $cronJobs->contains(fn ($otherJob) => $otherJob->id !== $cronJob->id && $otherJob->task_key === $taskKey))
+										<option value="{{ $taskKey }}" data-label="{{ $taskLabel }}"
+											@selected($cronJob->task_key === $taskKey) @disabled($taskAlreadyAdded)>
+											{{ $taskLabel }}{{ $taskAlreadyAdded ? ' (already added)' : '' }}
+										</option>
+									@endforeach
+								</select>
+							</div>
+							<div class="mb-3">
+								<label class="form-label" for="cron-job-name-{{ $cronJob->id }}">Name</label>
+								<input id="cron-job-name-{{ $cronJob->id }}" class="form-control" name="name" maxlength="100" value="{{ $cronJob->name }}" required>
+							</div>
+							@include('tenant.settings.other-settings.partials.cron-schedule-fields', ['cronJob' => $cronJob])
+						</div>
+						<div class="modal-footer">
+							<button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+							<button type="submit" class="btn btn-primary">Save Changes</button>
+						</div>
+					</form>
+				</div>
+			</div>
+		</div>
+	@endforeach
+
+	<script>
+		document.addEventListener('DOMContentLoaded', function () {
+			document.querySelectorAll('.cron-task-select, .cron-schedule-type').forEach(function (select) {
+				if (!select.tomselect) {
+					new TomSelect(select, { width: '100%', controlInput: null, dropdownParent: 'body' });
+				}
+			});
+		});
+
+		document.querySelectorAll('.cron-job-form').forEach(function (form) {
+			const taskSelect = form.querySelector('.cron-task-select');
+			const scheduleType = form.querySelector('.cron-schedule-type');
+			const dailyFields = form.querySelector('.cron-daily-fields');
+			const intervalFields = form.querySelector('.cron-interval-fields');
+			const intervalOption = scheduleType.querySelector('option[value="interval"]');
+			const punchTaskKey = '{{ \App\Models\Central\TenantCronJob::TASK_PUNCH_PROCESS }}';
+			const nameInput = form.querySelector('[name="name"]');
+
+			function setScheduleType(value) {
+				if (scheduleType.tomselect) {
+					scheduleType.tomselect.setValue(value, true);
+				} else {
+					scheduleType.value = value;
+				}
+			}
+
+			function refreshScheduleFields() {
+				const taskKey = taskSelect ? taskSelect.value : form.dataset.task;
+				const leaveMuster = taskKey === '{{ \App\Models\Central\TenantCronJob::TASK_LEAVE_MUSTER }}';
+
+				intervalOption.disabled = leaveMuster;
+				if (scheduleType.tomselect) {
+					const intervalData = Object.assign({}, scheduleType.tomselect.options.interval, {
+						disabled: leaveMuster
+					});
+					scheduleType.tomselect.updateOption('interval', intervalData);
+				}
+				if (leaveMuster && scheduleType.value === 'interval') {
+					setScheduleType('daily');
+				}
+
+				const daily = scheduleType.value === 'daily';
+				dailyFields.hidden = !daily;
+				intervalFields.hidden = daily;
+				dailyFields.querySelector('input').required = daily;
+				intervalFields.querySelector('input').required = !daily;
+			}
+
+			if (taskSelect) {
+				taskSelect.addEventListener('change', function () {
+					if (form.dataset.mode === 'create') {
+						nameInput.value = taskSelect.selectedOptions[0].dataset.label;
+					}
+					refreshScheduleFields();
+					setScheduleType(taskSelect.value === punchTaskKey ? 'interval' : 'daily');
+					refreshScheduleFields();
+				});
+				if (form.dataset.mode === 'create') {
+					nameInput.value = taskSelect.selectedOptions[0].dataset.label;
+				}
+				if (form.dataset.mode === 'create' && taskSelect.value === punchTaskKey) {
+					scheduleType.value = 'interval';
+				}
+			}
+			scheduleType.addEventListener('change', refreshScheduleFields);
+			refreshScheduleFields();
+		});
+	</script>
 
     <!-- ========================
         End Page Content
