@@ -58,6 +58,7 @@ class ReprocessAttendanceLogs implements ShouldBeUnique, ShouldQueue
         $this->preparePunchesForReprocessing();
         $this->processPunches();
         $this->createMissingWeekOffHolidayAndLeaveAttendances();
+        $this->createMissingAbsentAttendances();
     }
 
     private function preparePunchesForReprocessing(): void
@@ -354,6 +355,77 @@ class ReprocessAttendanceLogs implements ShouldBeUnique, ShouldQueue
                         'status_master_id' => $statusMasterId,
                     ],
                 );
+            }
+        }
+    }
+
+    private function createMissingAbsentAttendances(): void
+    {
+        $usersQuery = User::query()->where('user_type', 'employee');
+        if ($this->employeeIds !== []) {
+            $usersQuery->whereIn('id', $this->employeeIds);
+        }
+
+        $users = $usersQuery->get(['id']);
+        if ($users->isEmpty()) {
+            return;
+        }
+
+        $absentStatusId = StatusMaster::query()->where('code', 'AA')->value('id');
+        if ($absentStatusId === null) {
+            throw new RuntimeException('Status master AA is missing while creating absent attendance.');
+        }
+
+        $startDate = Carbon::parse($this->startDateTime)->startOfDay();
+        $endDate = Carbon::parse($this->endDateTime)->startOfDay();
+
+        for ($date = $startDate->copy(); $date->lte($endDate); $date->addDay()) {
+            $dateString = $date->toDateString();
+            $attendanceTable = Attendance::year($date->year);
+
+            foreach ($users->chunk(self::CHUNK_SIZE) as $userChunk) {
+                $userIds = $userChunk->modelKeys();
+                $existingUserIds = $attendanceTable->newQuery()
+                    ->whereDate('date', $dateString)
+                    ->whereIn('user_id', $userIds)
+                    ->pluck('user_id')
+                    ->map(static fn (mixed $userId): int => (int) $userId)
+                    ->all();
+                $existingUsers = array_fill_keys($existingUserIds, true);
+                $missingUserIds = array_values(array_filter(
+                    $userIds,
+                    static fn (int $userId): bool => ! isset($existingUsers[$userId]),
+                ));
+
+                if ($missingUserIds === []) {
+                    continue;
+                }
+
+                $timestamp = now();
+                $attendanceRows = array_map(
+                    static fn (int $userId): array => [
+                        'user_id' => $userId,
+                        'date' => $dateString,
+                        'is_locked' => false,
+                        'is_absent' => true,
+                        'status_master_id' => $absentStatusId,
+                        'created_at' => $timestamp,
+                        'updated_at' => $timestamp,
+                    ],
+                    $missingUserIds,
+                );
+                $attendanceTable->newQuery()->insert($attendanceRows);
+
+                if (Schema::hasTable('status_musters')) {
+                    StatusMuster::query()
+                        ->whereIn('user_id', $missingUserIds)
+                        ->whereDate('date', $dateString)
+                        ->where('is_locked', false)
+                        ->update([
+                            'status_master_id' => $absentStatusId,
+                            'day_count' => 0,
+                        ]);
+                }
             }
         }
     }

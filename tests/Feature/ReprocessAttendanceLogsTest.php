@@ -9,6 +9,7 @@ use App\Jobs\Tenant\DeleteAttendanceLogs;
 use App\Jobs\Tenant\ProcessPendingLogs;
 use App\Jobs\Tenant\ReprocessAttendanceLogs;
 use App\Jobs\Tenant\RestoreAttendanceLogs;
+use App\Models\Tenant\LeaveApplication;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
@@ -85,6 +86,9 @@ class ReprocessAttendanceLogsTest extends TestCase
                 $table->boolean('is_holiday')->default(false);
                 $table->boolean('is_weekoff')->default(false);
                 $table->boolean('is_half_day')->default(false);
+                $table->boolean('is_absent')->default(false);
+                $table->unsignedInteger('late_minutes')->default(0);
+                $table->unsignedInteger('early_minutes')->default(0);
                 $table->unsignedBigInteger('status_master_id')->nullable();
                 $table->timestamps();
             });
@@ -109,10 +113,12 @@ class ReprocessAttendanceLogsTest extends TestCase
 
         Schema::create('locations', function ($table): void {
             $table->id();
+            $table->softDeletes();
         });
 
         Schema::create('categories', function ($table): void {
             $table->id();
+            $table->softDeletes();
         });
 
         foreach (['holiday_locations', 'holiday_categories'] as $tableName) {
@@ -299,6 +305,7 @@ class ReprocessAttendanceLogsTest extends TestCase
             ['code' => 'HL'],
             ['code' => 'AWO'],
             ['code' => 'WOA'],
+            ['code' => 'AA'],
         ]);
 
         (new ReprocessAttendanceLogs(
@@ -307,20 +314,70 @@ class ReprocessAttendanceLogsTest extends TestCase
         ))->handle();
 
         $attendances = DB::table('attendances2026')->orderBy('date')->get();
-        $this->assertSame(3, $attendances->count());
-        $this->assertSame('2026-03-10', $attendances[0]->date);
+        $this->assertSame(4, $attendances->count());
+        $this->assertSame('2026-03-10', substr($attendances[0]->date, 0, 10));
         $this->assertTrue((bool) $attendances[0]->is_weekoff);
         $this->assertFalse((bool) $attendances[0]->is_holiday);
-        $this->assertSame('2026-03-11', $attendances[1]->date);
+        $this->assertSame('2026-03-11', substr($attendances[1]->date, 0, 10));
         $this->assertFalse((bool) $attendances[1]->is_weekoff);
         $this->assertTrue((bool) $attendances[1]->is_holiday);
-        $this->assertSame('2026-03-13', $attendances[2]->date);
-        $this->assertTrue((bool) $attendances[2]->is_weekoff);
-        $this->assertTrue((bool) $attendances[2]->is_half_day);
+        $this->assertSame('2026-03-12', substr($attendances[2]->date, 0, 10));
+        $this->assertTrue((bool) $attendances[2]->is_absent);
         $this->assertSame(
-            DB::table('status_masters')->where('code', 'AWO')->value('id'),
+            DB::table('status_masters')->where('code', 'AA')->value('id'),
             $attendances[2]->status_master_id,
         );
+        $this->assertSame('2026-03-13', substr($attendances[3]->date, 0, 10));
+        $this->assertTrue((bool) $attendances[3]->is_weekoff);
+        $this->assertTrue((bool) $attendances[3]->is_half_day);
+        $this->assertSame(
+            DB::table('status_masters')->where('code', 'AWO')->value('id'),
+            $attendances[3]->status_master_id,
+        );
+    }
+
+    public function test_reprocessing_creates_aa_only_for_missing_dates_of_selected_employees(): void
+    {
+        $selectedUserId = DB::table('users')->insertGetId([
+            'user_type' => 'employee',
+            'name' => 'Selected Employee',
+            'code' => 'EMP001',
+        ]);
+        $otherUserId = DB::table('users')->insertGetId([
+            'user_type' => 'employee',
+            'name' => 'Other Employee',
+            'code' => 'EMP002',
+        ]);
+        $absentStatusId = DB::table('status_masters')->insertGetId(['code' => 'AA']);
+        $existingStatusId = DB::table('status_masters')->insertGetId(['code' => 'PP']);
+
+        DB::table('attendances2026')->insert([
+            'user_id' => $selectedUserId,
+            'date' => '2026-03-11',
+            'is_locked' => true,
+            'status_master_id' => $existingStatusId,
+        ]);
+
+        (new ReprocessAttendanceLogs(
+            '2026-03-10 00:00:00',
+            '2026-03-12 23:59:59',
+            [$selectedUserId],
+        ))->handle();
+
+        $attendances = DB::table('attendances2026')
+            ->where('user_id', $selectedUserId)
+            ->orderBy('date')
+            ->get();
+        $this->assertSame(3, $attendances->count());
+        $this->assertSame('2026-03-10', $attendances[0]->date);
+        $this->assertSame($absentStatusId, (int) $attendances[0]->status_master_id);
+        $this->assertTrue((bool) $attendances[0]->is_absent);
+        $this->assertSame('2026-03-11', $attendances[1]->date);
+        $this->assertSame($existingStatusId, (int) $attendances[1]->status_master_id);
+        $this->assertTrue((bool) $attendances[1]->is_locked);
+        $this->assertSame('2026-03-12', $attendances[2]->date);
+        $this->assertSame($absentStatusId, (int) $attendances[2]->status_master_id);
+        $this->assertSame(0, DB::table('attendances2026')->where('user_id', $otherUserId)->count());
     }
 
     public function test_reprocessing_uses_approved_half_day_leave_and_preserves_sandwich_muster_result(): void
@@ -333,7 +390,9 @@ class ReprocessAttendanceLogsTest extends TestCase
         DB::table('leave_types')->insert(['id' => 1, 'code' => 'PL']);
         $sandwichStatusId = DB::table('status_masters')->insertGetId(['code' => 'SL']);
         $halfLeaveStatusId = DB::table('status_masters')->insertGetId(['code' => 'APL']);
+        DB::table('status_masters')->insert(['code' => 'PL']);
         $weekOffStatusId = DB::table('status_masters')->insertGetId(['code' => 'WO']);
+        $absentStatusId = DB::table('status_masters')->insertGetId(['code' => 'AA']);
 
         DB::table('week_off_musters')->insert([
             'user_id' => $userId,
@@ -373,17 +432,17 @@ class ReprocessAttendanceLogsTest extends TestCase
         }
         DB::table('approval_statuses')->insert([
             [
-                'approvable_type' => \App\Models\Tenant\LeaveApplication::class,
+                'approvable_type' => LeaveApplication::class,
                 'approvable_id' => $sandwichLeaveId,
                 'approval_status' => 'approved',
             ],
             [
-                'approvable_type' => \App\Models\Tenant\LeaveApplication::class,
+                'approvable_type' => LeaveApplication::class,
                 'approvable_id' => $approvedHalfLeaveId,
                 'approval_status' => 'approved',
             ],
             [
-                'approvable_type' => \App\Models\Tenant\LeaveApplication::class,
+                'approvable_type' => LeaveApplication::class,
                 'approvable_id' => $pendingLeaveId,
                 'approval_status' => 'pending',
             ],
@@ -397,13 +456,17 @@ class ReprocessAttendanceLogsTest extends TestCase
 
         $sandwichAttendance = DB::table('attendances2026')->whereDate('date', '2026-03-10')->first();
         $halfLeaveAttendance = DB::table('attendances2026')->whereDate('date', '2026-03-11')->first();
+        $pendingLeaveAttendance = DB::table('attendances2026')->whereDate('date', '2026-03-12')->first();
 
         $this->assertNotNull($sandwichAttendance);
         $this->assertTrue((bool) $sandwichAttendance->is_weekoff);
         $this->assertSame($sandwichStatusId, (int) $sandwichAttendance->status_master_id);
         $this->assertNotNull($halfLeaveAttendance);
         $this->assertSame($halfLeaveStatusId, (int) $halfLeaveAttendance->status_master_id);
-        $this->assertSame(2, DB::table('attendances2026')->count());
+        $this->assertNotNull($pendingLeaveAttendance);
+        $this->assertSame($absentStatusId, (int) $pendingLeaveAttendance->status_master_id);
+        $this->assertTrue((bool) $pendingLeaveAttendance->is_absent);
+        $this->assertSame(3, DB::table('attendances2026')->count());
         $this->assertNotSame($weekOffStatusId, (int) $sandwichAttendance->status_master_id);
     }
 
