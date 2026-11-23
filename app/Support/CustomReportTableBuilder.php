@@ -1055,18 +1055,106 @@ final class CustomReportTableBuilder
             return $values;
         }
 
+        $employeeIds = $employees->pluck('id')->filter()
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->all();
+        $employeeCodes = $employees
+            ->filter(static fn (User $employee): bool => is_scalar($employee->code) && trim((string) $employee->code) !== '')
+            ->mapWithKeys(static fn (User $employee): array => [trim((string) $employee->code) => (int) $employee->getKey()])
+            ->all();
+        $employeeDmsIds = $employees
+            ->filter(static fn (User $employee): bool => $employee->dms_user_id !== null)
+            ->mapWithKeys(static fn (User $employee): array => [(int) $employee->dms_user_id => (int) $employee->getKey()])
+            ->all();
+
+        $attendanceWindows = [];
+        $windowStarts = [];
+        $windowEnds = [];
+        $firstYear = (int) (new DateTimeImmutable($fromDate))->format('Y');
+        $lastYear = (int) (new DateTimeImmutable($toDate))->format('Y');
+        for ($year = $firstYear; $year <= $lastYear; $year++) {
+            $yearStart = max($fromDate, $year.'-01-01');
+            $yearEnd = min($toDate, $year.'-12-31');
+            foreach (Attendance::year($year)
+                ->whereIn('user_id', $employeeIds)
+                ->whereBetween('date', [$yearStart, $yearEnd])
+                ->get(['user_id', 'date', 'in_time', 'out_time', 'shift_in_time', 'shift_out_time']) as $attendance) {
+                $start = $attendance->in_time ?? $attendance->shift_in_time;
+                $end = $attendance->out_time ?? $attendance->shift_out_time;
+                if ($start === null || $end === null) {
+                    continue;
+                }
+
+                $start = DateTimeImmutable::createFromInterface($start);
+                $end = DateTimeImmutable::createFromInterface($end);
+                if ($end < $start) {
+                    continue;
+                }
+
+                $attendanceWindows[(int) $attendance->user_id][] = [
+                    'date' => $attendance->date->format('Y-m-d'),
+                    'start' => $start,
+                    'end' => $end,
+                ];
+                $windowStarts[] = $start;
+                $windowEnds[] = $end;
+            }
+        }
+
+        if ($attendanceWindows === []) {
+            return $values;
+        }
+
+        $logStart = min($windowStarts)->format('Y-m-d H:i:s');
+        $logEnd = max($windowEnds)->format('Y-m-d H:i:s');
         $punches = [];
         foreach (AttendanceLog::query()
-            ->whereIn('user_id', $employees->pluck('id')->filter()->map(static fn (mixed $id): int => (int) $id)->all())
+            ->where(function ($query) use ($employeeIds, $employeeCodes, $employeeDmsIds): void {
+                $query->whereIn('user_id', $employeeIds);
+                if ($employeeCodes !== []) {
+                    $query->orWhereIn('user_code', array_keys($employeeCodes));
+                }
+                if ($employeeDmsIds !== []) {
+                    $query->orWhereIn('dms_user_id', array_keys($employeeDmsIds));
+                }
+            })
             ->whereIn('dms_device_id', array_keys($deviceAssignments))
-            ->whereBetween('datetime', [$fromDate.' 00:00:00', $toDate.' 23:59:59'])
+            ->whereBetween('datetime', [$logStart, $logEnd])
             ->where('is_ignored', false)
             ->orderBy('datetime')
-            ->select(['user_id', 'dms_device_id', 'datetime', 'is_out'])
+            ->select(['user_id', 'user_code', 'dms_user_id', 'dms_device_id', 'datetime', 'is_out'])
             ->cursor() as $punch) {
             if ($punch->datetime === null) {
                 continue;
             }
+            $employeeId = $punch->user_id !== null && in_array((int) $punch->user_id, $employeeIds, true)
+                ? (int) $punch->user_id
+                : null;
+            if ($employeeId === null && $punch->user_code !== null) {
+                $employeeId = $employeeCodes[trim((string) $punch->user_code)] ?? null;
+            }
+            if ($employeeId === null && $punch->dms_user_id !== null) {
+                $employeeId = $employeeDmsIds[(int) $punch->dms_user_id] ?? null;
+            }
+            if ($employeeId === null) {
+                continue;
+            }
+            $punchTime = DateTimeImmutable::createFromInterface($punch->datetime);
+            $attendanceDate = null;
+            $matchedWindowStart = null;
+            foreach ($attendanceWindows[$employeeId] ?? [] as $window) {
+                if ($punchTime < $window['start'] || $punchTime > $window['end']) {
+                    continue;
+                }
+                if ($matchedWindowStart === null || $window['start'] > $matchedWindowStart) {
+                    $attendanceDate = $window['date'];
+                    $matchedWindowStart = $window['start'];
+                }
+            }
+            if ($attendanceDate === null) {
+                continue;
+            }
+
             foreach ($deviceAssignments[(int) $punch->dms_device_id] ?? [] as $assignment) {
                 // Both-direction devices use the punch direction resolved during attendance processing.
                 $direction = (bool) $punch->is_out ? 'out' : 'in';
@@ -1076,7 +1164,7 @@ final class CustomReportTableBuilder
                 } elseif (in_array($accessDirection, ['out', '2'], true)) {
                     $direction = 'out';
                 }
-                $punchSlot = &$punches[(int) $punch->user_id][$punch->datetime->format('Y-m-d')][$assignment['field_index']][$assignment['sequence']][$assignment['sub_sequence']][$direction];
+                $punchSlot = &$punches[$employeeId][$attendanceDate][$assignment['field_index']][$assignment['sequence']][$assignment['sub_sequence']][$direction];
                 if ($direction === 'out' || ! isset($punchSlot)) {
                     $punchSlot = $punch->datetime;
                 }

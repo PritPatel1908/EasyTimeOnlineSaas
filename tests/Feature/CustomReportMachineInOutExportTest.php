@@ -43,12 +43,23 @@ class CustomReportMachineInOutExportTest extends TestCase
         });
         Schema::create('attendance_logs', function (Blueprint $table): void {
             $table->id();
-            $table->unsignedBigInteger('user_id');
+            $table->unsignedBigInteger('user_id')->nullable();
+            $table->string('user_code')->nullable();
+            $table->unsignedBigInteger('dms_user_id')->nullable();
             $table->unsignedBigInteger('dms_device_id')->nullable();
             $table->dateTime('datetime')->nullable();
             $table->boolean('is_out')->default(false);
             $table->boolean('is_ignored')->default(false);
             $table->softDeletes();
+        });
+        Schema::create('attendances2026', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('date');
+            $table->dateTime('in_time')->nullable();
+            $table->dateTime('out_time')->nullable();
+            $table->dateTime('shift_in_time')->nullable();
+            $table->dateTime('shift_out_time')->nullable();
         });
         Schema::create('status_masters', function (Blueprint $table): void {
             $table->id();
@@ -60,14 +71,18 @@ class CustomReportMachineInOutExportTest extends TestCase
             ['id' => 12, 'name' => 'Gate OUT', 'dms_device_id' => 102, 'access_direction' => 'out'],
             ['id' => 13, 'name' => 'Common', 'dms_device_id' => 103, 'access_direction' => 'both'],
         ]);
+        DB::table('attendances2026')->insert([
+            ['user_id' => 7, 'date' => '2026-01-01', 'in_time' => '2026-01-01 07:55:00', 'out_time' => '2026-01-01 18:05:00'],
+            ['user_id' => 7, 'date' => '2026-01-02', 'in_time' => '2026-01-02 09:00:00', 'out_time' => '2026-01-02 09:00:00'],
+        ]);
         DB::table('attendance_logs')->insert([
-            ['user_id' => 7, 'dms_device_id' => 101, 'datetime' => '2026-01-01 08:05:00', 'is_out' => false],
-            ['user_id' => 7, 'dms_device_id' => 101, 'datetime' => '2026-01-01 08:20:00', 'is_out' => false],
-            ['user_id' => 7, 'dms_device_id' => 102, 'datetime' => '2026-01-01 12:00:00', 'is_out' => true],
-            ['user_id' => 7, 'dms_device_id' => 102, 'datetime' => '2026-01-01 13:30:00', 'is_out' => false],
-            ['user_id' => 7, 'dms_device_id' => 103, 'datetime' => '2026-01-01 07:55:00', 'is_out' => false],
-            ['user_id' => 7, 'dms_device_id' => 103, 'datetime' => '2026-01-01 18:05:00', 'is_out' => true],
-            ['user_id' => 7, 'dms_device_id' => 101, 'datetime' => '2026-01-02 09:00:00', 'is_out' => false],
+            ['user_id' => 7, 'user_code' => null, 'dms_user_id' => null, 'dms_device_id' => 101, 'datetime' => '2026-01-01 08:05:00', 'is_out' => false],
+            ['user_id' => 7, 'user_code' => null, 'dms_user_id' => null, 'dms_device_id' => 101, 'datetime' => '2026-01-01 08:20:00', 'is_out' => false],
+            ['user_id' => 7, 'user_code' => null, 'dms_user_id' => null, 'dms_device_id' => 102, 'datetime' => '2026-01-01 12:00:00', 'is_out' => true],
+            ['user_id' => 7, 'user_code' => null, 'dms_user_id' => null, 'dms_device_id' => 102, 'datetime' => '2026-01-01 13:30:00', 'is_out' => false],
+            ['user_id' => 7, 'user_code' => null, 'dms_user_id' => null, 'dms_device_id' => 103, 'datetime' => '2026-01-01 07:55:00', 'is_out' => false],
+            ['user_id' => 7, 'user_code' => null, 'dms_user_id' => null, 'dms_device_id' => 103, 'datetime' => '2026-01-01 18:05:00', 'is_out' => true],
+            ['user_id' => null, 'user_code' => 'E001', 'dms_user_id' => null, 'dms_device_id' => 101, 'datetime' => '2026-01-02 09:00:00', 'is_out' => false],
         ]);
     }
 
@@ -83,7 +98,7 @@ class CustomReportMachineInOutExportTest extends TestCase
     public function test_machine_sequences_render_daily_pairs_in_vertical_and_horizontal_orientations(): void
     {
         $employee = new User;
-        $employee->setRawAttributes(['id' => 7, 'code' => 'E001'], true);
+        $employee->setRawAttributes(['id' => 7, 'code' => 'E001', 'dms_user_id' => 77], true);
         $fields = [
             ['field_name' => 'emp_code'],
             [
@@ -170,5 +185,42 @@ class CustomReportMachineInOutExportTest extends TestCase
 
         $this->assertFalse($validator->passes());
         $this->assertArrayHasKey('custom_report_fields.0.machine_in_out', $validator->errors()->messages());
+    }
+
+    public function test_machine_punches_are_grouped_by_attendance_date_for_overnight_shifts(): void
+    {
+        DB::table('attendances2026')->insert([
+            ['user_id' => 7, 'date' => '2026-01-10', 'in_time' => '2026-01-10 20:00:00', 'out_time' => '2026-01-11 06:00:00'],
+            ['user_id' => 7, 'date' => '2026-01-11', 'in_time' => '2026-01-11 09:00:00', 'out_time' => '2026-01-11 18:00:00'],
+        ]);
+        DB::table('attendance_logs')->insert([
+            ['user_id' => 7, 'user_code' => null, 'dms_user_id' => null, 'dms_device_id' => 101, 'datetime' => '2026-01-10 20:00:00', 'is_out' => false],
+            ['user_id' => 7, 'user_code' => null, 'dms_user_id' => null, 'dms_device_id' => 102, 'datetime' => '2026-01-11 06:00:00', 'is_out' => true],
+            ['user_id' => 7, 'user_code' => null, 'dms_user_id' => null, 'dms_device_id' => 101, 'datetime' => '2026-01-11 09:00:00', 'is_out' => false],
+            ['user_id' => 7, 'user_code' => null, 'dms_user_id' => null, 'dms_device_id' => 102, 'datetime' => '2026-01-11 18:00:00', 'is_out' => true],
+        ]);
+
+        $employee = new User;
+        $employee->setRawAttributes(['id' => 7, 'code' => 'E001'], true);
+        $report = (new CustomReportTableBuilder)->buildForEmployees(
+            [
+                ['field_name' => 'machine_in_out', 'machine_in_out' => [
+                    ['machine_id' => 11, 'sequence' => 1, 'sub_sequence' => 1],
+                    ['machine_id' => 12, 'sequence' => 1, 'sub_sequence' => 2],
+                ]],
+            ],
+            '2026-01-11',
+            '2026-01-11',
+            'vertical',
+            [$employee],
+        );
+
+        $this->assertSame([
+            ['Employee'],
+            ['E001'],
+            [],
+            ['Date', 'Device Seq 1 (Gate IN, Gate OUT)'],
+            ['2026-01-11', '09:00 AM - 06:00 PM (09:00)'],
+        ], $report['rows']);
     }
 }
