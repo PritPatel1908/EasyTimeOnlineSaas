@@ -147,17 +147,16 @@ final class CustomReportTableBuilder
                 $masterValues = [];
                 foreach ($masterIndexes as $index) {
                     $field = $fields[$index];
-                    $masterDate = ($field['field_name'] ?? '') === 'approvers'
-                        ? new DateTimeImmutable($toDate)
-                        : new DateTimeImmutable($fromDate);
-                    $masterValues[] = $this->employeeValue(
+                    $masterValues[] = $this->masterSectionValue(
                         $employee,
                         $field['field_name'] ?? '',
                         $snapshots,
                         $liveMasterValues,
                         $attendanceValues,
                         $this->fieldFormat($field),
-                        $masterDate,
+                        $fromDate,
+                        $toDate,
+                        $dateFormat,
                     );
                 }
                 if ($masterHeaders === []) {
@@ -280,17 +279,16 @@ final class CustomReportTableBuilder
                 $masterValues = [];
                 foreach ($masterIndexes as $index) {
                     $field = $fields[$index];
-                    $masterDate = ($field['field_name'] ?? '') === 'approvers'
-                        ? new DateTimeImmutable($toDate)
-                        : $startDate;
-                    $masterValues[$index] = $this->employeeValue(
+                    $masterValues[$index] = $this->masterSectionValue(
                         $employee,
                         $field['field_name'] ?? '',
                         $snapshots,
                         $liveMasterValues,
                         $attendanceValues,
                         $this->fieldFormat($field),
-                        $masterDate,
+                        $fromDate,
+                        $toDate,
+                        $dateFormat,
                     );
                 }
                 $masterHeaders = array_map(static fn (int $index): string => $labels[$index], $masterIndexes);
@@ -1142,6 +1140,76 @@ final class CustomReportTableBuilder
      * @param  array<string, array<int, string>>  $liveMasterValues
      * @param  array<int, array<string, array<string, string>>>  $attendanceValues
      */
+    private function masterSectionValue(
+        User $employee,
+        string $field,
+        array $snapshots,
+        array $liveMasterValues,
+        array $attendanceValues,
+        mixed $format,
+        string $fromDate,
+        string $toDate,
+        string $dateFormat,
+    ): string {
+        if (! isset(self::SNAPSHOT_FIELDS[$field])) {
+            $date = $field === 'approvers'
+                ? new DateTimeImmutable($toDate)
+                : new DateTimeImmutable($fromDate);
+
+            return $this->employeeValue(
+                $employee,
+                $field,
+                $snapshots,
+                $liveMasterValues,
+                $attendanceValues,
+                $format,
+                $date,
+            );
+        }
+
+        $periods = [];
+        $start = new DateTimeImmutable($fromDate);
+        $end = (new DateTimeImmutable($toDate))->modify('+1 day');
+        foreach (new DatePeriod($start, new DateInterval('P1D'), $end) as $date) {
+            $value = $this->snapshotValue($employee, $field, $snapshots, $liveMasterValues, $date);
+            $lastIndex = count($periods) - 1;
+            if ($lastIndex >= 0 && $periods[$lastIndex]['value'] === $value) {
+                $periods[$lastIndex]['to'] = $date;
+
+                continue;
+            }
+
+            $periods[] = ['value' => $value, 'from' => $date, 'to' => $date];
+        }
+
+        $distinctValues = array_values(array_unique(array_filter(
+            array_column($periods, 'value'),
+            static fn (string $value): bool => $value !== '',
+        )));
+        if (count($distinctValues) <= 1) {
+            return $distinctValues[0] ?? '';
+        }
+
+        $descriptions = [];
+        foreach ($periods as $period) {
+            if ($period['value'] === '') {
+                continue;
+            }
+
+            $from = $period['from']->format($dateFormat);
+            $to = $period['to']->format($dateFormat);
+            $range = $from === $to ? $from : $from.' to '.$to;
+            $descriptions[] = $period['value'].' ('.$range.')';
+        }
+
+        return implode(', ', $descriptions);
+    }
+
+    /**
+     * @param  array{assignments: Collection<int, MasterSnapshot>, values: Collection<int, MasterSnapshot>, approvers: Collection<int, MasterSnapshot>}  $snapshots
+     * @param  array<string, array<int, string>>  $liveMasterValues
+     * @param  array<int, array<string, array<string, string>>>  $attendanceValues
+     */
     private function employeeValue(
         User $employee,
         string $field,
@@ -1355,7 +1423,9 @@ final class CustomReportTableBuilder
                 $effectiveAssignments = $assignmentHistory
                     ->filter(fn (MasterSnapshot $snapshot): bool => $this->coversDate($snapshot, $date))
                     ->unique('master_id');
-                $assignedIds = $effectiveAssignments->pluck('master_id')->map(static fn ($id): int => (int) $id)->all();
+                if ($effectiveAssignments->isNotEmpty()) {
+                    $assignedIds = $effectiveAssignments->pluck('master_id')->map(static fn ($id): int => (int) $id)->all();
+                }
             }
         }
 

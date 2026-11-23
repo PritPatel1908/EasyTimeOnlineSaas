@@ -117,13 +117,83 @@ class CustomReportSnapshotExportTest extends TestCase
         $this->assertSame([], $table['headers']);
         $this->assertSame([
             ['Emp Code', 'Location Name'],
-            ['E001', 'Old Location'],
+            ['E001', 'Old Location (14/01/2026), New Location (15/01/2026 to 16/01/2026)'],
             [],
             ['Date'],
             ['14/01/2026'],
             ['15/01/2026'],
             ['16/01/2026'],
         ], $table['rows']);
+    }
+
+    public function test_master_section_uses_fallback_before_snapshot_and_shows_value_date_ranges_when_changed(): void
+    {
+        DB::table('locations')->insert([
+            'id' => 50,
+            'name' => 'Fallback Location',
+            'code' => 'FALLBACK',
+        ]);
+        $this->snapshot(50, ['name' => 'Snapshot Location', 'code' => 'SNAP'], '2026-12-16', null, null, true);
+        $this->snapshot(50, ['name' => 'Snapshot Location', 'code' => 'SNAP'], '2026-12-16', null, 7, false);
+
+        $employee = new User;
+        $employee->setRawAttributes([
+            'id' => 7,
+            'code' => 'E007',
+            'location_id' => '[50]',
+        ], true);
+
+        $table = (new CustomReportTableBuilder)->buildForEmployees(
+            [
+                ['field_name' => 'emp_code'],
+                ['field_name' => 'date'],
+                ['field_name' => 'location_name'],
+            ],
+            '2026-12-01',
+            '2026-12-31',
+            'vertical',
+            [$employee],
+        );
+
+        $this->assertSame([
+            ['Emp Code', 'Location Name'],
+            ['E007', 'Fallback Location (2026-12-01 to 2026-12-15), Snapshot Location (2026-12-16 to 2026-12-31)'],
+        ], array_slice($table['rows'], 0, 2));
+    }
+
+    public function test_master_section_keeps_a_single_value_when_fallback_matches_snapshot(): void
+    {
+        DB::table('locations')->insert([
+            'id' => 51,
+            'name' => 'Same Location',
+            'code' => 'SAME',
+        ]);
+        $this->snapshot(51, ['name' => 'Same Location', 'code' => 'SAME'], '2026-12-16', null, null, true);
+        $this->snapshot(51, ['name' => 'Same Location', 'code' => 'SAME'], '2026-12-16', null, 8, false);
+
+        $employee = new User;
+        $employee->setRawAttributes([
+            'id' => 8,
+            'code' => 'E008',
+            'location_id' => '[51]',
+        ], true);
+
+        $table = (new CustomReportTableBuilder)->buildForEmployees(
+            [
+                ['field_name' => 'emp_code'],
+                ['field_name' => 'date'],
+                ['field_name' => 'location_name'],
+            ],
+            '2026-12-01',
+            '2026-12-31',
+            'vertical',
+            [$employee],
+        );
+
+        $this->assertSame([
+            ['Emp Code', 'Location Name'],
+            ['E008', 'Same Location'],
+        ], array_slice($table['rows'], 0, 2));
     }
 
     public function test_report_without_date_uses_current_assignment_and_snapshot_value_once_per_employee(): void

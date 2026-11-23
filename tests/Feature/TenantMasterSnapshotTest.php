@@ -8,6 +8,7 @@ use App\Models\Tenant\Location;
 use App\Models\Tenant\MasterSnapshot;
 use App\Models\Tenant\User;
 use App\Services\Tenant\MasterSnapshotService;
+use Database\Seeders\Tenant\MasterSnapshotRecoverySeeder;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -46,6 +47,7 @@ class TenantMasterSnapshotTest extends TestCase
             $table->json('location_id')->nullable();
             $table->date('join_date')->nullable();
             $table->timestamps();
+            $table->softDeletes();
         });
 
         Schema::create('master_snapshots', function (Blueprint $table): void {
@@ -207,5 +209,37 @@ class TenantMasterSnapshotTest extends TestCase
         $employeeSnapshots = $snapshots->where('for_all', false)->keyBy('user_id');
         $this->assertSame('2018-03-14', $employeeSnapshots[7]->from_date->toDateString());
         $this->assertSame('2020-07-22', $employeeSnapshots[8]->from_date->toDateString());
+    }
+
+    public function test_recovery_seeder_recreates_missing_table_and_is_idempotent(): void
+    {
+        DB::table('locations')->insert([
+            'id' => 12,
+            'name' => 'Current Location',
+            'code' => 'CUR',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('users')->insert([
+            'id' => 21,
+            'user_type' => 'employee',
+            'location_id' => '[12]',
+            'join_date' => '2021-08-03',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        Schema::dropIfExists('master_snapshots');
+        $seeder = new MasterSnapshotRecoverySeeder;
+        $seeder->run();
+        $seeder->run();
+
+        $snapshots = MasterSnapshot::query()->orderByDesc('for_all')->get();
+        $this->assertTrue(Schema::hasTable('master_snapshots'));
+        $this->assertCount(2, $snapshots);
+        $this->assertSame(today()->toDateString(), $snapshots[0]->from_date->toDateString());
+        $this->assertSame(['name' => 'Current Location', 'code' => 'CUR'], $snapshots[0]->value);
+        $this->assertSame(21, $snapshots[1]->user_id);
+        $this->assertSame(today()->toDateString(), $snapshots[1]->from_date->toDateString());
     }
 }
