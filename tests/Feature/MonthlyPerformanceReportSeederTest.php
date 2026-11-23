@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Models\Tenant\CustomReport;
 use App\Support\CustomReportDateRange;
 use Database\Seeders\Tenant\AttendanceSpecificStatusReportSeeder;
+use Database\Seeders\Tenant\EarlyGoingReportSeeder;
 use Database\Seeders\Tenant\MachineInOutStatusReportSeeder;
 use Database\Seeders\Tenant\MonthlyPerformanceReportSeeder;
 use Illuminate\Database\Schema\Blueprint;
@@ -180,6 +181,44 @@ class MonthlyPerformanceReportSeederTest extends TestCase
             'machine_in_out',
         ], array_column($fields, 'field_name'));
         $this->assertSame([], $machineInOutField['machine_in_out']);
+        $this->assertSame([], $detail->custom_report_filter);
+        $this->assertSame(1, DB::table('custom_reports')->count());
+        $this->assertSame(1, DB::table('custom_report_details')->count());
+    }
+
+    public function test_it_seeds_the_early_going_report_once_with_early_minutes_summary(): void
+    {
+        app(EarlyGoingReportSeeder::class)->run();
+        app(EarlyGoingReportSeeder::class)->run();
+
+        $report = CustomReport::query()
+            ->with('custom_report_details')
+            ->where('report_name', 'Early Going Report')
+            ->firstOrFail();
+        $dateRange = app(CustomReportDateRange::class)->resolve('this_month');
+        $detail = $report->custom_report_details->first();
+        $this->assertNotNull($detail);
+        $fields = $detail->custom_report_fields;
+        $earlyMinutesField = $fields[array_search('early_minutes', array_column($fields, 'field_name'), true)];
+
+        $this->assertSame($dateRange['from']->toDateString(), $report->from_date->toDateString());
+        $this->assertSame($dateRange['to']->toDateString(), $report->to_date->toDateString());
+        $this->assertSame('this_month', $report->date_range_preset);
+        $this->assertSame('horizontal', $report->report_orientation);
+        $this->assertSame('horizontal', $report->summary_orientation);
+        $this->assertSame([
+            'emp_code',
+            'emp_card',
+            'name',
+            'company_name',
+            'department_name',
+            'designation_name',
+            'category_name',
+            'date',
+            'early_minutes',
+        ], array_column($fields, 'field_name'));
+        $this->assertSame('hh_mm', $earlyMinutesField['minute_format']);
+        $this->assertTrue($earlyMinutesField['use_in_summary']);
         $this->assertSame([], $detail->custom_report_filter);
         $this->assertSame(1, DB::table('custom_reports')->count());
         $this->assertSame(1, DB::table('custom_report_details')->count());

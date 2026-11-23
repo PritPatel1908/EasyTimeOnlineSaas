@@ -13,6 +13,7 @@ use App\Models\Tenant\Company;
 use App\Models\Tenant\DataPolicy;
 use App\Models\Tenant\Department;
 use App\Models\Tenant\Designation;
+use App\Models\Tenant\GeneralConfiguration;
 use App\Models\Tenant\LegacyLeaveGroup;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\Machine;
@@ -28,9 +29,12 @@ use DateInterval;
 use DatePeriod;
 use DateTimeImmutable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
 
 final class CustomReportTableBuilder
 {
+    private ?array $defaultReportFormats = null;
+
     private const SNAPSHOT_FIELDS = [
         'role' => ['model' => Role::class, 'column' => null, 'value' => 'name'],
         'data_policy' => ['model' => DataPolicy::class, 'column' => 'data_policy_id', 'value' => 'name'],
@@ -68,6 +72,7 @@ final class CustomReportTableBuilder
         iterable $employees,
         string $summaryOrientation = 'vertical',
     ): array {
+        $this->defaultReportFormats = null;
         $employees = collect($employees)->values();
         $fieldLabels = CustomReportFieldOptions::all();
         $fields = array_values(array_filter($fields, 'is_array'));
@@ -133,8 +138,8 @@ final class CustomReportTableBuilder
             }
 
             $dateFormat = $dateIndexes === []
-                ? 'Y-m-d'
-                : $this->dateFormat($fields[$dateIndexes[0]]['date_time_format'] ?? 'default');
+                ? $this->dateFormat($this->defaultReportFormat('date'))
+                : $this->dateFormat($this->fieldFormat($fields[$dateIndexes[0]]));
 
             foreach ($employees as $employee) {
                 $employeeId = (int) $employee->getKey();
@@ -266,8 +271,8 @@ final class CustomReportTableBuilder
             }
             $startDate = new DateTimeImmutable($fromDate);
             $dateFormat = $dateIndexes === []
-                ? 'Y-m-d'
-                : $this->dateFormat($fields[$dateIndexes[0]]['date_time_format'] ?? 'default');
+                ? $this->dateFormat($this->defaultReportFormat('date'))
+                : $this->dateFormat($this->fieldFormat($fields[$dateIndexes[0]]));
 
             foreach ($employees as $employeeIndex => $employee) {
                 $employeeId = (int) $employee->getKey();
@@ -393,9 +398,54 @@ final class CustomReportTableBuilder
      */
     private function fieldFormat(array $field): mixed
     {
-        return CustomReportFieldOptions::supportsMinuteFormat((string) ($field['field_name'] ?? ''))
-            ? $this->minuteFormat($field)
-            : ($field['date_time_format'] ?? 'default');
+        $fieldName = (string) ($field['field_name'] ?? '');
+        if (CustomReportFieldOptions::supportsMinuteFormat($fieldName)) {
+            return $this->minuteFormat($field);
+        }
+
+        $format = $field['date_time_format'] ?? 'default';
+        if ($format !== 'default') {
+            return $format;
+        }
+
+        if (in_array($fieldName, CustomReportFieldOptions::dateOnlyFields(), true)) {
+            return $this->defaultReportFormat('date');
+        }
+        if (in_array($fieldName, CustomReportFieldOptions::timeOnlyFields(), true)) {
+            return $this->defaultReportFormat('time');
+        }
+
+        return $this->defaultReportFormat('datetime');
+    }
+
+    private function defaultReportFormat(string $format): string
+    {
+        if ($this->defaultReportFormats === null) {
+            $this->defaultReportFormats = [
+                'date' => 'default',
+                'time' => 'default',
+                'datetime' => 'default',
+            ];
+            if (Schema::hasTable('general_configurations')) {
+                $settingKeys = [
+                    'date_format' => 'date',
+                    'time_format' => 'time',
+                    'datetime_format' => 'datetime',
+                ];
+                $settings = GeneralConfiguration::query()
+                    ->whereIn('key', array_keys($settingKeys))
+                    ->pluck('value', 'key');
+
+                foreach ($settingKeys as $key => $type) {
+                    $value = $settings->get($key);
+                    if (is_string($value) && trim($value) !== '') {
+                        $this->defaultReportFormats[$type] = $value;
+                    }
+                }
+            }
+        }
+
+        return $this->defaultReportFormats[$format] ?? 'default';
     }
 
     /**
@@ -1196,7 +1246,11 @@ final class CustomReportTableBuilder
                         }
 
                         $values[$employeeId][$date]['machine_in_out'][$fieldIndex][$sequence]
-                            = $this->formatMachineInOutPair($inTime, $outTime);
+                            = $this->formatMachineInOutPair(
+                                $inTime,
+                                $outTime,
+                                $this->defaultReportFormat('time'),
+                            );
                     }
                 }
             }
@@ -1205,10 +1259,15 @@ final class CustomReportTableBuilder
         return $values;
     }
 
-    private function formatMachineInOutPair(?\DateTimeInterface $inTime, ?\DateTimeInterface $outTime): string
+    private function formatMachineInOutPair(
+        ?\DateTimeInterface $inTime,
+        ?\DateTimeInterface $outTime,
+        string $timeFormat,
+    ): string
     {
-        $in = $inTime?->format('h:i A') ?? '';
-        $out = $outTime?->format('h:i A') ?? '';
+        $format = $timeFormat === 'default' ? 'h:i A' : $timeFormat;
+        $in = $inTime?->format($format) ?? '';
+        $out = $outTime?->format($format) ?? '';
         if ($in === '' && $out === '') {
             return '';
         }
@@ -1585,7 +1644,7 @@ final class CustomReportTableBuilder
 
     private function dateFormat(mixed $format): string
     {
-        return in_array($format, ['d-m-Y', 'm-d-Y', 'Y-m-d', 'd/m/Y', 'm/d/Y', 'H:i', 'h:i A', 'd-m-Y H:i', 'Y-m-d H:i'], true)
+        return is_string($format) && $format !== '' && $format !== 'default'
             ? $format
             : 'Y-m-d';
     }

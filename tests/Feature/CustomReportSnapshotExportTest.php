@@ -77,6 +77,12 @@ class CustomReportSnapshotExportTest extends TestCase
             $table->string('code')->nullable();
             $table->softDeletes();
         });
+        Schema::create('general_configurations', function (Blueprint $table): void {
+            $table->id();
+            $table->string('key')->unique();
+            $table->string('value')->nullable();
+            $table->softDeletes();
+        });
     }
 
     protected function tearDown(): void
@@ -123,6 +129,51 @@ class CustomReportSnapshotExportTest extends TestCase
             ['14/01/2026'],
             ['15/01/2026'],
             ['16/01/2026'],
+        ], $table['rows']);
+    }
+
+    public function test_default_report_date_time_and_datetime_formats_use_general_configuration(): void
+    {
+        DB::table('general_configurations')->insert([
+            ['key' => 'date_format', 'value' => 'd/m'],
+            ['key' => 'time_format', 'value' => 'h:i A'],
+            ['key' => 'datetime_format', 'value' => 'd-m-Y h:i A'],
+        ]);
+        DB::table('attendances2026')->insert([
+            [
+                'user_id' => 7,
+                'date' => '2026-02-03',
+                'in_time' => '2026-02-03 08:15:00',
+                'out_time' => '2026-02-03 18:30:00',
+            ],
+        ]);
+
+        $employee = new User;
+        $employee->setRawAttributes([
+            'id' => 7,
+            'code' => 'E007',
+            'last_login_at' => '2026-02-03 09:14:00',
+        ], true);
+        $table = (new CustomReportTableBuilder)->buildForEmployees(
+            [
+                ['field_name' => 'emp_code'],
+                ['field_name' => 'date', 'date_time_format' => 'default'],
+                ['field_name' => 'attendance_in_time', 'date_time_format' => 'default'],
+                ['field_name' => 'attendance_out_time', 'date_time_format' => 'default'],
+                ['field_name' => 'last_login', 'date_time_format' => 'default'],
+            ],
+            '2026-02-03',
+            '2026-02-03',
+            'vertical',
+            [$employee],
+        );
+
+        $this->assertSame([
+            ['Emp Code', 'Last Login'],
+            ['E007', '03-02-2026 09:14 AM'],
+            [],
+            ['Date', 'Attendance In Time', 'Attendance Out Time'],
+            ['03/02', '08:15 AM', '06:30 PM'],
         ], $table['rows']);
     }
 

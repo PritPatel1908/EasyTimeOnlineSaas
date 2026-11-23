@@ -65,6 +65,12 @@ class CustomReportMachineInOutExportTest extends TestCase
             $table->id();
             $table->string('code');
         });
+        Schema::create('general_configurations', function (Blueprint $table): void {
+            $table->id();
+            $table->string('key')->unique();
+            $table->string('value')->nullable();
+            $table->softDeletes();
+        });
 
         DB::table('machines')->insert([
             ['id' => 11, 'name' => 'Gate IN', 'dms_device_id' => 101, 'access_direction' => 'in'],
@@ -145,6 +151,38 @@ class CustomReportMachineInOutExportTest extends TestCase
             [$sequenceOne, '08:05 AM - 01:30 PM (05:25)', '09:00 AM - '],
             [$sequenceTwo, '07:55 AM - 06:05 PM (10:10)', ''],
         ], $horizontal['rows']);
+    }
+
+    public function test_machine_in_out_times_use_the_general_time_format(): void
+    {
+        DB::table('general_configurations')->insert([
+            'key' => 'time_format',
+            'value' => 'H:i',
+        ]);
+        $employee = new User;
+        $employee->setRawAttributes(['id' => 7, 'code' => 'E001'], true);
+
+        $report = (new CustomReportTableBuilder)->buildForEmployees(
+            [[
+                'field_name' => 'machine_in_out',
+                'machine_in_out' => [
+                    ['machine_id' => 11, 'sequence' => 1, 'sub_sequence' => 1],
+                    ['machine_id' => 12, 'sequence' => 1, 'sub_sequence' => 2],
+                ],
+            ]],
+            '2026-01-01',
+            '2026-01-01',
+            'vertical',
+            [$employee],
+        );
+
+        $this->assertSame([
+            ['Employee'],
+            ['E001'],
+            [],
+            ['Date', 'Device Seq 1 (Gate IN, Gate OUT)'],
+            ['2026-01-01', '08:05 - 13:30 (05:25)'],
+        ], $report['rows']);
     }
 
     public function test_machine_sequence_configuration_is_validated_and_retained(): void
