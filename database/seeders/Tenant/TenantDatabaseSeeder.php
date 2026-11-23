@@ -107,6 +107,7 @@ class TenantDatabaseSeeder extends Seeder
         $this->call(EmailTemplateDefaultsSeeder::class);
         $this->call(MonthlyPerformanceReportSeeder::class);
         $this->call(AttendanceSpecificStatusReportSeeder::class);
+        $this->call(MachineInOutStatusReportSeeder::class);
 
         activity()
             ->causedBy($user)

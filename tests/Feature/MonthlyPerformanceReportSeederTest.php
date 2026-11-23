@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Models\Tenant\CustomReport;
 use App\Support\CustomReportDateRange;
 use Database\Seeders\Tenant\AttendanceSpecificStatusReportSeeder;
+use Database\Seeders\Tenant\MachineInOutStatusReportSeeder;
 use Database\Seeders\Tenant\MonthlyPerformanceReportSeeder;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -146,6 +147,40 @@ class MonthlyPerformanceReportSeederTest extends TestCase
         $this->assertSame([16, 15, 14, 13, 12, 11, 10], $statusField['status_master_ids']);
         $this->assertTrue($statusField['use_in_summary']);
         $this->assertFalse($statusField['half_status_count_as_half']);
+        $this->assertSame(1, DB::table('custom_reports')->count());
+        $this->assertSame(1, DB::table('custom_report_details')->count());
+    }
+
+    public function test_it_seeds_machine_in_out_report_without_machine_sequence_configuration(): void
+    {
+        app(MachineInOutStatusReportSeeder::class)->run();
+        app(MachineInOutStatusReportSeeder::class)->run();
+
+        $report = CustomReport::query()
+            ->with('custom_report_details')
+            ->where('report_name', 'Machine In/Out Status Report')
+            ->firstOrFail();
+        $detail = $report->custom_report_details->first();
+        $this->assertNotNull($detail);
+        $fields = $detail->custom_report_fields;
+        $machineInOutField = $fields[array_search('machine_in_out', array_column($fields, 'field_name'), true)];
+
+        $this->assertSame('this_month', $report->date_range_preset);
+        $this->assertSame('horizontal', $report->report_orientation);
+        $this->assertSame('horizontal', $report->summary_orientation);
+        $this->assertSame([
+            'emp_code',
+            'emp_card',
+            'name',
+            'company_name',
+            'department_name',
+            'designation_name',
+            'category_name',
+            'date',
+            'machine_in_out',
+        ], array_column($fields, 'field_name'));
+        $this->assertSame([], $machineInOutField['machine_in_out']);
+        $this->assertSame([], $detail->custom_report_filter);
         $this->assertSame(1, DB::table('custom_reports')->count());
         $this->assertSame(1, DB::table('custom_report_details')->count());
     }
