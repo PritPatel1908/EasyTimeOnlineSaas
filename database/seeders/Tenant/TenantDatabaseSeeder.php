@@ -106,6 +106,7 @@ class TenantDatabaseSeeder extends Seeder
         $this->call(StatusMasterSeeder::class);
         $this->call(EmailTemplateDefaultsSeeder::class);
         $this->call(MonthlyPerformanceReportSeeder::class);
+        $this->call(MonthlyMusterReportSeeder::class);
         $this->call(MonthlyFixedWorkHoursReportSeeder::class);
         $this->call(MonthlyLateComingReportSeeder::class);
         $this->call(MonthlyManualPunchReportSeeder::class);

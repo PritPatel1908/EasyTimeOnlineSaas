@@ -79,6 +79,14 @@ class CustomReportFieldOptionsTest extends TestCase
         $this->assertFalse(CustomReportFieldOptions::supportsSummary('manual_punch'));
     }
 
+    public function test_selected_period_days_supports_summary_but_not_date_time_formatting(): void
+    {
+        $this->assertSame('Selected Period Days', CustomReportFieldOptions::all()['month_total_days']);
+        $this->assertFalse(CustomReportFieldOptions::supportsDateTimeFormat('month_total_days'));
+        $this->assertTrue(CustomReportFieldOptions::supportsSummary('month_total_days'));
+        $this->assertContains('month_total_days', CustomReportFieldOptions::dateDetailFields());
+    }
+
     public function test_manual_punch_has_dynamic_subfields(): void
     {
         $this->assertSame([

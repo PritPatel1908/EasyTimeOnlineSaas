@@ -12,6 +12,7 @@ use Database\Seeders\Tenant\MachineInOutStatusReportSeeder;
 use Database\Seeders\Tenant\MonthlyFixedWorkHoursReportSeeder;
 use Database\Seeders\Tenant\MonthlyLateComingReportSeeder;
 use Database\Seeders\Tenant\MonthlyManualPunchReportSeeder;
+use Database\Seeders\Tenant\MonthlyMusterReportSeeder;
 use Database\Seeders\Tenant\MonthlyPerformanceReportSeeder;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -213,6 +214,47 @@ class MonthlyPerformanceReportSeederTest extends TestCase
             'category_name',
             'manual_punch',
         ], array_column($detail->custom_report_fields, 'field_name'));
+        $this->assertSame([], $detail->custom_report_filter);
+        $this->assertSame(1, DB::table('custom_reports')->count());
+        $this->assertSame(1, DB::table('custom_report_details')->count());
+    }
+
+    public function test_it_seeds_the_monthly_muster_report_with_horizontal_status_and_days_summary(): void
+    {
+        app(MonthlyMusterReportSeeder::class)->run();
+        app(MonthlyMusterReportSeeder::class)->run();
+
+        $report = CustomReport::query()
+            ->with('custom_report_details')
+            ->where('report_name', 'Monthly Muster Report')
+            ->firstOrFail();
+        $dateRange = app(CustomReportDateRange::class)->resolve('last_month');
+        $detail = $report->custom_report_details->first();
+        $this->assertNotNull($detail);
+        $fields = $detail->custom_report_fields;
+        $attendanceStatusField = $fields[array_search('attendance_status', array_column($fields, 'field_name'), true)];
+        $selectedPeriodDaysField = $fields[array_search('month_total_days', array_column($fields, 'field_name'), true)];
+
+        $this->assertSame('last_month', $report->date_range_preset);
+        $this->assertSame($dateRange['from']->toDateString(), $report->from_date->toDateString());
+        $this->assertSame($dateRange['to']->toDateString(), $report->to_date->toDateString());
+        $this->assertSame('horizontal', $report->report_orientation);
+        $this->assertSame('horizontal', $report->summary_orientation);
+        $this->assertSame([
+            'emp_code',
+            'emp_card',
+            'name',
+            'company_name',
+            'department_name',
+            'designation_name',
+            'category_name',
+            'date',
+            'attendance_status',
+            'month_total_days',
+        ], array_column($fields, 'field_name'));
+        $this->assertTrue($attendanceStatusField['use_in_summary']);
+        $this->assertTrue($selectedPeriodDaysField['use_in_summary']);
+        $this->assertTrue($selectedPeriodDaysField['use_only_in_summary']);
         $this->assertSame([], $detail->custom_report_filter);
         $this->assertSame(1, DB::table('custom_reports')->count());
         $this->assertSame(1, DB::table('custom_report_details')->count());

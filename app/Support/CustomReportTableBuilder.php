@@ -17,9 +17,9 @@ use App\Models\Tenant\GeneralConfiguration;
 use App\Models\Tenant\LegacyLeaveGroup;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\Machine;
-use App\Models\Tenant\MasterSnapshot;
 use App\Models\Tenant\ManualPunch;
 use App\Models\Tenant\ManualPunchApplication;
+use App\Models\Tenant\MasterSnapshot;
 use App\Models\Tenant\Role;
 use App\Models\Tenant\Shift;
 use App\Models\Tenant\StatusMaster;
@@ -76,6 +76,9 @@ final class CustomReportTableBuilder
         string $summaryOrientation = 'vertical',
     ): array {
         $this->defaultReportFormats = null;
+        $selectedPeriodDays = (int) (new DateTimeImmutable($fromDate))
+            ->diff(new DateTimeImmutable($toDate))
+            ->format('%a') + 1;
         $employees = collect($employees)->values();
         $fieldLabels = CustomReportFieldOptions::all();
         $fields = array_values(array_filter($fields, 'is_array'));
@@ -162,6 +165,9 @@ final class CustomReportTableBuilder
             $masterIndexes = [];
             $detailIndexes = [];
             foreach ($fields as $index => $field) {
+                if ($this->isSummaryOnlyField($field)) {
+                    continue;
+                }
                 $fieldName = $field['field_name'] ?? '';
                 if ($fieldName === 'date') {
                     continue;
@@ -198,6 +204,7 @@ final class CustomReportTableBuilder
                         $fromDate,
                         $toDate,
                         $dateFormat,
+                        $selectedPeriodDays,
                     );
                 }
                 if ($masterHeaders === []) {
@@ -240,7 +247,7 @@ final class CustomReportTableBuilder
                     }
 
                     $detailRow = [$labels[$index]];
-                    foreach ($employeeDates as $date) {
+                    foreach ($employeeDates as $dateIndex => $date) {
                         $detailRow[] = $this->employeeValue(
                             $employee,
                             $fieldName,
@@ -249,6 +256,8 @@ final class CustomReportTableBuilder
                             $attendanceValues,
                             $this->fieldFormat($field),
                             $date,
+                            $selectedPeriodDays,
+                            $dateIndex + 1,
                         );
                     }
                     $rows[] = $detailRow;
@@ -259,6 +268,7 @@ final class CustomReportTableBuilder
                     $fields,
                     [$employeeId => $attendanceValues[$employeeId] ?? []],
                     $summaryOrientation,
+                    $selectedPeriodDays,
                 );
             }
 
@@ -269,6 +279,9 @@ final class CustomReportTableBuilder
             $masterIndexes = [];
             $detailIndexes = [];
             foreach ($fields as $index => $field) {
+                if ($this->isSummaryOnlyField($field)) {
+                    continue;
+                }
                 if (($field['field_name'] ?? '') === 'date') {
                     $detailIndexes[] = $index;
                 } elseif (in_array($field['field_name'] ?? '', CustomReportFieldOptions::dateDetailFields(), true)) {
@@ -330,6 +343,7 @@ final class CustomReportTableBuilder
                         $fromDate,
                         $toDate,
                         $dateFormat,
+                        $selectedPeriodDays,
                     );
                 }
                 $masterHeaders = array_map(static fn (int $index): string => $labels[$index], $masterIndexes);
@@ -342,7 +356,7 @@ final class CustomReportTableBuilder
                 $rows[] = [];
                 $rows[] = $detailHeaders;
 
-                foreach ($employeeDates as $date) {
+                foreach ($employeeDates as $dateIndex => $date) {
                     $row = [$date->format($dateFormat)];
                     foreach ($detailIndexes as $index) {
                         $field = $fields[$index];
@@ -372,6 +386,8 @@ final class CustomReportTableBuilder
                             $attendanceValues,
                             $this->fieldFormat($field),
                             $date,
+                            $selectedPeriodDays,
+                            $dateIndex + 1,
                         );
                     }
                     $rows[] = $row;
@@ -382,18 +398,28 @@ final class CustomReportTableBuilder
                     $fields,
                     [$employeeId => $attendanceValues[$employeeId] ?? []],
                     $summaryOrientation,
+                    $selectedPeriodDays,
                 );
             }
 
             return ['headers' => $headers, 'rows' => $rows];
         }
 
-        $headers = $labels;
+        $visibleFields = array_values(array_filter(
+            $fields,
+            fn (array $field): bool => ! $this->isSummaryOnlyField($field),
+        ));
+        $headers = array_map(
+            static fn (array $field): string => $field['_label']
+                ?? $fieldLabels[$field['field_name'] ?? '']
+                ?? (string) ($field['field_name'] ?? ''),
+            $visibleFields,
+        );
         $statusCodes = $summaryOrientation === 'horizontal'
-            ? $this->summaryStatusCodes($fields, $attendanceValues)
+            ? $this->summaryStatusCodes($fields, $attendanceValues, $selectedPeriodDays)
             : [];
         if ($summaryOrientation === 'horizontal') {
-            $headers = array_merge($headers, $this->horizontalSummaryHeaders($fields, $statusCodes));
+            $headers = array_merge($headers, $this->horizontalSummaryHeaders($fields, $statusCodes, $selectedPeriodDays));
         }
         foreach ($employees as $employee) {
             $employeeId = (int) $employee->getKey();
@@ -406,13 +432,14 @@ final class CustomReportTableBuilder
                     $attendanceValues,
                     $this->fieldFormat($field),
                     null,
+                    $selectedPeriodDays,
                 ),
-                $fields,
+                $visibleFields,
             );
             if ($summaryOrientation === 'horizontal') {
                 $row = array_merge(
                     $row,
-                    $this->horizontalSummaryValues($fields, $attendanceValues[$employeeId] ?? [], $statusCodes),
+                    $this->horizontalSummaryValues($fields, $attendanceValues[$employeeId] ?? [], $statusCodes, $selectedPeriodDays),
                 );
                 $rows[] = $row;
             } else {
@@ -422,11 +449,21 @@ final class CustomReportTableBuilder
                     $fields,
                     [$employeeId => $attendanceValues[$employeeId] ?? []],
                     $summaryOrientation,
+                    $selectedPeriodDays,
                 );
             }
         }
 
         return ['headers' => $headers, 'rows' => $rows];
+    }
+
+    /**
+     * @param  array<string, mixed>  $field
+     */
+    private function isSummaryOnlyField(array $field): bool
+    {
+        return ($field['field_name'] ?? '') === 'month_total_days'
+            && filter_var($field['use_only_in_summary'] ?? false, FILTER_VALIDATE_BOOLEAN);
     }
 
     /**
@@ -501,17 +538,21 @@ final class CustomReportTableBuilder
     /**
      * @param  array<int, array<string, mixed>>  $fields
      * @param  array<int, array<string, array<string, string>>>  $attendanceValues
-     * @return array{minute_totals: array<string, string>, status_counts: array<string, int|float>}
+     * @return array{minute_totals: array<string, string>, period_days: array<string, string>, status_counts: array<string, int|float>}
      */
-    private function summaryData(array $fields, array $attendanceValues): array
+    private function summaryData(array $fields, array $attendanceValues, int $selectedPeriodDays): array
     {
         $summaryFields = array_values(array_filter(
             $fields,
-            static fn (array $field): bool => filter_var($field['use_in_summary'] ?? false, FILTER_VALIDATE_BOOLEAN)
+            static fn (array $field): bool => (
+                filter_var($field['use_in_summary'] ?? false, FILTER_VALIDATE_BOOLEAN)
+                    || filter_var($field['use_only_in_summary'] ?? false, FILTER_VALIDATE_BOOLEAN)
+            )
                 && (CustomReportFieldOptions::supportsMinuteFormat((string) ($field['field_name'] ?? ''))
-                    || in_array($field['field_name'] ?? '', ['attendance_status', 'attendance_specific_status'], true)),
+                    || in_array($field['field_name'] ?? '', ['attendance_status', 'attendance_specific_status', 'month_total_days'], true)),
         ));
         $minuteTotals = [];
+        $periodDays = [];
         $statusSelected = array_intersect(
             ['attendance_status', 'attendance_specific_status'],
             array_column($summaryFields, 'field_name'),
@@ -519,6 +560,11 @@ final class CustomReportTableBuilder
 
         foreach ($summaryFields as $field) {
             $fieldName = (string) ($field['field_name'] ?? '');
+            if ($fieldName === 'month_total_days') {
+                $periodDays[$fieldName] = (string) $selectedPeriodDays;
+
+                continue;
+            }
             if (! CustomReportFieldOptions::supportsMinuteFormat($fieldName)) {
                 continue;
             }
@@ -573,6 +619,7 @@ final class CustomReportTableBuilder
 
         return [
             'minute_totals' => $minuteTotals,
+            'period_days' => $periodDays,
             'status_counts' => $statusCounts,
         ];
     }
@@ -582,9 +629,9 @@ final class CustomReportTableBuilder
      * @param  array<int, array<string, array<string, string>>>  $attendanceValues
      * @return array<int, string>
      */
-    private function summaryStatusCodes(array $fields, array $attendanceValues): array
+    private function summaryStatusCodes(array $fields, array $attendanceValues, int $selectedPeriodDays): array
     {
-        return array_keys($this->summaryData($fields, $attendanceValues)['status_counts']);
+        return array_keys($this->summaryData($fields, $attendanceValues, $selectedPeriodDays)['status_counts']);
     }
 
     /**
@@ -592,12 +639,13 @@ final class CustomReportTableBuilder
      * @param  array<int, string>  $statusCodes
      * @return array<int, string>
      */
-    private function horizontalSummaryHeaders(array $fields, array $statusCodes): array
+    private function horizontalSummaryHeaders(array $fields, array $statusCodes, int $selectedPeriodDays): array
     {
-        $summary = $this->summaryData($fields, []);
+        $summary = $this->summaryData($fields, [], $selectedPeriodDays);
+        $periodTotals = array_merge($summary['minute_totals'], $summary['period_days']);
         $headers = array_map(
             static fn (string $fieldName): string => 'Summary - '.CustomReportFieldOptions::all()[$fieldName],
-            array_keys($summary['minute_totals']),
+            array_keys($periodTotals),
         );
 
         foreach ($statusCodes as $statusCode) {
@@ -616,10 +664,14 @@ final class CustomReportTableBuilder
      * @param  array<int, string>  $statusCodes
      * @return array<int, string>
      */
-    private function horizontalSummaryValues(array $fields, array $employeeAttendanceValues, array $statusCodes): array
-    {
-        $summary = $this->summaryData($fields, [0 => $employeeAttendanceValues]);
-        $values = array_values($summary['minute_totals']);
+    private function horizontalSummaryValues(
+        array $fields,
+        array $employeeAttendanceValues,
+        array $statusCodes,
+        int $selectedPeriodDays,
+    ): array {
+        $summary = $this->summaryData($fields, [0 => $employeeAttendanceValues], $selectedPeriodDays);
+        $values = array_values(array_merge($summary['minute_totals'], $summary['period_days']));
         foreach ($statusCodes as $statusCode) {
             $count = $summary['status_counts'][$statusCode] ?? 0;
             $values[] = $count > 0 ? (string) $count : '';
@@ -636,22 +688,28 @@ final class CustomReportTableBuilder
      * @param  array<int, array<string, array<string, string>>>  $attendanceValues
      * @param  array<int, array<int, string>>  $rows
      */
-    private function appendSummaryRows(array &$rows, array $fields, array $attendanceValues, string $orientation): void
-    {
-        $summary = $this->summaryData($fields, $attendanceValues);
-        if ($summary['minute_totals'] === [] && $summary['status_counts'] === []) {
+    private function appendSummaryRows(
+        array &$rows,
+        array $fields,
+        array $attendanceValues,
+        string $orientation,
+        int $selectedPeriodDays,
+    ): void {
+        $summary = $this->summaryData($fields, $attendanceValues, $selectedPeriodDays);
+        $periodTotals = array_merge($summary['minute_totals'], $summary['period_days']);
+        if ($periodTotals === [] && $summary['status_counts'] === []) {
             return;
         }
 
         $rows[] = [];
         $rows[] = ['Summary'];
         if ($orientation === 'horizontal') {
-            if ($summary['minute_totals'] !== []) {
+            if ($periodTotals !== []) {
                 $rows[] = array_map(
                     static fn (string $fieldName): string => CustomReportFieldOptions::all()[$fieldName],
-                    array_keys($summary['minute_totals']),
+                    array_keys($periodTotals),
                 );
-                $rows[] = array_values($summary['minute_totals']);
+                $rows[] = array_values($periodTotals);
             }
             if ($summary['status_counts'] !== []) {
                 $rows[] = ['Attendance Status'];
@@ -666,7 +724,7 @@ final class CustomReportTableBuilder
             return;
         }
 
-        foreach ($summary['minute_totals'] as $fieldName => $total) {
+        foreach ($periodTotals as $fieldName => $total) {
             $rows[] = [CustomReportFieldOptions::all()[$fieldName], $total];
         }
         if ($summary['status_counts'] !== []) {
@@ -729,6 +787,7 @@ final class CustomReportTableBuilder
         foreach ($fields as $field) {
             if (($field['field_name'] ?? '') !== 'manual_punch') {
                 $expanded[] = $field;
+
                 continue;
             }
 
@@ -1312,8 +1371,7 @@ final class CustomReportTableBuilder
             ->orderBy('punch_time')
             ->orderBy('id')
             ->get()
-            ->filter(static fn (ManualPunchApplication $application): bool =>
-                $application->overallApprovalStatus() === 'approved'
+            ->filter(static fn (ManualPunchApplication $application): bool => $application->overallApprovalStatus() === 'approved'
             );
 
         foreach ($approvedApplications as $application) {
@@ -1326,8 +1384,7 @@ final class CustomReportTableBuilder
                 $directPunchesOnDate = collect($directByUser[$employeeId] ?? [])
                     ->where('punch_date', $date);
                 if ($directPunchesOnDate->contains(
-                    static fn (array $punch): bool =>
-                        $punch['punch_time'] === $application->punch_time->format('H:i')
+                    static fn (array $punch): bool => $punch['punch_time'] === $application->punch_time->format('H:i')
                         && $punch['punch_type'] === ManualPunch::punchTypeLabel($application->punch_type)
                         && $application->manual_punch_id !== null
                 )) {
@@ -1549,8 +1606,7 @@ final class CustomReportTableBuilder
         ?\DateTimeInterface $inTime,
         ?\DateTimeInterface $outTime,
         string $timeFormat,
-    ): string
-    {
+    ): string {
         $format = $timeFormat === 'default' ? 'h:i A' : $timeFormat;
         $in = $inTime?->format($format) ?? '';
         $out = $outTime?->format($format) ?? '';
@@ -1583,6 +1639,7 @@ final class CustomReportTableBuilder
         string $fromDate,
         string $toDate,
         string $dateFormat,
+        int $selectedPeriodDays,
     ): string {
         if (! isset(self::SNAPSHOT_FIELDS[$field])) {
             $date = $field === 'approvers'
@@ -1597,6 +1654,7 @@ final class CustomReportTableBuilder
                 $attendanceValues,
                 $format,
                 $date,
+                $selectedPeriodDays,
             );
         }
 
@@ -1651,7 +1709,13 @@ final class CustomReportTableBuilder
         array $attendanceValues,
         mixed $format,
         ?DateTimeImmutable $date,
+        int $selectedPeriodDays,
+        ?int $periodDayNumber = null,
     ): string {
+        if ($field === 'month_total_days') {
+            return (string) ($periodDayNumber ?? $selectedPeriodDays);
+        }
+
         if ($field === 'approvers') {
             $employeeId = $employee->getKey();
             if ($employeeId === null) {

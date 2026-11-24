@@ -102,6 +102,119 @@ class CustomReportSnapshotExportTest extends TestCase
         parent::tearDown();
     }
 
+    public function test_selected_period_days_counts_inclusive_range_and_can_be_added_to_summary(): void
+    {
+        $employee = new User;
+        $employee->setRawAttributes([
+            'id' => 7,
+            'code' => 'E007',
+        ], true);
+
+        $table = (new CustomReportTableBuilder)->buildForEmployees(
+            [
+                ['field_name' => 'emp_code'],
+                ['field_name' => 'date'],
+                ['field_name' => 'attendance_status'],
+                ['field_name' => 'month_total_days', 'use_in_summary' => true],
+            ],
+            '2026-02-26',
+            '2026-03-02',
+            'vertical',
+            [$employee],
+        );
+
+        $this->assertSame([
+            ['Emp Code'],
+            ['E007'],
+            [],
+            ['Date', 'Attendance Status', 'Selected Period Days'],
+            ['2026-02-26', '', '1'],
+            ['2026-02-27', '', '2'],
+            ['2026-02-28', '', '3'],
+            ['2026-03-01', '', '4'],
+            ['2026-03-02', '', '5'],
+            [],
+            ['Summary'],
+            ['Selected Period Days', '5'],
+        ], $table['rows']);
+
+        $summaryOnlyTable = (new CustomReportTableBuilder)->buildForEmployees(
+            [
+                ['field_name' => 'emp_code'],
+                ['field_name' => 'date'],
+                ['field_name' => 'attendance_status'],
+                [
+                    'field_name' => 'month_total_days',
+                    'use_in_summary' => true,
+                    'use_only_in_summary' => true,
+                ],
+            ],
+            '2026-02-26',
+            '2026-03-02',
+            'vertical',
+            [$employee],
+        );
+
+        $this->assertSame([
+            ['Emp Code'],
+            ['E007'],
+            [],
+            ['Date', 'Attendance Status'],
+            ['2026-02-26', ''],
+            ['2026-02-27', ''],
+            ['2026-02-28', ''],
+            ['2026-03-01', ''],
+            ['2026-03-02', ''],
+            [],
+            ['Summary'],
+            ['Selected Period Days', '5'],
+        ], $summaryOnlyTable['rows']);
+
+        $horizontalDetailTable = (new CustomReportTableBuilder)->buildForEmployees(
+            [
+                ['field_name' => 'emp_code'],
+                ['field_name' => 'date'],
+                ['field_name' => 'attendance_status'],
+                ['field_name' => 'month_total_days'],
+            ],
+            '2026-02-26',
+            '2026-03-02',
+            'horizontal',
+            [$employee],
+        );
+
+        $this->assertSame([
+            ['Emp Code'],
+            ['E007'],
+            [],
+            ['Date', '2026-02-26', '2026-02-27', '2026-02-28', '2026-03-01', '2026-03-02'],
+            ['Attendance Status', '', '', '', '', ''],
+            ['Selected Period Days', '1', '2', '3', '4', '5'],
+        ], $horizontalDetailTable['rows']);
+
+        $horizontalSummary = (new CustomReportTableBuilder)->buildForEmployees(
+            [
+                ['field_name' => 'emp_code'],
+                [
+                    'field_name' => 'month_total_days',
+                    'use_in_summary' => true,
+                    'use_only_in_summary' => true,
+                ],
+            ],
+            '2026-02-26',
+            '2026-03-02',
+            'vertical',
+            [$employee],
+            'horizontal',
+        );
+
+        $this->assertSame(
+            ['Emp Code', 'Summary - Selected Period Days'],
+            $horizontalSummary['headers'],
+        );
+        $this->assertSame(['E007', '5'], $horizontalSummary['rows'][0]);
+    }
+
     public function test_date_report_groups_employee_details_above_report_rows(): void
     {
         $employee = new User;

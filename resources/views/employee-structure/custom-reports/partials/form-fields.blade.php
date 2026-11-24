@@ -24,12 +24,13 @@
                 static fn (mixed $assignment): bool => is_array($assignment),
             )),
             'use_in_summary' => filter_var($field['use_in_summary'] ?? false, FILTER_VALIDATE_BOOLEAN),
+            'use_only_in_summary' => filter_var($field['use_only_in_summary'] ?? false, FILTER_VALIDATE_BOOLEAN),
             'show_fixed_hrs' => filter_var($field['show_fixed_hrs'] ?? false, FILTER_VALIDATE_BOOLEAN),
             'half_status_count_as_half' => filter_var($field['half_status_count_as_half'] ?? false, FILTER_VALIDATE_BOOLEAN),
         ];
     }, $reportFieldRows);
     if ($reportFieldRows === []) {
-        $reportFieldRows = [['field_name' => '', 'date_time_format' => 'default', 'minute_format' => 'default', 'use_in_summary' => false, 'half_status_count_as_half' => false]];
+        $reportFieldRows = [['field_name' => '', 'date_time_format' => 'default', 'minute_format' => 'default', 'use_in_summary' => false, 'use_only_in_summary' => false, 'half_status_count_as_half' => false]];
     }
     if (is_string($filterInput)) {
         $decodedFilter = json_decode($filterInput, true);
@@ -148,6 +149,12 @@
                         <label class="form-label d-block" data-summary-label>Use in Summary</label>
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" role="switch" data-use-in-summary aria-label="Use in Summary">
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3 mb-md-0 d-none" data-summary-only-container>
+                        <label class="form-label d-block" data-summary-only-label>Use Only in Summary</label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" data-use-only-in-summary aria-label="Use Only in Summary">
                         </div>
                     </div>
                     <div class="col-md-4 mb-3 mb-md-0 d-none" data-half-status-count-container>
@@ -499,7 +506,10 @@
                     })
                     : [],
                 use_in_summary: summaryFields.indexOf(fieldName) !== -1
-                    && row.querySelector('[data-use-in-summary]').checked,
+                    && (row.querySelector('[data-use-in-summary]').checked
+                        || row.querySelector('[data-use-only-in-summary]').checked),
+                use_only_in_summary: fieldName === 'month_total_days'
+                    && row.querySelector('[data-use-only-in-summary]').checked,
                 show_fixed_hrs: fieldName === 'working_hrs'
                     && row.querySelector('[data-show-fixed-hours]').checked,
                 half_status_count_as_half: supportsStatusSelection
@@ -521,6 +531,9 @@
         var formatColumn = row.querySelector('[data-format-column]');
         var statusColumn = row.querySelector('[data-status-column]');
         var minuteFormatColumn = row.querySelector('[data-minute-format-column]');
+        var summaryOnlyContainer = row.querySelector('[data-summary-only-container]');
+        var useInSummary = row.querySelector('[data-use-in-summary]');
+        var useOnlyInSummary = row.querySelector('[data-use-only-in-summary]');
         var halfStatusCountContainer = row.querySelector('[data-half-status-count-container]');
         var showFixedHoursContainer = row.querySelector('[data-show-fixed-hours-container]');
         var showFixedHours = row.querySelector('[data-show-fixed-hours]');
@@ -536,8 +549,10 @@
         var supportsDateTimeFormat = dateTimeFields.indexOf(fieldName) !== -1;
         var supportsMinuteFormat = minuteFormatFields.indexOf(fieldName) !== -1;
         var supportsSummary = summaryFields.indexOf(fieldName) !== -1;
+        var supportsSummaryOnly = fieldName === 'month_total_days';
         var showDateTimeFormat = supportsDateTimeFormat && !isMachineInOut;
         var showSummary = supportsSummary && !isMachineInOut;
+        var showSummaryOnly = supportsSummaryOnly && showSummary;
         var supportsStatusSelection = statusSelectionFields.indexOf(fieldName) !== -1;
         var selectedStatusIds = Array.isArray(storedStatusMasterIds)
             ? storedStatusMasterIds.map(String)
@@ -568,6 +583,7 @@
         statusColumn.classList.toggle('d-none', !supportsStatusSelection);
         minuteFormatColumn.classList.toggle('d-none', !supportsMinuteFormat);
         summaryContainer.classList.toggle('d-none', !showSummary);
+        summaryOnlyContainer.classList.toggle('d-none', !showSummaryOnly);
         machineInOutContainer.classList.toggle('d-none', !isMachineInOut);
         halfStatusCountContainer.classList.toggle('d-none', !supportsStatusSelection);
         showFixedHoursContainer.classList.toggle('d-none', !supportsFixedHours);
@@ -575,16 +591,17 @@
             + Number(supportsStatusSelection)
             + Number(supportsMinuteFormat)
             + Number(showSummary)
+            + Number(showSummaryOnly)
             + Number(supportsStatusSelection);
         var columnWidth = optionCount === 0 ? 12 : (optionCount === 1 ? 6 : (optionCount === 2 ? 4 : 3));
         var columnWidths = supportsFixedHours
-            ? [6, 6, 6, 6, 6, 6, 6]
+            ? [6, 6, 6, 6, 6, 6, 6, 6]
             : (supportsStatusSelection
-                ? [6, columnWidth, 6, columnWidth, 6, 6, 6]
-                : [columnWidth, columnWidth, columnWidth, columnWidth, columnWidth, columnWidth, columnWidth]);
+                ? [6, columnWidth, 6, columnWidth, columnWidth, 6, 6, 6]
+                : [columnWidth, columnWidth, columnWidth, columnWidth, columnWidth, columnWidth, columnWidth, columnWidth]);
         fieldColumn.classList.remove('col-md-3', 'col-md-4', 'col-md-6', 'col-md-12');
         fieldColumn.classList.add('col-md-' + columnWidths[0]);
-        [formatColumn, statusColumn, minuteFormatColumn, summaryContainer, halfStatusCountContainer, showFixedHoursContainer].forEach(function (column, index) {
+        [formatColumn, statusColumn, minuteFormatColumn, summaryContainer, summaryOnlyContainer, halfStatusCountContainer, showFixedHoursContainer].forEach(function (column, index) {
             column.classList.remove('col-md-3', 'col-md-4', 'col-md-6', 'col-md-12');
             column.classList.add('col-md-' + columnWidths[index + 1]);
         });
@@ -594,7 +611,12 @@
         }) ? currentMinuteFormat : 'default';
 
         if (!supportsSummary) {
-            row.querySelector('[data-use-in-summary]').checked = false;
+            useInSummary.checked = false;
+        }
+        if (!supportsSummaryOnly) {
+            useOnlyInSummary.checked = false;
+        } else if (useOnlyInSummary.checked) {
+            useInSummary.checked = true;
         }
         if (isMachineInOut && machineInOutRows.children.length === 0) {
             var assignments = Array.isArray(storedMachineInOut) ? storedMachineInOut : [];
@@ -628,6 +650,7 @@
         var fieldName = row.querySelector('[data-field-name]');
         var minuteFormat = row.querySelector('[data-minute-format]');
         var useInSummary = row.querySelector('[data-use-in-summary]');
+        var useOnlyInSummary = row.querySelector('[data-use-only-in-summary]');
         var halfStatusCount = row.querySelector('[data-half-status-count]');
         var showFixedHours = row.querySelector('[data-show-fixed-hours]');
 
@@ -638,6 +661,7 @@
         var storedFormat = field.date_time_format || 'default';
         minuteFormat.value = field.minute_format || 'default';
         useInSummary.checked = field.use_in_summary === true;
+        useOnlyInSummary.checked = field.use_only_in_summary === true;
         halfStatusCount.checked = field.half_status_count_as_half === true;
         showFixedHours.checked = field.show_fixed_hrs === true;
 
@@ -654,6 +678,10 @@
     rowsContainer.addEventListener('change', function (event) {
         if (event.target.matches('[data-field-name]')) {
             updateFieldOptions(event.target.closest('[data-custom-report-field-row]'));
+        } else if (event.target.matches('[data-use-only-in-summary]') && event.target.checked) {
+            event.target.closest('[data-custom-report-field-row]').querySelector('[data-use-in-summary]').checked = true;
+        } else if (event.target.matches('[data-use-in-summary]') && !event.target.checked) {
+            event.target.closest('[data-custom-report-field-row]').querySelector('[data-use-only-in-summary]').checked = false;
         }
         syncFields();
     });
