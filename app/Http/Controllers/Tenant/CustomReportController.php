@@ -34,8 +34,7 @@ class CustomReportController extends Controller
             'customReports' => CustomReport::query()
                 ->with('custom_report_details')
                 ->latest('id')
-                ->paginate(15)
-                ->withQueryString(),
+                ->get(),
         ]);
     }
 

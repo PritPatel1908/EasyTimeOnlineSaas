@@ -44,12 +44,6 @@
                     </table>
                 </div>
             </div>
-            @if($customReports->hasPages())
-                <div class="card-footer d-flex justify-content-between">
-                    <span class="text-muted">Showing {{ $customReports->firstItem() }}–{{ $customReports->lastItem() }} of {{ $customReports->total() }} custom reports</span>
-                    {{ $customReports->links() }}
-                </div>
-            @endif
         </div>
     </div>
     @include('partials.footer')
