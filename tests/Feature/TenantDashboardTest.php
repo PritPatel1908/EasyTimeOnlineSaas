@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Http\Controllers\Tenant\DashboardController;
+use App\Models\Tenant\User;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -28,9 +30,18 @@ class TenantDashboardTest extends TestCase
             $table->id();
             $table->string('name')->nullable();
             $table->string('email')->nullable();
+            $table->string('profile_pic')->nullable();
             $table->softDeletes();
             $table->timestamps();
         });
+
+        $user = new User();
+        $user->forceFill([
+            'id' => 1,
+            'name' => 'Aarav Patel',
+            'profile_pic' => 'employee-profiles/aarav.png',
+        ]);
+        Auth::guard('tenant')->setUser($user);
 
         $response = app(DashboardController::class)->index();
 
@@ -38,6 +49,8 @@ class TenantDashboardTest extends TestCase
         $this->assertArrayHasKey('tenantId', $response->getData());
         $this->assertArrayHasKey('domain', $response->getData());
         $this->assertArrayHasKey('recentUsers', $response->getData());
+        $this->assertSame('Aarav Patel', $response->getData()['currentUserName']);
+        $this->assertSame('employee-profiles/aarav.png', $response->getData()['currentUserProfilePic']);
         $this->assertStringNotContainsString('/tenancy/assets/', asset('build/favicon.png'));
     }
 }

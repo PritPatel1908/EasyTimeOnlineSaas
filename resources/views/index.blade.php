@@ -68,12 +68,16 @@
         <div class="card border-0">
             <div class="card-body d-flex align-items-center justify-content-between flex-wrap pb-1">
                 <div class="d-flex align-items-center mb-3">
-                    <span class="avatar avatar-xl flex-shrink-0">
-                        <img src="{{URL::asset('build/img/profiles/avatar-31.jpg')}}" class="rounded-circle" alt="img">
+                    <span class="avatar avatar-xl avatar-rounded flex-shrink-0{{ $currentUserProfilePic ? '' : ' bg-primary' }}">
+                        @if ($currentUserProfilePic)
+                            <img src="{{ \Illuminate\Support\Str::startsWith($currentUserProfilePic, ['http://', 'https://']) ? $currentUserProfilePic : tenant_asset($currentUserProfilePic) }}"
+                                class="rounded-circle" alt="{{ $currentUserName }}">
+                        @else
+                            {{ strtoupper(substr($currentUserName, 0, 1)) }}
+                        @endif
                     </span>
                     <div class="ms-3">
-                        <h3 class="mb-2">Welcome Back, Adrian <a href="javascript:void(0);" class="edit-icon"><i
-                                    class="ti ti-edit fs-14"></i></a></h3>
+                        <h3 class="mb-2">Welcome Back, {{ $currentUserName }}</h3>
                         <p>You have <span class="text-primary text-decoration-underline">21</span> Pending
                             Approvals & <span class="text-primary text-decoration-underline">14</span> Leave
                             Requests</p>
