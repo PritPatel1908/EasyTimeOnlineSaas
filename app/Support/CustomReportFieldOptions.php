@@ -38,6 +38,9 @@ final class CustomReportFieldOptions
             'machine_in_out',
             'break_hrs',
             'manual_punch',
+            'manual_punch_time',
+            'manual_punch_type',
+            'manual_punch_created_on',
             'month_total_days',
             'leave_balance',
             'leave_add',
@@ -53,7 +56,7 @@ final class CustomReportFieldOptions
     {
         return array_values(array_diff(
             array_merge(self::dateOnlyFields(), self::dateTimeOnlyFields(), self::dateDetailFields()),
-            array_merge(self::minuteFormatFields(), ['attendance_specific_status', 'attendance_status', 'shift_name', 'shift_code']),
+            array_merge(self::minuteFormatFields(), ['attendance_specific_status', 'attendance_status', 'shift_name', 'shift_code', 'manual_punch']),
         ));
     }
 
@@ -81,7 +84,7 @@ final class CustomReportFieldOptions
     {
         return array_values(array_diff(
             self::dateDetailFields(),
-            ['attendance_in_time', 'attendance_out_time', 'shift_name', 'shift_code'],
+            ['attendance_in_time', 'attendance_out_time', 'shift_name', 'shift_code', 'manual_punch', 'manual_punch_time', 'manual_punch_type', 'manual_punch_created_on'],
         ));
     }
 
@@ -93,6 +96,15 @@ final class CustomReportFieldOptions
     public static function supportsSummary(string $fieldName): bool
     {
         return in_array($fieldName, self::summaryFields(), true);
+    }
+
+    public static function manualPunchSubfields(): array
+    {
+        return [
+            'manual_punch_time' => 'Time',
+            'manual_punch_type' => 'Punch Type',
+            'manual_punch_created_on' => 'Created On',
+        ];
     }
 
     public static function supportsMinuteFormat(string $fieldName): bool
@@ -176,6 +188,9 @@ final class CustomReportFieldOptions
             'machine_in_out' => 'Machine In Out',
             'break_hrs' => 'Break Hrs',
             'manual_punch' => 'Manual Punch',
+            'manual_punch_time' => 'Time',
+            'manual_punch_type' => 'Punch Type',
+            'manual_punch_created_on' => 'Created On',
             'month_total_days' => 'Month Total Days',
             'leave_balance' => 'Leave Balance',
             'leave_add' => 'Leave Add',

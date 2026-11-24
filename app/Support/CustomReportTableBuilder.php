@@ -18,6 +18,8 @@ use App\Models\Tenant\LegacyLeaveGroup;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\Machine;
 use App\Models\Tenant\MasterSnapshot;
+use App\Models\Tenant\ManualPunch;
+use App\Models\Tenant\ManualPunchApplication;
 use App\Models\Tenant\Role;
 use App\Models\Tenant\Shift;
 use App\Models\Tenant\StatusMaster;
@@ -77,6 +79,7 @@ final class CustomReportTableBuilder
         $employees = collect($employees)->values();
         $fieldLabels = CustomReportFieldOptions::all();
         $fields = array_values(array_filter($fields, 'is_array'));
+        $fields = $this->expandManualPunchFields($fields);
         $machineInOutSequences = $this->machineInOutSequenceDefinitions($fields);
         $hasMachineInOut = in_array('machine_in_out', array_column($fields, 'field_name'), true);
         $statusMasterFilterIds = $this->selectedStatusMasterIds($fields);
@@ -95,7 +98,9 @@ final class CustomReportTableBuilder
         }
         unset($field);
         $labels = array_map(
-            static fn (array $field): string => $fieldLabels[$field['field_name'] ?? ''] ?? (string) ($field['field_name'] ?? ''),
+            static fn (array $field): string => $field['_label']
+                ?? $fieldLabels[$field['field_name'] ?? '']
+                ?? (string) ($field['field_name'] ?? ''),
             $fields,
         );
         $dateIndexes = [];
@@ -106,7 +111,15 @@ final class CustomReportTableBuilder
         }
 
         $dates = [];
-        if ($dateIndexes !== [] || $hasMachineInOut) {
+        $hasManualPunch = in_array(
+            true,
+            array_map(
+                static fn (array $field): bool => str_starts_with((string) ($field['field_name'] ?? ''), 'manual_punch_'),
+                $fields,
+            ),
+            true,
+        );
+        if ($dateIndexes !== [] || $hasMachineInOut || $hasManualPunch) {
             $start = new DateTimeImmutable($fromDate);
             $end = (new DateTimeImmutable($toDate))->modify('+1 day');
             foreach (new DatePeriod($start, new DateInterval('P1D'), $end) as $date) {
@@ -137,7 +150,15 @@ final class CustomReportTableBuilder
         );
         $rows = [];
 
-        if (($dateIndexes !== [] || $hasMachineInOut) && $orientation === 'horizontal') {
+        $hasManualPunch = in_array(
+            true,
+            array_map(
+                static fn (array $field): bool => str_starts_with((string) ($field['field_name'] ?? ''), 'manual_punch_'),
+                $fields,
+            ),
+            true,
+        );
+        if (($dateIndexes !== [] || $hasMachineInOut || $hasManualPunch) && $orientation === 'horizontal') {
             $masterIndexes = [];
             $detailIndexes = [];
             foreach ($fields as $index => $field) {
@@ -244,7 +265,7 @@ final class CustomReportTableBuilder
             return ['headers' => [], 'rows' => $rows];
         }
 
-        if ($dateIndexes !== [] || $hasMachineInOut) {
+        if ($dateIndexes !== [] || $hasMachineInOut || $hasManualPunch) {
             $masterIndexes = [];
             $detailIndexes = [];
             foreach ($fields as $index => $field) {
@@ -701,6 +722,27 @@ final class CustomReportTableBuilder
         return false;
     }
 
+    private function expandManualPunchFields(array $fields): array
+    {
+        $expanded = [];
+
+        foreach ($fields as $field) {
+            if (($field['field_name'] ?? '') !== 'manual_punch') {
+                $expanded[] = $field;
+                continue;
+            }
+
+            foreach (CustomReportFieldOptions::manualPunchSubfields() as $fieldName => $_label) {
+                $expanded[] = array_merge($field, [
+                    'field_name' => $fieldName,
+                    '_label' => CustomReportFieldOptions::manualPunchSubfields()[$fieldName],
+                ]);
+            }
+        }
+
+        return $expanded;
+    }
+
     /**
      * @param  array<int, string>  $fields
      * @param  Collection<int, User>  $employees
@@ -855,7 +897,11 @@ final class CustomReportTableBuilder
         ];
         $requestedFields = array_values(array_intersect(
             array_column($fields, 'field_name'),
-            array_merge(array_keys($attendanceColumns), ['attendance_specific_status', 'attendance_status', 'shift_name', 'shift_code', 'machine_in_out']),
+            array_merge(
+                array_keys($attendanceColumns),
+                ['attendance_specific_status', 'attendance_status', 'shift_name', 'shift_code', 'machine_in_out'],
+                array_keys(CustomReportFieldOptions::manualPunchSubfields()),
+            ),
         ));
         $requestedAttendanceFields = array_values(array_diff($requestedFields, ['machine_in_out']));
         $statusMasterFilterIds = $this->selectedStatusMasterIds($fields);
@@ -865,7 +911,10 @@ final class CustomReportTableBuilder
                 && filter_var($field['show_fixed_hrs'] ?? false, FILTER_VALIDATE_BOOLEAN),
         );
         $employeeIds = $employees->pluck('id')->filter()->map(static fn (mixed $id): int => (int) $id)->all();
-        if ($employeeIds === [] || ($requestedAttendanceFields === [] && $machineInOutSequences === [])) {
+        $hasManualPunchFields = collect($requestedFields)->contains(
+            static fn (string $field): bool => str_starts_with($field, 'manual_punch_'),
+        );
+        if ($employeeIds === [] || ($requestedAttendanceFields === [] && $machineInOutSequences === [] && ! $hasManualPunchFields)) {
             return [];
         }
 
@@ -1018,6 +1067,16 @@ final class CustomReportTableBuilder
                 $values,
                 $employees,
                 $machineInOutSequences,
+                $fromDate,
+                $toDate,
+            );
+        }
+        if (collect($fields)->contains(
+            static fn (array $field): bool => str_starts_with((string) ($field['field_name'] ?? ''), 'manual_punch_'),
+        )) {
+            $values = $this->manualPunchAttendanceValues(
+                $values,
+                $employees,
                 $fromDate,
                 $toDate,
             );
@@ -1209,6 +1268,99 @@ final class CustomReportTableBuilder
      * @param  array<int, array<int, array{label: string, sub_sequences: array<int, array<int, array{machine_id: int, machine_name: string, dms_device_id: int|null, access_direction: string|null}>>}>>  $machineInOutSequences
      * @return array<int, array<string, array<string, mixed>>>
      */
+    private function manualPunchAttendanceValues(
+        array $values,
+        Collection $employees,
+        string $fromDate,
+        string $toDate,
+    ): array {
+        $employeeIds = $employees->pluck('id')->filter()->map(static fn (mixed $id): int => (int) $id)->all();
+        if ($employeeIds === []) {
+            return $values;
+        }
+
+        $directPunches = ManualPunch::query()
+            ->with('Users')
+            ->whereBetween('punch_date', [$fromDate, $toDate])
+            ->whereHas('Users', static fn ($query) => $query->whereIn('users.id', $employeeIds))
+            ->orderBy('punch_date')
+            ->orderBy('punch_time')
+            ->orderBy('id')
+            ->get();
+
+        $directByUser = [];
+        foreach ($directPunches as $punch) {
+            foreach ($punch->Users as $user) {
+                $employeeId = (int) $user->id;
+                if (! in_array($employeeId, $employeeIds, true)) {
+                    continue;
+                }
+                $directByUser[$employeeId][] = [
+                    'punch_date' => $punch->punch_date->format('Y-m-d'),
+                    'punch_time' => $punch->punch_time->format('H:i'),
+                    'punch_type' => $punchType = ManualPunch::punchTypeLabel($punch->punch_type),
+                    'created_at' => $punch->created_at?->format('d-m-Y H:i:s') ?? '',
+                ];
+            }
+        }
+
+        $approvedApplications = ManualPunchApplication::query()
+            ->with(['Users', 'approval_statuses'])
+            ->whereBetween('punch_date', [$fromDate, $toDate])
+            ->whereHas('Users', static fn ($query) => $query->whereIn('users.id', $employeeIds))
+            ->orderBy('punch_date')
+            ->orderBy('punch_time')
+            ->orderBy('id')
+            ->get()
+            ->filter(static fn (ManualPunchApplication $application): bool =>
+                $application->overallApprovalStatus() === 'approved'
+            );
+
+        foreach ($approvedApplications as $application) {
+            foreach ($application->Users as $user) {
+                $employeeId = (int) $user->id;
+                if (! in_array($employeeId, $employeeIds, true)) {
+                    continue;
+                }
+                $date = $application->punch_date->format('Y-m-d');
+                $directPunchesOnDate = collect($directByUser[$employeeId] ?? [])
+                    ->where('punch_date', $date);
+                if ($directPunchesOnDate->contains(
+                    static fn (array $punch): bool =>
+                        $punch['punch_time'] === $application->punch_time->format('H:i')
+                        && $punch['punch_type'] === ManualPunch::punchTypeLabel($application->punch_type)
+                        && $application->manual_punch_id !== null
+                )) {
+                    continue;
+                }
+
+                $directByUser[$employeeId][] = [
+                    'punch_date' => $date,
+                    'punch_time' => $application->punch_time->format('H:i'),
+                    'punch_type' => ManualPunch::punchTypeLabel($application->punch_type),
+                    'created_at' => $application->created_at?->format('d-m-Y H:i:s') ?? '',
+                ];
+            }
+        }
+
+        foreach ($directByUser as $employeeId => $punches) {
+            foreach ($punches as $punch) {
+                $date = $punch['punch_date'];
+                foreach ([
+                    'manual_punch_time' => $punch['punch_time'],
+                    'manual_punch_type' => $punch['punch_type'],
+                    'manual_punch_created_on' => $punch['created_at'],
+                ] as $field => $value) {
+                    $values[$employeeId][$date][$field] = isset($values[$employeeId][$date][$field])
+                        ? $values[$employeeId][$date][$field].', '.$value
+                        : $value;
+                }
+            }
+        }
+
+        return $values;
+    }
+
     private function machineInOutAttendanceValues(
         array $values,
         Collection $employees,
@@ -1577,6 +1729,9 @@ final class CustomReportTableBuilder
             'working_hrs',
             'overtime_minutes',
             'approved_overtime_minutes',
+            'manual_punch_time',
+            'manual_punch_type',
+            'manual_punch_created_on',
         ], true)) {
             $employeeValues = $attendanceValues[(int) $employee->getKey()] ?? [];
             $formatValue = fn (string $value): string => CustomReportFieldOptions::supportsMinuteFormat($field)

@@ -71,4 +71,20 @@ class CustomReportFieldOptionsTest extends TestCase
             $this->assertArrayHasKey($fieldName, CustomReportFieldOptions::all());
         }
     }
+
+    public function test_manual_punch_only_supports_the_field_name_column(): void
+    {
+        $this->assertArrayHasKey('manual_punch', CustomReportFieldOptions::all());
+        $this->assertFalse(CustomReportFieldOptions::supportsDateTimeFormat('manual_punch'));
+        $this->assertFalse(CustomReportFieldOptions::supportsSummary('manual_punch'));
+    }
+
+    public function test_manual_punch_has_dynamic_subfields(): void
+    {
+        $this->assertSame([
+            'manual_punch_time' => 'Time',
+            'manual_punch_type' => 'Punch Type',
+            'manual_punch_created_on' => 'Created On',
+        ], CustomReportFieldOptions::manualPunchSubfields());
+    }
 }
