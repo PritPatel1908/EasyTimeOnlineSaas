@@ -22,6 +22,7 @@ use App\Models\Tenant\ShiftChangeApplication;
 use App\Models\Tenant\WeekOffChangeApplication;
 use App\Models\Tenant\WeekOffSwapApplication;
 use App\Services\Tenant\ApprovedRequestCancellationService;
+use App\Services\Tenant\PendingApprovalQuery;
 use App\Support\TenantPermissions;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
@@ -36,50 +37,16 @@ use Illuminate\Validation\ValidationException;
 
 class PendingApprovalController extends Controller
 {
-    private const APPROVABLE_TYPES = [
-        LeaveApplication::class,
-        Coff::class,
-        CoffApplication::class,
-        ManualAttendanceApplication::class,
-        ManualPunchApplication::class,
-        OvertimeApplication::class,
-        OutDuty::class,
-        ShortLeaveApplication::class,
-        ShiftChangeApplication::class,
-        WeekOffChangeApplication::class,
-        WeekOffSwapApplication::class,
-    ];
-
     public function index(): View
     {
         TenantPermissions::authorize('PendingRequest', 'read');
         $userId = (int) Auth::guard('tenant')->id();
         $pendingEmployeeUsers = $this->pendingEmployeeUsers();
 
-        $approvals = $this->requestApprovalsQuery($pendingEmployeeUsers)
-            ->where('approval_status', 'pending')
-            ->whereHas('main_status', function ($query): void {
-                $query->where('approval_status', 'pending')
-                    ->whereIn('approvable_type', self::APPROVABLE_TYPES);
-            })
-            ->whereHas('approval_flow_detail.users', fn ($query) => $query->whereKey($userId))
-            ->whereNotExists(function ($query): void {
-                $query->selectRaw('1')
-                    ->from('approval_status_details as previous_details')
-                    ->whereColumn('previous_details.approval_status_id', 'approval_status_details.approval_status_id')
-                    ->whereColumn('previous_details.level', '<', 'approval_status_details.level')
-                    ->where('previous_details.approval_status', '!=', 'approved');
-            })
-            ->whereNotExists(function ($query): void {
-                $query->selectRaw('1')
-                    ->from('approval_statuses as current_status')
-                    ->join('approval_statuses as rejected_statuses', function ($join): void {
-                        $join->on('rejected_statuses.approvable_id', '=', 'current_status.approvable_id')
-                            ->on('rejected_statuses.approvable_type', '=', 'current_status.approvable_type');
-                    })
-                    ->whereColumn('current_status.id', 'approval_status_details.approval_status_id')
-                    ->where('rejected_statuses.approval_status', 'rejected');
-            })
+        $approvals = $this->requestApprovalsQuery(
+            $pendingEmployeeUsers,
+            PendingApprovalQuery::forUser($userId),
+        )
             ->latest('approval_status_details.created_at')
             ->get();
 
@@ -111,7 +78,7 @@ class PendingApprovalController extends Controller
             ->whereHas('approval_flow_detail.users', fn ($query) => $query->whereKey($userId))
             ->whereHas('main_status', function ($query): void {
                 $query->where('approval_status', 'approved')
-                    ->whereIn('approvable_type', self::APPROVABLE_TYPES);
+                    ->whereIn('approvable_type', PendingApprovalQuery::APPROVABLE_TYPES);
             })
             ->whereNotExists(function ($query): void {
                 $query->selectRaw('1')
@@ -186,7 +153,7 @@ class PendingApprovalController extends Controller
             ->whereHas('approval_flow_detail.users', fn ($query) => $query->whereKey($userId))
             ->whereHas('main_status', function ($query): void {
                 $query->where('approval_status', 'rejected')
-                    ->whereIn('approvable_type', self::APPROVABLE_TYPES);
+                    ->whereIn('approvable_type', PendingApprovalQuery::APPROVABLE_TYPES);
             })
             ->latest('approval_status_details.updated_at')
             ->get()
@@ -210,7 +177,7 @@ class PendingApprovalController extends Controller
             ->whereHas('approval_flow_detail.users', fn ($query) => $query->whereKey($userId))
             ->whereHas('main_status', function ($query): void {
                 $query->where('approval_status', 'cancelled')
-                    ->whereIn('approvable_type', self::APPROVABLE_TYPES);
+                    ->whereIn('approvable_type', PendingApprovalQuery::APPROVABLE_TYPES);
             })
             ->latest('approval_status_details.updated_at')
             ->get()
@@ -235,7 +202,7 @@ class PendingApprovalController extends Controller
             ->where('approval_status_details.approval_status', 'pending')
             ->whereHas('main_status', function ($query): void {
                 $query->where('approval_status', 'pending')
-                    ->whereIn('approvable_type', self::APPROVABLE_TYPES);
+                    ->whereIn('approvable_type', PendingApprovalQuery::APPROVABLE_TYPES);
             })
             ->whereHas('approval_flow_detail.users', fn ($query) => $query->whereKey($userId))
             ->whereNotExists(function ($query): void {
@@ -309,7 +276,7 @@ class PendingApprovalController extends Controller
         $approvalStatus = $approval->main_status;
         $record = $approvalStatus?->approvable;
         abort_unless($approvalStatus !== null && $record !== null, 404);
-        abort_unless(in_array($record::class, self::APPROVABLE_TYPES, true), 404);
+        abort_unless(in_array($record::class, PendingApprovalQuery::APPROVABLE_TYPES, true), 404);
         abort_unless(match ($source) {
             'approved' => $approval->approval_status === 'approved'
                 && $approvalStatus->approval_status === 'approved'
@@ -609,9 +576,9 @@ class PendingApprovalController extends Controller
         return static fn ($relation) => $relation->withoutGlobalScope(DataPolicyFilter::class);
     }
 
-    private function requestApprovalsQuery(\Closure $pendingEmployeeUsers): Builder
+    private function requestApprovalsQuery(\Closure $pendingEmployeeUsers, ?Builder $query = null): Builder
     {
-        return ApprovalStatusDetails::query()
+        return ($query ?? ApprovalStatusDetails::query())
             ->with([
                 'main_status.approvable' => function (MorphTo $morphTo) use ($pendingEmployeeUsers): void {
                     $morphTo->morphWith([

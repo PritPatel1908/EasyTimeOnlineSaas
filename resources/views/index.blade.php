@@ -78,21 +78,53 @@
                     </span>
                     <div class="ms-3">
                         <h3 class="mb-2">Welcome Back, {{ $currentUserName }}</h3>
-                        <p>You have <span class="text-primary text-decoration-underline">21</span> Pending
-                            Approvals & <span class="text-primary text-decoration-underline">14</span> Leave
-                            Requests</p>
+                        @if ($canApprovePendingRequests)
+                            <p>You have <a href="{{ url('requests/pending') }}"
+                                    class="text-primary text-decoration-underline">{{ $pendingApprovalCount }}</a>
+                                Pending Approval Requests</p>
+                        @endif
                     </div>
                 </div>
                 <div class="d-flex align-items-center flex-wrap mb-1">
                     <a href="#" class="btn btn-white me-2 mb-2" data-bs-toggle="modal" data-bs-target="#add_project"><i
                             class="ti ti-calendar-cog me-1"></i>Add Schedule</a>
-                    <a href="#" class="btn btn-primary mb-2" data-bs-toggle="modal" data-bs-target="#add_leaves"><i
-                            class="ti ti-square-rounded-plus me-1"></i>Add
-                        Requests</a>
+                    @if (count($applicationModules) > 0)
+                            <button type="button" class="btn btn-primary mb-2" data-bs-toggle="modal"
+                                data-bs-target="#add_request_modal">
+                                <i class="ti ti-square-rounded-plus me-1"></i>Add Requests
+                            </button>
+                    @endif
                 </div>
             </div>
         </div>
         <!-- /Welcome Wrap -->
+
+        @if (count($applicationModules) > 0)
+            <div class="modal fade" id="add_request_modal" tabindex="-1" aria-labelledby="addRequestModalLabel"
+                aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+                    <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="addRequestModalLabel">Select an Application</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="row g-3">
+                                    @foreach ($applicationModules as $module)
+                                        <div class="col-md-6 col-lg-4">
+                                            <a href="{{ url($module['path']) }}"
+                                                class="btn btn-outline-primary w-100 h-100 d-flex align-items-center justify-content-between text-start">
+                                                <span>{{ $module['label'] }}</span>
+                                                <i class="ti ti-arrow-right ms-2"></i>
+                                            </a>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                    </div>
+                </div>
+            </div>
+        @endif
 
         <div class="row">
 
@@ -106,7 +138,7 @@
                                     <i class="ti ti-calendar-share fs-16"></i>
                                 </span>
                                 <h6 class="fs-13 fw-medium text-default mb-1">Attendance Overview</h6>
-                                <h3 class="mb-3">120/154</h3>
+                                <h3 class="mb-3">{{ $attendanceCount }}/{{ $userCount }}</h3>
                                 <a href="{{url('attendance-employee')}}" class="link-default">View Details</a>
                             </div>
                         </div>

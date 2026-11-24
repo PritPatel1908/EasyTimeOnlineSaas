@@ -19,6 +19,7 @@ use App\Models\Tenant\User;
 use App\Models\Tenant\WeekOffChangeApplication;
 use App\Services\Tenant\ApprovedApplicationEffectSnapshotService;
 use App\Services\Tenant\ApprovedRequestCancellationService;
+use App\Services\Tenant\PendingApprovalQuery;
 use Illuminate\Contracts\Auth\Guard;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Http\Request;
@@ -42,6 +43,9 @@ class PendingApprovalModuleTest extends TestCase
             $this->createApplicationWithFlow();
             Bus::fake();
             $this->mockTenantUser(10);
+
+            $this->assertSame(1, PendingApprovalQuery::forUser(10)->count());
+            $this->assertSame(0, PendingApprovalQuery::forUser(11)->count());
 
             $view = app(PendingApprovalController::class)->index();
             $this->assertSame([201], $view->getData()['approvals']->pluck('approval.id')->all());
