@@ -108,6 +108,7 @@ class TenantDatabaseSeeder extends Seeder
         $this->call(MonthlyPerformanceReportSeeder::class);
         $this->call(MonthlyFixedWorkHoursReportSeeder::class);
         $this->call(MonthlyLateComingReportSeeder::class);
+        $this->call(MonthlyManualPunchReportSeeder::class);
         $this->call(AttendanceSpecificStatusReportSeeder::class);
         $this->call(MachineInOutStatusReportSeeder::class);
         $this->call(EarlyGoingReportSeeder::class);
