@@ -29,6 +29,7 @@ use DateInterval;
 use DatePeriod;
 use DateTimeImmutable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 final class CustomReportTableBuilder
@@ -119,7 +120,21 @@ final class CustomReportTableBuilder
         );
         $snapshots = $this->snapshots($snapshotFields, $employees);
         $liveMasterValues = $this->liveMasterValues($fields, $employees, $snapshots['assignments']);
-        $attendanceValues = $this->attendanceValues($fields, $employees, $fromDate, $toDate, $machineInOutSequences);
+        $showFixedHours = collect($fields)->contains(
+            static fn (array $field): bool => ($field['field_name'] ?? '') === 'working_hrs'
+                && filter_var($field['show_fixed_hrs'] ?? false, FILTER_VALIDATE_BOOLEAN),
+        );
+        $fixedWorkHourCategories = $showFixedHours
+            ? $this->fixedWorkHourCategories($employees)
+            : [];
+        $attendanceValues = $this->attendanceValues(
+            $fields,
+            $employees,
+            $fromDate,
+            $toDate,
+            $machineInOutSequences,
+            $fixedWorkHourCategories,
+        );
         $rows = [];
 
         if (($dateIndexes !== [] || $hasMachineInOut) && $orientation === 'horizontal') {
@@ -827,6 +842,7 @@ final class CustomReportTableBuilder
         string $fromDate,
         string $toDate,
         array $machineInOutSequences,
+        array $fixedWorkHourCategories,
     ): array {
         $attendanceColumns = [
             'attendance_in_time' => 'in_time',
@@ -844,6 +860,10 @@ final class CustomReportTableBuilder
         $requestedAttendanceFields = array_values(array_diff($requestedFields, ['machine_in_out']));
         $statusMasterFilterIds = $this->selectedStatusMasterIds($fields);
         $halfStatusCountAsHalf = $this->countsHalfStatusAsHalf($fields);
+        $showFixedHours = collect($fields)->contains(
+            static fn (array $field): bool => ($field['field_name'] ?? '') === 'working_hrs'
+                && filter_var($field['show_fixed_hrs'] ?? false, FILTER_VALIDATE_BOOLEAN),
+        );
         $employeeIds = $employees->pluck('id')->filter()->map(static fn (mixed $id): int => (int) $id)->all();
         if ($employeeIds === [] || ($requestedAttendanceFields === [] && $machineInOutSequences === [])) {
             return [];
@@ -864,6 +884,10 @@ final class CustomReportTableBuilder
         foreach ($requestedFields as $field) {
             if (isset($attendanceColumns[$field])) {
                 $columns[] = $attendanceColumns[$field];
+            }
+            if ($field === 'working_hrs' && $showFixedHours) {
+                $columns[] = 'shift_in_time';
+                $columns[] = 'shift_out_time';
             }
             if ($field === 'shift_name' || $field === 'shift_code') {
                 $columns[] = 'shift_id';
@@ -971,6 +995,13 @@ final class CustomReportTableBuilder
                 }
 
                 $value = $attendance->getAttribute($column);
+                if ($field === 'working_hrs' && $showFixedHours && is_numeric($value)) {
+                    $value = $this->fixedWorkHoursValue(
+                        (int) $value,
+                        $attendance,
+                        $fixedWorkHourCategories[$employeeId] ?? null,
+                    );
+                }
                 if ($value instanceof \DateTimeInterface) {
                     $fieldFormat = $fieldFormats[$field] ?? 'default';
                     $format = $fieldFormat === 'default' ? 'H:i:s' : $this->dateFormat($fieldFormat);
@@ -993,6 +1024,109 @@ final class CustomReportTableBuilder
         }
 
         return $values;
+    }
+
+    /**
+     * @param  Collection<int, User>  $employees
+     * @return array<int, array{fix_work_hours: mixed, fix_work_hours_as_per_shift: mixed, fix_work_hours_value: mixed}>
+     */
+    private function fixedWorkHourCategories(Collection $employees): array
+    {
+        if (! Schema::hasTable('categories')) {
+            return [];
+        }
+
+        $employeeCategoryIds = [];
+        foreach ($employees as $employee) {
+            $categoryId = $employee->getAttribute('category_id');
+            if (is_string($categoryId)) {
+                $decoded = json_decode($categoryId, true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                    $categoryId = $decoded;
+                }
+            }
+            if (is_array($categoryId)) {
+                $categoryId = $categoryId[0] ?? null;
+            }
+            if (is_numeric((string) $categoryId) && (int) $categoryId > 0) {
+                $employeeCategoryIds[(int) $employee->getKey()] = (int) $categoryId;
+            }
+        }
+
+        if ($employeeCategoryIds === []) {
+            return [];
+        }
+
+        $categories = DB::table('categories')
+            ->whereIn('id', array_values(array_unique($employeeCategoryIds)))
+            ->get(['id', 'fix_work_hours', 'fix_work_hours_as_per_shift', 'fix_work_hours_value'])
+            ->keyBy('id');
+
+        $settings = [];
+        foreach ($employeeCategoryIds as $employeeId => $categoryId) {
+            $category = $categories->get($categoryId);
+            if ($category !== null) {
+                $settings[$employeeId] = [
+                    'fix_work_hours' => $category->fix_work_hours,
+                    'fix_work_hours_as_per_shift' => $category->fix_work_hours_as_per_shift,
+                    'fix_work_hours_value' => $category->fix_work_hours_value,
+                ];
+            }
+        }
+
+        return $settings;
+    }
+
+    /**
+     * @param  array{fix_work_hours: mixed, fix_work_hours_as_per_shift: mixed, fix_work_hours_value: mixed}|null  $category
+     */
+    private function fixedWorkHoursValue(int $workMinutes, Attendance $attendance, ?array $category): int
+    {
+        if ($category === null || ! filter_var($category['fix_work_hours'], FILTER_VALIDATE_BOOLEAN)) {
+            return $workMinutes;
+        }
+
+        if (filter_var($category['fix_work_hours_as_per_shift'], FILTER_VALIDATE_BOOLEAN)) {
+            $shiftIn = $attendance->getAttribute('shift_in_time');
+            $shiftOut = $attendance->getAttribute('shift_out_time');
+            if (! $shiftIn instanceof \DateTimeInterface || ! $shiftOut instanceof \DateTimeInterface) {
+                return $workMinutes;
+            }
+
+            $shiftStart = DateTimeImmutable::createFromInterface($shiftIn);
+            $shiftEnd = DateTimeImmutable::createFromInterface($shiftOut);
+            if ($shiftEnd <= $shiftStart) {
+                $shiftEnd = $shiftEnd->modify('+1 day');
+            }
+            $fixedMinutes = (int) round(($shiftEnd->getTimestamp() - $shiftStart->getTimestamp()) / 60);
+        } else {
+            $fixedMinutes = $this->durationValueToMinutes($category['fix_work_hours_value']);
+            if ($fixedMinutes === null) {
+                return $workMinutes;
+            }
+        }
+
+        return $workMinutes > $fixedMinutes ? $fixedMinutes : $workMinutes;
+    }
+
+    private function durationValueToMinutes(mixed $value): ?int
+    {
+        if (! is_string($value) && ! is_numeric($value)) {
+            return null;
+        }
+
+        $duration = trim((string) $value);
+        if ($duration === '') {
+            return null;
+        }
+        if (preg_match('/^(\d{1,3}):([0-5]\d)(?::[0-5]\d)?$/', $duration, $matches) === 1) {
+            return ((int) $matches[1] * 60) + (int) $matches[2];
+        }
+        if (! is_numeric($duration) || (float) $duration < 0) {
+            return null;
+        }
+
+        return (int) round((float) $duration * 60);
     }
 
     /**

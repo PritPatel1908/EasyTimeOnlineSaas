@@ -176,11 +176,22 @@ class AttendanceCategoryCalculationTest extends TestCase
             'in_time' => '2026-10-25 08:00:00',
             'out_time' => '2026-10-25 18:00:00',
         ]);
-        $calculator = $this->calculator($category, $attendance);
 
-        $calculator->syncAttendanceWorkTime();
+        $this->assertSame(450, $this->fixedWorkTime($category, $attendance, 600));
+    }
 
-        $this->assertSame(450, $attendance->fresh()->work_time);
+    public function test_custom_fix_work_hours_caps_attendance_when_work_time_exceeds_custom_value_but_not_shift(): void
+    {
+        $category = $this->category([
+            'fix_work_hours' => true,
+            'fix_work_hours_value' => '06:00',
+        ]);
+        $attendance = $this->attendance([
+            'in_time' => '2026-10-25 09:00:00',
+            'out_time' => '2026-10-25 16:00:00',
+        ]);
+
+        $this->assertSame(360, $this->fixedWorkTime($category, $attendance, 420));
     }
 
     public function test_sync_attendance_work_time_rounds_to_the_nearest_minute(): void
@@ -271,11 +282,8 @@ class AttendanceCategoryCalculationTest extends TestCase
             'in_time' => '2026-10-25 08:00:00',
             'out_time' => '2026-10-25 18:00:00',
         ]);
-        $calculator = $this->calculator($category, $attendance);
 
-        $calculator->syncAttendanceWorkTime();
-
-        $this->assertSame(480, $attendance->fresh()->work_time);
+        $this->assertSame(480, $this->fixedWorkTime($category, $attendance, 600));
     }
 
     public function test_fix_work_hours_as_per_shift_skips_overtime(): void
@@ -1434,5 +1442,35 @@ class AttendanceCategoryCalculationTest extends TestCase
         $calculator->curatt = $attendance;
 
         return $calculator;
+    }
+
+    private function fixedWorkTime(Category $category, Attendance $attendance, int $workTime): int
+    {
+        if (! Schema::hasTable('categories')) {
+            Schema::create('categories', function (Blueprint $table): void {
+                $table->id();
+                $table->boolean('fix_work_hours')->nullable();
+                $table->boolean('fix_work_hours_as_per_shift')->nullable();
+                $table->string('fix_work_hours_value')->nullable();
+                $table->softDeletes();
+            });
+        }
+        DB::table('categories')->updateOrInsert(
+            ['id' => (int) $category->getKey()],
+            [
+                'fix_work_hours' => (bool) $category->fix_work_hours,
+                'fix_work_hours_as_per_shift' => (bool) $category->fix_work_hours_as_per_shift,
+                'fix_work_hours_value' => $category->fix_work_hours_value,
+            ],
+        );
+
+        $calculator = $this->calculator($category, $attendance);
+        $log = new ReflectionProperty(AttCalculator::class, 'log');
+        $log->setAccessible(true);
+        $log->getValue($calculator)->user->setAttribute('category_id', [(int) $category->getKey()]);
+        $method = new ReflectionMethod(AttCalculator::class, 'fixedWorkTime');
+        $method->setAccessible(true);
+
+        return $method->invoke($calculator, $workTime);
     }
 }

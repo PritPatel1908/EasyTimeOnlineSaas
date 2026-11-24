@@ -4065,29 +4065,35 @@ class AttCalculator
     private function fixedWorkTime(int $workTime): int
     {
         $category = $this->log->user?->category;
-        if (! $category?->fix_work_hours || $this->curatt->shift_in_time === null || $this->curatt->shift_out_time === null) {
-            return $workTime;
-        }
-
-        $shiftInTime = Carbon::parse($this->curatt->shift_in_time);
-        $shiftOutTime = Carbon::parse($this->curatt->shift_out_time);
-        if ($this->curatt->is_night_shift && $shiftOutTime->lessThanOrEqualTo($shiftInTime)) {
-            $shiftOutTime->addDay();
-        }
-        $shiftMinutes = (int) $shiftInTime->diffInMinutes($shiftOutTime);
-        if ($workTime <= $shiftMinutes) {
+        if (! $category?->fix_work_hours) {
             return $workTime;
         }
 
         if ($category->fix_work_hours_as_per_shift) {
+            if ($this->curatt->shift_in_time === null || $this->curatt->shift_out_time === null) {
+                return $workTime;
+            }
+
+            $shiftInTime = Carbon::parse($this->curatt->shift_in_time);
+            $shiftOutTime = Carbon::parse($this->curatt->shift_out_time);
+            if ($this->curatt->is_night_shift && $shiftOutTime->lessThanOrEqualTo($shiftInTime)) {
+                $shiftOutTime->addDay();
+            }
+            $shiftMinutes = (int) $shiftInTime->diffInMinutes($shiftOutTime);
+            if ($workTime <= $shiftMinutes) {
+                return $workTime;
+            }
+
             $this->debug('Capped work time to the assigned shift duration of '.$shiftMinutes.' minutes');
 
             return $shiftMinutes;
         }
 
         $fixedMinutes = $this->durationValueToMinutes($category->fix_work_hours_value);
-        if ($fixedMinutes === null) {
-            $this->debug('Fix work hours is enabled but its configured value is invalid; retaining calculated work time');
+        if ($fixedMinutes === null || $workTime <= $fixedMinutes) {
+            if ($fixedMinutes === null) {
+                $this->debug('Fix work hours is enabled but its configured value is invalid; retaining calculated work time');
+            }
 
             return $workTime;
         }

@@ -9,6 +9,8 @@ use App\Support\CustomReportDateRange;
 use Database\Seeders\Tenant\AttendanceSpecificStatusReportSeeder;
 use Database\Seeders\Tenant\EarlyGoingReportSeeder;
 use Database\Seeders\Tenant\MachineInOutStatusReportSeeder;
+use Database\Seeders\Tenant\MonthlyFixedWorkHoursReportSeeder;
+use Database\Seeders\Tenant\MonthlyLateComingReportSeeder;
 use Database\Seeders\Tenant\MonthlyPerformanceReportSeeder;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -111,6 +113,72 @@ class MonthlyPerformanceReportSeederTest extends TestCase
         $this->assertSame('hh_mm', $fields[11]['minute_format']);
         $this->assertTrue($fields[11]['use_in_summary']);
         $this->assertTrue($fields[16]['use_in_summary']);
+        $this->assertSame([], $detail->custom_report_filter);
+        $this->assertSame(1, DB::table('custom_reports')->count());
+        $this->assertSame(1, DB::table('custom_report_details')->count());
+    }
+
+    public function test_it_seeds_the_monthly_late_coming_report_once_with_late_minutes_summary(): void
+    {
+        app(MonthlyLateComingReportSeeder::class)->run();
+        app(MonthlyLateComingReportSeeder::class)->run();
+
+        $report = CustomReport::query()
+            ->with('custom_report_details')
+            ->where('report_name', 'Monthly Late Coming Report')
+            ->firstOrFail();
+        $dateRange = app(CustomReportDateRange::class)->resolve('this_month');
+        $detail = $report->custom_report_details->first();
+        $this->assertNotNull($detail);
+        $fields = $detail->custom_report_fields;
+        $lateMinutesField = $fields[array_search('late_minutes', array_column($fields, 'field_name'), true)];
+
+        $this->assertSame($dateRange['from']->toDateString(), $report->from_date->toDateString());
+        $this->assertSame($dateRange['to']->toDateString(), $report->to_date->toDateString());
+        $this->assertSame('this_month', $report->date_range_preset);
+        $this->assertSame('horizontal', $report->report_orientation);
+        $this->assertSame('horizontal', $report->summary_orientation);
+        $this->assertSame([
+            'emp_code',
+            'emp_card',
+            'name',
+            'company_name',
+            'department_name',
+            'designation_name',
+            'category_name',
+            'date',
+            'late_minutes',
+        ], array_column($fields, 'field_name'));
+        $this->assertSame('hh_mm', $lateMinutesField['minute_format']);
+        $this->assertTrue($lateMinutesField['use_in_summary']);
+        $this->assertSame([], $detail->custom_report_filter);
+        $this->assertSame(1, DB::table('custom_reports')->count());
+        $this->assertSame(1, DB::table('custom_report_details')->count());
+    }
+
+    public function test_it_seeds_the_monthly_fixed_work_hours_report_once_with_fixed_hours_enabled(): void
+    {
+        app(MonthlyFixedWorkHoursReportSeeder::class)->run();
+        app(MonthlyFixedWorkHoursReportSeeder::class)->run();
+
+        $report = CustomReport::query()
+            ->with('custom_report_details')
+            ->where('report_name', 'Monthly Fixed Work Hours Report')
+            ->firstOrFail();
+        $dateRange = app(CustomReportDateRange::class)->resolve('this_month');
+        $detail = $report->custom_report_details->first();
+        $this->assertNotNull($detail);
+        $fields = $detail->custom_report_fields;
+        $workingHoursField = $fields[array_search('working_hrs', array_column($fields, 'field_name'), true)];
+
+        $this->assertSame('this_month', $report->date_range_preset);
+        $this->assertSame($dateRange['from']->toDateString(), $report->from_date->toDateString());
+        $this->assertSame($dateRange['to']->toDateString(), $report->to_date->toDateString());
+        $this->assertSame('vertical', $report->report_orientation);
+        $this->assertSame('horizontal', $report->summary_orientation);
+        $this->assertSame('hh_mm', $workingHoursField['minute_format']);
+        $this->assertTrue($workingHoursField['use_in_summary']);
+        $this->assertTrue($workingHoursField['show_fixed_hrs']);
         $this->assertSame([], $detail->custom_report_filter);
         $this->assertSame(1, DB::table('custom_reports')->count());
         $this->assertSame(1, DB::table('custom_report_details')->count());

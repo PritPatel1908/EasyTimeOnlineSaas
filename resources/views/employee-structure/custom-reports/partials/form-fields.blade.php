@@ -24,6 +24,7 @@
                 static fn (mixed $assignment): bool => is_array($assignment),
             )),
             'use_in_summary' => filter_var($field['use_in_summary'] ?? false, FILTER_VALIDATE_BOOLEAN),
+            'show_fixed_hrs' => filter_var($field['show_fixed_hrs'] ?? false, FILTER_VALIDATE_BOOLEAN),
             'half_status_count_as_half' => filter_var($field['half_status_count_as_half'] ?? false, FILTER_VALIDATE_BOOLEAN),
         ];
     }, $reportFieldRows);
@@ -153,6 +154,12 @@
                         <label class="form-label d-block" data-half-status-count-label>Count half-day status as 0.5</label>
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" role="switch" data-half-status-count aria-label="Count half-day status as 0.5">
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3 mb-md-0 d-none" data-show-fixed-hours-container>
+                        <label class="form-label d-block">Show Fixed Hrs</label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" data-show-fixed-hours aria-label="Show Fixed Hrs">
                         </div>
                     </div>
                 </div>
@@ -493,6 +500,8 @@
                     : [],
                 use_in_summary: summaryFields.indexOf(fieldName) !== -1
                     && row.querySelector('[data-use-in-summary]').checked,
+                show_fixed_hrs: fieldName === 'working_hrs'
+                    && row.querySelector('[data-show-fixed-hours]').checked,
                 half_status_count_as_half: supportsStatusSelection
                     && row.querySelector('[data-half-status-count]').checked
             };
@@ -513,6 +522,8 @@
         var statusColumn = row.querySelector('[data-status-column]');
         var minuteFormatColumn = row.querySelector('[data-minute-format-column]');
         var halfStatusCountContainer = row.querySelector('[data-half-status-count-container]');
+        var showFixedHoursContainer = row.querySelector('[data-show-fixed-hours-container]');
+        var showFixedHours = row.querySelector('[data-show-fixed-hours]');
         var machineInOutContainer = row.querySelector('[data-machine-in-out-container]');
         var machineInOutRows = row.querySelector('[data-machine-in-out-rows]');
         var fieldColumn = row.querySelector('[data-field-column]');
@@ -521,6 +532,7 @@
         var isDateTimeOnly = dateTimeOnlyFields.indexOf(fieldName) !== -1;
         var isTimeOnly = timeOnlyFields.indexOf(fieldName) !== -1;
         var isMachineInOut = fieldName === 'machine_in_out';
+        var supportsFixedHours = fieldName === 'working_hrs';
         var supportsDateTimeFormat = dateTimeFields.indexOf(fieldName) !== -1;
         var supportsMinuteFormat = minuteFormatFields.indexOf(fieldName) !== -1;
         var supportsSummary = summaryFields.indexOf(fieldName) !== -1;
@@ -558,18 +570,21 @@
         summaryContainer.classList.toggle('d-none', !showSummary);
         machineInOutContainer.classList.toggle('d-none', !isMachineInOut);
         halfStatusCountContainer.classList.toggle('d-none', !supportsStatusSelection);
+        showFixedHoursContainer.classList.toggle('d-none', !supportsFixedHours);
         var optionCount = Number(showDateTimeFormat)
             + Number(supportsStatusSelection)
             + Number(supportsMinuteFormat)
             + Number(showSummary)
             + Number(supportsStatusSelection);
         var columnWidth = optionCount === 0 ? 12 : (optionCount === 1 ? 6 : (optionCount === 2 ? 4 : 3));
-        var columnWidths = supportsStatusSelection
-            ? [6, columnWidth, 6, columnWidth, 6, 6]
-            : [columnWidth, columnWidth, columnWidth, columnWidth, columnWidth, columnWidth];
+        var columnWidths = supportsFixedHours
+            ? [6, 6, 6, 6, 6, 6, 6]
+            : (supportsStatusSelection
+                ? [6, columnWidth, 6, columnWidth, 6, 6, 6]
+                : [columnWidth, columnWidth, columnWidth, columnWidth, columnWidth, columnWidth, columnWidth]);
         fieldColumn.classList.remove('col-md-3', 'col-md-4', 'col-md-6', 'col-md-12');
         fieldColumn.classList.add('col-md-' + columnWidths[0]);
-        [formatColumn, statusColumn, minuteFormatColumn, summaryContainer, halfStatusCountContainer].forEach(function (column, index) {
+        [formatColumn, statusColumn, minuteFormatColumn, summaryContainer, halfStatusCountContainer, showFixedHoursContainer].forEach(function (column, index) {
             column.classList.remove('col-md-3', 'col-md-4', 'col-md-6', 'col-md-12');
             column.classList.add('col-md-' + columnWidths[index + 1]);
         });
@@ -596,6 +611,9 @@
         if (!supportsStatusSelection) {
             row.querySelector('[data-half-status-count]').checked = false;
         }
+        if (!supportsFixedHours) {
+            showFixedHours.checked = false;
+        }
 
         initializeSelect(dateTimeFormat);
         initializeSelect(minuteFormat);
@@ -611,6 +629,7 @@
         var minuteFormat = row.querySelector('[data-minute-format]');
         var useInSummary = row.querySelector('[data-use-in-summary]');
         var halfStatusCount = row.querySelector('[data-half-status-count]');
+        var showFixedHours = row.querySelector('[data-show-fixed-hours]');
 
         rowNumber += 1;
         useInSummary.id = 'custom_report_use_in_summary_' + rowNumber;
@@ -620,6 +639,7 @@
         minuteFormat.value = field.minute_format || 'default';
         useInSummary.checked = field.use_in_summary === true;
         halfStatusCount.checked = field.half_status_count_as_half === true;
+        showFixedHours.checked = field.show_fixed_hrs === true;
 
         rowsContainer.appendChild(fragment);
         updateFieldOptions(row, storedFormat, field.status_master_ids || [], field.machine_in_out || []);

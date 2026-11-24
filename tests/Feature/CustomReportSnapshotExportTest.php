@@ -51,6 +51,8 @@ class CustomReportSnapshotExportTest extends TestCase
             $table->unsignedBigInteger('user_id');
             $table->date('date');
             $table->unsignedBigInteger('shift_id')->nullable();
+            $table->dateTime('shift_in_time')->nullable();
+            $table->dateTime('shift_out_time')->nullable();
             $table->unsignedBigInteger('status_master_id')->nullable();
             $table->string('shift_code')->nullable();
             $table->boolean('is_half_day')->default(false);
@@ -66,6 +68,12 @@ class CustomReportSnapshotExportTest extends TestCase
             $table->decimal('c_off_days', 10, 2)->default(0);
             $table->boolean('is_coff')->default(false);
             $table->decimal('coff_credit_dayes', 10, 2)->default(0);
+        });
+        Schema::create('categories', function (Blueprint $table): void {
+            $table->id();
+            $table->boolean('fix_work_hours')->default(false);
+            $table->boolean('fix_work_hours_as_per_shift')->default(false);
+            $table->string('fix_work_hours_value')->nullable();
         });
         Schema::create('status_masters', function (Blueprint $table): void {
             $table->id();
@@ -175,6 +183,65 @@ class CustomReportSnapshotExportTest extends TestCase
             ['Date', 'Attendance In Time', 'Attendance Out Time'],
             ['03/02', '08:15 AM', '06:30 PM'],
         ], $table['rows']);
+    }
+
+    public function test_working_hours_can_show_category_fixed_custom_or_shift_hours(): void
+    {
+        DB::table('categories')->insert([
+            ['id' => 1, 'fix_work_hours' => true, 'fix_work_hours_as_per_shift' => false, 'fix_work_hours_value' => '06:00'],
+            ['id' => 2, 'fix_work_hours' => true, 'fix_work_hours_as_per_shift' => true, 'fix_work_hours_value' => '06:00'],
+            ['id' => 3, 'fix_work_hours' => false, 'fix_work_hours_as_per_shift' => false, 'fix_work_hours_value' => '06:00'],
+        ]);
+        DB::table('attendances2026')->insert([
+            [
+                'user_id' => 71,
+                'date' => '2026-11-23',
+                'shift_in_time' => '2026-11-23 09:00:00',
+                'shift_out_time' => '2026-11-23 17:00:00',
+                'work_time' => 420,
+            ],
+            [
+                'user_id' => 72,
+                'date' => '2026-11-23',
+                'shift_in_time' => '2026-11-23 09:00:00',
+                'shift_out_time' => '2026-11-23 17:00:00',
+                'work_time' => 600,
+            ],
+            [
+                'user_id' => 73,
+                'date' => '2026-11-23',
+                'shift_in_time' => '2026-11-23 09:00:00',
+                'shift_out_time' => '2026-11-23 17:00:00',
+                'work_time' => 600,
+            ],
+        ]);
+
+        $employees = [];
+        foreach ([71 => 1, 72 => 2, 73 => 3] as $employeeId => $categoryId) {
+            $employee = new User;
+            $employee->setRawAttributes([
+                'id' => $employeeId,
+                'code' => 'E'.$employeeId,
+                'category_id' => json_encode([$categoryId]),
+            ], true);
+            $employees[] = $employee;
+        }
+
+        $table = (new CustomReportTableBuilder)->buildForEmployees(
+            [
+                ['field_name' => 'emp_code'],
+                ['field_name' => 'date'],
+                ['field_name' => 'working_hrs', 'minute_format' => 'hh_mm', 'show_fixed_hrs' => true],
+            ],
+            '2026-11-23',
+            '2026-11-23',
+            'vertical',
+            $employees,
+        );
+
+        $this->assertContains(['2026-11-23', '06:00'], $table['rows']);
+        $this->assertContains(['2026-11-23', '08:00'], $table['rows']);
+        $this->assertContains(['2026-11-23', '10:00'], $table['rows']);
     }
 
     public function test_master_section_uses_fallback_before_snapshot_and_shows_value_date_ranges_when_changed(): void
