@@ -14,6 +14,7 @@ use App\Models\Tenant\DataPolicy;
 use App\Models\Tenant\Department;
 use App\Models\Tenant\Designation;
 use App\Models\Tenant\GeneralConfiguration;
+use App\Models\Tenant\Holiday;
 use App\Models\Tenant\LegacyLeaveGroup;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\Machine;
@@ -27,6 +28,7 @@ use App\Models\Tenant\SubDepartment;
 use App\Models\Tenant\Team;
 use App\Models\Tenant\Unit;
 use App\Models\Tenant\User;
+use App\Models\Tenant\WeekOffMuster;
 use DateInterval;
 use DatePeriod;
 use DateTimeImmutable;
@@ -83,6 +85,7 @@ final class CustomReportTableBuilder
         $fieldLabels = CustomReportFieldOptions::all();
         $fields = array_values(array_filter($fields, 'is_array'));
         $fields = $this->expandManualPunchFields($fields);
+        $hasNoPunch = in_array('no_punch', array_column($fields, 'field_name'), true);
         $machineInOutSequences = $this->machineInOutSequenceDefinitions($fields);
         $hasMachineInOut = in_array('machine_in_out', array_column($fields, 'field_name'), true);
         $statusMasterFilterIds = $this->selectedStatusMasterIds($fields);
@@ -122,7 +125,7 @@ final class CustomReportTableBuilder
             ),
             true,
         );
-        if ($dateIndexes !== [] || $hasMachineInOut || $hasManualPunch) {
+        if ($dateIndexes !== [] || $hasMachineInOut || $hasManualPunch || $hasNoPunch) {
             $start = new DateTimeImmutable($fromDate);
             $end = (new DateTimeImmutable($toDate))->modify('+1 day');
             foreach (new DatePeriod($start, new DateInterval('P1D'), $end) as $date) {
@@ -161,7 +164,7 @@ final class CustomReportTableBuilder
             ),
             true,
         );
-        if (($dateIndexes !== [] || $hasMachineInOut || $hasManualPunch) && $orientation === 'horizontal') {
+        if (($dateIndexes !== [] || $hasMachineInOut || $hasManualPunch || $hasNoPunch) && $orientation === 'horizontal') {
             $masterIndexes = [];
             $detailIndexes = [];
             foreach ($fields as $index => $field) {
@@ -275,7 +278,7 @@ final class CustomReportTableBuilder
             return ['headers' => [], 'rows' => $rows];
         }
 
-        if ($dateIndexes !== [] || $hasMachineInOut || $hasManualPunch) {
+        if ($dateIndexes !== [] || $hasMachineInOut || $hasManualPunch || $hasNoPunch) {
             $masterIndexes = [];
             $detailIndexes = [];
             foreach ($fields as $index => $field) {
@@ -549,17 +552,31 @@ final class CustomReportTableBuilder
                     || filter_var($field['use_only_in_summary'] ?? false, FILTER_VALIDATE_BOOLEAN)
             )
                 && (CustomReportFieldOptions::supportsMinuteFormat((string) ($field['field_name'] ?? ''))
-                    || in_array($field['field_name'] ?? '', ['attendance_status', 'attendance_specific_status', 'month_total_days'], true)),
+                    || in_array($field['field_name'] ?? '', ['attendance_status', 'attendance_specific_status', 'no_punch', 'month_total_days'], true)),
         ));
         $minuteTotals = [];
         $periodDays = [];
+        $statusFields = ['attendance_status', 'attendance_specific_status'];
         $statusSelected = array_intersect(
-            ['attendance_status', 'attendance_specific_status'],
+            $statusFields,
             array_column($summaryFields, 'field_name'),
         ) !== [];
 
         foreach ($summaryFields as $field) {
             $fieldName = (string) ($field['field_name'] ?? '');
+            if ($fieldName === 'no_punch') {
+                $count = 0;
+                foreach ($attendanceValues as $dailyValues) {
+                    foreach ($dailyValues as $values) {
+                        if (($values['no_punch'] ?? '') === 'AA') {
+                            $count++;
+                        }
+                    }
+                }
+                $periodDays[$fieldName] = (string) $count;
+
+                continue;
+            }
             if ($fieldName === 'month_total_days') {
                 $periodDays[$fieldName] = (string) $selectedPeriodDays;
 
@@ -958,7 +975,7 @@ final class CustomReportTableBuilder
             array_column($fields, 'field_name'),
             array_merge(
                 array_keys($attendanceColumns),
-                ['attendance_specific_status', 'attendance_status', 'shift_name', 'shift_code', 'machine_in_out'],
+                ['attendance_specific_status', 'attendance_status', 'no_punch', 'shift_name', 'shift_code', 'machine_in_out'],
                 array_keys(CustomReportFieldOptions::manualPunchSubfields()),
             ),
         ));
@@ -979,6 +996,9 @@ final class CustomReportTableBuilder
 
         $values = [];
         $attendanceRows = [];
+        $attendanceStatusCodes = [];
+        $attendanceWeekOffDates = [];
+        $attendanceHolidayDates = [];
         $shiftIds = [];
         $statusMasterIds = [];
         $fieldFormats = [];
@@ -1000,8 +1020,12 @@ final class CustomReportTableBuilder
             if ($field === 'shift_name' || $field === 'shift_code') {
                 $columns[] = 'shift_id';
             }
-            if ($field === 'attendance_status' || $field === 'attendance_specific_status') {
+            if ($field === 'attendance_status' || $field === 'attendance_specific_status' || $field === 'no_punch') {
                 $columns[] = 'status_master_id';
+            }
+            if ($field === 'no_punch') {
+                $columns[] = 'is_weekoff';
+                $columns[] = 'is_holiday';
             }
             if ($field === 'late_minutes') {
                 $columns[] = 'is_late';
@@ -1057,10 +1081,17 @@ final class CustomReportTableBuilder
         foreach ($attendanceRows as $attendance) {
             $date = $attendance->date->toDateString();
             $employeeId = (int) $attendance->user_id;
+            if (in_array('is_weekoff', $columns, true) && $attendance->is_weekoff) {
+                $attendanceWeekOffDates[$employeeId][$date] = true;
+            }
+            if (in_array('is_holiday', $columns, true) && $attendance->is_holiday) {
+                $attendanceHolidayDates[$employeeId][$date] = true;
+            }
 
             if (in_array('status_master_id', $columns, true)) {
                 $statusCode = $attendanceStatuses[(int) $attendance->status_master_id] ?? null;
                 if (is_scalar($statusCode) && (string) $statusCode !== '') {
+                    $attendanceStatusCodes[$employeeId][$date] = (string) $statusCode;
                     if (in_array('attendance_status', $requestedFields, true)) {
                         $values[$employeeId][$date]['attendance_status'] = (string) $statusCode;
                     }
@@ -1117,6 +1148,76 @@ final class CustomReportTableBuilder
                 }
                 if (is_scalar($value)) {
                     $values[$employeeId][$date][$field] = (string) $value;
+                }
+            }
+        }
+
+        if (in_array('no_punch', $requestedFields, true)) {
+            $employeeCodes = $employees
+                ->filter(static fn (User $employee): bool => is_scalar($employee->code) && trim((string) $employee->code) !== '')
+                ->mapWithKeys(static fn (User $employee): array => [trim((string) $employee->code) => (int) $employee->getKey()])
+                ->all();
+            $employeeDmsIds = $employees
+                ->filter(static fn (User $employee): bool => is_numeric($employee->dms_user_id) && (int) $employee->dms_user_id > 0)
+                ->mapWithKeys(static fn (User $employee): array => [(int) $employee->dms_user_id => (int) $employee->getKey()])
+                ->all();
+            $employeeIdSet = array_fill_keys($employeeIds, true);
+            $attendanceLogDates = [];
+            foreach (AttendanceLog::query()
+                ->whereBetween('datetime', [$fromDate.' 00:00:00', $toDate.' 23:59:59'])
+                ->where(function ($query) use ($employeeIds, $employeeCodes, $employeeDmsIds): void {
+                    $query->whereIn('user_id', $employeeIds);
+                    if ($employeeCodes !== []) {
+                        $query->orWhereIn('user_code', array_keys($employeeCodes));
+                    }
+                    if ($employeeDmsIds !== []) {
+                        $query->orWhereIn('dms_user_id', array_keys($employeeDmsIds));
+                    }
+                })
+                ->get(['user_id', 'user_code', 'dms_user_id', 'datetime']) as $attendanceLog) {
+                if ($attendanceLog->datetime === null) {
+                    continue;
+                }
+                $employeeId = $attendanceLog->user_id !== null && isset($employeeIdSet[(int) $attendanceLog->user_id])
+                    ? (int) $attendanceLog->user_id
+                    : ($employeeCodes[trim((string) $attendanceLog->user_code)]
+                        ?? $employeeDmsIds[(int) $attendanceLog->dms_user_id] ?? null);
+                if ($employeeId !== null) {
+                    $attendanceLogDates[$employeeId][$attendanceLog->datetime->format('Y-m-d')] = true;
+                }
+            }
+
+            $weekOffDates = [];
+            foreach (WeekOffMuster::query()
+                ->whereIn('user_id', $employeeIds)
+                ->whereBetween('date', [$fromDate, $toDate])
+                ->where('is_locked', false)
+                ->whereIn('wo_type', [1, 2, 3])
+                ->get(['user_id', 'date']) as $weekOff) {
+                $weekOffDates[(int) $weekOff->user_id][$weekOff->date->format('Y-m-d')] = true;
+            }
+            $holidayDates = Holiday::query()
+                ->whereBetween('date', [$fromDate, $toDate])
+                ->pluck('date')
+                ->map(static fn (mixed $date): string => substr((string) $date, 0, 10))
+                ->flip()
+                ->all();
+
+            $start = new DateTimeImmutable($fromDate);
+            $end = (new DateTimeImmutable($toDate))->modify('+1 day');
+            foreach ($employees as $employee) {
+                $employeeId = (int) $employee->getKey();
+                foreach (new DatePeriod($start, new DateInterval('P1D'), $end) as $date) {
+                    $dateKey = $date->format('Y-m-d');
+                    $isAbsentAttendance = ($attendanceStatusCodes[$employeeId][$dateKey] ?? '') === 'AA';
+                    if ($isAbsentAttendance
+                        && ! isset($attendanceLogDates[$employeeId][$dateKey])
+                        && ! isset($weekOffDates[$employeeId][$dateKey])
+                        && ! isset($holidayDates[$dateKey])
+                        && ! isset($attendanceWeekOffDates[$employeeId][$dateKey])
+                        && ! isset($attendanceHolidayDates[$employeeId][$dateKey])) {
+                        $values[$employeeId][$dateKey]['no_punch'] = 'AA';
+                    }
                 }
             }
         }
@@ -1788,6 +1889,7 @@ final class CustomReportTableBuilder
             'attendance_out_time',
             'attendance_specific_status',
             'attendance_status',
+            'no_punch',
             'late_minutes',
             'early_minutes',
             'working_hrs',

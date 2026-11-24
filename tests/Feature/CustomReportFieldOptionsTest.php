@@ -63,6 +63,8 @@ class CustomReportFieldOptionsTest extends TestCase
             $this->assertFalse(CustomReportFieldOptions::supportsDateTimeFormat($fieldName));
             $this->assertTrue(CustomReportFieldOptions::supportsSummary($fieldName));
         }
+        $this->assertFalse(CustomReportFieldOptions::supportsDateTimeFormat('no_punch'));
+        $this->assertTrue(CustomReportFieldOptions::supportsSummary('no_punch'));
     }
 
     public function test_attendance_fields_are_available_in_the_field_selector_options(): void

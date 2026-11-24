@@ -54,6 +54,8 @@ class CustomReportSnapshotExportTest extends TestCase
             $table->dateTime('shift_in_time')->nullable();
             $table->dateTime('shift_out_time')->nullable();
             $table->unsignedBigInteger('status_master_id')->nullable();
+            $table->boolean('is_weekoff')->default(false);
+            $table->boolean('is_holiday')->default(false);
             $table->string('shift_code')->nullable();
             $table->boolean('is_half_day')->default(false);
             $table->dateTime('in_time')->nullable();
@@ -78,6 +80,28 @@ class CustomReportSnapshotExportTest extends TestCase
         Schema::create('status_masters', function (Blueprint $table): void {
             $table->id();
             $table->string('code');
+        });
+        Schema::create('week_off_musters', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->date('date');
+            $table->boolean('is_locked')->default(false);
+            $table->unsignedTinyInteger('wo_type');
+        });
+        Schema::create('holidays', function (Blueprint $table): void {
+            $table->id();
+            $table->string('name');
+            $table->date('date');
+            $table->softDeletes();
+            $table->timestamps();
+        });
+        Schema::create('attendance_logs', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id')->nullable();
+            $table->string('user_code')->nullable();
+            $table->unsignedBigInteger('dms_user_id')->nullable();
+            $table->dateTime('datetime')->nullable();
+            $table->softDeletes();
         });
         Schema::create('locations', function (Blueprint $table): void {
             $table->id();
@@ -268,7 +292,6 @@ class CustomReportSnapshotExportTest extends TestCase
                 'out_time' => '2026-02-03 18:30:00',
             ],
         ]);
-
         $employee = new User;
         $employee->setRawAttributes([
             'id' => 7,
@@ -792,6 +815,100 @@ class CustomReportSnapshotExportTest extends TestCase
             ['Summary'],
             ['Working Hrs', '16:30'],
         ], $legacyFormatTable['rows']);
+    }
+
+    public function test_no_punch_shows_all_dates_and_only_aa_attendance_without_logs(): void
+    {
+        DB::table('status_masters')->insert([
+            ['id' => 1, 'code' => 'AA'],
+            ['id' => 2, 'code' => 'P'],
+        ]);
+        DB::table('attendances2026')->insert([
+            [
+                'user_id' => 7,
+                'date' => '2026-11-23',
+                'status_master_id' => 1,
+                'is_weekoff' => false,
+                'is_holiday' => false,
+                'in_time' => null,
+                'out_time' => null,
+            ],
+            [
+                'user_id' => 7,
+                'date' => '2026-11-24',
+                'status_master_id' => 1,
+                'is_weekoff' => false,
+                'is_holiday' => false,
+                'in_time' => null,
+                'out_time' => null,
+            ],
+            [
+                'user_id' => 7,
+                'date' => '2026-11-25',
+                'status_master_id' => 1,
+                'is_weekoff' => false,
+                'is_holiday' => false,
+                'in_time' => null,
+                'out_time' => null,
+            ],
+            [
+                'user_id' => 7,
+                'date' => '2026-11-28',
+                'status_master_id' => 2,
+                'is_weekoff' => false,
+                'is_holiday' => false,
+                'in_time' => '2026-11-28 09:00:00',
+                'out_time' => null,
+            ],
+        ]);
+        DB::table('attendance_logs')->insert([
+            'user_code' => 'E007',
+            'datetime' => '2026-11-24 09:00:00',
+        ]);
+        DB::table('attendance_logs')->insert([
+            'dms_user_id' => 7001,
+            'datetime' => '2026-11-25 09:00:00',
+        ]);
+        DB::table('week_off_musters')->insert([
+            'user_id' => 7,
+            'date' => '2026-11-26',
+            'is_locked' => false,
+            'wo_type' => 1,
+        ]);
+        DB::table('holidays')->insert([
+            'name' => 'Test holiday',
+            'date' => '2026-11-27',
+        ]);
+        $employee = new User;
+        $employee->setRawAttributes(['id' => 7, 'code' => 'E007', 'dms_user_id' => 7001], true);
+
+        $table = (new CustomReportTableBuilder)->buildForEmployees(
+            [
+                ['field_name' => 'emp_code'],
+                ['field_name' => 'no_punch', 'use_in_summary' => true],
+            ],
+            '2026-11-23',
+            '2026-11-29',
+            'vertical',
+            [$employee],
+        );
+
+        $this->assertSame([
+            ['Emp Code'],
+            ['E007'],
+            [],
+            ['Date', 'No Punch'],
+            ['2026-11-23', 'AA'],
+            ['2026-11-24', ''],
+            ['2026-11-25', ''],
+            ['2026-11-26', ''],
+            ['2026-11-27', ''],
+            ['2026-11-28', ''],
+            ['2026-11-29', ''],
+            [],
+            ['Summary'],
+            ['No Punch', '1'],
+        ], $table['rows']);
     }
 
     public function test_missing_late_and_early_minutes_use_the_selected_decimal_format(): void

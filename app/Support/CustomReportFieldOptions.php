@@ -56,7 +56,7 @@ final class CustomReportFieldOptions
     {
         return array_values(array_diff(
             array_merge(self::dateOnlyFields(), self::dateTimeOnlyFields(), self::dateDetailFields()),
-            array_merge(self::minuteFormatFields(), ['attendance_specific_status', 'attendance_status', 'shift_name', 'shift_code', 'manual_punch', 'month_total_days']),
+            array_merge(self::minuteFormatFields(), ['attendance_specific_status', 'attendance_status', 'shift_name', 'shift_code', 'manual_punch', 'month_total_days', 'no_punch']),
         ));
     }
 

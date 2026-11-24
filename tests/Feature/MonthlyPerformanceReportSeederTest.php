@@ -13,6 +13,8 @@ use Database\Seeders\Tenant\MonthlyFixedWorkHoursReportSeeder;
 use Database\Seeders\Tenant\MonthlyLateComingReportSeeder;
 use Database\Seeders\Tenant\MonthlyManualPunchReportSeeder;
 use Database\Seeders\Tenant\MonthlyMusterReportSeeder;
+use Database\Seeders\Tenant\MonthlyNoPunchReportSeeder;
+use Database\Seeders\Tenant\MonthlyOvertimeReportSeeder;
 use Database\Seeders\Tenant\MonthlyPerformanceReportSeeder;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -214,6 +216,81 @@ class MonthlyPerformanceReportSeederTest extends TestCase
             'category_name',
             'manual_punch',
         ], array_column($detail->custom_report_fields, 'field_name'));
+        $this->assertSame([], $detail->custom_report_filter);
+        $this->assertSame(1, DB::table('custom_reports')->count());
+        $this->assertSame(1, DB::table('custom_report_details')->count());
+    }
+
+    public function test_it_seeds_the_monthly_no_punch_report_with_a_no_punch_summary(): void
+    {
+        app(MonthlyNoPunchReportSeeder::class)->run();
+        app(MonthlyNoPunchReportSeeder::class)->run();
+
+        $report = CustomReport::query()
+            ->with('custom_report_details')
+            ->where('report_name', 'Monthly No Punch Report')
+            ->firstOrFail();
+        $dateRange = app(CustomReportDateRange::class)->resolve('this_month');
+        $detail = $report->custom_report_details->first();
+        $this->assertNotNull($detail);
+        $fields = $detail->custom_report_fields;
+        $noPunchField = $fields[array_search('no_punch', array_column($fields, 'field_name'), true)];
+
+        $this->assertSame('this_month', $report->date_range_preset);
+        $this->assertSame($dateRange['from']->toDateString(), $report->from_date->toDateString());
+        $this->assertSame($dateRange['to']->toDateString(), $report->to_date->toDateString());
+        $this->assertSame('horizontal', $report->report_orientation);
+        $this->assertSame('horizontal', $report->summary_orientation);
+        $this->assertSame([
+            'emp_code',
+            'emp_card',
+            'name',
+            'company_name',
+            'department_name',
+            'designation_name',
+            'category_name',
+            'date',
+            'no_punch',
+        ], array_column($fields, 'field_name'));
+        $this->assertTrue($noPunchField['use_in_summary']);
+        $this->assertSame([], $detail->custom_report_filter);
+        $this->assertSame(1, DB::table('custom_reports')->count());
+        $this->assertSame(1, DB::table('custom_report_details')->count());
+    }
+
+    public function test_it_seeds_the_monthly_overtime_report_with_approved_overtime_summary(): void
+    {
+        app(MonthlyOvertimeReportSeeder::class)->run();
+        app(MonthlyOvertimeReportSeeder::class)->run();
+
+        $report = CustomReport::query()
+            ->with('custom_report_details')
+            ->where('report_name', 'Monthly Overtime Report')
+            ->firstOrFail();
+        $dateRange = app(CustomReportDateRange::class)->resolve('this_month');
+        $detail = $report->custom_report_details->first();
+        $this->assertNotNull($detail);
+        $fields = $detail->custom_report_fields;
+        $approvedOvertimeField = $fields[array_search('approved_overtime_minutes', array_column($fields, 'field_name'), true)];
+
+        $this->assertSame('this_month', $report->date_range_preset);
+        $this->assertSame($dateRange['from']->toDateString(), $report->from_date->toDateString());
+        $this->assertSame($dateRange['to']->toDateString(), $report->to_date->toDateString());
+        $this->assertSame('horizontal', $report->report_orientation);
+        $this->assertSame('horizontal', $report->summary_orientation);
+        $this->assertSame([
+            'emp_code',
+            'emp_card',
+            'name',
+            'company_name',
+            'department_name',
+            'designation_name',
+            'category_name',
+            'date',
+            'approved_overtime_minutes',
+        ], array_column($fields, 'field_name'));
+        $this->assertSame('hh_mm', $approvedOvertimeField['minute_format']);
+        $this->assertTrue($approvedOvertimeField['use_in_summary']);
         $this->assertSame([], $detail->custom_report_filter);
         $this->assertSame(1, DB::table('custom_reports')->count());
         $this->assertSame(1, DB::table('custom_report_details')->count());
