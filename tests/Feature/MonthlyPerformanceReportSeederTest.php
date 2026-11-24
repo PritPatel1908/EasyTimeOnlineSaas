@@ -16,6 +16,7 @@ use Database\Seeders\Tenant\MonthlyMusterReportSeeder;
 use Database\Seeders\Tenant\MonthlyNoPunchReportSeeder;
 use Database\Seeders\Tenant\MonthlyOvertimeReportSeeder;
 use Database\Seeders\Tenant\MonthlyPerformanceReportSeeder;
+use Database\Seeders\Tenant\MonthlyWorkingHoursReportSeeder;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -183,6 +184,45 @@ class MonthlyPerformanceReportSeederTest extends TestCase
         $this->assertSame('hh_mm', $workingHoursField['minute_format']);
         $this->assertTrue($workingHoursField['use_in_summary']);
         $this->assertTrue($workingHoursField['show_fixed_hrs']);
+        $this->assertSame([], $detail->custom_report_filter);
+        $this->assertSame(1, DB::table('custom_reports')->count());
+        $this->assertSame(1, DB::table('custom_report_details')->count());
+    }
+
+    public function test_it_seeds_the_monthly_working_hours_report_once_with_hours_summary(): void
+    {
+        app(MonthlyWorkingHoursReportSeeder::class)->run();
+        app(MonthlyWorkingHoursReportSeeder::class)->run();
+
+        $report = CustomReport::query()
+            ->with('custom_report_details')
+            ->where('report_name', 'Monthly Working Hrs Report')
+            ->firstOrFail();
+        $dateRange = app(CustomReportDateRange::class)->resolve('this_month');
+        $detail = $report->custom_report_details->first();
+        $this->assertNotNull($detail);
+        $fields = $detail->custom_report_fields;
+        $workingHoursField = $fields[array_search('working_hrs', array_column($fields, 'field_name'), true)];
+
+        $this->assertSame('this_month', $report->date_range_preset);
+        $this->assertSame($dateRange['from']->toDateString(), $report->from_date->toDateString());
+        $this->assertSame($dateRange['to']->toDateString(), $report->to_date->toDateString());
+        $this->assertSame('horizontal', $report->report_orientation);
+        $this->assertSame('horizontal', $report->summary_orientation);
+        $this->assertSame([
+            'emp_code',
+            'emp_card',
+            'name',
+            'company_name',
+            'department_name',
+            'designation_name',
+            'category_name',
+            'date',
+            'working_hrs',
+        ], array_column($fields, 'field_name'));
+        $this->assertSame('hh_mm', $workingHoursField['minute_format']);
+        $this->assertTrue($workingHoursField['use_in_summary']);
+        $this->assertFalse($workingHoursField['show_fixed_hrs']);
         $this->assertSame([], $detail->custom_report_filter);
         $this->assertSame(1, DB::table('custom_reports')->count());
         $this->assertSame(1, DB::table('custom_report_details')->count());
