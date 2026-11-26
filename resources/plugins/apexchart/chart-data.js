@@ -3098,6 +3098,8 @@ if (document.getElementById('emp-department')) {
             ghostClass: 'dashboard-widget-sort-ghost',
             scroll: false,
             onStart: startDashboardPageAutoScroll,
+            onAdd: layoutDashboardWidgetWidths,
+            onRemove: layoutDashboardWidgetWidths,
             onMove: function (event) {
               updateDashboardAutoScrollPointer(event.originalEvent);
               var relatedWidget = event.related && event.related.closest

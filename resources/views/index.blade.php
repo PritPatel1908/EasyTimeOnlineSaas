@@ -200,8 +200,13 @@
 
     .dashboard-widget-positioned-header {
         position: relative;
-        padding-right: 78px;
+        padding-right: 0;
         justify-content: flex-start !important;
+    }
+
+    .dashboard-widget-positioned-header > h5 {
+        flex: 0 0 100%;
+        max-width: calc(100% - 78px);
     }
 
     .dashboard-widget-position-controls {
@@ -281,6 +286,23 @@
     .widget-info-right .dashboard-widget-title-group {
         width: auto;
         flex: 0 1 auto;
+    }
+
+    .widget-info-right .dashboard-widget-title-group,
+    .widget-info-right .dashboard-widget-filter-selects,
+    .widget-info-right .dashboard-widget-header-controls {
+        display: contents;
+    }
+
+    .widget-info-right .dashboard-widget-title-group h5 {
+        flex: 0 0 100%;
+        max-width: calc(100% - 78px);
+    }
+
+    .widget-info-right .dashboard-widget-header-controls > .dashboard-widget-width-select-container {
+        width: 82px;
+        min-width: 82px;
+        flex: 0 0 82px;
     }
 
     .dashboard-widget-title-group h5 {
