@@ -6,6 +6,26 @@
         if (!el.tomselect) new TomSelect(el);
     });
 
+    document.querySelectorAll('.dashboard-widget-width-select').forEach(function (el) {
+        var container = el.closest('.dashboard-widget-width-select-container');
+        var widget = el.closest('[data-dashboard-widget], [data-dashboard-static-widget]');
+        var selectWrapper = el.tomselect && el.tomselect.wrapper;
+
+        if (!container || !widget || !selectWrapper) return;
+
+        var isCustomWidth = widget.dataset.dashboardWidgetWidthMode === 'custom';
+        var containerWidth = isCustomWidth ? 184 : 82;
+        var selectWidth = isCustomWidth ? '96px' : '82px';
+
+        container.style.display = isCustomWidth ? 'grid' : 'flex';
+        container.style.width = containerWidth + 'px';
+        container.style.flexBasis = containerWidth + 'px';
+        container.style.gridTemplateColumns = isCustomWidth ? '96px 80px' : '';
+        selectWrapper.style.setProperty('width', selectWidth, 'important');
+        selectWrapper.style.setProperty('min-width', isCustomWidth ? '0' : selectWidth);
+        selectWrapper.style.setProperty('max-width', selectWidth);
+    });
+
     /* multiple select */
     document.querySelectorAll('.js-example-basic-multiple').forEach(function (el) {
         if (!el.tomselect) new TomSelect(el, { plugins: ['remove_button'] });

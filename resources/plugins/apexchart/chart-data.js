@@ -2473,63 +2473,708 @@ if (document.getElementById('revenue-chart')) {
 // Employee Department
 
 if (document.getElementById('emp-department')) {
-  var sBar = {
-    chart: {
-      height: 220,
-      type: 'bar',
-      padding: {
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0
+  var employeeGroupingData = document.getElementById('employee-grouping-data');
+  var employeeGroupings = employeeGroupingData ? JSON.parse(employeeGroupingData.textContent) : null;
+  if (employeeGroupings) {
+    var groupingTitle = document.getElementById('employee-grouping-title');
+    var groupingSelect = document.querySelector('[data-employee-grouping-select]');
+    var metricSelect = document.querySelector('[data-employee-metric-select]');
+    var groupingSummaryText = document.getElementById('employee-grouping-summary-text');
+    var employeeChartContent = document.getElementById('employee-chart-content');
+    var employeeChartScroll = document.getElementById('employee-chart-scroll');
+    var employeeChartRows = document.getElementById('employee-chart-rows');
+    var employeeChartTicks = document.getElementById('employee-chart-ticks');
+    var employeeChartTooltip = document.getElementById('employee-chart-tooltip');
+    var employeeChartTooltipTitle = document.getElementById('employee-chart-tooltip-title');
+    var employeeChartTooltipLabel = document.getElementById('employee-chart-tooltip-label');
+    var employeeChartTooltipCount = document.getElementById('employee-chart-tooltip-count');
+    var employeeChartTooltipDot = document.getElementById('employee-chart-tooltip-dot');
+    var employeeChartSummaryDot = document.getElementById('employee-chart-summary-dot');
+    var employeeBarObserver = null;
+    var employeeChartElement = document.getElementById('emp-department');
+
+    var hideEmployeeTooltip = function () {
+      employeeChartTooltip.classList.remove('is-visible');
+      employeeChartTooltip.setAttribute('aria-hidden', 'true');
+    };
+
+    var showEmployeeTooltip = function (track, category, value, metric, clientX, clientY) {
+      employeeChartTooltipTitle.textContent = category;
+      employeeChartTooltipLabel.textContent = metric === 'present' ? 'Present' : 'Employee Count';
+      employeeChartTooltipCount.textContent = value;
+      employeeChartTooltipDot.classList.toggle('employee-chart-tooltip-dot-present', metric === 'present');
+      employeeChartTooltip.classList.add('is-visible');
+      employeeChartTooltip.setAttribute('aria-hidden', 'false');
+
+      var chartBounds = employeeChartElement.getBoundingClientRect();
+      var rowBounds = track.parentElement.getBoundingClientRect();
+      var left = clientX - chartBounds.left - (employeeChartTooltip.offsetWidth / 2);
+      var top = clientY - chartBounds.top - (employeeChartTooltip.offsetHeight / 2);
+      var maxLeft = chartBounds.width - employeeChartTooltip.offsetWidth - 48;
+      var maxTop = chartBounds.height - employeeChartTooltip.offsetHeight;
+
+      if (rowBounds.height >= employeeChartTooltip.offsetHeight) {
+        var rowTop = rowBounds.top - chartBounds.top;
+        var rowBottom = rowBounds.bottom - chartBounds.top;
+        top = Math.max(rowTop, Math.min(top, rowBottom - employeeChartTooltip.offsetHeight));
+      }
+
+      employeeChartTooltip.style.left = Math.max(0, Math.min(left, maxLeft)) + 'px';
+      employeeChartTooltip.style.top = Math.max(0, Math.min(top, maxTop)) + 'px';
+    };
+
+    var employeeAxisStep = function (maximum) {
+      if (maximum <= 5) {
+        return 1;
+      }
+
+      var rawStep = maximum / 5;
+      var magnitude = Math.pow(10, Math.floor(Math.log10(rawStep)));
+      var normalized = rawStep / magnitude;
+      var niceStep = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 2.5 ? 2.5 : normalized <= 5 ? 5 : 10;
+
+      return niceStep * magnitude;
+    };
+
+    var drawEmployeeGrouping = function (key, metric) {
+      var grouping = employeeGroupings[key];
+      if (!grouping) {
+        return;
+      }
+
+      var isPresentMetric = metric === 'present';
+      var values = isPresentMetric ? grouping.present : grouping.data;
+      groupingTitle.textContent = 'Employees By ' + grouping.label;
+      if (groupingSelect.tomselect) {
+        groupingSelect.tomselect.setValue(key, true);
+      } else {
+        groupingSelect.value = key;
+      }
+      if (metricSelect.tomselect) {
+        metricSelect.tomselect.setValue(metric, true);
+      } else {
+        metricSelect.value = metric;
+      }
+      groupingSummaryText.textContent = isPresentMetric
+        ? 'Summary: ' + grouping.summaryPresentCount + ' present employees across ' + grouping.categories.length + ' visible masters.'
+        : 'Summary: ' + grouping.summaryCount + ' employees linked to ' + grouping.categories.length + ' visible masters.';
+      employeeChartSummaryDot.classList.toggle('employee-chart-summary-dot-present', isPresentMetric);
+      employeeChartSummaryDot.classList.toggle('employee-chart-summary-dot-count', !isPresentMetric);
+      hideEmployeeTooltip();
+      if (employeeBarObserver) {
+        employeeBarObserver.disconnect();
+      }
+      employeeChartRows.textContent = '';
+      employeeChartTicks.textContent = '';
+      employeeChartScroll.scrollTop = 0;
+
+      if ('IntersectionObserver' in window) {
+        employeeBarObserver = new IntersectionObserver(function (entries, observer) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+              var barStack = entry.target.querySelector('.employee-chart-bar-stack');
+              barStack.style.width = barStack.dataset.width;
+              observer.unobserve(entry.target);
+            }
+          });
+        }, { root: employeeChartScroll, threshold: 0.1 });
+      } else {
+        employeeBarObserver = null;
+      }
+
+      var maximum = Math.max.apply(null, values.concat([0]));
+      var step = employeeAxisStep(maximum);
+      var axisMaximum = Math.max(step * 5, 5);
+      var rowCount = grouping.categories.length;
+      var rowHeight = rowCount > 0
+        ? Math.max(35, 350 / Math.min(rowCount, 10))
+        : 35;
+
+      grouping.categories.forEach(function (category, index) {
+        var value = values[index] || 0;
+        var row = document.createElement('div');
+        row.className = 'employee-chart-row';
+        row.style.height = rowHeight + 'px';
+        row.setAttribute('role', 'listitem');
+
+        var label = document.createElement('span');
+        label.className = 'employee-chart-label';
+        label.textContent = category;
+        label.title = category;
+
+        var track = document.createElement('div');
+        track.className = 'employee-chart-track';
+        track.setAttribute('role', 'img');
+        track.setAttribute('aria-label', category + ': ' + value + (isPresentMetric ? ' present employees' : ' employees'));
+        track.setAttribute('tabindex', '0');
+
+        var barStack = document.createElement('div');
+        barStack.className = 'employee-chart-bar-stack';
+        barStack.dataset.width = (value / axisMaximum * 100) + '%';
+        barStack.style.width = '0%';
+        barStack.style.height = Math.max(12, rowHeight - 8) + 'px';
+
+        var bar = document.createElement('div');
+        bar.className = 'employee-chart-bar employee-chart-bar-' + (isPresentMetric ? 'present' : 'count');
+        bar.style.width = '100%';
+        bar.style.height = '100%';
+        barStack.appendChild(bar);
+        track.appendChild(barStack);
+        track.addEventListener('mouseenter', function (event) {
+          showEmployeeTooltip(track, category, value, metric, event.clientX, event.clientY);
+        });
+        track.addEventListener('mousemove', function (event) {
+          showEmployeeTooltip(track, category, value, metric, event.clientX, event.clientY);
+        });
+        track.addEventListener('mouseleave', hideEmployeeTooltip);
+        track.addEventListener('focus', function () {
+          var trackBounds = track.getBoundingClientRect();
+          showEmployeeTooltip(
+            track,
+            category,
+            value,
+            metric,
+            trackBounds.left + (trackBounds.width / 2),
+            trackBounds.top + (trackBounds.height / 2)
+          );
+        });
+        track.addEventListener('blur', hideEmployeeTooltip);
+
+        row.appendChild(label);
+        row.appendChild(track);
+        employeeChartRows.appendChild(row);
+
+        if (employeeBarObserver) {
+          employeeBarObserver.observe(row);
+        } else {
+          requestAnimationFrame(function () {
+            barStack.style.width = barStack.dataset.width;
+          });
+        }
+      });
+
+      for (var tick = 0; tick <= 5; tick++) {
+        var tickLabel = document.createElement('span');
+        tickLabel.textContent = Number((tick * step).toFixed(2)).toString();
+        employeeChartTicks.appendChild(tickLabel);
+      }
+    };
+
+    var activeEmployeeGrouping = null;
+    var activeEmployeeMetric = 'count';
+    var employeeGroupingTransitionTimer = null;
+    var renderEmployeeGrouping = function (key, metric) {
+      if (!employeeGroupings[key]) {
+        return;
+      }
+
+      if (employeeGroupingTransitionTimer) {
+        window.clearTimeout(employeeGroupingTransitionTimer);
+        employeeGroupingTransitionTimer = null;
+        if (key === activeEmployeeGrouping && metric === activeEmployeeMetric) {
+          employeeChartContent.classList.remove('is-changing');
+          return;
+        }
+      }
+
+      if (key === activeEmployeeGrouping && metric === activeEmployeeMetric) {
+        return;
+      }
+
+      if (activeEmployeeGrouping === null) {
+        drawEmployeeGrouping(key, metric);
+        activeEmployeeGrouping = key;
+        activeEmployeeMetric = metric;
+        return;
+      }
+
+      employeeChartContent.classList.add('is-changing');
+      employeeGroupingTransitionTimer = window.setTimeout(function () {
+        employeeGroupingTransitionTimer = null;
+        drawEmployeeGrouping(key, metric);
+        activeEmployeeGrouping = key;
+        activeEmployeeMetric = metric;
+        window.requestAnimationFrame(function () {
+          employeeChartContent.classList.remove('is-changing');
+        });
+      }, 180);
+    };
+
+    renderEmployeeGrouping('department', 'count');
+
+    groupingSelect.addEventListener('change', function () {
+      renderEmployeeGrouping(groupingSelect.value, activeEmployeeMetric);
+    });
+
+    metricSelect.addEventListener('change', function () {
+      renderEmployeeGrouping(activeEmployeeGrouping, metricSelect.value);
+    });
+
+    var dashboardWidgetGridIds = ['dashboard-widget-grid', 'dashboard-widget-grid-secondary'];
+    var dashboardWidgetGrids = dashboardWidgetGridIds
+      .map(function (gridId) {
+        return document.getElementById(gridId);
+      })
+      .filter(function (grid) {
+        return grid !== null;
+      });
+    var dashboardWidgetGrid = document.getElementById('dashboard-widget-grid');
+
+    if (dashboardWidgetGrid && dashboardWidgetGrid.dataset.dashboardLayoutInitialized !== 'true') {
+      if (typeof window.Sortable === 'undefined') {
+        console.error('SortableJS is required to reorder dashboard widgets.');
+      } else {
+        var dashboardWidgetStorageKey = 'dashboard-widget-layout:' + dashboardWidgetGrid.dataset.dashboardLayoutUser;
+        var savedLayout = localStorage.getItem(dashboardWidgetStorageKey);
+        var savedDashboardLayout = savedLayout ? JSON.parse(savedLayout) : {};
+        var dashboardWidgetNodesByToken = {};
+        var dashboardWidgetTokensByGrid = {};
+        var dashboardWidgetOriginalGridByToken = {};
+        var dashboardWidgets = [];
+        var dashboardResizableWidgets = [];
+
+        var getDashboardWidgetToken = function (element) {
+          if (element.dataset.dashboardWidget) {
+            return 'widget:' + element.dataset.dashboardWidget;
+          }
+
+          if (element.dataset.dashboardStaticWidget) {
+            return 'static:' + element.dataset.dashboardStaticWidget;
+          }
+
+          return null;
+        };
+
+        dashboardWidgetGrids.forEach(function (grid) {
+          dashboardWidgetTokensByGrid[grid.id] = [];
+          Array.prototype.forEach.call(grid.children, function (element) {
+            var token = getDashboardWidgetToken(element);
+            if (!token) {
+              return;
+            }
+
+            dashboardWidgetNodesByToken[token] = element;
+            dashboardWidgetTokensByGrid[grid.id].push(token);
+            dashboardWidgetOriginalGridByToken[token] = grid.id;
+          });
+          dashboardWidgets = dashboardWidgets.concat(
+            Array.prototype.slice.call(grid.querySelectorAll(
+              '[data-dashboard-widget], [data-dashboard-static-widget]'
+            ))
+          );
+          dashboardResizableWidgets = dashboardResizableWidgets.concat(
+            Array.prototype.slice.call(grid.querySelectorAll('[data-dashboard-widget-width]'))
+          );
+        });
+
+        var savedWidgetOrder = Array.isArray(savedDashboardLayout.order)
+          ? { 'dashboard-widget-grid': savedDashboardLayout.order }
+          : savedDashboardLayout.order || {};
+        var desiredWidgetTokensByGrid = {};
+        var placedWidgetTokens = {};
+
+        dashboardWidgetGrids.forEach(function (grid) {
+          desiredWidgetTokensByGrid[grid.id] = [];
+          var savedTokens = savedWidgetOrder[grid.id];
+          if (!Array.isArray(savedTokens)) {
+            return;
+          }
+
+          savedTokens.forEach(function (savedToken) {
+            var token = dashboardWidgetNodesByToken[savedToken]
+              ? savedToken
+              : dashboardWidgetNodesByToken['widget:' + savedToken]
+                ? 'widget:' + savedToken
+                : null;
+
+            if (token && !placedWidgetTokens[token]) {
+              desiredWidgetTokensByGrid[grid.id].push(token);
+              placedWidgetTokens[token] = true;
+            }
+          });
+        });
+
+        dashboardWidgetGrids.forEach(function (grid) {
+          dashboardWidgetTokensByGrid[grid.id].forEach(function (token) {
+            if (!placedWidgetTokens[token]) {
+              var originalGridId = dashboardWidgetOriginalGridByToken[token];
+              desiredWidgetTokensByGrid[originalGridId].push(token);
+              placedWidgetTokens[token] = true;
+            }
+          });
+        });
+
+        dashboardWidgetGrids.forEach(function (grid) {
+          desiredWidgetTokensByGrid[grid.id].forEach(function (token) {
+            grid.appendChild(dashboardWidgetNodesByToken[token]);
+          });
+        });
+
+        var updateDashboardWidgetLock = function (widget, locked) {
+          var lockButton = widget.querySelector('[data-dashboard-widget-lock]');
+          var dragHandle = widget.querySelector('[data-dashboard-drag-handle]');
+          var lockIcon = lockButton.querySelector('i');
+          var widgetLabel = widget.dataset.dashboardWidgetLabel
+            || widget.dataset.dashboardWidget
+            || widget.dataset.dashboardStaticWidget;
+
+          widget.dataset.dashboardWidgetLocked = locked ? 'true' : 'false';
+          widget.classList.toggle('dashboard-widget-locked', locked);
+          lockButton.setAttribute('aria-pressed', locked ? 'true' : 'false');
+          lockButton.setAttribute(
+            'aria-label',
+            (locked ? 'Unlock ' : 'Lock ') + widgetLabel + ' position'
+          );
+          lockButton.title = locked ? 'Unlock position' : 'Lock position';
+          lockIcon.classList.toggle('ti-lock', locked);
+          lockIcon.classList.toggle('ti-lock-open', !locked);
+          dragHandle.disabled = locked;
+        };
+
+        var applyDashboardWidgetWidth = function (widget, width, customColumns) {
+          var selection = String(width);
+          var isCustomWidth = selection === 'custom' || selection.indexOf('custom:') === 0;
+          var normalizedWidth;
+
+          if (selection.indexOf('custom:') === 0) {
+            customColumns = selection.substring(7);
+          }
+
+          if (isCustomWidth) {
+            normalizedWidth = String(customColumns || '6');
+            var customWidthValue = Number(normalizedWidth);
+            if (
+              !/^\d+$/.test(normalizedWidth)
+              || customWidthValue < 1
+              || customWidthValue > 12
+            ) {
+              normalizedWidth = '6';
+            }
+          } else {
+            normalizedWidth = selection === '1' ? '4' : selection;
+            if (['4', '6', '12', 'auto'].indexOf(normalizedWidth) === -1) {
+              normalizedWidth = '6';
+            }
+          }
+
+          widget.dataset.dashboardWidgetWidth = normalizedWidth;
+          widget.dataset.dashboardWidgetWidthMode = isCustomWidth ? 'custom' : 'preset';
+
+          var widthSelect = widget.querySelector('[data-dashboard-width-select]');
+          if (widthSelect) {
+            widthSelect.value = isCustomWidth ? 'custom' : normalizedWidth;
+          }
+
+          var customWidthInput = widget.querySelector('[data-dashboard-custom-width-input]');
+          if (customWidthInput) {
+            if (isCustomWidth) {
+              customWidthInput.value = normalizedWidth;
+            }
+            customWidthInput.hidden = !isCustomWidth;
+            customWidthInput.style.display = isCustomWidth ? 'block' : 'none';
+          }
+
+          var widthSelectContainer = widget.querySelector('.dashboard-widget-width-select-container');
+          if (widthSelectContainer) {
+            widthSelectContainer.classList.toggle('is-custom-width', isCustomWidth);
+            widthSelectContainer.style.display = isCustomWidth ? 'grid' : 'flex';
+            widthSelectContainer.style.width = isCustomWidth ? '184px' : '82px';
+            widthSelectContainer.style.flexBasis = isCustomWidth ? '184px' : '82px';
+            widthSelectContainer.style.gridTemplateColumns = isCustomWidth ? '96px 80px' : '';
+
+            var selectWrapper = widthSelectContainer.querySelector('.ts-wrapper');
+            if (selectWrapper) {
+              var selectWidth = isCustomWidth ? '96px' : '82px';
+              selectWrapper.style.setProperty('width', selectWidth, 'important');
+              selectWrapper.style.setProperty('min-width', isCustomWidth ? '0' : selectWidth);
+              selectWrapper.style.setProperty('max-width', selectWidth);
+            }
+          }
+        };
+
+        var layoutDashboardWidgetWidths = function () {
+          dashboardWidgetGrids.forEach(function (grid) {
+            var widgets = Array.prototype.filter.call(grid.children, function (widget) {
+              return Boolean(widget.dataset.dashboardWidgetWidth);
+            });
+            var widgetIndex = 0;
+
+            while (widgetIndex < widgets.length) {
+              var rowWidgets = [];
+              var minimumColumns = 0;
+
+              while (widgetIndex < widgets.length) {
+                var widget = widgets[widgetIndex];
+                var isAutoWidth = widget.dataset.dashboardWidgetWidth === 'auto';
+                var minimumWidth = isAutoWidth
+                  ? 1
+                  : Number(widget.dataset.dashboardWidgetWidth);
+
+                if (rowWidgets.length > 0 && minimumColumns + minimumWidth > 12) {
+                  break;
+                }
+
+                rowWidgets.push({
+                  element: widget,
+                  isAutoWidth: isAutoWidth,
+                  span: minimumWidth
+                });
+                minimumColumns += minimumWidth;
+                widgetIndex += 1;
+
+                if (minimumColumns === 12) {
+                  break;
+                }
+              }
+
+              var autoWidgets = rowWidgets.filter(function (rowWidget) {
+                return rowWidget.isAutoWidth;
+              });
+              var remainingColumns = autoWidgets.length > 0
+                ? 12 - minimumColumns
+                : 0;
+
+              autoWidgets.forEach(function (rowWidget, autoIndex) {
+                rowWidget.span += Math.floor(remainingColumns / autoWidgets.length)
+                  + (autoIndex < remainingColumns % autoWidgets.length ? 1 : 0);
+              });
+
+              rowWidgets.forEach(function (rowWidget) {
+                rowWidget.element.style.gridColumn = 'span ' + rowWidget.span;
+              });
+            }
+          });
+        };
+
+        var saveDashboardWidgetLayout = function () {
+          var lockedWidgets = {};
+          var orderByGrid = {};
+          var widthsByWidget = {};
+          layoutDashboardWidgetWidths();
+
+          dashboardWidgets.forEach(function (widget) {
+            var widgetId = widget.dataset.dashboardWidget || widget.dataset.dashboardStaticWidget;
+            lockedWidgets[widgetId] = widget.dataset.dashboardWidgetLocked === 'true';
+          });
+
+          dashboardWidgetGrids.forEach(function (grid) {
+            orderByGrid[grid.id] = Array.prototype.map.call(grid.children, getDashboardWidgetToken);
+          });
+
+          dashboardResizableWidgets.forEach(function (widget) {
+            widthsByWidget[getDashboardWidgetToken(widget)] = widget.dataset.dashboardWidgetWidthMode === 'custom'
+              ? 'custom:' + widget.dataset.dashboardWidgetWidth
+              : widget.dataset.dashboardWidgetWidth;
+          });
+
+          localStorage.setItem(dashboardWidgetStorageKey, JSON.stringify({
+            order: orderByGrid,
+            locked: lockedWidgets,
+            widths: widthsByWidget
+          }));
+        };
+
+        dashboardResizableWidgets.forEach(function (widget) {
+          var savedWidths = savedDashboardLayout.widths;
+          var savedWidth = savedWidths && savedWidths[getDashboardWidgetToken(widget)];
+          applyDashboardWidgetWidth(widget, savedWidth || widget.dataset.dashboardWidgetWidth || '6');
+
+          var widthSelect = widget.querySelector('[data-dashboard-width-select]');
+          var customWidthInput = widget.querySelector('[data-dashboard-custom-width-input]');
+          if (widthSelect) {
+            widthSelect.addEventListener('change', function () {
+              if (widthSelect.value === 'custom') {
+                if (
+                  widget.dataset.dashboardWidgetWidthMode !== 'custom'
+                  && widget.dataset.dashboardWidgetWidth !== 'auto'
+                ) {
+                  customWidthInput.value = widget.dataset.dashboardWidgetWidth;
+                }
+
+                if (!customWidthInput.checkValidity()) {
+                  customWidthInput.reportValidity();
+                  return;
+                }
+
+                applyDashboardWidgetWidth(widget, 'custom', customWidthInput.value);
+              } else {
+                applyDashboardWidgetWidth(widget, widthSelect.value);
+              }
+
+              layoutDashboardWidgetWidths();
+              saveDashboardWidgetLayout();
+            });
+          }
+
+          if (customWidthInput) {
+            customWidthInput.addEventListener('change', function () {
+              if (!customWidthInput.checkValidity()) {
+                customWidthInput.reportValidity();
+                return;
+              }
+
+              applyDashboardWidgetWidth(widget, 'custom', customWidthInput.value);
+              layoutDashboardWidgetWidths();
+              saveDashboardWidgetLayout();
+            });
+          }
+        });
+        layoutDashboardWidgetWidths();
+
+        dashboardWidgets.forEach(function (widget) {
+          var lockedWidgets = savedDashboardLayout.locked;
+          var widgetId = widget.dataset.dashboardWidget || widget.dataset.dashboardStaticWidget;
+          var locked = lockedWidgets && lockedWidgets[widgetId] === true;
+          updateDashboardWidgetLock(widget, locked);
+
+          widget.querySelector('[data-dashboard-widget-lock]').addEventListener('click', function () {
+            updateDashboardWidgetLock(
+              widget,
+              widget.dataset.dashboardWidgetLocked !== 'true'
+            );
+            saveDashboardWidgetLayout();
+          });
+        });
+
+        var dashboardAutoScrollActive = false;
+        var dashboardAutoScrollPointerY = null;
+        var dashboardAutoScrollFrame = null;
+        var updateDashboardAutoScrollPointer = function (event) {
+          if (event && typeof event.clientY === 'number') {
+            dashboardAutoScrollPointerY = event.clientY;
+          }
+        };
+        var scrollDashboardPageAtEdge = function () {
+          if (!dashboardAutoScrollActive) {
+            return;
+          }
+
+          var edgeSize = 100;
+          var maxSpeed = 20;
+          var scrollDelta = 0;
+          if (dashboardAutoScrollPointerY !== null && dashboardAutoScrollPointerY < edgeSize) {
+            scrollDelta = -Math.ceil(
+              ((edgeSize - dashboardAutoScrollPointerY) / edgeSize) * maxSpeed
+            );
+          } else if (
+            dashboardAutoScrollPointerY !== null
+            && dashboardAutoScrollPointerY > window.innerHeight - edgeSize
+          ) {
+            scrollDelta = Math.ceil(
+              ((dashboardAutoScrollPointerY - (window.innerHeight - edgeSize)) / edgeSize) * maxSpeed
+            );
+          }
+
+          if (scrollDelta !== 0) {
+            window.scrollBy(0, scrollDelta);
+          }
+
+          dashboardAutoScrollFrame = window.requestAnimationFrame(scrollDashboardPageAtEdge);
+        };
+        var startDashboardPageAutoScroll = function (event) {
+          dashboardAutoScrollActive = true;
+          updateDashboardAutoScrollPointer(event && (event.originalEvent || event));
+          document.addEventListener('pointermove', updateDashboardAutoScrollPointer, { passive: true });
+          document.addEventListener('dragover', updateDashboardAutoScrollPointer);
+          dashboardAutoScrollFrame = window.requestAnimationFrame(scrollDashboardPageAtEdge);
+        };
+        var stopDashboardPageAutoScroll = function () {
+          dashboardAutoScrollActive = false;
+          dashboardAutoScrollPointerY = null;
+          document.removeEventListener('pointermove', updateDashboardAutoScrollPointer);
+          document.removeEventListener('dragover', updateDashboardAutoScrollPointer);
+          if (dashboardAutoScrollFrame !== null) {
+            window.cancelAnimationFrame(dashboardAutoScrollFrame);
+            dashboardAutoScrollFrame = null;
+          }
+        };
+
+        dashboardWidgetGrids.forEach(function (grid) {
+          new window.Sortable(grid, {
+            group: { name: 'dashboard-widgets', pull: true, put: true },
+            animation: 180,
+            handle: '[data-dashboard-drag-handle]',
+            draggable: '[data-dashboard-widget], [data-dashboard-static-widget]',
+            ghostClass: 'dashboard-widget-sort-ghost',
+            scroll: false,
+            onStart: startDashboardPageAutoScroll,
+            onMove: function (event) {
+              updateDashboardAutoScrollPointer(event.originalEvent);
+              var relatedWidget = event.related && event.related.closest
+                ? event.related.closest('[data-dashboard-widget], [data-dashboard-static-widget]')
+                : event.related;
+
+              return event.dragged.dataset.dashboardWidgetLocked !== 'true'
+                && (!relatedWidget || relatedWidget.dataset.dashboardWidgetLocked !== 'true');
+            },
+            onEnd: function () {
+              stopDashboardPageAutoScroll();
+              saveDashboardWidgetLayout();
+            }
+          });
+          grid.dataset.dashboardLayoutInitialized = 'true';
+        });
+      }
+    }
+  } else {
+    var sBar = {
+      chart: {
+        height: 220,
+        type: 'bar',
+        padding: {
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0
+        },
+        toolbar: {
+          show: false,
+        }
       },
-      toolbar: {
-        show: false,
-      }
-    },
-    colors: ['#FF6F28'],
-    grid: {
-      borderColor: '#E5E7EB',
-      strokeDashArray: 5,
-      padding: {
-        top: -20,
-        left: 0,
-        right: 0,
-        bottom: 0
-      }
-    },
-    plotOptions: {
-      bar: {
-        borderRadius: 5,
-        horizontal: true,
-        barHeight: '35%',
-        endingShape: 'rounded'
-      }
-    },
-    dataLabels: {
-      enabled: false
-    },
-    series: [{
-      data: [80, 110, 80, 20, 60, 100],
-      name: 'Employee'
-    }],
-    xaxis: {
-      categories: ['UI/UX', 'Development', 'Management', 'HR', 'Testing', 'Marketing'],
-      labels: {
-        style: {
-          colors: '#111827',
-          fontSize: '13px',
+      colors: ['#FF6F28'],
+      grid: {
+        borderColor: '#E5E7EB',
+        strokeDashArray: 5,
+        padding: {
+          top: -20,
+          left: 0,
+          right: 0,
+          bottom: 0
+        }
+      },
+      plotOptions: {
+        bar: {
+          borderRadius: 5,
+          horizontal: true,
+          barHeight: '35%',
+          endingShape: 'rounded'
+        }
+      },
+      dataLabels: {
+        enabled: false
+      },
+      series: [{
+        data: [80, 110, 80, 20, 60, 100],
+        name: 'Employee'
+      }],
+      xaxis: {
+        categories: ['UI/UX', 'Development', 'Management', 'HR', 'Testing', 'Marketing'],
+        labels: {
+          style: {
+            colors: '#111827',
+            fontSize: '13px',
+          }
         }
       }
     }
+
+    var chart = new ApexCharts(
+      document.querySelector("#emp-department"),
+      sBar
+    );
+
+    chart.render();
   }
-
-  var chart = new ApexCharts(
-    document.querySelector("#emp-department"),
-    sBar
-  );
-
-  chart.render();
 }
 
 // Company Chart

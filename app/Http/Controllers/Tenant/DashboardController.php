@@ -6,8 +6,22 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
 use App\Models\Tenant\Attendance;
+use App\Models\Tenant\ApprovalFlow;
+use App\Models\Tenant\Area;
+use App\Models\Tenant\BusRoute;
+use App\Models\Tenant\CanteenFacility;
+use App\Models\Tenant\Category;
 use App\Models\Tenant\Company;
+use App\Models\Tenant\Department;
+use App\Models\Tenant\Designation;
+use App\Models\Tenant\Grade;
 use App\Models\Tenant\Location;
+use App\Models\Tenant\Machine;
+use App\Models\Tenant\SubDepartment;
+use App\Models\Tenant\SubCategory;
+use App\Models\Tenant\StatusMuster;
+use App\Models\Tenant\Team;
+use App\Models\Tenant\Unit;
 use App\Models\Tenant\User;
 use App\Services\Tenant\PendingApprovalQuery;
 use App\Support\TenantPermissions;
@@ -25,6 +39,148 @@ class DashboardController extends Controller
             $user?->mname,
             $user?->lname,
         ])));
+        $today = now();
+        $tomorrow = $today->copy()->addDay();
+        $activeEmployees = User::query()
+            ->where('id', '!=', 1)
+            ->whereNull('left_date')
+            ->where('is_inactive', false);
+        $birthdaysForDate = static function ($date) use ($activeEmployees) {
+            return (clone $activeEmployees)
+                ->whereMonth('dob', $date->month)
+                ->whereDay('dob', $date->day)
+                ->orderBy('id')
+                ->get(['id', 'name', 'fname', 'mname', 'lname'])
+                ->map(static function (User $employee): array {
+                    $name = $employee->name ?: trim(implode(' ', array_filter([
+                        $employee->fname,
+                        $employee->mname,
+                        $employee->lname,
+                    ])));
+
+                    return [
+                        'id' => $employee->id,
+                        'name' => $name !== '' ? $name : 'Employee '.$employee->id,
+                    ];
+                });
+        };
+        $birthdaysToday = $birthdaysForDate($today);
+        $birthdaysTomorrow = $birthdaysForDate($tomorrow);
+        $employees = User::query()
+            ->with('areas:id')
+            ->where('user_type', 'employee')
+            ->whereNull('left_date')
+            ->where('is_inactive', false)
+            ->get([
+                'id',
+                'department_id',
+                'company_id',
+                'location_id',
+                'sub_department_id',
+                'category_id',
+                'sub_category_id',
+                'designation_id',
+                'grade_id',
+                'unit_id',
+                'bus_route_id',
+                'team_id',
+                'canteen_facility_id',
+            ]);
+        $employeeIds = $employees->pluck('id');
+        $dailyAttendanceByUser = Attendance::year((int) $today->year)
+            ->whereDate('date', $today->toDateString())
+            ->whereIn('user_id', $employeeIds)
+            ->get(['user_id', 'in_time', 'out_time', 'is_holiday', 'is_weekoff'])
+            ->keyBy('user_id');
+        $dailyStatusByUser = StatusMuster::query()
+            ->with('status_master:id,code')
+            ->whereDate('date', $today->toDateString())
+            ->whereIn('user_id', $employeeIds)
+            ->get()
+            ->groupBy('user_id')
+            ->map(static fn ($statuses) => $statuses->sortByDesc('updated_at')->first());
+        $attendanceStates = [];
+        $nonWorkingStatusCodes = ['WO', 'WOP', 'WHP', 'HL', 'HLP', 'PH', 'PHL'];
+
+        foreach ($employeeIds as $employeeId) {
+            $attendance = $dailyAttendanceByUser->get($employeeId);
+            $statusCode = $dailyStatusByUser->get($employeeId)?->status_master?->code;
+
+            if ($attendance?->in_time && $attendance?->out_time) {
+                $attendanceStates[$employeeId] = 'present';
+
+                continue;
+            }
+
+            if (
+                in_array($statusCode, $nonWorkingStatusCodes, true)
+                || $attendance?->is_holiday
+                || $attendance?->is_weekoff
+            ) {
+                continue;
+            }
+
+            if (in_array($statusCode, ['AA', 'AP'], true)) {
+                $attendanceStates[$employeeId] = 'absent';
+            }
+        }
+        $employeeGroupingDefinitions = [
+            'department' => ['label' => 'Department', 'field' => 'department_id', 'model' => Department::class],
+            'company' => ['label' => 'Company', 'field' => 'company_id', 'model' => Company::class],
+            'location' => ['label' => 'Location', 'field' => 'location_id', 'model' => Location::class],
+            'sub_department' => ['label' => 'Sub Department', 'field' => 'sub_department_id', 'model' => SubDepartment::class],
+            'category' => ['label' => 'Category', 'field' => 'category_id', 'model' => Category::class],
+            'sub_category' => ['label' => 'Sub Category', 'field' => 'sub_category_id', 'model' => SubCategory::class],
+            'designation' => ['label' => 'Designation', 'field' => 'designation_id', 'model' => Designation::class],
+            'grade' => ['label' => 'Grade', 'field' => 'grade_id', 'model' => Grade::class],
+            'unit' => ['label' => 'Unit', 'field' => 'unit_id', 'model' => Unit::class],
+            'bus_route' => ['label' => 'Bus Route', 'field' => 'bus_route_id', 'model' => BusRoute::class],
+            'team' => ['label' => 'Team', 'field' => 'team_id', 'model' => Team::class],
+            'canteen_facility' => ['label' => 'Canteen Facility', 'field' => 'canteen_facility_id', 'model' => CanteenFacility::class],
+            'area' => ['label' => 'Area', 'relation' => 'areas', 'model' => Area::class],
+        ];
+        $employeeGroupings = [];
+        foreach ($employeeGroupingDefinitions as $key => $definition) {
+            $masters = $definition['model']::query()->orderBy('id')->get(['id', 'name']);
+            $counts = array_fill_keys($masters->pluck('id')->map(static fn ($id): int => (int) $id)->all(), 0);
+            $presentCounts = $counts;
+            $absentCounts = $counts;
+            $employeeIdsWithMaster = [];
+            $presentEmployeeIdsWithMaster = [];
+            $absentEmployeeIdsWithMaster = [];
+
+            foreach ($employees as $employee) {
+                $employeeMasterIds = isset($definition['relation'])
+                    ? $employee->{$definition['relation']}->pluck('id')->all()
+                    : $this->idsFrom($employee->{$definition['field']});
+
+                foreach ($employeeMasterIds as $id) {
+                    if (array_key_exists($id, $counts)) {
+                        $counts[$id]++;
+                        $employeeIdsWithMaster[$employee->id] = true;
+
+                        if (($attendanceStates[$employee->id] ?? null) === 'present') {
+                            $presentCounts[$id]++;
+                            $presentEmployeeIdsWithMaster[$employee->id] = true;
+                        } elseif (($attendanceStates[$employee->id] ?? null) === 'absent') {
+                            $absentCounts[$id]++;
+                            $absentEmployeeIdsWithMaster[$employee->id] = true;
+                        }
+                    }
+                }
+            }
+
+            $employeeGroupings[$key] = [
+                'label' => $definition['label'],
+                'categories' => $masters->pluck('name')->all(),
+                'data' => array_values($counts),
+                'summaryCount' => count($employeeIdsWithMaster),
+                'present' => array_values($presentCounts),
+                'absent' => array_values($absentCounts),
+                'summaryPresentCount' => count($presentEmployeeIdsWithMaster),
+                'summaryAbsentCount' => count($absentEmployeeIdsWithMaster),
+            ];
+        }
         $canApprovePendingRequests = TenantPermissions::userCan('PendingRequest', 'read')
             && TenantPermissions::userCan('PendingRequest', 'approve');
         $applicationModules = array_values(array_filter([
@@ -74,6 +230,47 @@ class DashboardController extends Controller
                 'path' => 'time-management/week-off-swap-applications/create',
             ],
         ], static fn (array $module): bool => TenantPermissions::userCan($module['permission'], 'create')));
+        $structureSections = [];
+        foreach ([
+            'Company Structure' => [
+                ['label' => 'Companies', 'permission' => 'Company', 'path' => 'company-structure/companies', 'icon' => 'ti-building', 'count' => static fn (): int => Company::query()->count()],
+                ['label' => 'Locations', 'permission' => 'Location', 'path' => 'company-structure/locations', 'icon' => 'ti-map-pin', 'count' => static fn (): int => Location::query()->count()],
+                ['label' => 'Departments', 'permission' => 'Department', 'path' => 'company-structure/departments', 'icon' => 'ti-sitemap', 'count' => static fn (): int => Department::query()->count()],
+                ['label' => 'Sub Departments', 'permission' => 'SubDepartment', 'path' => 'company-structure/sub-departments', 'icon' => 'ti-hierarchy-2', 'count' => static fn (): int => SubDepartment::query()->count()],
+                ['label' => 'Unit (Mill)', 'permission' => 'Unit', 'path' => 'company-structure/units', 'icon' => 'ti-building-factory', 'count' => static fn (): int => Unit::query()->count()],
+                ['label' => 'Teams', 'permission' => 'Team', 'path' => 'company-structure/teams', 'icon' => 'ti-users-group', 'count' => static fn (): int => Team::query()->count()],
+                ['label' => 'Canteen Facilities', 'permission' => 'CanteenFacility', 'path' => 'company-structure/canteen-facilities', 'icon' => 'ti-tools-kitchen-2', 'count' => static fn (): int => CanteenFacility::query()->count()],
+                ['label' => 'Areas', 'permission' => 'Area', 'path' => 'company-structure/areas', 'icon' => 'ti-map-2', 'count' => static fn (): int => Area::query()->count()],
+                ['label' => 'Machines', 'permission' => 'Machine', 'path' => 'company-structure/machines', 'icon' => 'ti-settings', 'count' => static fn (): int => Machine::query()->count()],
+            ],
+            'Employee Structure' => [
+                ['label' => 'Categories', 'permission' => 'Category', 'path' => 'employee-structure/categories', 'icon' => 'ti-category', 'count' => static fn (): int => Category::query()->count()],
+                ['label' => 'Designations', 'permission' => 'Designation', 'path' => 'employee-structure/designations', 'icon' => 'ti-id-badge', 'count' => static fn (): int => Designation::query()->count()],
+                ['label' => 'Employees', 'permission' => 'User', 'path' => 'employee-structure/employees', 'icon' => 'ti-users', 'count' => static fn (): int => User::query()->where('user_type', 'employee')->count()],
+                ['label' => 'Approval Flows', 'permission' => 'ApprovalFlow', 'path' => 'employee-structure/approval-flows', 'icon' => 'ti-git-branch', 'count' => static fn (): int => ApprovalFlow::query()->count()],
+            ],
+        ] as $sectionTitle => $modules) {
+            $cards = [];
+            foreach ($modules as $module) {
+                if (! TenantPermissions::userCan($module['permission'], 'read')) {
+                    continue;
+                }
+
+                $cards[] = [
+                    'label' => $module['label'],
+                    'path' => $module['path'],
+                    'icon' => $module['icon'],
+                    'count' => $module['count'](),
+                ];
+            }
+
+            if ($cards !== []) {
+                $structureSections[] = [
+                    'title' => $sectionTitle,
+                    'cards' => $cards,
+                ];
+            }
+        }
         $userCount = User::query()->count();
         $attendanceCount = Attendance::year((int) now()->year)
             ->whereDate('date', today())
@@ -86,19 +283,42 @@ class DashboardController extends Controller
         return view('index', [
             'tenantId' => $tenantId,
             'domain' => request()->getHost(),
+            'currentUserId' => $user?->getAuthIdentifier() ?? 'anonymous',
             'currentUserName' => $userName !== '' ? $userName : 'User',
             'currentUserProfilePic' => $user?->profile_pic,
+            'currentUserDob' => $user?->dob,
+            'currentUserJoinDate' => $user?->join_date,
+            'birthdaysToday' => $birthdaysToday,
+            'birthdaysTomorrow' => $birthdaysTomorrow,
+            'employeeGroupings' => $employeeGroupings,
             'canApprovePendingRequests' => $canApprovePendingRequests,
             'pendingApprovalCount' => $canApprovePendingRequests
                 ? PendingApprovalQuery::forUser((int) Auth::guard('tenant')->id())->count()
                 : null,
             'applicationModules' => $applicationModules,
-            'companyCount' => Company::query()->count(),
-            'activeCompanyCount' => Company::query()->where('status', 1)->count(),
+            'structureSections' => $structureSections,
             'userCount' => $userCount,
             'attendanceCount' => $attendanceCount,
-            'locationCount' => Location::query()->count(),
             'recentUsers' => User::query()->latest('id')->limit(5)->get(),
         ]);
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function idsFrom(mixed $value): array
+    {
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+            $value = json_last_error() === JSON_ERROR_NONE ? $decoded : [$value];
+        }
+
+        return array_values(array_unique(array_map(
+            'intval',
+            array_filter(
+                (array) $value,
+                static fn (mixed $id): bool => is_int($id) || (is_string($id) && ctype_digit($id)),
+            ),
+        )));
     }
 }
