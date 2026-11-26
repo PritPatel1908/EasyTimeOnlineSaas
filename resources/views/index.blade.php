@@ -1080,7 +1080,7 @@
                             </div>
                         </div>
                         <div id="employee-status-performers" class="carousel slide mb-3"
-                            data-bs-interval="false">
+                            data-bs-ride="carousel" data-bs-interval="5000">
                             <div class="carousel-inner" data-employee-status-performer-list>
                                 @foreach ($topPerformers as $performer)
                                     <div class="carousel-item @if ($loop->first) active @endif">
@@ -2773,9 +2773,8 @@
                     const selectedPeriod = periodSelect.value;
                     statusCard.setAttribute('aria-busy', 'true');
                     periodSelect.disabled = true;
-                    feedback.classList.remove('d-none', 'text-danger');
-                    feedback.classList.add('text-muted');
-                    feedback.textContent = 'Updating Employee Status...';
+                    feedback.classList.add('d-none');
+                    feedback.textContent = '';
 
                     fetch(periodSelect.dataset.employeeStatusUrl, {
                         method: 'POST',
