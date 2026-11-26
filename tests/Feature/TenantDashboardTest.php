@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Http\Request;
 use Tests\TestCase;
 
 class TenantDashboardTest extends TestCase
@@ -117,6 +118,16 @@ class TenantDashboardTest extends TestCase
             $table->timestamps();
         });
 
+        Schema::create('leave_types', function (Blueprint $table) {
+            $table->id();
+            $table->string('code');
+            $table->string('description')->nullable();
+            $table->unsignedBigInteger('location_id')->nullable();
+            $table->tinyInteger('status')->default(1);
+            $table->softDeletes();
+            $table->timestamps();
+        });
+
         Schema::create('status_musters', function (Blueprint $table) {
             $table->id();
             $table->date('date');
@@ -182,7 +193,7 @@ class TenantDashboardTest extends TestCase
         ]);
 
         $statusMasterIds = [];
-        foreach (['AA', 'AP', 'PP', 'CL', 'HL', 'WO'] as $code) {
+        foreach (['AA', 'AP', 'PP', 'CL', 'HL', 'WO', 'PCL', 'CLA'] as $code) {
             $statusMasterIds[$code] = DB::table('status_masters')->insertGetId([
                 'code' => $code,
                 'alias' => $code,
@@ -216,15 +227,27 @@ class TenantDashboardTest extends TestCase
             $table->dateTime('in_time')->nullable();
             $table->dateTime('out_time')->nullable();
             $table->boolean('is_absent')->default(false);
+            $table->boolean('is_half_day')->default(false);
             $table->boolean('is_holiday')->default(false);
             $table->boolean('is_weekoff')->default(false);
+            $table->unsignedBigInteger('status_master_id')->nullable();
         });
 
+        DB::table('leave_types')->insert([
+            'code' => 'CL',
+            'description' => 'Casual Leave',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
         DB::table('attendances'.now()->year)->insert([
-            ['user_id' => 2, 'date' => today(), 'in_time' => now(), 'out_time' => now(), 'is_holiday' => false, 'is_weekoff' => false],
+            ['user_id' => 2, 'date' => today(), 'in_time' => now(), 'out_time' => now(), 'status_master_id' => $statusMasterIds['PP'], 'is_holiday' => false, 'is_weekoff' => false],
+            ['user_id' => 2, 'date' => today()->subDay(), 'in_time' => now()->subDay(), 'out_time' => now()->subDay(), 'status_master_id' => $statusMasterIds['PP'], 'is_holiday' => false, 'is_weekoff' => false],
+            ['user_id' => 3, 'date' => today(), 'in_time' => null, 'out_time' => null, 'status_master_id' => $statusMasterIds['AA'], 'is_holiday' => false, 'is_weekoff' => false],
+            ['user_id' => 6, 'date' => today(), 'in_time' => now(), 'out_time' => null, 'status_master_id' => $statusMasterIds['CLA'], 'is_holiday' => false, 'is_weekoff' => false],
             ['user_id' => 4, 'date' => today(), 'in_time' => null, 'out_time' => now(), 'is_holiday' => false, 'is_weekoff' => false],
-            ['user_id' => 7, 'date' => today(), 'in_time' => now(), 'out_time' => now(), 'is_holiday' => true, 'is_weekoff' => false],
-            ['user_id' => 8, 'date' => today(), 'in_time' => now(), 'out_time' => now(), 'is_holiday' => false, 'is_weekoff' => true],
+            ['user_id' => 7, 'date' => today(), 'in_time' => now(), 'out_time' => now(), 'status_master_id' => $statusMasterIds['PCL'], 'is_half_day' => true, 'is_holiday' => true, 'is_weekoff' => false],
+            ['user_id' => 8, 'date' => today(), 'in_time' => now(), 'out_time' => now(), 'status_master_id' => $statusMasterIds['AP'], 'is_half_day' => true, 'is_holiday' => false, 'is_weekoff' => true],
             ['user_id' => 5, 'date' => today()->subDay(), 'in_time' => now(), 'out_time' => now(), 'is_holiday' => false, 'is_weekoff' => false],
             ['user_id' => 999, 'date' => today(), 'in_time' => now(), 'out_time' => now(), 'is_holiday' => false, 'is_weekoff' => false],
         ]);
@@ -249,6 +272,7 @@ class TenantDashboardTest extends TestCase
         $this->assertSame('employee-profiles/aarav.png', $response->getData()['currentUserProfilePic']);
         $this->assertSame('1990-03-10', $response->getData()['currentUserDob']->toDateString());
         $this->assertSame('2020-06-15', $response->getData()['currentUserJoinDate']->toDateString());
+        $this->assertSame('today', $response->getData()['employeeStatusPeriod']);
         $this->assertSame(['Employee 2'], $response->getData()['birthdaysToday']->pluck('name')->all());
         $this->assertSame(['Employee 3'], $response->getData()['birthdaysTomorrow']->pluck('name')->all());
         $this->assertTrue($response->getData()['canApprovePendingRequests']);
@@ -256,6 +280,15 @@ class TenantDashboardTest extends TestCase
         $this->assertCount(9, $response->getData()['applicationModules']);
         $this->assertSame(3, $response->getData()['attendanceCount']);
         $this->assertSame(8, $response->getData()['userCount']);
+        $this->assertSame(5, $response->getData()['totalEmployees']);
+        $this->assertSame([
+            'present' => 1,
+            'partial_absent' => 2,
+            'complete_absent' => 1,
+            'leave' => 2,
+        ], $response->getData()['employeeStatusCounts']);
+        $this->assertCount(1, $response->getData()['topPerformers']);
+        $this->assertSame(2, $response->getData()['topPerformers']->first()['id']);
         $this->assertCount(2, $response->getData()['structureSections']);
         $this->assertCount(9, $response->getData()['structureSections'][0]['cards']);
         $this->assertCount(4, $response->getData()['structureSections'][1]['cards']);
@@ -268,6 +301,22 @@ class TenantDashboardTest extends TestCase
         $this->assertSame([2, 1], $response->getData()['employeeGroupings']['company']['data']);
         $this->assertSame(['Head Office', 'Branch'], $response->getData()['employeeGroupings']['location']['categories']);
         $this->assertSame([2, 1], $response->getData()['employeeGroupings']['location']['data']);
+        request()->query->set('employee_status_period', 'yesterday');
+        $yesterdayResponse = app(DashboardController::class)->index();
+        $this->assertSame('yesterday', $yesterdayResponse->getData()['employeeStatusPeriod']);
+        $this->assertSame(1, $yesterdayResponse->getData()['employeeStatusCounts']['present']);
+        $jsonRequest = Request::create(
+            '/dashboard/employee-status',
+            'POST',
+            [],
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json'],
+            json_encode(['employee_status_period' => 'yesterday'])
+        );
+        $jsonResponse = app(DashboardController::class)->employeeStatus($jsonRequest)->getData(true);
+        $this->assertSame('yesterday', $jsonResponse['employeeStatusPeriod']);
+        $this->assertSame(1, $jsonResponse['employeeStatusCounts']['present']);
         $this->assertSame(5, $response->getData()['employeeGroupings']['department']['summaryCount']);
         $this->assertSame(3, $response->getData()['employeeGroupings']['department']['summaryPresentCount']);
         $this->assertSame(1, $response->getData()['employeeGroupings']['department']['summaryAbsentCount']);

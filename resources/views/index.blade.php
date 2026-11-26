@@ -144,6 +144,28 @@
         font-size: 12px;
     }
 
+    .employee-status-period-select-container {
+        width: 125px;
+        min-width: 125px;
+        flex: 0 0 125px;
+    }
+
+    .employee-status-period-select-container .ts-wrapper,
+    .employee-status-period-select-container .ts-control {
+        width: 125px !important;
+        min-width: 125px;
+        height: 38px !important;
+        min-height: 38px !important;
+        box-sizing: border-box;
+    }
+
+    .employee-status-period-select-container .ts-control {
+        display: flex;
+        align-items: center;
+        padding: 6px 10px;
+        font-size: 13px;
+    }
+
     .dashboard-structure-panel > .card-body {
         min-width: 0;
     }
@@ -923,7 +945,7 @@
                 data-dashboard-widget-label="Employee Status"
                 data-dashboard-widget-locked="false"
                 data-dashboard-widget-width="6">
-                <div class="card flex-fill">
+                <div class="card flex-fill" data-employee-status-card aria-busy="false">
                     <div class="card-header pb-2 d-flex align-items-center justify-content-between flex-wrap dashboard-widget-positioned-header">
                         <div class="dashboard-widget-position-controls">
                             <button type="button" class="btn btn-white border btn-sm dashboard-widget-drag-handle"
@@ -952,112 +974,148 @@
                                     data-dashboard-custom-width-input min="1" max="12" step="1" value="6" required hidden
                                     aria-label="Custom card width in columns" title="Enter 1 to 12 columns">
                             </div>
-                            <div class="dropdown">
-                                <a href="javascript:void(0);"
-                                    class="btn btn-white border btn-md d-inline-flex align-items-center"
-                                    data-bs-toggle="dropdown">
-                                    <i class="ti ti-calendar me-1 fs-14"></i>This Week
-                                </a>
-                                <ul class="dropdown-menu dropdown-menu-end p-3">
-                                    <li>
-                                        <a href="javascript:void(0);" class="dropdown-item rounded-1">This Month</a>
-                                    </li>
-                                    <li>
-                                        <a href="javascript:void(0);" class="dropdown-item rounded-1">This Week</a>
-                                    </li>
-                                    <li>
-                                        <a href="javascript:void(0);" class="dropdown-item rounded-1">Today</a>
-                                    </li>
-                                </ul>
+                            <div class="employee-status-period-select-container">
+                                <select class="form-control select2 employee-status-period-select"
+                                    name="employee_status_period" aria-label="Employee Status period"
+                                    data-employee-status-period
+                                    data-employee-status-url="{{ url('dashboard/employee-status') }}"
+                                    data-csrf-token="{{ csrf_token() }}">
+                                    <option value="today" @selected($employeeStatusPeriod === 'today')>Today</option>
+                                    <option value="yesterday" @selected($employeeStatusPeriod === 'yesterday')>Yesterday</option>
+                                    <option value="this_week" @selected($employeeStatusPeriod === 'this_week')>This Week</option>
+                                    <option value="last_week" @selected($employeeStatusPeriod === 'last_week')>Last Week</option>
+                                    <option value="this_month" @selected($employeeStatusPeriod === 'this_month')>This Month</option>
+                                    <option value="last_month" @selected($employeeStatusPeriod === 'last_month')>Last Month</option>
+                                </select>
                             </div>
                         </div>
                     </div>
                     <div class="card-body">
+                        <div class="small text-danger d-none mb-2" data-employee-status-feedback role="status"
+                            aria-live="polite"></div>
                         <div class="d-flex align-items-center justify-content-between mb-1">
                             <p class="fs-13 mb-3">Total Employee</p>
-                            <h3 class="mb-3">154</h3>
+                            <h3 class="mb-3" data-employee-status-total>{{ number_format($totalEmployees) }}</h3>
                         </div>
                         <div class="progress-stacked emp-stack mb-3">
-                            <div class="progress" role="progressbar" aria-label="Segment one" aria-valuenow="15"
-                                aria-valuemin="0" aria-valuemax="100" style="width: 40%">
+                            <div class="progress" role="progressbar" aria-label="Present"
+                                aria-valuenow="{{ (int) round($employeeStatusPercentages['present']) }}"
+                                aria-valuemin="0" aria-valuemax="100"
+                                data-employee-status-progress="present"
+                                style="width: {{ number_format($employeeStatusPercentages['present'], 2, '.', '') }}%">
+                                <div class="progress-bar bg-success"></div>
+                            </div>
+                            <div class="progress" role="progressbar" aria-label="Partial Absent"
+                                aria-valuenow="{{ (int) round($employeeStatusPercentages['partial_absent']) }}"
+                                aria-valuemin="0" aria-valuemax="100"
+                                data-employee-status-progress="partial_absent"
+                                style="width: {{ number_format($employeeStatusPercentages['partial_absent'], 2, '.', '') }}%">
                                 <div class="progress-bar bg-warning"></div>
                             </div>
-                            <div class="progress" role="progressbar" aria-label="Segment two" aria-valuenow="30"
-                                aria-valuemin="0" aria-valuemax="100" style="width: 20%">
-                                <div class="progress-bar bg-secondary"></div>
-                            </div>
-                            <div class="progress" role="progressbar" aria-label="Segment three" aria-valuenow="20"
-                                aria-valuemin="0" aria-valuemax="100" style="width: 10%">
+                            <div class="progress" role="progressbar" aria-label="Complete Absent"
+                                aria-valuenow="{{ (int) round($employeeStatusPercentages['complete_absent']) }}"
+                                aria-valuemin="0" aria-valuemax="100"
+                                data-employee-status-progress="complete_absent"
+                                style="width: {{ number_format($employeeStatusPercentages['complete_absent'], 2, '.', '') }}%">
                                 <div class="progress-bar bg-danger"></div>
                             </div>
-                            <div class="progress" role="progressbar" aria-label="Segment four" aria-valuenow="20"
-                                aria-valuemin="0" aria-valuemax="100" style="width: 30%">
-                                <div class="progress-bar bg-pink"></div>
+                            <div class="progress" role="progressbar" aria-label="Leave"
+                                aria-valuenow="{{ (int) round($employeeStatusPercentages['leave']) }}"
+                                aria-valuemin="0" aria-valuemax="100"
+                                data-employee-status-progress="leave"
+                                style="width: {{ number_format($employeeStatusPercentages['leave'], 2, '.', '') }}%">
+                                <div class="progress-bar bg-info"></div>
                             </div>
                         </div>
                         <div class="border mb-3">
                             <div class="row gx-0">
                                 <div class="col-6">
                                     <div class="p-2 flex-fill border-end border-bottom">
-                                        <p class="fs-13 mb-2"><i
-                                                class="ti ti-square-rounded-filled text-primary fs-12 me-2"></i>Fulltime
-                                            <span class="text-gray-9">(48%)</span>
+                                        <p class="fs-13 mb-2"><i class="ti ti-square-rounded-filled text-success fs-12 me-2"></i>Present
+                                            <span class="text-gray-9" data-employee-status-percent="present">({{ (int) round($employeeStatusPercentages['present']) }}%)</span>
                                         </p>
-                                        <h2 class="fs-40 fw-bold">112</h2>
+                                        <h2 class="fs-40 fw-bold" data-employee-status-count="present">{{ number_format($employeeStatusCounts['present']) }}</h2>
                                     </div>
                                 </div>
                                 <div class="col-6">
                                     <div class="p-2 flex-fill border-bottom text-end">
-                                        <p class="fs-13 mb-2"><i
-                                                class="ti ti-square-rounded0filled me-2 text-secondary fs-12"></i>Contract
-                                            <span class="text-gray-9">(20%)</span>
+                                        <p class="fs-13 mb-2"><i class="ti ti-square-rounded-filled me-2 text-warning fs-12"></i>Partial Absent
+                                            <span class="text-gray-9" data-employee-status-percent="partial_absent">({{ (int) round($employeeStatusPercentages['partial_absent']) }}%)</span>
                                         </p>
-                                        <h2 class="fs-40 fw-bold">112</h2>
+                                        <h2 class="fs-40 fw-bold" data-employee-status-count="partial_absent">{{ number_format($employeeStatusCounts['partial_absent']) }}</h2>
                                     </div>
                                 </div>
                                 <div class="col-6">
                                     <div class="p-2 flex-fill border-end">
-                                        <p class="fs-13 mb-2"><i
-                                                class="ti ti-square-rounded-filled me-2 text-danger fs-12"></i>Probation
-                                            <span class="text-gray-9">(22%)</span>
+                                        <p class="fs-13 mb-2"><i class="ti ti-square-rounded-filled me-2 text-danger fs-12"></i>Complete Absent
+                                            <span class="text-gray-9" data-employee-status-percent="complete_absent">({{ (int) round($employeeStatusPercentages['complete_absent']) }}%)</span>
                                         </p>
-                                        <h2 class="fs-40 fw-bold">12</h2>
+                                        <h2 class="fs-40 fw-bold" data-employee-status-count="complete_absent">{{ number_format($employeeStatusCounts['complete_absent']) }}</h2>
                                     </div>
                                 </div>
                                 <div class="col-6">
                                     <div class="p-2 flex-fill text-end">
-                                        <p class="fs-13 mb-2"><i
-                                                class="ti ti-square-rounded-filled text-pink me-2 fs-12"></i>WFH
-                                            <span class="text-gray-9">(20%)</span>
+                                        <p class="fs-13 mb-2"><i class="ti ti-square-rounded-filled text-info me-2 fs-12"></i>Leave
+                                            <span class="text-gray-9" data-employee-status-percent="leave">({{ (int) round($employeeStatusPercentages['leave']) }}%)</span>
                                         </p>
-                                        <h2 class="fs-40 fw-bold">04</h2>
+                                        <h2 class="fs-40 fw-bold" data-employee-status-count="leave">{{ number_format($employeeStatusCounts['leave']) }}</h2>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <h6 class="mb-2">Top Performer</h6>
-                        <div
-                            class="p-2 d-flex align-items-center justify-content-between border border-primary bg-primary-100 br-5 mb-4 perfomer-card">
-                            <div class="d-flex align-items-center overflow-hidden">
-                                <span class="me-2">
-                                    <i class="ti ti-award-filled text-primary fs-24"></i>
-                                </span>
-                                <a href="{{url('employee-details')}}" class="avatar avatar-md me-2">
-                                    <img src="{{URL::asset('build/img/profiles/avatar-24.jpg')}}"
-                                        class="rounded-circle border border-white" alt="img">
-                                </a>
-                                <div>
-                                    <h6 class="text-truncate mb-1 fs-14 fw-medium"><a
-                                            href="{{url('employee-details')}}">Daniel Esbella</a></h6>
-                                    <p class="fs-13">IOS Developer</p>
-                                </div>
-                            </div>
-                            <div class="text-end">
-                                <p class="fs-13 mb-1">Performance</p>
-                                <h5 class="text-primary">99%</h5>
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <h6 class="mb-0">Top Performer</h6>
+                            <div class="d-flex gap-1 @if ($topPerformers->count() <= 1) d-none @endif"
+                                data-employee-status-carousel-controls>
+                                <button type="button" class="btn btn-white border btn-sm"
+                                    data-bs-target="#employee-status-performers" data-bs-slide="prev"
+                                    aria-label="Previous top performer">
+                                    <i class="ti ti-chevron-left"></i>
+                                </button>
+                                <button type="button" class="btn btn-white border btn-sm"
+                                    data-bs-target="#employee-status-performers" data-bs-slide="next"
+                                    aria-label="Next top performer">
+                                    <i class="ti ti-chevron-right"></i>
+                                </button>
                             </div>
                         </div>
-                        <a href="{{url('employees')}}" class="btn btn-light btn-md w-100">View All Employees</a>
+                        <div id="employee-status-performers" class="carousel slide mb-3"
+                            data-bs-interval="false">
+                            <div class="carousel-inner" data-employee-status-performer-list>
+                                @foreach ($topPerformers as $performer)
+                                    <div class="carousel-item @if ($loop->first) active @endif">
+                                        <div class="p-2 d-flex align-items-center justify-content-between border border-primary bg-primary-100 br-5 perfomer-card">
+                                            <div class="d-flex align-items-center overflow-hidden">
+                                                <span class="me-2 flex-shrink-0">
+                                                    <i class="ti ti-award-filled text-primary fs-24"></i>
+                                                </span>
+                                                <span class="avatar avatar-md me-2 flex-shrink-0">
+                                                    @if ($performer['profile_pic_url'])
+                                                        <img src="{{ $performer['profile_pic_url'] }}"
+                                                            class="rounded-circle border border-white" alt="">
+                                                    @else
+                                                        <span class="avatar-title rounded-circle bg-light text-dark">
+                                                            {{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($performer['name'], 0, 1)) }}
+                                                        </span>
+                                                    @endif
+                                                </span>
+                                                <div class="overflow-hidden">
+                                                    <h6 class="text-truncate mb-1 fs-14 fw-medium">{{ $performer['name'] }}</h6>
+                                                    <p class="fs-13 mb-0 text-truncate">{{ $performer['designation'] }}</p>
+                                                </div>
+                                            </div>
+                                            <div class="text-end ms-2 flex-shrink-0">
+                                                <p class="fs-13 mb-1">Performance</p>
+                                                <h5 class="text-primary mb-0">{{ $performer['performance'] }}%</h5>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                        <p class="text-muted mb-3 @if ($topPerformers->isNotEmpty()) d-none @endif"
+                            data-employee-status-empty>No attendance data for this period.</p>
+                        <a href="{{ url('time-management/time-card') }}" class="btn btn-light btn-md w-100">View All Employees</a>
                     </div>
                 </div>
             </div>
@@ -2633,6 +2691,176 @@
 
     @push('scripts')
         <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const periodSelect = document.querySelector('[data-employee-status-period]');
+                const statusCard = periodSelect && periodSelect.closest('[data-employee-status-card]');
+                if (!periodSelect || !statusCard) {
+                    return;
+                }
+
+                const feedback = statusCard.querySelector('[data-employee-status-feedback]');
+                const performerList = statusCard.querySelector('[data-employee-status-performer-list]');
+                const emptyPerformers = statusCard.querySelector('[data-employee-status-empty]');
+                const carouselControls = statusCard.querySelector('[data-employee-status-carousel-controls]');
+                const statusKeys = ['present', 'partial_absent', 'complete_absent', 'leave'];
+                const numberFormatter = new Intl.NumberFormat();
+                let confirmedPeriod = periodSelect.value;
+
+                function renderPerformers(performers) {
+                    performerList.replaceChildren();
+
+                    performers.forEach(function (performer, index) {
+                        const item = document.createElement('div');
+                        item.className = 'carousel-item' + (index === 0 ? ' active' : '');
+
+                        const card = document.createElement('div');
+                        card.className = 'p-2 d-flex align-items-center justify-content-between border border-primary bg-primary-100 br-5 perfomer-card';
+
+                        const identity = document.createElement('div');
+                        identity.className = 'd-flex align-items-center overflow-hidden';
+                        const award = document.createElement('span');
+                        award.className = 'me-2 flex-shrink-0';
+                        const awardIcon = document.createElement('i');
+                        awardIcon.className = 'ti ti-award-filled text-primary fs-24';
+                        award.appendChild(awardIcon);
+
+                        const avatar = document.createElement('span');
+                        avatar.className = 'avatar avatar-md me-2 flex-shrink-0';
+                        if (performer.profile_pic_url) {
+                            const image = document.createElement('img');
+                            image.src = performer.profile_pic_url;
+                            image.className = 'rounded-circle border border-white';
+                            image.alt = '';
+                            avatar.appendChild(image);
+                        } else {
+                            const initials = document.createElement('span');
+                            initials.className = 'avatar-title rounded-circle bg-light text-dark';
+                            initials.textContent = performer.name.slice(0, 1).toUpperCase();
+                            avatar.appendChild(initials);
+                        }
+
+                        const details = document.createElement('div');
+                        details.className = 'overflow-hidden';
+                        const name = document.createElement('h6');
+                        name.className = 'text-truncate mb-1 fs-14 fw-medium';
+                        name.textContent = performer.name;
+                        const designation = document.createElement('p');
+                        designation.className = 'fs-13 mb-0 text-truncate';
+                        designation.textContent = performer.designation;
+                        details.append(name, designation);
+                        identity.append(award, avatar, details);
+
+                        const performance = document.createElement('div');
+                        performance.className = 'text-end ms-2 flex-shrink-0';
+                        const performanceLabel = document.createElement('p');
+                        performanceLabel.className = 'fs-13 mb-1';
+                        performanceLabel.textContent = 'Performance';
+                        const performanceValue = document.createElement('h5');
+                        performanceValue.className = 'text-primary mb-0';
+                        performanceValue.textContent = performer.performance + '%';
+                        performance.append(performanceLabel, performanceValue);
+
+                        card.append(identity, performance);
+                        item.appendChild(card);
+                        performerList.appendChild(item);
+                    });
+
+                    emptyPerformers.classList.toggle('d-none', performers.length > 0);
+                    carouselControls.classList.toggle('d-none', performers.length <= 1);
+                }
+
+                periodSelect.addEventListener('change', function () {
+                    const selectedPeriod = periodSelect.value;
+                    statusCard.setAttribute('aria-busy', 'true');
+                    periodSelect.disabled = true;
+                    feedback.classList.remove('d-none', 'text-danger');
+                    feedback.classList.add('text-muted');
+                    feedback.textContent = 'Updating Employee Status...';
+
+                    fetch(periodSelect.dataset.employeeStatusUrl, {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': periodSelect.dataset.csrfToken,
+                        },
+                        body: JSON.stringify({ employee_status_period: selectedPeriod }),
+                    })
+                        .then(function (response) {
+                            if (!response.ok) {
+                                throw new Error('Employee Status request failed.');
+                            }
+
+                            return response.json();
+                        })
+                        .then(function (data) {
+                            if (
+                                !data
+                                || !Number.isFinite(data.totalEmployees)
+                                || data.employeeStatusPeriod !== selectedPeriod
+                                || !data.employeeStatusCounts
+                                || !data.employeeStatusPercentages
+                                || !Array.isArray(data.topPerformers)
+                                || statusKeys.some(function (key) {
+                                    return !Number.isFinite(data.employeeStatusCounts[key])
+                                        || !Number.isFinite(data.employeeStatusPercentages[key])
+                                        || data.employeeStatusPercentages[key] < 0
+                                        || data.employeeStatusPercentages[key] > 100;
+                                })
+                                || data.topPerformers.some(function (performer) {
+                                    return !performer
+                                        || typeof performer.name !== 'string'
+                                        || typeof performer.designation !== 'string'
+                                        || !Number.isFinite(performer.performance)
+                                        || (
+                                            performer.profile_pic_url !== null
+                                            && typeof performer.profile_pic_url !== 'string'
+                                        );
+                                })
+                            ) {
+                                throw new Error('Employee Status response is invalid.');
+                            }
+
+                            statusCard.querySelector('[data-employee-status-total]').textContent =
+                                numberFormatter.format(data.totalEmployees);
+
+                            statusKeys.forEach(function (key) {
+                                const count = data.employeeStatusCounts[key];
+                                const percentage = data.employeeStatusPercentages[key];
+                                statusCard.querySelector('[data-employee-status-count="' + key + '"]').textContent =
+                                    numberFormatter.format(count);
+                                statusCard.querySelector('[data-employee-status-percent="' + key + '"]').textContent =
+                                    '(' + Math.round(percentage) + '%)';
+
+                                const progress = statusCard.querySelector('[data-employee-status-progress="' + key + '"]');
+                                progress.style.width = percentage.toFixed(2) + '%';
+                                progress.setAttribute('aria-valuenow', String(Math.round(percentage)));
+                            });
+
+                            renderPerformers(data.topPerformers);
+                            confirmedPeriod = data.employeeStatusPeriod;
+                            feedback.classList.add('d-none');
+                            feedback.textContent = '';
+                        })
+                        .catch(function () {
+                            if (periodSelect.tomselect) {
+                                periodSelect.tomselect.setValue(confirmedPeriod, true);
+                            } else {
+                                periodSelect.value = confirmedPeriod;
+                            }
+
+                            feedback.classList.remove('d-none', 'text-muted');
+                            feedback.classList.add('text-danger');
+                            feedback.textContent = 'Unable to update Employee Status. Please try again.';
+                        })
+                        .finally(function () {
+                            periodSelect.disabled = false;
+                            statusCard.setAttribute('aria-busy', 'false');
+                        });
+                });
+            });
+
             document.addEventListener('DOMContentLoaded', function () {
                 const viewport = document.querySelector('[data-dashboard-marquee]');
                 if (!viewport) {

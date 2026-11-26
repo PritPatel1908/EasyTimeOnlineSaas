@@ -121,6 +121,8 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                     ->name('tenant.cronjob.destroy');
 
                 Route::get('/dashboard', [DashboardController::class, 'index'])->name('tenant.dashboard');
+                Route::post('/dashboard/employee-status', [DashboardController::class, 'employeeStatus'])
+                    ->name('tenant.dashboard.employee-status');
                 Route::get('/index', function () {
                     return redirect()->route('tenant.dashboard', ['tenant' => request()->route('tenant')]);
                 })->name('tenant.index.legacy');

@@ -15,6 +15,7 @@ use App\Models\Tenant\Company;
 use App\Models\Tenant\Department;
 use App\Models\Tenant\Designation;
 use App\Models\Tenant\Grade;
+use App\Models\Tenant\LeaveType;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\Machine;
 use App\Models\Tenant\SubDepartment;
@@ -26,6 +27,10 @@ use App\Models\Tenant\User;
 use App\Services\Tenant\PendingApprovalQuery;
 use App\Support\TenantPermissions;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 
 class DashboardController extends Controller
@@ -41,6 +46,9 @@ class DashboardController extends Controller
         ])));
         $today = now();
         $tomorrow = $today->copy()->addDay();
+        $employeeStatusPeriod = request()->validate([
+            'employee_status_period' => ['nullable', 'in:today,yesterday,this_week,last_week,this_month,last_month'],
+        ])['employee_status_period'] ?? 'today';
         $activeEmployees = User::query()
             ->where('id', '!=', 1)
             ->whereNull('left_date')
@@ -85,8 +93,14 @@ class DashboardController extends Controller
                 'bus_route_id',
                 'team_id',
                 'canteen_facility_id',
+                'name',
+                'fname',
+                'mname',
+                'lname',
+                'profile_pic',
             ]);
         $employeeIds = $employees->pluck('id');
+        $employeeStatusData = $this->employeeStatusSummary($employees, $today, $employeeStatusPeriod);
         $dailyAttendanceByUser = Attendance::year((int) $today->year)
             ->whereDate('date', $today->toDateString())
             ->whereIn('user_id', $employeeIds)
@@ -280,7 +294,7 @@ class DashboardController extends Controller
             ->distinct()
             ->count('user_id');
 
-        return view('index', [
+        return view('index', array_merge([
             'tenantId' => $tenantId,
             'domain' => request()->getHost(),
             'currentUserId' => $user?->getAuthIdentifier() ?? 'anonymous',
@@ -300,7 +314,194 @@ class DashboardController extends Controller
             'userCount' => $userCount,
             'attendanceCount' => $attendanceCount,
             'recentUsers' => User::query()->latest('id')->limit(5)->get(),
-        ]);
+        ], $employeeStatusData));
+    }
+
+    public function employeeStatus(Request $request): JsonResponse
+    {
+        $period = $request->validate([
+            'employee_status_period' => ['required', 'in:today,yesterday,this_week,last_week,this_month,last_month'],
+        ])['employee_status_period'];
+        $employees = User::query()
+            ->where('user_type', 'employee')
+            ->whereNull('left_date')
+            ->where('is_inactive', false)
+            ->get([
+                'id',
+                'name',
+                'fname',
+                'mname',
+                'lname',
+                'designation_id',
+                'profile_pic',
+            ]);
+
+        return response()->json($this->employeeStatusSummary($employees, now(), $period));
+    }
+
+    /**
+     * @return array{
+     *     employeeStatusPeriod: string,
+     *     totalEmployees: int,
+     *     employeeStatusCounts: array<string, int>,
+     *     employeeStatusPercentages: array<string, float>,
+     *     topPerformers: \Illuminate\Support\Collection<int, array<string, mixed>>
+     * }
+     */
+    private function employeeStatusSummary(EloquentCollection $employees, Carbon $today, string $period): array
+    {
+        [$startDate, $endDate] = match ($period) {
+            'yesterday' => [$today->copy()->subDay()->startOfDay(), $today->copy()->subDay()->endOfDay()],
+            'this_week' => [$today->copy()->startOfWeek(), $today->copy()->endOfWeek()],
+            'last_week' => [
+                $today->copy()->startOfWeek()->subWeek(),
+                $today->copy()->startOfWeek()->subWeek()->endOfWeek(),
+            ],
+            'this_month' => [$today->copy()->startOfMonth(), $today->copy()->endOfMonth()],
+            'last_month' => [
+                $today->copy()->startOfMonth()->subMonth(),
+                $today->copy()->startOfMonth()->subMonth()->endOfMonth(),
+            ],
+            default => [$today->copy()->startOfDay(), $today->copy()->endOfDay()],
+        };
+        $employeeIds = $employees->pluck('id');
+        $leaveStatusCodes = LeaveType::query()
+            ->pluck('code')
+            ->flatMap(static function (string $code): array {
+                $code = strtoupper($code);
+
+                return [$code, 'A'.$code, $code.'A', 'P'.$code, $code.'P'];
+            })
+            ->unique()
+            ->all();
+        $employeeStatusCounts = [
+            'present' => 0,
+            'partial_absent' => 0,
+            'complete_absent' => 0,
+            'leave' => 0,
+        ];
+        $employeeAttendancePerformance = [];
+        $employeeStatusAttendance = collect();
+
+        for ($attendanceYear = (int) $startDate->year; $attendanceYear <= (int) $endDate->year; $attendanceYear++) {
+            $yearStartDate = $attendanceYear === (int) $startDate->year
+                ? $startDate->toDateString()
+                : $attendanceYear.'-01-01';
+            $yearEndDate = $attendanceYear === (int) $endDate->year
+                ? $endDate->toDateString()
+                : $attendanceYear.'-12-31';
+
+            $employeeStatusAttendance = $employeeStatusAttendance->concat(
+                Attendance::year($attendanceYear)
+                    ->whereBetween('date', [$yearStartDate, $yearEndDate])
+                    ->whereIn('user_id', $employeeIds)
+                    ->with('status_master:id,code')
+                    ->get([
+                        'user_id',
+                        'status_master_id',
+                        'in_time',
+                        'out_time',
+                        'is_half_day',
+                        'is_absent',
+                    ]),
+            );
+        }
+
+        foreach ($employeeStatusAttendance as $attendance) {
+            $userId = (int) $attendance->user_id;
+            $statusCode = strtoupper((string) ($attendance->status_master?->code ?? ''));
+            $employeeAttendancePerformance[$userId] ??= ['present' => 0, 'total' => 0];
+            $employeeAttendancePerformance[$userId]['total']++;
+
+            $isPresent = (
+                str_starts_with($statusCode, 'P')
+                || str_ends_with($statusCode, 'P')
+            ) && ! $attendance->is_half_day && ! $attendance->is_absent;
+
+            if ($isPresent) {
+                $employeeStatusCounts['present']++;
+                $employeeAttendancePerformance[$userId]['present']++;
+            }
+
+            if (
+                (str_starts_with($statusCode, 'A') || str_ends_with($statusCode, 'A'))
+                && $attendance->in_time !== null
+            ) {
+                $employeeStatusCounts['partial_absent']++;
+            }
+
+            if (
+                $statusCode === 'AA'
+                && $attendance->in_time === null
+                && $attendance->out_time === null
+            ) {
+                $employeeStatusCounts['complete_absent']++;
+            }
+
+            if (in_array($statusCode, $leaveStatusCodes, true)) {
+                $employeeStatusCounts['leave']++;
+            }
+        }
+
+        $categoryTotal = array_sum($employeeStatusCounts);
+        $employeeStatusPercentages = array_map(
+            static fn (int $count): float => $categoryTotal > 0 ? $count / $categoryTotal * 100 : 0,
+            $employeeStatusCounts,
+        );
+        $designationIds = $employees
+            ->flatMap(fn (User $employee): array => $this->idsFrom($employee->designation_id))
+            ->unique()
+            ->values();
+        $designationNames = Designation::query()
+            ->whereIn('id', $designationIds)
+            ->pluck('name', 'id');
+        $designationNamesByEmployee = $employees->mapWithKeys(function (User $employee) use ($designationNames): array {
+            $names = collect($this->idsFrom($employee->designation_id))
+                ->map(static fn (int $id): ?string => $designationNames->get($id))
+                ->filter()
+                ->implode(', ');
+
+            return [$employee->id => $names !== '' ? $names : 'Employee'];
+        });
+        $topPerformers = $employees
+            ->filter(static fn (User $employee): bool => ($employeeAttendancePerformance[$employee->id]['present'] ?? 0) > 0)
+            ->map(static function (User $employee) use ($employeeAttendancePerformance, $designationNamesByEmployee): array {
+                $performance = $employeeAttendancePerformance[$employee->id];
+                $name = $employee->name ?: trim(implode(' ', array_filter([
+                    $employee->fname,
+                    $employee->mname,
+                    $employee->lname,
+                ])));
+                $profilePicUrl = $employee->profile_pic
+                    ? (\Illuminate\Support\Str::startsWith($employee->profile_pic, ['http://', 'https://'])
+                        ? $employee->profile_pic
+                        : tenant_asset($employee->profile_pic))
+                    : null;
+
+                return [
+                    'id' => $employee->id,
+                    'name' => $name !== '' ? $name : 'Employee '.$employee->id,
+                    'designation' => $designationNamesByEmployee->get($employee->id, 'Employee'),
+                    'profile_pic_url' => $profilePicUrl,
+                    'performance' => (int) round($performance['present'] / $performance['total'] * 100),
+                    'present_days' => $performance['present'],
+                ];
+            })
+            ->sort(static function (array $first, array $second): int {
+                return ($second['performance'] <=> $first['performance'])
+                    ?: ($second['present_days'] <=> $first['present_days'])
+                    ?: strcmp($first['name'], $second['name']);
+            })
+            ->take(5)
+            ->values();
+
+        return [
+            'employeeStatusPeriod' => $period,
+            'totalEmployees' => $employees->count(),
+            'employeeStatusCounts' => $employeeStatusCounts,
+            'employeeStatusPercentages' => $employeeStatusPercentages,
+            'topPerformers' => $topPerformers,
+        ];
     }
 
     /**
