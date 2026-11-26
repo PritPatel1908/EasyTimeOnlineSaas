@@ -231,6 +231,10 @@ class TenantDashboardTest extends TestCase
             $table->boolean('is_holiday')->default(false);
             $table->boolean('is_weekoff')->default(false);
             $table->unsignedBigInteger('status_master_id')->nullable();
+            $table->boolean('is_late')->default(false);
+            $table->boolean('is_early')->default(false);
+            $table->boolean('is_over_time')->default(false);
+            $table->unsignedInteger('total_overtime_minutes')->default(0);
         });
 
         DB::table('leave_types')->insert([
@@ -250,6 +254,48 @@ class TenantDashboardTest extends TestCase
             ['user_id' => 8, 'date' => today(), 'in_time' => now(), 'out_time' => now(), 'status_master_id' => $statusMasterIds['AP'], 'is_half_day' => true, 'is_holiday' => false, 'is_weekoff' => true],
             ['user_id' => 5, 'date' => today()->subDay(), 'in_time' => now(), 'out_time' => now(), 'is_holiday' => false, 'is_weekoff' => false],
             ['user_id' => 999, 'date' => today(), 'in_time' => now(), 'out_time' => now(), 'is_holiday' => false, 'is_weekoff' => false],
+        ]);
+        DB::table('attendances'.now()->year)->insert([
+            [
+                'user_id' => 1,
+                'date' => today(),
+                'in_time' => now(),
+                'out_time' => now(),
+                'status_master_id' => $statusMasterIds['PP'],
+                'is_late' => true,
+                'is_over_time' => true,
+            ],
+            [
+                'user_id' => 1,
+                'date' => today(),
+                'in_time' => now(),
+                'status_master_id' => $statusMasterIds['AP'],
+                'is_early' => true,
+            ],
+            [
+                'user_id' => 1,
+                'date' => today(),
+                'status_master_id' => $statusMasterIds['AA'],
+                'is_absent' => true,
+            ],
+            [
+                'user_id' => 1,
+                'date' => today(),
+                'status_master_id' => $statusMasterIds['CL'],
+            ],
+            [
+                'user_id' => 1,
+                'date' => today(),
+                'status_master_id' => $statusMasterIds['WO'],
+                'is_weekoff' => true,
+            ],
+            [
+                'user_id' => 1,
+                'date' => today()->subDay(),
+                'in_time' => now()->subDay(),
+                'out_time' => now()->subDay(),
+                'status_master_id' => $statusMasterIds['PP'],
+            ],
         ]);
 
         $user = new User();
@@ -278,9 +324,20 @@ class TenantDashboardTest extends TestCase
         $this->assertTrue($response->getData()['canApprovePendingRequests']);
         $this->assertSame(0, $response->getData()['pendingApprovalCount']);
         $this->assertCount(9, $response->getData()['applicationModules']);
-        $this->assertSame(3, $response->getData()['attendanceCount']);
+        $this->assertSame(4, $response->getData()['attendanceCount']);
         $this->assertSame(8, $response->getData()['userCount']);
         $this->assertSame(5, $response->getData()['totalEmployees']);
+        $this->assertSame(5, $response->getData()['attendanceOverviewTotal']);
+        $this->assertSame([
+            'present' => 1,
+            'partial_absent' => 1,
+            'complete_absent' => 1,
+            'leave' => 1,
+            'late' => 1,
+            'early' => 1,
+            'week_off' => 1,
+            'overtime' => 1,
+        ], $response->getData()['attendanceOverviewCounts']);
         $this->assertSame([
             'present' => 1,
             'partial_absent' => 2,
@@ -317,6 +374,22 @@ class TenantDashboardTest extends TestCase
         $jsonResponse = app(DashboardController::class)->employeeStatus($jsonRequest)->getData(true);
         $this->assertSame('yesterday', $jsonResponse['employeeStatusPeriod']);
         $this->assertSame(1, $jsonResponse['employeeStatusCounts']['present']);
+        $attendanceOverviewRequest = Request::create(
+            '/dashboard/attendance-overview',
+            'POST',
+            [],
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json'],
+            json_encode(['attendance_overview_period' => 'yesterday'])
+        );
+        $attendanceOverviewResponse = app(DashboardController::class)
+            ->attendanceOverview($attendanceOverviewRequest)
+            ->getData(true);
+        $this->assertSame('yesterday', $attendanceOverviewResponse['attendanceOverviewPeriod']);
+        $this->assertSame(1, $attendanceOverviewResponse['attendanceOverviewTotal']);
+        $this->assertSame(1, $attendanceOverviewResponse['attendanceOverviewCounts']['present']);
+        $this->assertSame(0, $attendanceOverviewResponse['attendanceOverviewCounts']['late']);
         $this->assertSame(5, $response->getData()['employeeGroupings']['department']['summaryCount']);
         $this->assertSame(3, $response->getData()['employeeGroupings']['department']['summaryPresentCount']);
         $this->assertSame(1, $response->getData()['employeeGroupings']['department']['summaryAbsentCount']);

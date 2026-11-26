@@ -49,6 +49,9 @@ class DashboardController extends Controller
         $employeeStatusPeriod = request()->validate([
             'employee_status_period' => ['nullable', 'in:today,yesterday,this_week,last_week,this_month,last_month'],
         ])['employee_status_period'] ?? 'today';
+        $attendanceOverviewPeriod = request()->validate([
+            'attendance_overview_period' => ['nullable', 'in:today,yesterday,this_week,last_week,this_month,last_month'],
+        ])['attendance_overview_period'] ?? 'today';
         $activeEmployees = User::query()
             ->where('id', '!=', 1)
             ->whereNull('left_date')
@@ -314,7 +317,11 @@ class DashboardController extends Controller
             'userCount' => $userCount,
             'attendanceCount' => $attendanceCount,
             'recentUsers' => User::query()->latest('id')->limit(5)->get(),
-        ], $employeeStatusData));
+        ], $employeeStatusData, $this->attendanceOverviewSummary(
+            (int) ($user?->getAuthIdentifier() ?? 0),
+            $today,
+            $attendanceOverviewPeriod,
+        )));
     }
 
     public function employeeStatus(Request $request): JsonResponse
@@ -339,6 +346,19 @@ class DashboardController extends Controller
         return response()->json($this->employeeStatusSummary($employees, now(), $period));
     }
 
+    public function attendanceOverview(Request $request): JsonResponse
+    {
+        $period = $request->validate([
+            'attendance_overview_period' => ['required', 'in:today,yesterday,this_week,last_week,this_month,last_month'],
+        ])['attendance_overview_period'];
+
+        return response()->json($this->attendanceOverviewSummary(
+            (int) Auth::guard('tenant')->id(),
+            now(),
+            $period,
+        ));
+    }
+
     /**
      * @return array{
      *     employeeStatusPeriod: string,
@@ -350,30 +370,9 @@ class DashboardController extends Controller
      */
     private function employeeStatusSummary(EloquentCollection $employees, Carbon $today, string $period): array
     {
-        [$startDate, $endDate] = match ($period) {
-            'yesterday' => [$today->copy()->subDay()->startOfDay(), $today->copy()->subDay()->endOfDay()],
-            'this_week' => [$today->copy()->startOfWeek(), $today->copy()->endOfWeek()],
-            'last_week' => [
-                $today->copy()->startOfWeek()->subWeek(),
-                $today->copy()->startOfWeek()->subWeek()->endOfWeek(),
-            ],
-            'this_month' => [$today->copy()->startOfMonth(), $today->copy()->endOfMonth()],
-            'last_month' => [
-                $today->copy()->startOfMonth()->subMonth(),
-                $today->copy()->startOfMonth()->subMonth()->endOfMonth(),
-            ],
-            default => [$today->copy()->startOfDay(), $today->copy()->endOfDay()],
-        };
+        [$startDate, $endDate] = $this->periodDateRange($today, $period);
         $employeeIds = $employees->pluck('id');
-        $leaveStatusCodes = LeaveType::query()
-            ->pluck('code')
-            ->flatMap(static function (string $code): array {
-                $code = strtoupper($code);
-
-                return [$code, 'A'.$code, $code.'A', 'P'.$code, $code.'P'];
-            })
-            ->unique()
-            ->all();
+        $leaveStatusCodes = $this->leaveStatusCodes();
         $employeeStatusCounts = [
             'present' => 0,
             'partial_absent' => 0,
@@ -502,6 +501,148 @@ class DashboardController extends Controller
             'employeeStatusPercentages' => $employeeStatusPercentages,
             'topPerformers' => $topPerformers,
         ];
+    }
+
+    /**
+     * @return array{
+     *     attendanceOverviewPeriod: string,
+     *     attendanceOverviewTotal: int,
+     *     attendanceOverviewCounts: array<string, int>
+     * }
+     */
+    private function attendanceOverviewSummary(int $userId, Carbon $today, string $period): array
+    {
+        [$startDate, $endDate] = $this->periodDateRange($today, $period);
+        $leaveStatusCodes = $this->leaveStatusCodes();
+        $counts = [
+            'present' => 0,
+            'partial_absent' => 0,
+            'complete_absent' => 0,
+            'leave' => 0,
+            'late' => 0,
+            'early' => 0,
+            'week_off' => 0,
+            'overtime' => 0,
+        ];
+        $attendanceRows = collect();
+
+        for ($attendanceYear = (int) $startDate->year; $attendanceYear <= (int) $endDate->year; $attendanceYear++) {
+            $yearStartDate = $attendanceYear === (int) $startDate->year
+                ? $startDate->toDateString()
+                : $attendanceYear.'-01-01';
+            $yearEndDate = $attendanceYear === (int) $endDate->year
+                ? $endDate->toDateString()
+                : $attendanceYear.'-12-31';
+
+            $attendanceRows = $attendanceRows->concat(
+                Attendance::year($attendanceYear)
+                    ->where('user_id', $userId)
+                    ->whereBetween('date', [$yearStartDate, $yearEndDate])
+                    ->with('status_master:id,code')
+                    ->get([
+                        'user_id',
+                        'status_master_id',
+                        'in_time',
+                        'out_time',
+                        'is_half_day',
+                        'is_absent',
+                        'is_late',
+                        'is_early',
+                        'is_weekoff',
+                        'is_over_time',
+                    ]),
+            );
+        }
+
+        foreach ($attendanceRows as $attendance) {
+            $statusCode = strtoupper((string) ($attendance->status_master?->code ?? ''));
+            $isPresent = (
+                str_starts_with($statusCode, 'P')
+                || str_ends_with($statusCode, 'P')
+            ) && ! $attendance->is_half_day && ! $attendance->is_absent;
+
+            if ($isPresent) {
+                $counts['present']++;
+            }
+
+            if (
+                (str_starts_with($statusCode, 'A') || str_ends_with($statusCode, 'A'))
+                && $attendance->in_time !== null
+            ) {
+                $counts['partial_absent']++;
+            }
+
+            if (
+                $statusCode === 'AA'
+                && $attendance->in_time === null
+                && $attendance->out_time === null
+            ) {
+                $counts['complete_absent']++;
+            }
+
+            if (in_array($statusCode, $leaveStatusCodes, true)) {
+                $counts['leave']++;
+            }
+
+            if ($attendance->is_late) {
+                $counts['late']++;
+            }
+
+            if ($attendance->is_early) {
+                $counts['early']++;
+            }
+
+            if ($attendance->is_weekoff) {
+                $counts['week_off']++;
+            }
+
+            if ($attendance->is_over_time) {
+                $counts['overtime']++;
+            }
+        }
+
+        return [
+            'attendanceOverviewPeriod' => $period,
+            'attendanceOverviewTotal' => $attendanceRows->count(),
+            'attendanceOverviewCounts' => $counts,
+        ];
+    }
+
+    /**
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    private function periodDateRange(Carbon $today, string $period): array
+    {
+        return match ($period) {
+            'yesterday' => [$today->copy()->subDay()->startOfDay(), $today->copy()->subDay()->endOfDay()],
+            'this_week' => [$today->copy()->startOfWeek(), $today->copy()->endOfWeek()],
+            'last_week' => [
+                $today->copy()->startOfWeek()->subWeek(),
+                $today->copy()->startOfWeek()->subWeek()->endOfWeek(),
+            ],
+            'this_month' => [$today->copy()->startOfMonth(), $today->copy()->endOfMonth()],
+            'last_month' => [
+                $today->copy()->startOfMonth()->subMonth(),
+                $today->copy()->startOfMonth()->subMonth()->endOfMonth(),
+            ],
+            default => [$today->copy()->startOfDay(), $today->copy()->endOfDay()],
+        };
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function leaveStatusCodes(): array
+    {
+        return LeaveType::query()
+            ->pluck('code')
+            ->flatMap(static function (string $code): array {
+                $code = strtoupper($code);
+
+                return [$code, 'A'.$code, $code.'A', 'P'.$code, $code.'P'];
+            })
+            ->unique()
+            ->all();
     }
 
     /**

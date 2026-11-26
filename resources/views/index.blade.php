@@ -1125,7 +1125,7 @@
             <div class="d-flex" data-dashboard-static-widget="attendance-overview"
                 data-dashboard-widget-label="Attendance Overview"
                 data-dashboard-widget-width="6">
-                <div class="card flex-fill">
+                <div class="card flex-fill" data-attendance-overview-card aria-busy="false">
                     <div class="card-header pb-2 d-flex align-items-center justify-content-between flex-wrap dashboard-widget-positioned-header">
                         <div class="dashboard-widget-position-controls">
                             <button type="button" class="btn btn-white border btn-sm dashboard-widget-drag-handle"
@@ -1154,80 +1154,54 @@
                                     data-dashboard-custom-width-input min="1" max="12" step="1" value="6" required hidden
                                     aria-label="Custom card width in columns" title="Enter 1 to 12 columns">
                             </div>
-                            <div class="dropdown">
-                                <a href="javascript:void(0);"
-                                    class="border btn btn-white btn-md d-inline-flex align-items-center"
-                                    data-bs-toggle="dropdown">
-                                    <i class="ti ti-calendar me-1 fs-14"></i>Today
-                                </a>
-                                <ul class="dropdown-menu  dropdown-menu-end p-3">
-                                    <li>
-                                        <a href="javascript:void(0);" class="dropdown-item rounded-1">This Month</a>
-                                    </li>
-                                    <li>
-                                        <a href="javascript:void(0);" class="dropdown-item rounded-1">This Week</a>
-                                    </li>
-                                    <li>
-                                        <a href="javascript:void(0);" class="dropdown-item rounded-1">Today</a>
-                                    </li>
-                                </ul>
+                            <div class="employee-status-period-select-container">
+                                <select class="form-control select2 employee-status-period-select"
+                                    name="attendance_overview_period" aria-label="Attendance Overview period"
+                                    data-attendance-overview-period
+                                    data-attendance-overview-url="{{ url('dashboard/attendance-overview') }}"
+                                    data-csrf-token="{{ csrf_token() }}">
+                                    <option value="today" @selected($attendanceOverviewPeriod === 'today')>Today</option>
+                                    <option value="yesterday" @selected($attendanceOverviewPeriod === 'yesterday')>Yesterday</option>
+                                    <option value="this_week" @selected($attendanceOverviewPeriod === 'this_week')>This Week</option>
+                                    <option value="last_week" @selected($attendanceOverviewPeriod === 'last_week')>Last Week</option>
+                                    <option value="this_month" @selected($attendanceOverviewPeriod === 'this_month')>This Month</option>
+                                    <option value="last_month" @selected($attendanceOverviewPeriod === 'last_month')>Last Month</option>
+                                </select>
                             </div>
                         </div>
                     </div>
                     <div class="card-body">
+                        <div class="small text-danger d-none mb-2" data-attendance-overview-feedback role="status"
+                            aria-live="polite"></div>
                         <div class="chartjs-wrapper-demo position-relative mb-4">
                             <canvas id="attendance" height="200"></canvas>
                             <div class="position-absolute text-center attendance-canvas">
                                 <p class="fs-13 mb-1">Total Attendance</p>
-                                <h3>120</h3>
+                                <h3 class="mb-0" data-attendance-overview-total
+                                    data-attendance-overview-total-value="{{ $attendanceOverviewTotal }}">{{ number_format($attendanceOverviewTotal) }}</h3>
                             </div>
                         </div>
-                        <h6 class="mb-3">Status</h6>
-                        <div class="d-flex align-items-center justify-content-between">
-                            <p class="f-13 mb-2"><i class="ti ti-circle-filled text-success me-1"></i>Present
-                            </p>
-                            <p class="f-13 fw-medium text-gray-9 mb-2">59%</p>
-                        </div>
-                        <div class="d-flex align-items-center justify-content-between">
-                            <p class="f-13 mb-2"><i class="ti ti-circle-filled text-secondary me-1"></i>Late</p>
-                            <p class="f-13 fw-medium text-gray-9 mb-2">21%</p>
-                        </div>
-                        <div class="d-flex align-items-center justify-content-between">
-                            <p class="f-13 mb-2"><i class="ti ti-circle-filled text-warning me-1"></i>Permission
-                            </p>
-                            <p class="f-13 fw-medium text-gray-9 mb-2">2%</p>
-                        </div>
-                        <div class="d-flex align-items-center justify-content-between mb-2">
-                            <p class="f-13 mb-2"><i class="ti ti-circle-filled text-danger me-1"></i>Absent</p>
-                            <p class="f-13 fw-medium text-gray-9 mb-2">15%</p>
-                        </div>
-                        <div
-                            class="bg-light br-5 box-shadow-xs p-2 pb-0 d-flex align-items-center justify-content-between flex-wrap">
-                            <div class="d-flex align-items-center">
-                                <p class="mb-2 me-2">Total Absenties</p>
-                                <div class="avatar-list-stacked avatar-group-sm mb-2">
-                                    <span class="avatar avatar-rounded">
-                                        <img class="border border-white"
-                                            src="{{URL::asset('build/img/profiles/avatar-27.jpg')}}" alt="img">
-                                    </span>
-                                    <span class="avatar avatar-rounded">
-                                        <img class="border border-white"
-                                            src="{{URL::asset('build/img/profiles/avatar-30.jpg')}}" alt="img">
-                                    </span>
-                                    <span class="avatar avatar-rounded">
-                                        <img src="{{URL::asset('build/img/profiles/avatar-14.jpg')}}" alt="img">
-                                    </span>
-                                    <span class="avatar avatar-rounded">
-                                        <img src="{{URL::asset('build/img/profiles/avatar-29.jpg')}}" alt="img">
-                                    </span>
-                                    <a class="avatar bg-primary avatar-rounded text-fixed-white fs-10"
-                                        href="javascript:void(0);">
-                                        +1
-                                    </a>
+                        <h6 class="mb-2">Status</h6>
+                        <div class="row gx-3" data-attendance-overview-counts>
+                            @foreach ([
+                                'present' => 'Present',
+                                'partial_absent' => 'Partial Absent',
+                                'complete_absent' => 'Complete Absent',
+                                'leave' => 'Leave',
+                                'late' => 'Late',
+                                'early' => 'Early',
+                                'week_off' => 'Week Off',
+                                'overtime' => 'Overtime',
+                            ] as $key => $label)
+                                <div class="col-6">
+                                    <div class="d-flex align-items-center justify-content-between border-bottom py-2">
+                                        <span class="f-13">{{ $label }}</span>
+                                        <strong class="f-13 fw-medium text-gray-9"
+                                            data-attendance-overview-count="{{ $key }}"
+                                            data-attendance-overview-count-value="{{ $attendanceOverviewCounts[$key] ?? 0 }}">{{ number_format($attendanceOverviewCounts[$key] ?? 0) }}</strong>
+                                    </div>
                                 </div>
-                            </div>
-                            <a href="{{url('leaves')}}" class="fs-13 link-primary text-decoration-underline mb-2">View
-                                Details</a>
+                            @endforeach
                         </div>
                     </div>
                 </div>
@@ -2852,6 +2826,152 @@
                             feedback.classList.remove('d-none', 'text-muted');
                             feedback.classList.add('text-danger');
                             feedback.textContent = 'Unable to update Employee Status. Please try again.';
+                        })
+                        .finally(function () {
+                            periodSelect.disabled = false;
+                            statusCard.setAttribute('aria-busy', 'false');
+                        });
+                });
+            });
+
+            document.addEventListener('DOMContentLoaded', function () {
+                const periodSelect = document.querySelector('[data-attendance-overview-period]');
+                const statusCard = periodSelect && periodSelect.closest('[data-attendance-overview-card]');
+                if (!periodSelect || !statusCard) {
+                    return;
+                }
+
+                const feedback = statusCard.querySelector('[data-attendance-overview-feedback]');
+                const countKeys = [
+                    'present',
+                    'partial_absent',
+                    'complete_absent',
+                    'leave',
+                    'late',
+                    'early',
+                    'week_off',
+                    'overtime',
+                ];
+                const chartLabels = [
+                    'Present',
+                    'Partial Absent',
+                    'Complete Absent',
+                    'Leave',
+                    'Late',
+                    'Early',
+                    'Week Off',
+                    'Overtime',
+                ];
+                const chartColors = [
+                    '#03C95A',
+                    '#FFC107',
+                    '#E70D0D',
+                    '#1B84FF',
+                    '#0C4B5E',
+                    '#775DD0',
+                    '#8A8D93',
+                    '#F26522',
+                ];
+                const chartCanvas = statusCard.querySelector('#attendance');
+                const totalAttendance = statusCard.querySelector('[data-attendance-overview-total]');
+                const numberFormatter = new Intl.NumberFormat();
+                let confirmedPeriod = periodSelect.value;
+
+                function updateChart(counts) {
+                    const chart = window.Chart && window.Chart.getChart(chartCanvas);
+                    if (!chart || !chart.data.datasets[0]) {
+                        return false;
+                    }
+
+                    chart.data.labels = chartLabels;
+                    chart.data.datasets[0].data = countKeys.map(function (key) {
+                        return counts[key];
+                    });
+                    chart.data.datasets[0].backgroundColor = chartColors;
+                    chart.update();
+
+                    return true;
+                }
+
+                const initialCounts = {};
+                countKeys.forEach(function (key) {
+                    initialCounts[key] = Number(
+                        statusCard.querySelector('[data-attendance-overview-count="' + key + '"]')
+                            .dataset.attendanceOverviewCountValue
+                    );
+                });
+                window.setTimeout(function () {
+                    if (!updateChart(initialCounts)) {
+                        feedback.classList.remove('d-none');
+                        feedback.textContent = 'Attendance chart could not be loaded.';
+                    }
+                }, 0);
+
+                periodSelect.addEventListener('change', function () {
+                    const selectedPeriod = periodSelect.value;
+                    statusCard.setAttribute('aria-busy', 'true');
+                    periodSelect.disabled = true;
+                    feedback.classList.add('d-none');
+                    feedback.textContent = '';
+
+                    fetch(periodSelect.dataset.attendanceOverviewUrl, {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': periodSelect.dataset.csrfToken,
+                        },
+                        body: JSON.stringify({ attendance_overview_period: selectedPeriod }),
+                    })
+                        .then(function (response) {
+                            if (!response.ok) {
+                                throw new Error('Attendance Overview request failed.');
+                            }
+
+                            return response.json();
+                        })
+                        .then(function (data) {
+                            if (
+                                !data
+                                || data.attendanceOverviewPeriod !== selectedPeriod
+                                || !Number.isFinite(data.attendanceOverviewTotal)
+                                || data.attendanceOverviewTotal < 0
+                                || !data.attendanceOverviewCounts
+                                || countKeys.some(function (key) {
+                                    return !Number.isFinite(data.attendanceOverviewCounts[key])
+                                        || data.attendanceOverviewCounts[key] < 0;
+                                })
+                            ) {
+                                throw new Error('Attendance Overview response is invalid.');
+                            }
+
+                            if (!updateChart(data.attendanceOverviewCounts)) {
+                                throw new Error('Attendance Overview chart is unavailable.');
+                            }
+
+                            totalAttendance.textContent = numberFormatter.format(data.attendanceOverviewTotal);
+                            totalAttendance.dataset.attendanceOverviewTotalValue =
+                                String(data.attendanceOverviewTotal);
+                            countKeys.forEach(function (key) {
+                                const count = statusCard.querySelector('[data-attendance-overview-count="' + key + '"]');
+                                count.textContent = numberFormatter.format(data.attendanceOverviewCounts[key]);
+                                count.dataset.attendanceOverviewCountValue = String(data.attendanceOverviewCounts[key]);
+                            });
+
+                            confirmedPeriod = data.attendanceOverviewPeriod;
+                            feedback.classList.add('d-none');
+                            feedback.textContent = '';
+                        })
+                        .catch(function () {
+                            if (periodSelect.tomselect) {
+                                periodSelect.tomselect.setValue(confirmedPeriod, true);
+                            } else {
+                                periodSelect.value = confirmedPeriod;
+                            }
+
+                            feedback.classList.remove('d-none');
+                            feedback.textContent = 'Unable to update Attendance Overview. Please try again.';
                         })
                         .finally(function () {
                             periodSelect.disabled = false;
