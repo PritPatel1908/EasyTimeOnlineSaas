@@ -232,8 +232,11 @@ class TenantDashboardTest extends TestCase
             $table->boolean('is_weekoff')->default(false);
             $table->unsignedBigInteger('status_master_id')->nullable();
             $table->boolean('is_late')->default(false);
+            $table->unsignedInteger('late_minutes')->default(0);
             $table->boolean('is_early')->default(false);
+            $table->unsignedInteger('early_minutes')->default(0);
             $table->boolean('is_over_time')->default(false);
+            $table->unsignedInteger('work_time')->default(0);
             $table->unsignedInteger('total_overtime_minutes')->default(0);
         });
 
@@ -244,21 +247,33 @@ class TenantDashboardTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        DB::table('attendances'.now()->year)->insert([
-            ['user_id' => 2, 'date' => today(), 'in_time' => now(), 'out_time' => now(), 'status_master_id' => $statusMasterIds['PP'], 'is_holiday' => false, 'is_weekoff' => false],
-            ['user_id' => 2, 'date' => today()->subDay(), 'in_time' => now()->subDay(), 'out_time' => now()->subDay(), 'status_master_id' => $statusMasterIds['PP'], 'is_holiday' => false, 'is_weekoff' => false],
-            ['user_id' => 3, 'date' => today(), 'in_time' => null, 'out_time' => null, 'status_master_id' => $statusMasterIds['AA'], 'is_holiday' => false, 'is_weekoff' => false],
-            ['user_id' => 6, 'date' => today(), 'in_time' => now(), 'out_time' => null, 'status_master_id' => $statusMasterIds['CLA'], 'is_holiday' => false, 'is_weekoff' => false],
-            ['user_id' => 4, 'date' => today(), 'in_time' => null, 'out_time' => now(), 'is_holiday' => false, 'is_weekoff' => false],
-            ['user_id' => 7, 'date' => today(), 'in_time' => now(), 'out_time' => now(), 'status_master_id' => $statusMasterIds['PCL'], 'is_half_day' => true, 'is_holiday' => true, 'is_weekoff' => false],
-            ['user_id' => 8, 'date' => today(), 'in_time' => now(), 'out_time' => now(), 'status_master_id' => $statusMasterIds['AP'], 'is_half_day' => true, 'is_holiday' => false, 'is_weekoff' => true],
-            ['user_id' => 5, 'date' => today()->subDay(), 'in_time' => now(), 'out_time' => now(), 'is_holiday' => false, 'is_weekoff' => false],
-            ['user_id' => 999, 'date' => today(), 'in_time' => now(), 'out_time' => now(), 'is_holiday' => false, 'is_weekoff' => false],
-        ]);
-        DB::table('attendances'.now()->year)->insert([
+        foreach ([
+            ['user_id' => 2, 'date' => today()->toDateString(), 'in_time' => now(), 'out_time' => now(), 'status_master_id' => $statusMasterIds['PP'], 'is_holiday' => false, 'is_weekoff' => false],
+            ['user_id' => 2, 'date' => today()->subDay()->toDateString(), 'in_time' => now()->subDay(), 'out_time' => now()->subDay(), 'status_master_id' => $statusMasterIds['PP'], 'is_holiday' => false, 'is_weekoff' => false],
+            ['user_id' => 3, 'date' => today()->toDateString(), 'in_time' => null, 'out_time' => null, 'status_master_id' => $statusMasterIds['AA'], 'is_holiday' => false, 'is_weekoff' => false],
+            ['user_id' => 6, 'date' => today()->toDateString(), 'in_time' => now(), 'out_time' => null, 'status_master_id' => $statusMasterIds['CLA'], 'is_holiday' => false, 'is_weekoff' => false],
+            ['user_id' => 4, 'date' => today()->toDateString(), 'in_time' => null, 'out_time' => now(), 'status_master_id' => null, 'is_holiday' => false, 'is_weekoff' => false],
+            ['user_id' => 7, 'date' => today()->toDateString(), 'in_time' => now(), 'out_time' => now(), 'status_master_id' => $statusMasterIds['PCL'], 'is_half_day' => true, 'is_holiday' => true, 'is_weekoff' => false],
+            ['user_id' => 8, 'date' => today()->toDateString(), 'in_time' => now(), 'out_time' => now(), 'status_master_id' => $statusMasterIds['AP'], 'is_half_day' => true, 'is_holiday' => false, 'is_weekoff' => true],
+            ['user_id' => 5, 'date' => today()->subDay()->toDateString(), 'in_time' => now(), 'out_time' => now(), 'status_master_id' => null, 'is_holiday' => false, 'is_weekoff' => false],
+            ['user_id' => 999, 'date' => today()->toDateString(), 'in_time' => now(), 'out_time' => now(), 'status_master_id' => null, 'is_holiday' => false, 'is_weekoff' => false],
+        ] as $attendanceRow) {
+            DB::table('attendances'.now()->year)->insert($attendanceRow);
+        }
+        DB::table('attendances'.now()->year)
+            ->where('user_id', 2)
+            ->whereDate('date', today())
+            ->update([
+                'is_late' => true,
+                'late_minutes' => 30,
+                'is_early' => true,
+                'early_minutes' => 15,
+                'work_time' => 561,
+            ]);
+        foreach ([
             [
                 'user_id' => 1,
-                'date' => today(),
+                'date' => today()->toDateString(),
                 'in_time' => now(),
                 'out_time' => now(),
                 'status_master_id' => $statusMasterIds['PP'],
@@ -267,36 +282,39 @@ class TenantDashboardTest extends TestCase
             ],
             [
                 'user_id' => 1,
-                'date' => today(),
+                'date' => today()->toDateString(),
                 'in_time' => now(),
                 'status_master_id' => $statusMasterIds['AP'],
                 'is_early' => true,
+                'is_half_day' => true,
             ],
             [
                 'user_id' => 1,
-                'date' => today(),
+                'date' => today()->toDateString(),
                 'status_master_id' => $statusMasterIds['AA'],
                 'is_absent' => true,
             ],
             [
                 'user_id' => 1,
-                'date' => today(),
+                'date' => today()->toDateString(),
                 'status_master_id' => $statusMasterIds['CL'],
             ],
             [
                 'user_id' => 1,
-                'date' => today(),
+                'date' => today()->toDateString(),
                 'status_master_id' => $statusMasterIds['WO'],
                 'is_weekoff' => true,
             ],
             [
                 'user_id' => 1,
-                'date' => today()->subDay(),
+                'date' => today()->subDay()->toDateString(),
                 'in_time' => now()->subDay(),
                 'out_time' => now()->subDay(),
                 'status_master_id' => $statusMasterIds['PP'],
             ],
-        ]);
+        ] as $attendanceRow) {
+            DB::table('attendances'.now()->year)->insert($attendanceRow);
+        }
 
         $user = new User();
         $user->forceFill([
@@ -421,6 +439,18 @@ class TenantDashboardTest extends TestCase
         $this->assertCount(13, $response->getData()['employeeGroupings']);
         $this->assertSame([1], $response->getData()['employeeGroupings']['area']['data']);
         $this->assertSame([1], $response->getData()['employeeGroupings']['canteen_facility']['data']);
+        $clockInOutEmployees = $response->getData()['clockInOutEmployees'];
+        $this->assertSame(
+            ['Employee 2', 'Employee 6', 'Employee 7', 'Employee 8'],
+            $clockInOutEmployees->pluck('name')->sort()->values()->all(),
+        );
+        $this->assertSame(561, $clockInOutEmployees->firstWhere('id', 2)['work_time']);
+        $this->assertTrue($clockInOutEmployees->firstWhere('id', 2)['is_late']);
+        $this->assertTrue($clockInOutEmployees->firstWhere('id', 2)['is_early']);
+        $this->assertSame(
+            ['Late', 'Early'],
+            $response->getData()['clockInOutStatusRecords']->pluck('status')->all(),
+        );
         $this->assertStringNotContainsString('/tenancy/assets/', asset('build/favicon.png'));
     }
 }

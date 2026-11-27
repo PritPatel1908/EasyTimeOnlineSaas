@@ -107,8 +107,88 @@ class DashboardController extends Controller
         $dailyAttendanceByUser = Attendance::year((int) $today->year)
             ->whereDate('date', $today->toDateString())
             ->whereIn('user_id', $employeeIds)
-            ->get(['user_id', 'in_time', 'out_time', 'is_holiday', 'is_weekoff'])
+            ->get([
+                'user_id',
+                'in_time',
+                'out_time',
+                'work_time',
+                'is_late',
+                'late_minutes',
+                'is_early',
+                'early_minutes',
+                'is_holiday',
+                'is_weekoff',
+            ])
             ->keyBy('user_id');
+        $designationIds = $employees
+            ->flatMap(fn (User $employee): array => $this->idsFrom($employee->designation_id))
+            ->unique()
+            ->values();
+        $designationNames = Designation::query()
+            ->whereIn('id', $designationIds)
+            ->pluck('name', 'id');
+        $clockInOutEmployees = $employees
+            ->filter(static function (User $employee) use ($dailyAttendanceByUser): bool {
+                $attendance = $dailyAttendanceByUser->get($employee->id);
+
+                return $attendance !== null && ($attendance->in_time !== null || $attendance->out_time !== null);
+            })
+            ->sortByDesc(static function (User $employee) use ($dailyAttendanceByUser): int {
+                $attendance = $dailyAttendanceByUser->get($employee->id);
+
+                return max(
+                    $attendance->in_time?->getTimestamp() ?? 0,
+                    $attendance->out_time?->getTimestamp() ?? 0,
+                );
+            })
+            ->map(function (User $employee) use ($dailyAttendanceByUser, $designationNames): array {
+                $attendance = $dailyAttendanceByUser->get($employee->id);
+                $name = $employee->name ?: trim(implode(' ', array_filter([
+                    $employee->fname,
+                    $employee->mname,
+                    $employee->lname,
+                ])));
+                $designation = collect($this->idsFrom($employee->designation_id))
+                    ->map(static fn (int $id): ?string => $designationNames->get($id))
+                    ->filter()
+                    ->implode(', ');
+                $profilePicUrl = $employee->profile_pic
+                    ? (\Illuminate\Support\Str::startsWith($employee->profile_pic, ['http://', 'https://'])
+                        ? $employee->profile_pic
+                        : tenant_asset($employee->profile_pic))
+                    : null;
+
+                return [
+                    'id' => $employee->id,
+                    'name' => $name !== '' ? $name : 'Employee '.$employee->id,
+                    'designation' => $designation !== '' ? $designation : 'Employee',
+                    'profile_pic_url' => $profilePicUrl,
+                    'in_time' => $attendance->in_time?->format('g:i A'),
+                    'out_time' => $attendance->out_time?->format('g:i A'),
+                    'work_time' => (int) ($attendance->work_time ?? 0),
+                    'is_late' => (bool) $attendance->is_late,
+                    'late_minutes' => (int) ($attendance->late_minutes ?? 0),
+                    'is_early' => (bool) $attendance->is_early,
+                    'early_minutes' => (int) ($attendance->early_minutes ?? 0),
+                ];
+            })
+            ->values();
+        $clockInOutStatusRecords = $clockInOutEmployees
+            ->flatMap(static function (array $employee): array {
+                $statusRecords = [];
+
+                foreach (['late', 'early'] as $status) {
+                    if ($employee['is_'.$status]) {
+                        $statusRecords[] = $employee + [
+                            'status' => ucfirst($status),
+                            'status_minutes' => $employee[$status.'_minutes'],
+                        ];
+                    }
+                }
+
+                return $statusRecords;
+            })
+            ->values();
         $dailyStatusByUser = StatusMuster::query()
             ->with('status_master:id,code')
             ->whereDate('date', $today->toDateString())
@@ -317,6 +397,8 @@ class DashboardController extends Controller
             'userCount' => $userCount,
             'attendanceCount' => $attendanceCount,
             'recentUsers' => User::query()->latest('id')->limit(5)->get(),
+            'clockInOutEmployees' => $clockInOutEmployees,
+            'clockInOutStatusRecords' => $clockInOutStatusRecords,
         ], $employeeStatusData, $this->attendanceOverviewSummary(
             (int) ($user?->getAuthIdentifier() ?? 0),
             $today,

@@ -629,6 +629,34 @@
         font-size: 12px;
     }
 
+    .clock-in-out-employee-list {
+        max-height: 280px;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scrollbar-width: thin;
+    }
+
+    .clock-in-out-status-viewport {
+        overflow: hidden;
+    }
+
+    .clock-in-out-status-track {
+        display: flex;
+        width: 100%;
+        transition: transform 260ms ease;
+    }
+
+    .clock-in-out-status-slide {
+        flex: 0 0 100%;
+        min-width: 0;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .clock-in-out-status-track {
+            transition: none;
+        }
+    }
+
 </style>
 
 <!-- ========================
@@ -1280,27 +1308,6 @@
                         </div>
                         <h5 class="mb-0">Clock-In/Out</h5>
                         <div class="d-flex align-items-center gap-2 dashboard-widget-header-controls">
-                            <div class="dashboard-widget-filter-select dashboard-widget-filter-select-grouping">
-                                <select class="form-control select2" data-clock-in-out-grouping-select
-                                    aria-label="Clock-In/Out employee grouping">
-                                    @foreach ($employeeGroupings as $key => $grouping)
-                                        <option value="{{ $key }}" @selected($key === 'department')>
-                                            By {{ $grouping['label'] }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="employee-status-period-select-container">
-                                <select class="form-control select2 employee-status-period-select"
-                                    aria-label="Clock-In/Out period" data-clock-in-out-period-select>
-                                    <option value="today" selected>Today</option>
-                                    <option value="yesterday">Yesterday</option>
-                                    <option value="this_week">This Week</option>
-                                    <option value="last_week">Last Week</option>
-                                    <option value="this_month">This Month</option>
-                                    <option value="last_month">Last Month</option>
-                                </select>
-                            </div>
                             <div class="dashboard-widget-width-select-container">
                                 <select class="form-control select2 dashboard-widget-width-select"
                                     data-dashboard-width-select aria-label="Clock-In/Out card width">
@@ -1317,109 +1324,120 @@
                         </div>
                     </div>
                     <div class="card-body">
-                        <div>
-                            <div
-                                class="d-flex align-items-center justify-content-between mb-3 p-2 border border-dashed br-5">
-                                <div class="d-flex align-items-center">
-                                    <a href="javascript:void(0);" class="avatar flex-shrink-0">
-                                        <img src="{{URL::asset('build/img/profiles/avatar-24.jpg')}}"
-                                            class="rounded-circle border border-2" alt="img">
-                                    </a>
-                                    <div class="ms-2">
-                                        <h6 class="fs-14 fw-medium text-truncate">Daniel Esbella</h6>
-                                        <p class="fs-13">UI/UX Designer</p>
-                                    </div>
-                                </div>
-                                <div class="d-flex align-items-center">
-                                    <a href="javascript:void(0);" class="link-default me-2"><i
-                                            class="ti ti-clock-share"></i></a>
-                                    <span
-                                        class="fs-10 fw-medium d-inline-flex align-items-center badge badge-success"><i
-                                            class="ti ti-circle-filled fs-5 me-1"></i>09:15</span>
-                                </div>
-                            </div>
-                            <div class="d-flex align-items-center justify-content-between mb-3 p-2 border br-5">
-                                <div class="d-flex align-items-center">
-                                    <a href="javascript:void(0);" class="avatar flex-shrink-0">
-                                        <img src="{{URL::asset('build/img/profiles/avatar-23.jpg')}}"
-                                            class="rounded-circle border border-2" alt="img">
-                                    </a>
-                                    <div class="ms-2">
-                                        <h6 class="fs-14 fw-medium">Doglas Martini</h6>
-                                        <p class="fs-13">Project Manager</p>
-                                    </div>
-                                </div>
-                                <div class="d-flex align-items-center">
-                                    <a href="javascript:void(0);" class="link-default me-2"><i
-                                            class="ti ti-clock-share"></i></a>
-                                    <span
-                                        class="fs-10 fw-medium d-inline-flex align-items-center badge badge-success"><i
-                                            class="ti ti-circle-filled fs-5 me-1"></i>09:36</span>
-                                </div>
-                            </div>
-                            <div class="mb-3 p-2 border br-5">
-                                <div class="d-flex align-items-center justify-content-between">
-                                    <div class="d-flex align-items-center">
-                                        <a href="javascript:void(0);" class="avatar flex-shrink-0">
-                                            <img src="{{URL::asset('build/img/profiles/avatar-27.jpg')}}"
-                                                class="rounded-circle border border-2" alt="img">
-                                        </a>
-                                        <div class="ms-2">
-                                            <h6 class="fs-14 fw-medium text-truncate">Brian Villalobos</h6>
-                                            <p class="fs-13">PHP Developer</p>
+                        <div class="clock-in-out-employee-list mb-3" aria-label="Employees with attendance today">
+                            @forelse ($clockInOutEmployees as $employee)
+                                @php($detailsId = 'clock-in-out-details-'.$employee['id'])
+                                <div class="clock-in-out-employee-row mb-3 p-2 border border-dashed br-5">
+                                    <div class="d-flex align-items-center justify-content-between">
+                                        <div class="d-flex align-items-center min-w-0">
+                                            <a href="javascript:void(0);" class="avatar flex-shrink-0"
+                                                data-clock-in-out-employee-toggle aria-expanded="false"
+                                                aria-controls="{{ $detailsId }}">
+                                                <img src="{{ $employee['profile_pic_url'] ?: URL::asset('build/img/profiles/avatar-24.jpg') }}"
+                                                    class="rounded-circle border border-2" alt="">
+                                            </a>
+                                            <div class="ms-2 min-w-0">
+                                                <h6 class="fs-14 fw-medium text-truncate mb-0">
+                                                    <a href="javascript:void(0);" class="text-dark"
+                                                        data-clock-in-out-employee-toggle aria-expanded="false"
+                                                        aria-controls="{{ $detailsId }}">{{ $employee['name'] }}</a>
+                                                </h6>
+                                                <p class="fs-13 mb-0 text-truncate">{{ $employee['designation'] }}</p>
+                                            </div>
+                                        </div>
+                                        <div class="d-flex align-items-center flex-shrink-0">
+                                            <a href="javascript:void(0);" class="link-default me-2"
+                                                data-clock-in-out-employee-toggle aria-expanded="false"
+                                                aria-controls="{{ $detailsId }}">
+                                                <i class="ti ti-clock-share"></i>
+                                            </a>
+                                            <span class="fs-10 fw-medium d-inline-flex align-items-center badge badge-success me-2">
+                                                <i class="ti ti-circle-filled fs-5 me-1"></i>
+                                                {{ intdiv($employee['work_time'], 60) }}:{{ str_pad((string) ($employee['work_time'] % 60), 2, '0', STR_PAD_LEFT) }} Hrs
+                                            </span>
                                         </div>
                                     </div>
-                                    <div class="d-flex align-items-center">
-                                        <a href="javascript:void(0);" class="link-default me-2"><i
-                                                class="ti ti-clock-share"></i></a>
-                                        <span
-                                            class="fs-10 fw-medium d-inline-flex align-items-center badge badge-success"><i
-                                                class="ti ti-circle-filled fs-5 me-1"></i>09:15</span>
+                                    <div id="{{ $detailsId }}" class="mt-2 border br-5 p-2" hidden>
+                                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                            <div>
+                                                <p class="mb-1 d-inline-flex align-items-center">
+                                                    <i class="ti ti-circle-filled text-success fs-5 me-1"></i>Clock In
+                                                </p>
+                                                <h6 class="fs-13 fw-normal mb-1">{{ $employee['in_time'] ?: '—' }}</h6>
+                                            </div>
+                                            <div>
+                                                <p class="mb-1 d-inline-flex align-items-center">
+                                                    <i class="ti ti-circle-filled text-danger fs-5 me-1"></i>Clock Out
+                                                </p>
+                                                <h6 class="fs-13 fw-normal mb-1">{{ $employee['out_time'] ?: '—' }}</h6>
+                                            </div>
+                                            <div>
+                                                <p class="mb-1 d-inline-flex align-items-center">
+                                                    <i class="ti ti-circle-filled text-warning fs-5 me-1"></i>Production
+                                                </p>
+                                                <h6 class="fs-13 fw-normal mb-1">
+                                                    {{ intdiv($employee['work_time'], 60) }}:{{ str_pad((string) ($employee['work_time'] % 60), 2, '0', STR_PAD_LEFT) }} Hrs
+                                                </h6>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                                <div
-                                    class="d-flex align-items-center justify-content-between flex-wrap mt-2 border br-5 p-2 pb-0">
-                                    <div>
-                                        <p class="mb-1 d-inline-flex align-items-center"><i
-                                                class="ti ti-circle-filled text-success fs-5 me-1"></i>Clock In
-                                        </p>
-                                        <h6 class="fs-13 fw-normal mb-2">10:30 AM</h6>
-                                    </div>
-                                    <div>
-                                        <p class="mb-1 d-inline-flex align-items-center"><i
-                                                class="ti ti-circle-filled text-danger fs-5 me-1"></i>Clock Out
-                                        </p>
-                                        <h6 class="fs-13 fw-normal mb-2">09:45 AM</h6>
-                                    </div>
-                                    <div>
-                                        <p class="mb-1 d-inline-flex align-items-center"><i
-                                                class="ti ti-circle-filled text-warning fs-5 me-1"></i>Production
-                                        </p>
-                                        <h6 class="fs-13 fw-normal mb-2">09:21 Hrs</h6>
-                                    </div>
-                                </div>
-                            </div>
+                            @empty
+                                <p class="text-muted mb-0 py-3 text-center">No employee clock-ins or clock-outs for today.</p>
+                            @endforelse
                         </div>
-                        <h6 class="mb-2">Late</h6>
-                        <div
-                            class="d-flex align-items-center justify-content-between mb-3 p-2 border border-dashed br-5">
-                            <div class="d-flex align-items-center">
-                                <span class="avatar flex-shrink-0">
-                                    <img src="{{URL::asset('build/img/profiles/avatar-29.jpg')}}"
-                                        class="rounded-circle border border-2" alt="img">
-                                </span>
-                                <div class="ms-2">
-                                    <h6 class="fs-14 fw-medium text-truncate">Anthony Lewis <span
-                                            class="fs-10 fw-medium d-inline-flex align-items-center badge badge-danger"><i
-                                                class="ti ti-clock-hour-11 me-1"></i>30 Min</span></h6>
-                                    <p class="fs-13">Marketing Head</p>
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <h6 class="mb-0">Late / Early</h6>
+                            @if ($clockInOutStatusRecords->count() > 1)
+                                <div class="d-flex align-items-center gap-1">
+                                    <span class="fs-12 text-muted me-1" data-clock-in-out-status-position>1 / {{ $clockInOutStatusRecords->count() }}</span>
+                                    <button type="button" class="btn btn-light btn-sm p-0 btn-icon"
+                                        data-clock-in-out-status-prev aria-label="Previous attendance record">
+                                        <i class="ti ti-arrow-left"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-light btn-sm p-0 btn-icon"
+                                        data-clock-in-out-status-next aria-label="Next attendance record">
+                                        <i class="ti ti-arrow-right"></i>
+                                    </button>
                                 </div>
-                            </div>
-                            <div class="d-flex align-items-center">
-                                <a href="javascript:void(0);" class="link-default me-2"><i
-                                        class="ti ti-clock-share"></i></a>
-                                <span class="fs-10 fw-medium d-inline-flex align-items-center badge badge-success"><i
-                                        class="ti ti-circle-filled fs-5 me-1"></i>08:35</span>
+                            @endif
+                        </div>
+                        <div class="clock-in-out-status-viewport mb-3">
+                            <div class="clock-in-out-status-track" data-clock-in-out-status-track>
+                                @forelse ($clockInOutStatusRecords as $index => $record)
+                                    <div class="clock-in-out-status-slide" data-clock-in-out-status-slide
+                                        aria-hidden="{{ $index === 0 ? 'false' : 'true' }}">
+                                        <div class="d-flex align-items-center justify-content-between mb-3 p-2 border border-dashed br-5">
+                                            <div class="d-flex align-items-center min-w-0">
+                                                <span class="avatar flex-shrink-0">
+                                                    <img src="{{ $record['profile_pic_url'] ?: URL::asset('build/img/profiles/avatar-24.jpg') }}"
+                                                        class="rounded-circle border border-2" alt="">
+                                                </span>
+                                                <div class="ms-2 min-w-0">
+                                                    <h6 class="fs-14 fw-medium text-truncate mb-0">
+                                                        {{ $record['name'] }}
+                                                        <span class="fs-10 fw-medium d-inline-flex align-items-center badge {{ $record['status'] === 'Late' ? 'badge-danger' : 'badge-warning' }}">
+                                                            <i class="ti ti-clock-hour-11 me-1"></i>
+                                                            {{ $record['status'] }} ({{ $record['status_minutes'] }} Min)
+                                                        </span>
+                                                    </h6>
+                                                    <p class="fs-13 mb-0 text-truncate">{{ $record['designation'] }}</p>
+                                                </div>
+                                            </div>
+                                            <div class="d-flex align-items-center flex-shrink-0 ms-2">
+                                                <a href="javascript:void(0);" class="link-default me-2">
+                                                    <i class="ti ti-clock-share"></i>
+                                                </a>
+                                                <span class="fs-10 fw-medium d-inline-flex align-items-center badge badge-success">
+                                                    <i class="ti ti-circle-filled fs-5 me-1"></i>
+                                                    {{ intdiv($record['work_time'], 60) }}:{{ str_pad((string) ($record['work_time'] % 60), 2, '0', STR_PAD_LEFT) }} Hrs
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @empty
+                                    <p class="text-muted mb-0 py-3 text-center">No late or early employees today.</p>
+                                @endforelse
                             </div>
                         </div>
                         <a href="{{url('attendance-report')}}" class="btn btn-light btn-md w-100">View All
@@ -2761,6 +2779,63 @@
     @push('scripts')
         <script>
             document.addEventListener('DOMContentLoaded', function () {
+                document.querySelectorAll('[data-dashboard-static-widget="clock-in-out"]').forEach(function (widget) {
+                    const statusTrack = widget.querySelector('[data-clock-in-out-status-track]');
+                    const statusSlides = Array.from(widget.querySelectorAll('[data-clock-in-out-status-slide]'));
+                    const statusPosition = widget.querySelector('[data-clock-in-out-status-position]');
+                    let activeStatusSlide = 0;
+                    let statusSlideTimer = null;
+
+                    function showStatusSlide(index) {
+                        activeStatusSlide = (index + statusSlides.length) % statusSlides.length;
+                        statusTrack.style.transform = 'translateX(-' + (activeStatusSlide * 100) + '%)';
+                        statusSlides.forEach(function (slide, slideIndex) {
+                            slide.setAttribute('aria-hidden', String(slideIndex !== activeStatusSlide));
+                        });
+                        if (statusPosition) {
+                            statusPosition.textContent = (activeStatusSlide + 1) + ' / ' + statusSlides.length;
+                        }
+                    }
+
+                    function startStatusSlideTimer() {
+                        if (statusSlides.length > 1 && !statusSlideTimer) {
+                            statusSlideTimer = window.setInterval(function () {
+                                showStatusSlide(activeStatusSlide + 1);
+                            }, 4000);
+                        }
+                    }
+
+                    widget.addEventListener('click', function (event) {
+                        const toggle = event.target.closest('[data-clock-in-out-employee-toggle]');
+                        if (toggle && widget.contains(toggle)) {
+                            const details = document.getElementById(toggle.getAttribute('aria-controls'));
+                            if (details) {
+                                const isExpanded = !details.hidden;
+                                details.hidden = isExpanded;
+                                widget.querySelectorAll('[data-clock-in-out-employee-toggle]').forEach(function (employeeToggle) {
+                                    if (employeeToggle.getAttribute('aria-controls') === toggle.getAttribute('aria-controls')) {
+                                        employeeToggle.setAttribute('aria-expanded', String(!isExpanded));
+                                    }
+                                });
+                            }
+                        }
+
+                        const statusControl = event.target.closest(
+                            '[data-clock-in-out-status-prev], [data-clock-in-out-status-next]'
+                        );
+                        if (!statusControl || !widget.contains(statusControl)) {
+                            return;
+                        }
+
+                        const direction = statusControl.hasAttribute('data-clock-in-out-status-next') ? 1 : -1;
+                        showStatusSlide(activeStatusSlide + direction);
+                    });
+                    if (statusSlides.length > 0) {
+                        showStatusSlide(0);
+                        startStatusSlideTimer();
+                    }
+                });
+
                 const periodSelect = document.querySelector('[data-employee-status-period]');
                 const statusCard = periodSelect && periodSelect.closest('[data-employee-status-card]');
                 if (!periodSelect || !statusCard) {
