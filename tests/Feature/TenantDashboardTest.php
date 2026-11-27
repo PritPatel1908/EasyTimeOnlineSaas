@@ -374,6 +374,31 @@ class TenantDashboardTest extends TestCase
         $jsonResponse = app(DashboardController::class)->employeeStatus($jsonRequest)->getData(true);
         $this->assertSame('yesterday', $jsonResponse['employeeStatusPeriod']);
         $this->assertSame(1, $jsonResponse['employeeStatusCounts']['present']);
+        $employeeDetailsRequest = Request::create(
+            '/dashboard/employee-status/employees',
+            'POST',
+            [],
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json'],
+            json_encode([
+                'employee_status_period' => 'yesterday',
+                'status' => 'present',
+            ])
+        );
+        $employeeDetailsResponse = app(DashboardController::class)
+            ->employeeStatusEmployees($employeeDetailsRequest)
+            ->getData(true);
+        $this->assertSame('yesterday', $employeeDetailsResponse['employeeStatusPeriod']);
+        $this->assertSame('present', $employeeDetailsResponse['status']);
+        $this->assertSame(['Employee 2'], array_column($employeeDetailsResponse['employees'], 'name'));
+        $this->assertSame([today()->subDay()->toDateString()], $employeeDetailsResponse['employees'][0]['dates']);
+        $this->assertSame([
+            'current_page' => 1,
+            'last_page' => 1,
+            'per_page' => 10,
+            'total' => 1,
+        ], $employeeDetailsResponse['pagination']);
         $attendanceOverviewRequest = Request::create(
             '/dashboard/attendance-overview',
             'POST',

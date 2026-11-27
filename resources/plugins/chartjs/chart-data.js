@@ -663,7 +663,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			data: {
 				labels: ['Late', 'Present', 'Permission', 'Absent'],
 				datasets: [{
-					label: 'Semi Donut',
+					label: 'Attendance Status',
 					data: [40, 20, 30, 10],
 					backgroundColor: ['#0C4B5E', '#03C95A', '#FFC107', '#E70D0D'],
 					borderWidth: 5,
@@ -687,6 +687,13 @@ document.addEventListener('DOMContentLoaded', function () {
 				plugins: {
 					legend: {
 						display: false // Hide the legend
+					},
+					tooltip: {
+						callbacks: {
+							label: function (context) {
+								return context.label + ': ' + context.formattedValue;
+							}
+						}
 					}
 				},
 			}

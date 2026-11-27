@@ -346,6 +346,141 @@ class DashboardController extends Controller
         return response()->json($this->employeeStatusSummary($employees, now(), $period));
     }
 
+    public function employeeStatusEmployees(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'employee_status_period' => ['required', 'in:today,yesterday,this_week,last_week,this_month,last_month'],
+            'status' => ['required', 'in:present,partial_absent,complete_absent,leave'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'in:10,25,50,100'],
+            'search' => ['nullable', 'string', 'max:255'],
+        ]);
+        $period = $validated['employee_status_period'];
+        $status = $validated['status'];
+        $page = (int) ($validated['page'] ?? 1);
+        $perPage = (int) ($validated['per_page'] ?? 10);
+        $search = trim($validated['search'] ?? '');
+        $employees = User::query()
+            ->where('user_type', 'employee')
+            ->whereNull('left_date')
+            ->where('is_inactive', false)
+            ->get(['id', 'name', 'fname', 'mname', 'lname', 'designation_id']);
+        [$startDate, $endDate] = $this->periodDateRange(now(), $period);
+        $employeeIds = $employees->pluck('id');
+        $leaveStatusCodes = $this->leaveStatusCodes();
+        $matchingEmployees = [];
+
+        for ($attendanceYear = (int) $startDate->year; $attendanceYear <= (int) $endDate->year; $attendanceYear++) {
+            $yearStartDate = $attendanceYear === (int) $startDate->year
+                ? $startDate->toDateString()
+                : $attendanceYear.'-01-01';
+            $yearEndDate = $attendanceYear === (int) $endDate->year
+                ? $endDate->toDateString()
+                : $attendanceYear.'-12-31';
+
+            $attendanceRows = Attendance::year($attendanceYear)
+                ->whereBetween('date', [$yearStartDate, $yearEndDate])
+                ->whereIn('user_id', $employeeIds)
+                ->with('status_master:id,code')
+                ->get([
+                    'user_id',
+                    'date',
+                    'status_master_id',
+                    'in_time',
+                    'out_time',
+                    'is_half_day',
+                    'is_absent',
+                ]);
+
+            foreach ($attendanceRows as $attendance) {
+                $statusCode = strtoupper((string) ($attendance->status_master?->code ?? ''));
+                $matchesStatus = match ($status) {
+                    'present' => (
+                        str_starts_with($statusCode, 'P')
+                        || str_ends_with($statusCode, 'P')
+                    ) && ! $attendance->is_half_day && ! $attendance->is_absent,
+                    'partial_absent' => (
+                        str_starts_with($statusCode, 'A')
+                        || str_ends_with($statusCode, 'A')
+                    ) && $attendance->in_time !== null,
+                    'complete_absent' => $statusCode === 'AA'
+                        && $attendance->in_time === null
+                        && $attendance->out_time === null,
+                    'leave' => in_array($statusCode, $leaveStatusCodes, true),
+                };
+
+                if (! $matchesStatus) {
+                    continue;
+                }
+
+                $employeeId = (int) $attendance->user_id;
+                $matchingEmployees[$employeeId] ??= ['dates' => []];
+                $matchingEmployees[$employeeId]['dates'][$attendance->date->toDateString()] = true;
+            }
+        }
+
+        $designationIds = $employees
+            ->flatMap(fn (User $employee): array => $this->idsFrom($employee->designation_id))
+            ->unique()
+            ->values();
+        $designationNames = Designation::query()
+            ->whereIn('id', $designationIds)
+            ->pluck('name', 'id');
+        $employeeDetails = collect($matchingEmployees)
+            ->map(function (array $attendanceDetails, int $employeeId) use ($employees, $designationNames): array {
+                $employee = $employees->firstWhere('id', $employeeId);
+                $name = $employee->name ?: trim(implode(' ', array_filter([
+                    $employee->fname,
+                    $employee->mname,
+                    $employee->lname,
+                ])));
+                $designation = collect($this->idsFrom($employee->designation_id))
+                    ->map(static fn (int $id): ?string => $designationNames->get($id))
+                    ->filter()
+                    ->implode(', ');
+                $dates = array_keys($attendanceDetails['dates']);
+                sort($dates);
+
+                return [
+                    'id' => $employeeId,
+                    'name' => $name !== '' ? $name : 'Employee '.$employeeId,
+                    'designation' => $designation !== '' ? $designation : 'Employee',
+                    'dates' => $dates,
+                ];
+            })
+            ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
+        if ($search !== '') {
+            $employeeDetails = $employeeDetails
+                ->filter(static function (array $employee) use ($search): bool {
+                    $searchableText = implode(' ', [
+                        $employee['name'],
+                        $employee['designation'],
+                        implode(' ', $employee['dates']),
+                    ]);
+
+                    return stripos($searchableText, $search) !== false;
+                })
+                ->values();
+        }
+        $total = $employeeDetails->count();
+        $lastPage = max(1, (int) ceil($total / $perPage));
+        $page = min($page, $lastPage);
+
+        return response()->json([
+            'employeeStatusPeriod' => $period,
+            'status' => $status,
+            'search' => $search,
+            'employees' => $employeeDetails->forPage($page, $perPage)->values(),
+            'pagination' => [
+                'current_page' => $page,
+                'last_page' => $lastPage,
+                'per_page' => $perPage,
+                'total' => $total,
+            ],
+        ]);
+    }
+
     public function attendanceOverview(Request $request): JsonResponse
     {
         $period = $request->validate([

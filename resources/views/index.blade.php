@@ -166,6 +166,34 @@
         font-size: 13px;
     }
 
+    .employee-status-detail-button {
+        border: 0;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+        font: inherit;
+    }
+
+    .employee-status-detail-button:hover {
+        background-color: rgba(0, 0, 0, .03);
+    }
+
+    .employee-status-detail-button:focus-visible {
+        outline: 2px solid var(--bs-primary);
+        outline-offset: -2px;
+    }
+
+    .employee-status-modal-close {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 32px;
+        width: 32px;
+        height: 32px;
+        margin-left: auto;
+        padding: 0;
+    }
+
     .dashboard-structure-panel > .card-body {
         min-width: 0;
     }
@@ -961,6 +989,21 @@
                         </div>
                         <h5 class="mb-2">Employee Status</h5>
                         <div class="d-flex align-items-center gap-2 mb-2 dashboard-widget-header-controls">
+                            <div class="employee-status-period-select-container">
+                                <select class="form-control select2 employee-status-period-select"
+                                    name="employee_status_period" aria-label="Employee Status period"
+                                    data-employee-status-period
+                                    data-employee-status-url="{{ url('dashboard/employee-status') }}"
+                                    data-employee-status-details-url="{{ url('dashboard/employee-status/employees') }}"
+                                    data-csrf-token="{{ csrf_token() }}">
+                                    <option value="today" @selected($employeeStatusPeriod === 'today')>Today</option>
+                                    <option value="yesterday" @selected($employeeStatusPeriod === 'yesterday')>Yesterday</option>
+                                    <option value="this_week" @selected($employeeStatusPeriod === 'this_week')>This Week</option>
+                                    <option value="last_week" @selected($employeeStatusPeriod === 'last_week')>Last Week</option>
+                                    <option value="this_month" @selected($employeeStatusPeriod === 'this_month')>This Month</option>
+                                    <option value="last_month" @selected($employeeStatusPeriod === 'last_month')>Last Month</option>
+                                </select>
+                            </div>
                             <div class="dashboard-widget-width-select-container">
                                 <select class="form-control select2 dashboard-widget-width-select"
                                     data-dashboard-width-select aria-label="Employee Status card width">
@@ -973,20 +1016,6 @@
                                 <input type="number" class="form-control dashboard-widget-custom-width-input"
                                     data-dashboard-custom-width-input min="1" max="12" step="1" value="6" required hidden
                                     aria-label="Custom card width in columns" title="Enter 1 to 12 columns">
-                            </div>
-                            <div class="employee-status-period-select-container">
-                                <select class="form-control select2 employee-status-period-select"
-                                    name="employee_status_period" aria-label="Employee Status period"
-                                    data-employee-status-period
-                                    data-employee-status-url="{{ url('dashboard/employee-status') }}"
-                                    data-csrf-token="{{ csrf_token() }}">
-                                    <option value="today" @selected($employeeStatusPeriod === 'today')>Today</option>
-                                    <option value="yesterday" @selected($employeeStatusPeriod === 'yesterday')>Yesterday</option>
-                                    <option value="this_week" @selected($employeeStatusPeriod === 'this_week')>This Week</option>
-                                    <option value="last_week" @selected($employeeStatusPeriod === 'last_week')>Last Week</option>
-                                    <option value="this_month" @selected($employeeStatusPeriod === 'this_month')>This Month</option>
-                                    <option value="last_month" @selected($employeeStatusPeriod === 'last_month')>Last Month</option>
-                                </select>
                             </div>
                         </div>
                     </div>
@@ -1030,36 +1059,48 @@
                         <div class="border mb-3">
                             <div class="row gx-0">
                                 <div class="col-6">
-                                    <div class="p-2 flex-fill border-end border-bottom">
-                                        <p class="fs-13 mb-2"><i class="ti ti-square-rounded-filled text-success fs-12 me-2"></i>Present
+                                    <button type="button"
+                                        class="employee-status-detail-button p-2 flex-fill border-end border-bottom text-start w-100"
+                                        data-employee-status-detail="present"
+                                        aria-label="View employees marked present">
+                                        <span class="d-block fs-13 mb-2"><i class="ti ti-square-rounded-filled text-success fs-12 me-2"></i>Present
                                             <span class="text-gray-9" data-employee-status-percent="present">({{ (int) round($employeeStatusPercentages['present']) }}%)</span>
-                                        </p>
-                                        <h2 class="fs-40 fw-bold" data-employee-status-count="present">{{ number_format($employeeStatusCounts['present']) }}</h2>
-                                    </div>
+                                        </span>
+                                        <span class="d-block fs-40 fw-bold mb-2" data-employee-status-count="present">{{ number_format($employeeStatusCounts['present']) }}</span>
+                                    </button>
                                 </div>
                                 <div class="col-6">
-                                    <div class="p-2 flex-fill border-bottom text-end">
-                                        <p class="fs-13 mb-2"><i class="ti ti-square-rounded-filled me-2 text-warning fs-12"></i>Partial Absent
+                                    <button type="button"
+                                        class="employee-status-detail-button p-2 flex-fill border-bottom text-end w-100"
+                                        data-employee-status-detail="partial_absent"
+                                        aria-label="View employees marked partially absent">
+                                        <span class="d-block fs-13 mb-2"><i class="ti ti-square-rounded-filled me-2 text-warning fs-12"></i>Partial Absent
                                             <span class="text-gray-9" data-employee-status-percent="partial_absent">({{ (int) round($employeeStatusPercentages['partial_absent']) }}%)</span>
-                                        </p>
-                                        <h2 class="fs-40 fw-bold" data-employee-status-count="partial_absent">{{ number_format($employeeStatusCounts['partial_absent']) }}</h2>
-                                    </div>
+                                        </span>
+                                        <span class="d-block fs-40 fw-bold mb-2" data-employee-status-count="partial_absent">{{ number_format($employeeStatusCounts['partial_absent']) }}</span>
+                                    </button>
                                 </div>
                                 <div class="col-6">
-                                    <div class="p-2 flex-fill border-end">
-                                        <p class="fs-13 mb-2"><i class="ti ti-square-rounded-filled me-2 text-danger fs-12"></i>Complete Absent
+                                    <button type="button"
+                                        class="employee-status-detail-button p-2 flex-fill border-end text-start w-100"
+                                        data-employee-status-detail="complete_absent"
+                                        aria-label="View employees marked completely absent">
+                                        <span class="d-block fs-13 mb-2"><i class="ti ti-square-rounded-filled me-2 text-danger fs-12"></i>Complete Absent
                                             <span class="text-gray-9" data-employee-status-percent="complete_absent">({{ (int) round($employeeStatusPercentages['complete_absent']) }}%)</span>
-                                        </p>
-                                        <h2 class="fs-40 fw-bold" data-employee-status-count="complete_absent">{{ number_format($employeeStatusCounts['complete_absent']) }}</h2>
-                                    </div>
+                                        </span>
+                                        <span class="d-block fs-40 fw-bold mb-2" data-employee-status-count="complete_absent">{{ number_format($employeeStatusCounts['complete_absent']) }}</span>
+                                    </button>
                                 </div>
                                 <div class="col-6">
-                                    <div class="p-2 flex-fill text-end">
-                                        <p class="fs-13 mb-2"><i class="ti ti-square-rounded-filled text-info me-2 fs-12"></i>Leave
+                                    <button type="button"
+                                        class="employee-status-detail-button p-2 flex-fill text-end w-100"
+                                        data-employee-status-detail="leave"
+                                        aria-label="View employees marked on leave">
+                                        <span class="d-block fs-13 mb-2"><i class="ti ti-square-rounded-filled text-info me-2 fs-12"></i>Leave
                                             <span class="text-gray-9" data-employee-status-percent="leave">({{ (int) round($employeeStatusPercentages['leave']) }}%)</span>
-                                        </p>
-                                        <h2 class="fs-40 fw-bold" data-employee-status-count="leave">{{ number_format($employeeStatusCounts['leave']) }}</h2>
-                                    </div>
+                                        </span>
+                                        <span class="d-block fs-40 fw-bold mb-2" data-employee-status-count="leave">{{ number_format($employeeStatusCounts['leave']) }}</span>
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -1141,19 +1182,6 @@
                         </div>
                         <h5 class="mb-2">Attendance Overview</h5>
                         <div class="d-flex align-items-center gap-2 mb-2 dashboard-widget-header-controls">
-                            <div class="dashboard-widget-width-select-container">
-                                <select class="form-control select2 dashboard-widget-width-select"
-                                    data-dashboard-width-select aria-label="Attendance Overview card width">
-                                    <option value="12">1/1</option>
-                                    <option value="6" selected>1/2</option>
-                                    <option value="4">1/3</option>
-                                    <option value="auto">Auto</option>
-                                    <option value="custom">Custom</option>
-                                </select>
-                                <input type="number" class="form-control dashboard-widget-custom-width-input"
-                                    data-dashboard-custom-width-input min="1" max="12" step="1" value="6" required hidden
-                                    aria-label="Custom card width in columns" title="Enter 1 to 12 columns">
-                            </div>
                             <div class="employee-status-period-select-container">
                                 <select class="form-control select2 employee-status-period-select"
                                     name="attendance_overview_period" aria-label="Attendance Overview period"
@@ -1168,6 +1196,19 @@
                                     <option value="last_month" @selected($attendanceOverviewPeriod === 'last_month')>Last Month</option>
                                 </select>
                             </div>
+                            <div class="dashboard-widget-width-select-container">
+                                <select class="form-control select2 dashboard-widget-width-select"
+                                    data-dashboard-width-select aria-label="Attendance Overview card width">
+                                    <option value="12">1/1</option>
+                                    <option value="6" selected>1/2</option>
+                                    <option value="4">1/3</option>
+                                    <option value="auto">Auto</option>
+                                    <option value="custom">Custom</option>
+                                </select>
+                                <input type="number" class="form-control dashboard-widget-custom-width-input"
+                                    data-dashboard-custom-width-input min="1" max="12" step="1" value="6" required hidden
+                                    aria-label="Custom card width in columns" title="Enter 1 to 12 columns">
+                            </div>
                         </div>
                     </div>
                     <div class="card-body">
@@ -1181,21 +1222,28 @@
                                     data-attendance-overview-total-value="{{ $attendanceOverviewTotal }}">{{ number_format($attendanceOverviewTotal) }}</h3>
                             </div>
                         </div>
+                        <p class="text-muted fs-12 mb-3">
+                            Each segment shows a status count for the selected period; the center shows total attendance records.
+                        </p>
                         <h6 class="mb-2">Status</h6>
                         <div class="row gx-3" data-attendance-overview-counts>
                             @foreach ([
-                                'present' => 'Present',
-                                'partial_absent' => 'Partial Absent',
-                                'complete_absent' => 'Complete Absent',
-                                'leave' => 'Leave',
-                                'late' => 'Late',
-                                'early' => 'Early',
-                                'week_off' => 'Week Off',
-                                'overtime' => 'Overtime',
-                            ] as $key => $label)
+                                'present' => ['label' => 'Present', 'icon' => 'ti-user-check', 'color' => '#03C95A'],
+                                'partial_absent' => ['label' => 'Partial Absent', 'icon' => 'ti-user-exclamation', 'color' => '#FFC107'],
+                                'complete_absent' => ['label' => 'Complete Absent', 'icon' => 'ti-user-x', 'color' => '#E70D0D'],
+                                'leave' => ['label' => 'Leave', 'icon' => 'ti-calendar-off', 'color' => '#1B84FF'],
+                                'late' => ['label' => 'Late', 'icon' => 'ti-clock-exclamation', 'color' => '#0C4B5E'],
+                                'early' => ['label' => 'Early', 'icon' => 'ti-clock-down', 'color' => '#775DD0'],
+                                'week_off' => ['label' => 'Week Off', 'icon' => 'ti-calendar-minus', 'color' => '#8A8D93'],
+                                'overtime' => ['label' => 'Overtime', 'icon' => 'ti-clock-plus', 'color' => '#F26522'],
+                            ] as $key => $status)
                                 <div class="col-6">
                                     <div class="d-flex align-items-center justify-content-between border-bottom py-2">
-                                        <span class="f-13">{{ $label }}</span>
+                                        <span class="f-13">
+                                            <i class="ti {{ $status['icon'] }} me-2 fs-16"
+                                                style="color: {{ $status['color'] }}" aria-hidden="true"></i>
+                                            {{ $status['label'] }}
+                                        </span>
                                         <strong class="f-13 fw-medium text-gray-9"
                                             data-attendance-overview-count="{{ $key }}"
                                             data-attendance-overview-count-value="{{ $attendanceOverviewCounts[$key] ?? 0 }}">{{ number_format($attendanceOverviewCounts[$key] ?? 0) }}</strong>
@@ -2658,10 +2706,70 @@
     @include('partials.footer')
 
 </div>
-
 <!-- ========================
         End Page Content
     ========================= -->
+
+<div class="modal fade" id="employee-status-employees-modal" tabindex="-1"
+    aria-labelledby="employee-status-employees-title" aria-hidden="true"
+    data-employee-status-employees-modal>
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="employee-status-employees-title" data-employee-status-employees-title>
+                    Employees
+                </h5>
+                <button type="button" class="btn btn-light border btn-sm employee-status-modal-close"
+                    data-bs-dismiss="modal" aria-label="Close">
+                    <i class="ti ti-x" aria-hidden="true"></i>
+                    <span class="visually-hidden">Close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-0 d-none" role="status" aria-live="polite"
+                    data-employee-status-employees-message>
+                </p>
+                <div class="gridjs-head" data-employee-status-page-size>
+                    <div class="gridjs-length">
+                        <label class="d-flex align-items-center gap-2 mb-0">
+                            <span>Row Per Page</span>
+                            <select class="gridjs-select gridjs-page-limit-select" data-employee-status-per-page
+                                aria-label="Records per page">
+                                <option value="10" selected>10</option>
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="gridjs-search">
+                        <input type="search" class="gridjs-input gridjs-search-input"
+                            placeholder="Search" aria-label="Search employees" data-employee-status-search>
+                    </div>
+                </div>
+                <div class="table-responsive d-none" data-employee-status-employees-table>
+                    <table class="table table-sm table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th scope="col">Employee</th>
+                                <th scope="col">Designation</th>
+                                <th scope="col">Date(s)</th>
+                            </tr>
+                        </thead>
+                        <tbody data-employee-status-employees-list></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="gridjs-footer" data-employee-status-pagination>
+                <div class="gridjs-pagination">
+                    <div class="gridjs-summary" data-employee-status-pagination-summary></div>
+                    <div class="gridjs-pages" aria-label="Employee list pagination"
+                        data-employee-status-pagination-links></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
     @push('scripts')
         <script>
@@ -2677,8 +2785,303 @@
                 const emptyPerformers = statusCard.querySelector('[data-employee-status-empty]');
                 const carouselControls = statusCard.querySelector('[data-employee-status-carousel-controls]');
                 const statusKeys = ['present', 'partial_absent', 'complete_absent', 'leave'];
+                const detailButtons = statusCard.querySelectorAll('[data-employee-status-detail]');
+                const detailsModal = document.querySelector('[data-employee-status-employees-modal]');
+                const detailsTitle = detailsModal && detailsModal.querySelector('[data-employee-status-employees-title]');
+                const detailsMessage = detailsModal && detailsModal.querySelector('[data-employee-status-employees-message]');
+                const detailsTable = detailsModal && detailsModal.querySelector('[data-employee-status-employees-table]');
+                const detailsList = detailsModal && detailsModal.querySelector('[data-employee-status-employees-list]');
+                const detailsPerPage = detailsModal && detailsModal.querySelector('[data-employee-status-per-page]');
+                const detailsSearch = detailsModal && detailsModal.querySelector('[data-employee-status-search]');
+                const detailsPaginationSummary = detailsModal
+                    && detailsModal.querySelector('[data-employee-status-pagination-summary]');
+                const detailsPaginationLinks = detailsModal
+                    && detailsModal.querySelector('[data-employee-status-pagination-links]');
+                const detailsPagination = detailsModal
+                    && detailsModal.querySelector('[data-employee-status-pagination]');
+                const statusLabels = {
+                    present: 'Present',
+                    partial_absent: 'Partial Absent',
+                    complete_absent: 'Complete Absent',
+                    leave: 'Leave',
+                };
                 const numberFormatter = new Intl.NumberFormat();
                 let confirmedPeriod = periodSelect.value;
+                let detailsRequestId = 0;
+                let activeDetailsStatus = null;
+                let searchTimeout = null;
+
+                function renderPagination(pagination) {
+                    if (!detailsPaginationSummary || !detailsPaginationLinks) {
+                        return;
+                    }
+
+                    const firstItem = pagination.total === 0
+                        ? 0
+                        : (pagination.current_page - 1) * pagination.per_page + 1;
+                    const lastItem = Math.min(pagination.current_page * pagination.per_page, pagination.total);
+                    detailsPaginationSummary.textContent = pagination.total === 0
+                        ? 'No records to show'
+                        : 'Showing ' + firstItem + '-' + lastItem + ' of ' + pagination.total + ' entries';
+                    detailsPaginationLinks.replaceChildren();
+
+                    function addPage(label, page, className, ariaLabel, title) {
+                        const button = document.createElement('button');
+                        button.type = 'button';
+                        button.textContent = label;
+                        if (className) {
+                            button.className = className;
+                        }
+                        if (ariaLabel) {
+                            button.setAttribute('aria-label', ariaLabel);
+                        }
+                        if (title) {
+                            button.title = title;
+                        }
+                        if (className === 'gridjs-currentPage') {
+                            button.setAttribute('aria-current', 'page');
+                        }
+                        if (page !== null) {
+                            button.dataset.employeeStatusPage = String(page);
+                        } else if (title === 'Previous' || title === 'Next') {
+                            button.disabled = true;
+                        }
+                        detailsPaginationLinks.appendChild(button);
+                    }
+
+                    function addPageNumber(page) {
+                        addPage(
+                            String(page),
+                            page === pagination.current_page ? null : page,
+                            page === pagination.current_page ? 'gridjs-currentPage' : '',
+                            'Page ' + page,
+                        );
+                    }
+
+                    function addSpread() {
+                        const spread = document.createElement('button');
+                        spread.type = 'button';
+                        spread.className = 'gridjs-spread';
+                        spread.textContent = '...';
+                        spread.disabled = true;
+                        spread.setAttribute('aria-hidden', 'true');
+                        detailsPaginationLinks.appendChild(spread);
+                    }
+
+                    addPage(
+                        '',
+                        pagination.current_page > 1 ? pagination.current_page - 1 : null,
+                        '',
+                        'Previous page',
+                        'Previous',
+                    );
+                    if (pagination.last_page <= 7) {
+                        for (let page = 1; page <= pagination.last_page; page++) {
+                            addPageNumber(page);
+                        }
+                    } else if (pagination.current_page < 4) {
+                        for (let page = 1; page <= 4; page++) {
+                            addPageNumber(page);
+                        }
+                        addSpread();
+                        addPageNumber(pagination.last_page);
+                    } else if (pagination.current_page > pagination.last_page - 3) {
+                        addPageNumber(1);
+                        addSpread();
+                        for (let page = pagination.last_page - 3; page <= pagination.last_page; page++) {
+                            addPageNumber(page);
+                        }
+                    } else {
+                        addPageNumber(1);
+                        addSpread();
+                        for (let page = pagination.current_page - 1; page <= pagination.current_page + 1; page++) {
+                            addPageNumber(page);
+                        }
+                        addSpread();
+                        addPageNumber(pagination.last_page);
+                    }
+                    addPage(
+                        '',
+                        pagination.current_page < pagination.last_page ? pagination.current_page + 1 : null,
+                        '',
+                        'Next page',
+                        'Next',
+                    );
+                }
+
+                function loadEmployeeDetails(status, page, perPage) {
+                    window.clearTimeout(searchTimeout);
+                    if (
+                        !detailsModal
+                        || !detailsTitle
+                        || !detailsMessage
+                        || !detailsTable
+                        || !detailsList
+                        || !window.bootstrap
+                        || !window.bootstrap.Modal
+                    ) {
+                        return;
+                    }
+
+                    const selectedPeriod = periodSelect.value;
+                    const selectedSearch = detailsSearch ? detailsSearch.value.trim() : '';
+                    const requestId = ++detailsRequestId;
+                    const preserveResults = activeDetailsStatus === status
+                        && detailsTable
+                        && !detailsTable.classList.contains('d-none');
+                    activeDetailsStatus = status;
+                    detailsTitle.textContent = statusLabels[status] + ' Employees';
+                    detailsMessage.textContent = '';
+                    detailsMessage.classList.add('d-none');
+                    detailsMessage.classList.remove('text-danger');
+                    if (!preserveResults) {
+                        detailsTable.classList.add('d-none');
+                        detailsList.replaceChildren();
+                        if (detailsPagination) {
+                            detailsPagination.classList.add('d-none');
+                        }
+                    }
+                    window.bootstrap.Modal.getOrCreateInstance(detailsModal).show();
+
+                    fetch(periodSelect.dataset.employeeStatusDetailsUrl, {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': periodSelect.dataset.csrfToken,
+                        },
+                        body: JSON.stringify({
+                            employee_status_period: selectedPeriod,
+                            status: status,
+                            page: page,
+                            per_page: perPage,
+                            search: selectedSearch,
+                        }),
+                    })
+                        .then(function (response) {
+                            if (!response.ok) {
+                                throw new Error('Employee list request failed.');
+                            }
+
+                            return response.json();
+                        })
+                        .then(function (data) {
+                            if (requestId !== detailsRequestId) {
+                                return;
+                            }
+
+                            if (
+                                !data
+                                || data.employeeStatusPeriod !== selectedPeriod
+                                || data.status !== status
+                                || data.search !== selectedSearch
+                                || !Array.isArray(data.employees)
+                                || !data.pagination
+                                || !Number.isInteger(data.pagination.current_page)
+                                || !Number.isInteger(data.pagination.last_page)
+                                || !Number.isInteger(data.pagination.per_page)
+                                || !Number.isInteger(data.pagination.total)
+                                || data.employees.some(function (employee) {
+                                    return !employee
+                                        || !Number.isFinite(employee.id)
+                                        || typeof employee.name !== 'string'
+                                        || typeof employee.designation !== 'string'
+                                        || !Array.isArray(employee.dates)
+                                        || employee.dates.some(function (date) {
+                                            return typeof date !== 'string';
+                                        });
+                                })
+                            ) {
+                                throw new Error('Employee list response is invalid.');
+                            }
+
+                            detailsList.replaceChildren();
+                            if (data.employees.length === 0) {
+                                detailsTable.classList.add('d-none');
+                                detailsMessage.classList.remove('d-none');
+                                detailsMessage.textContent = 'No employees found for this status and period.';
+                            } else {
+                                data.employees.forEach(function (employee) {
+                                    const row = document.createElement('tr');
+                                    const name = document.createElement('td');
+                                    const designation = document.createElement('td');
+                                    const dates = document.createElement('td');
+                                    name.textContent = employee.name;
+                                    designation.textContent = employee.designation;
+                                    dates.textContent = employee.dates.join(', ');
+                                    row.append(name, designation, dates);
+                                    detailsList.appendChild(row);
+                                });
+
+                                detailsMessage.classList.add('d-none');
+                                detailsTable.classList.remove('d-none');
+                            }
+
+                            if (detailsPerPage) {
+                                detailsPerPage.value = String(data.pagination.per_page);
+                            }
+                            renderPagination(data.pagination);
+                            if (detailsPagination) {
+                                detailsPagination.classList.remove('d-none');
+                            }
+                        })
+                        .catch(function () {
+                            if (requestId !== detailsRequestId) {
+                                return;
+                            }
+
+                            detailsMessage.classList.remove('d-none');
+                            detailsMessage.classList.add('text-danger');
+                            detailsMessage.textContent = 'Unable to load employees. Please try again.';
+                        });
+                }
+
+                detailButtons.forEach(function (button) {
+                    button.addEventListener('click', function () {
+                        const status = button.dataset.employeeStatusDetail;
+                        if (detailsSearch) {
+                            detailsSearch.value = '';
+                        }
+                        loadEmployeeDetails(status, 1, detailsPerPage ? Number(detailsPerPage.value) : 10);
+                    });
+                });
+
+                if (detailsPerPage) {
+                    detailsPerPage.addEventListener('change', function () {
+                        if (activeDetailsStatus) {
+                            loadEmployeeDetails(activeDetailsStatus, 1, Number(detailsPerPage.value));
+                        }
+                    });
+                }
+
+                if (detailsPaginationLinks) {
+                    detailsPaginationLinks.addEventListener('click', function (event) {
+                        const pageButton = event.target.closest('[data-employee-status-page]');
+                        if (pageButton && activeDetailsStatus) {
+                            loadEmployeeDetails(
+                                activeDetailsStatus,
+                                Number(pageButton.dataset.employeeStatusPage),
+                                detailsPerPage ? Number(detailsPerPage.value) : 10,
+                            );
+                        }
+                    });
+                }
+
+                if (detailsSearch) {
+                    detailsSearch.addEventListener('input', function () {
+                        window.clearTimeout(searchTimeout);
+                        searchTimeout = window.setTimeout(function () {
+                            if (activeDetailsStatus) {
+                                loadEmployeeDetails(
+                                    activeDetailsStatus,
+                                    1,
+                                    detailsPerPage ? Number(detailsPerPage.value) : 10,
+                                );
+                            }
+                        }, 300);
+                    });
+                }
 
                 function renderPerformers(performers) {
                     performerList.replaceChildren();

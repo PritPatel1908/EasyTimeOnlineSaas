@@ -123,6 +123,8 @@ foreach ($tenantBaseDomains as $tenantBaseDomain) {
                 Route::get('/dashboard', [DashboardController::class, 'index'])->name('tenant.dashboard');
                 Route::post('/dashboard/employee-status', [DashboardController::class, 'employeeStatus'])
                     ->name('tenant.dashboard.employee-status');
+                Route::post('/dashboard/employee-status/employees', [DashboardController::class, 'employeeStatusEmployees'])
+                    ->name('tenant.dashboard.employee-status.employees');
                 Route::post('/dashboard/attendance-overview', [DashboardController::class, 'attendanceOverview'])
                     ->name('tenant.dashboard.attendance-overview');
                 Route::get('/index', function () {
