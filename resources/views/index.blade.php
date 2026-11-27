@@ -388,10 +388,14 @@
         max-width: 100%;
     }
 
+    .dashboard-widget-filter-select .ts-wrapper,
     .dashboard-widget-filter-select .ts-control {
         box-sizing: border-box;
-        height: 38px;
-        min-height: 38px;
+        height: 38px !important;
+        min-height: 38px !important;
+    }
+
+    .dashboard-widget-filter-select .ts-control {
         display: flex;
         align-items: center;
         font-size: 12px;
@@ -1276,6 +1280,27 @@
                         </div>
                         <h5 class="mb-0">Clock-In/Out</h5>
                         <div class="d-flex align-items-center gap-2 dashboard-widget-header-controls">
+                            <div class="dashboard-widget-filter-select dashboard-widget-filter-select-grouping">
+                                <select class="form-control select2" data-clock-in-out-grouping-select
+                                    aria-label="Clock-In/Out employee grouping">
+                                    @foreach ($employeeGroupings as $key => $grouping)
+                                        <option value="{{ $key }}" @selected($key === 'department')>
+                                            By {{ $grouping['label'] }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="employee-status-period-select-container">
+                                <select class="form-control select2 employee-status-period-select"
+                                    aria-label="Clock-In/Out period" data-clock-in-out-period-select>
+                                    <option value="today" selected>Today</option>
+                                    <option value="yesterday">Yesterday</option>
+                                    <option value="this_week">This Week</option>
+                                    <option value="last_week">Last Week</option>
+                                    <option value="this_month">This Month</option>
+                                    <option value="last_month">Last Month</option>
+                                </select>
+                            </div>
                             <div class="dashboard-widget-width-select-container">
                                 <select class="form-control select2 dashboard-widget-width-select"
                                     data-dashboard-width-select aria-label="Clock-In/Out card width">
@@ -1288,44 +1313,6 @@
                                 <input type="number" class="form-control dashboard-widget-custom-width-input"
                                     data-dashboard-custom-width-input min="1" max="12" step="1" value="6" required hidden
                                     aria-label="Custom card width in columns" title="Enter 1 to 12 columns">
-                            </div>
-                            <div class="dropdown">
-                                <a href="javascript:void(0);"
-                                    class="dropdown-toggle btn btn-white btn-md d-inline-flex align-items-center border-0 fs-13 me-2"
-                                    data-bs-toggle="dropdown">
-                                    All Departments
-                                </a>
-                                <ul class="dropdown-menu  dropdown-menu-end p-3">
-                                    <li>
-                                        <a href="javascript:void(0);" class="dropdown-item rounded-1">Finance</a>
-                                    </li>
-                                    <li>
-                                        <a href="javascript:void(0);" class="dropdown-item rounded-1">Development</a>
-                                    </li>
-                                    <li>
-                                        <a href="javascript:void(0);" class="dropdown-item rounded-1">Marketing</a>
-                                    </li>
-                                </ul>
-                            </div>
-                            <div class="dropdown">
-                                <a href="javascript:void(0);"
-                                    class="border btn btn-white btn-md d-inline-flex align-items-center"
-                                    data-bs-toggle="dropdown">
-                                    <i class="ti ti-calendar me-1 fs-14"></i>Today
-                                </a>
-                                <ul class="dropdown-menu  dropdown-menu-end p-3">
-                                    <li>
-                                        <a href="javascript:void(0);" class="dropdown-item rounded-1">This
-                                            Month</a>
-                                    </li>
-                                    <li>
-                                        <a href="javascript:void(0);" class="dropdown-item rounded-1">This
-                                            Week</a>
-                                    </li>
-                                    <li>
-                                        <a href="javascript:void(0);" class="dropdown-item rounded-1">Today</a>
-                                    </li>
-                                </ul>
                             </div>
                         </div>
                     </div>
