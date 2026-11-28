@@ -376,6 +376,29 @@ class DashboardController extends Controller
             ->whereIn('user_id', User::query()->select('id'))
             ->distinct()
             ->count('user_id');
+        $profileDepartmentIds = $user ? $this->idsFrom($user->department_id) : [];
+        $profileDesignationIds = $user ? $this->idsFrom($user->designation_id) : [];
+        $profileDepartment = $profileDepartmentIds !== []
+            ? Department::query()->whereIn('id', $profileDepartmentIds)->orderBy('name')->pluck('name')->implode(', ')
+            : null;
+        $profileDesignation = $profileDesignationIds !== []
+            ? Designation::query()->whereIn('id', $profileDesignationIds)->orderBy('name')->pluck('name')->implode(', ')
+            : null;
+        $profilePicUrl = $user?->profile_pic
+            ? (\Illuminate\Support\Str::startsWith($user->profile_pic, ['http://', 'https://'])
+                ? $user->profile_pic
+                : tenant_asset($user->profile_pic))
+            : null;
+        $employeeProfile = [
+            'name' => $userName !== '' ? $userName : 'User',
+            'profile_pic_url' => $profilePicUrl,
+            'designation' => $profileDesignation ?: 'Not provided',
+            'department' => $profileDepartment ?: 'Not provided',
+            'code' => $user?->code ?: 'Not provided',
+            'phone' => $user?->number ?: 'Not provided',
+            'email' => $user?->email ?: 'Not provided',
+            'joined_on' => $user?->join_date?->format('d M Y') ?? 'Not provided',
+        ];
 
         return view('index', array_merge([
             'tenantId' => $tenantId,
@@ -385,6 +408,7 @@ class DashboardController extends Controller
             'currentUserProfilePic' => $user?->profile_pic,
             'currentUserDob' => $user?->dob,
             'currentUserJoinDate' => $user?->join_date,
+            'employeeProfile' => $employeeProfile,
             'birthdaysToday' => $birthdaysToday,
             'birthdaysTomorrow' => $birthdaysTomorrow,
             'employeeGroupings' => $employeeGroupings,

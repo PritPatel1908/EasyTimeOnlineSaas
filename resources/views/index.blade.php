@@ -76,6 +76,10 @@
         padding-left: 0;
     }
 
+    .row > [data-dashboard-resizable-card] {
+        min-width: 0;
+    }
+
     .dashboard-widget-width-select-container {
         display: flex;
         align-items: center;
@@ -1451,12 +1455,191 @@
 
         <div class="row">
 
-            <!-- Jobs Applicants -->
-            <div class="col-xxl-4 d-flex">
+            <!-- Employee Details -->
+            <div class="col-xxl-3 col-xl-6 d-flex" data-dashboard-static-widget="employee-details"
+                data-dashboard-resizable-card="employee-details"
+                data-dashboard-widget-label="Employee Details" data-dashboard-widget-width="3"
+                data-dashboard-widget-width-mode="custom" data-dashboard-layout-user="{{ $currentUserId }}">
+                <div class="card position-relative flex-fill">
+                    <div class="card-header">
+                        <div class="d-flex flex-column gap-2">
+                            <div class="d-flex justify-content-start">
+                                <div class="dashboard-widget-width-select-container is-custom-width">
+                                    <select class="form-control select2 dashboard-widget-width-select"
+                                        data-dashboard-width-select aria-label="Employee Details card width">
+                                        <option value="12">1/1</option>
+                                        <option value="6">1/2</option>
+                                        <option value="4">1/3</option>
+                                        <option value="auto">Auto</option>
+                                        <option value="custom" selected>Custom</option>
+                                    </select>
+                                    <input type="number" class="form-control dashboard-widget-custom-width-input"
+                                        data-dashboard-custom-width-input min="1" max="12" step="1" value="3"
+                                        aria-label="Custom card width in columns" title="Enter 1 to 12 columns">
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center flex-wrap gap-2">
+                                <span
+                                    class="avatar avatar-lg avatar-rounded border border-white border-2 flex-shrink-0 me-2 position-relative">
+                                    <img src="{{ $employeeProfile['profile_pic_url'] ?: URL::asset('build/img/users/user-01.jpg') }}"
+                                        alt="{{ $employeeProfile['name'] }}">
+                                    <span
+                                        class="position-absolute employee-verify-badge bg-white fs-14 d-inline-flex align-items-center justify-content-center rounded-circle"><i
+                                            class="ti ti-discount-check-filled text-success"></i></span>
+                                </span>
+                                <div>
+                                    <h5 class="text-gray-9 mb-1">{{ $employeeProfile['name'] }}</h5>
+                                    <div class="d-flex align-items-center">
+                                        <p class="text-muted fs-12 mb-0">{{ $employeeProfile['designation'] }}</p>
+                                        <span class="mx-1"><i class="ti ti-point-filled text-primary"></i></span>
+                                        <p class="text-muted fs-12 mb-0">{{ $employeeProfile['department'] }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body rounded-top">
+                        <div class="mb-3">
+                            <span class="d-block mb-1 fs-13">Phone Number</span>
+                            <p class="text-gray-9">{{ $employeeProfile['phone'] }}</p>
+                        </div>
+                        <div class="mb-3">
+                            <span class="d-block mb-1 fs-13">Email Address</span>
+                            <p class="text-gray-9">{{ $employeeProfile['email'] }}</p>
+                        </div>
+                        <div class="mb-3">
+                            <span class="d-block mb-1 fs-13">Employee Code</span>
+                            <p class="text-gray-9">{{ $employeeProfile['code'] }}</p>
+                        </div>
+                        <div>
+                            <span class="d-block mb-1 fs-13">Joined on</span>
+                            <p class="text-gray-9">{{ $employeeProfile['joined_on'] }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- /Employee Details -->
+
+            <!-- Leave Summary -->
+            <div class="col-xxl-3 col-xl-6 d-flex" data-dashboard-static-widget="leave-summary"
+                data-dashboard-resizable-card="leave-summary" data-dashboard-widget-label="Leave Details"
+                data-dashboard-widget-width="3" data-dashboard-widget-width-mode="custom"
+                data-dashboard-layout-user="{{ $currentUserId }}">
                 <div class="card flex-fill">
-                    <div class="card-header pb-2 d-flex align-items-center justify-content-between flex-wrap">
-                        <h5 class="mb-2">Jobs Applicants</h5>
-                        <a href="{{url('job-list')}}" class="btn btn-light btn-md mb-2">View All</a>
+                    <div class="card-header">
+                        <div class="d-flex flex-column gap-2">
+                            <div class="d-flex justify-content-start">
+                                <div class="dashboard-widget-width-select-container is-custom-width">
+                                    <select class="form-control select2 dashboard-widget-width-select"
+                                        data-dashboard-width-select aria-label="Leave Details card width">
+                                        <option value="12">1/1</option>
+                                        <option value="6">1/2</option>
+                                        <option value="4">1/3</option>
+                                        <option value="auto">Auto</option>
+                                        <option value="custom" selected>Custom</option>
+                                    </select>
+                                    <input type="number" class="form-control dashboard-widget-custom-width-input"
+                                        data-dashboard-custom-width-input min="1" max="12" step="1" value="3"
+                                        aria-label="Custom card width in columns" title="Enter 1 to 12 columns">
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center justify-content-between flex-wrap row-gap-2">
+                                <h5 class="mb-0">Leave Details</h5>
+                                <div class="dropdown">
+                                    <a href="javascript:void(0);"
+                                        class="border btn btn-white btn-md d-inline-flex align-items-center"
+                                        data-bs-toggle="dropdown">
+                                        <i class="ti ti-calendar me-1 fs-14"></i>2026
+                                    </a>
+                                    <ul class="dropdown-menu dropdown-menu-end p-3">
+                                        <li><a href="javascript:void(0);" class="dropdown-item rounded-1">2026</a></li>
+                                        <li><a href="javascript:void(0);" class="dropdown-item rounded-1">2025</a></li>
+                                        <li><a href="javascript:void(0);" class="dropdown-item rounded-1">2024</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-sm-6">
+                                <div class="mb-4">
+                                    <span class="d-block mb-1">Total Leaves</span>
+                                    <h4>16</h4>
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="mb-4">
+                                    <span class="d-block mb-1">Taken</span>
+                                    <h4>10</h4>
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="mb-4">
+                                    <span class="d-block mb-1">Absent</span>
+                                    <h4>2</h4>
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="mb-4">
+                                    <span class="d-block mb-1">Request</span>
+                                    <h4>0</h4>
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="mb-4">
+                                    <span class="d-block mb-1">Worked Days</span>
+                                    <h4>240</h4>
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="mb-4">
+                                    <span class="d-block mb-1">Loss of Pay</span>
+                                    <h4>2</h4>
+                                </div>
+                            </div>
+                            <div class="col-sm-12">
+                                <a href="#" class="btn btn-dark w-100" data-bs-toggle="modal"
+                                    data-bs-target="#add_leaves">Apply New Leave</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- /Leave Summary -->
+
+        </div>
+
+        <div class="row">
+
+            <!-- Jobs Applicants -->
+            <div class="col-xxl-3 col-xl-6 d-flex" data-dashboard-static-widget="jobs-applicants"
+                data-dashboard-resizable-card="jobs-applicants" data-dashboard-widget-label="Jobs Applicants"
+                data-dashboard-widget-width="3" data-dashboard-widget-width-mode="custom"
+                data-dashboard-layout-user="{{ $currentUserId }}">
+                <div class="card flex-fill">
+                    <div class="card-header pb-2">
+                        <div class="d-flex flex-column gap-2">
+                            <div class="d-flex justify-content-start">
+                                <div class="dashboard-widget-width-select-container is-custom-width">
+                                    <select class="form-control select2 dashboard-widget-width-select"
+                                        data-dashboard-width-select aria-label="Jobs Applicants card width">
+                                        <option value="12">1/1</option>
+                                        <option value="6">1/2</option>
+                                        <option value="4">1/3</option>
+                                        <option value="auto">Auto</option>
+                                        <option value="custom" selected>Custom</option>
+                                    </select>
+                                    <input type="number" class="form-control dashboard-widget-custom-width-input"
+                                        data-dashboard-custom-width-input min="1" max="12" step="1" value="3"
+                                        aria-label="Custom card width in columns" title="Enter 1 to 12 columns">
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center justify-content-between flex-wrap">
+                                <h5 class="mb-2">Jobs Applicants</h5>
+                                <a href="{{url('job-list')}}" class="btn btn-light btn-md mb-2">View All</a>
+                            </div>
+                        </div>
                     </div>
                     <div class="card-body">
                         <ul class="nav nav-tabs tab-style-1 nav-justified d-sm-flex d-block p-0 mb-4" role="tablist">
@@ -1609,11 +1792,33 @@
             <!-- /Jobs Applicants -->
 
             <!-- Employees -->
-            <div class="col-xxl-4 col-xl-6 d-flex">
+            <div class="col-xxl-3 col-xl-6 d-flex" data-dashboard-static-widget="employees"
+                data-dashboard-resizable-card="employees" data-dashboard-widget-label="Employees"
+                data-dashboard-widget-width="3" data-dashboard-widget-width-mode="custom"
+                data-dashboard-layout-user="{{ $currentUserId }}">
                 <div class="card flex-fill">
-                    <div class="card-header pb-2 d-flex align-items-center justify-content-between flex-wrap">
-                        <h5 class="mb-2">Employees</h5>
-                        <a href="{{url('employees')}}" class="btn btn-light btn-md mb-2">View All</a>
+                    <div class="card-header pb-2">
+                        <div class="d-flex flex-column gap-2">
+                            <div class="d-flex justify-content-start">
+                                <div class="dashboard-widget-width-select-container is-custom-width">
+                                    <select class="form-control select2 dashboard-widget-width-select"
+                                        data-dashboard-width-select aria-label="Employees card width">
+                                        <option value="12">1/1</option>
+                                        <option value="6">1/2</option>
+                                        <option value="4">1/3</option>
+                                        <option value="auto">Auto</option>
+                                        <option value="custom" selected>Custom</option>
+                                    </select>
+                                    <input type="number" class="form-control dashboard-widget-custom-width-input"
+                                        data-dashboard-custom-width-input min="1" max="12" step="1" value="3"
+                                        aria-label="Custom card width in columns" title="Enter 1 to 12 columns">
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center justify-content-between flex-wrap">
+                                <h5 class="mb-2">Employees</h5>
+                                <a href="{{url('employees')}}" class="btn btn-light btn-md mb-2">View All</a>
+                            </div>
+                        </div>
                     </div>
                     <div class="card-body p-0 employee-table">
                         <div class="table-responsive">
@@ -1719,7 +1924,7 @@
             <!-- /Employees -->
 
             <!-- Todo -->
-            <div class="col-xxl-4 col-xl-6 d-flex">
+            <div class="col-xxl-3 col-xl-6 d-flex">
                 <div class="card flex-fill">
                     <div class="card-header pb-2 d-flex align-items-center justify-content-between flex-wrap">
                         <h5 class="mb-2">Todo</h5>
@@ -2779,6 +2984,117 @@
     @push('scripts')
         <script>
             document.addEventListener('DOMContentLoaded', function () {
+                document.querySelectorAll('[data-dashboard-resizable-card]').forEach(function (widget) {
+                    var widthSelect = widget.querySelector('[data-dashboard-width-select]');
+                    var customWidthInput = widget.querySelector('[data-dashboard-custom-width-input]');
+                    var widthSelectContainer = widget.querySelector('.dashboard-widget-width-select-container');
+                    var storageKey = 'dashboard-' + widget.dataset.dashboardResizableCard + '-width:'
+                        + widget.dataset.dashboardLayoutUser;
+
+                    var applyCardWidth = function (selection, customColumns, save) {
+                        var isCustomWidth = selection === 'custom';
+                        var width = isCustomWidth ? String(customColumns || '3') : String(selection);
+                        var numericWidth = Number(width);
+                        if (
+                            (isCustomWidth && (!/^\d+$/.test(width) || numericWidth < 1 || numericWidth > 12))
+                            || (!isCustomWidth && ['4', '6', '12', 'auto'].indexOf(width) === -1)
+                        ) {
+                            isCustomWidth = true;
+                            width = '3';
+                        }
+
+                        widget.dataset.dashboardWidgetWidth = width;
+                        widget.dataset.dashboardWidgetWidthMode = isCustomWidth ? 'custom' : 'preset';
+                        if (width === 'auto') {
+                            widget.style.setProperty('flex', '1 0 0%', 'important');
+                            widget.style.setProperty('width', '100%', 'important');
+                            widget.style.setProperty('max-width', '100%', 'important');
+                        } else {
+                            var cardWidth = (Number(width) / 12 * 100) + '%';
+                            widget.style.setProperty('flex', '0 0 ' + cardWidth, 'important');
+                            widget.style.setProperty('width', cardWidth, 'important');
+                            widget.style.setProperty('max-width', cardWidth, 'important');
+                        }
+                        Array.prototype.slice.call(widget.classList).forEach(function (className) {
+                            if (/^col-(?:xxl|xl)(?:-\d+)?$/.test(className)) {
+                                widget.classList.remove(className);
+                            }
+                        });
+                        var widthSuffix = width === 'auto' ? '' : '-' + width;
+                        widget.classList.add('col-xxl' + widthSuffix, 'col-xl' + widthSuffix);
+
+                        widthSelect.value = isCustomWidth ? 'custom' : width;
+                        if (widthSelect.tomselect) {
+                            widthSelect.tomselect.setValue(widthSelect.value, true);
+                        }
+                        customWidthInput.value = isCustomWidth ? width : customWidthInput.value;
+                        customWidthInput.hidden = !isCustomWidth;
+                        customWidthInput.style.display = isCustomWidth ? 'block' : 'none';
+                        widthSelectContainer.classList.toggle('is-custom-width', isCustomWidth);
+                        widthSelectContainer.style.display = isCustomWidth ? 'grid' : 'flex';
+                        widthSelectContainer.style.width = isCustomWidth ? '184px' : '82px';
+                        widthSelectContainer.style.flexBasis = isCustomWidth ? '184px' : '82px';
+                        widthSelectContainer.style.gridTemplateColumns = isCustomWidth ? '96px 80px' : '';
+
+                        var selectWrapper = widthSelectContainer.querySelector('.ts-wrapper');
+                        if (selectWrapper) {
+                            var selectWidth = isCustomWidth ? '96px' : '82px';
+                            selectWrapper.style.setProperty('width', selectWidth, 'important');
+                            selectWrapper.style.setProperty('min-width', isCustomWidth ? '0' : selectWidth);
+                            selectWrapper.style.setProperty('max-width', selectWidth);
+                        }
+
+                        if (save) {
+                            localStorage.setItem(storageKey, isCustomWidth ? 'custom:' + width : width);
+                        }
+                    };
+
+                    var savedWidth = localStorage.getItem(storageKey);
+                    if (savedWidth && savedWidth.indexOf('custom:') === 0) {
+                        applyCardWidth('custom', savedWidth.substring(7), false);
+                    } else {
+                        applyCardWidth(savedWidth || 'custom', savedWidth ? '' : '3', false);
+                    }
+
+                    var handleWidthSelectChange = function () {
+                        var selection = widthSelect.value;
+                        if (selection === 'custom' && widget.dataset.dashboardWidgetWidthMode !== 'custom') {
+                            customWidthInput.value = widget.dataset.dashboardWidgetWidth === 'auto'
+                                ? '3'
+                                : widget.dataset.dashboardWidgetWidth;
+                        }
+                        if (selection === 'custom' && !customWidthInput.checkValidity()) {
+                            customWidthInput.reportValidity();
+                            return;
+                        }
+                        applyCardWidth(
+                            selection,
+                            selection === 'custom' ? customWidthInput.value : '',
+                            true
+                        );
+                    };
+                    if (widthSelect.tomselect && typeof widthSelect.tomselect.on === 'function') {
+                        widthSelect.tomselect.on('change', handleWidthSelectChange);
+                    } else {
+                        widthSelect.addEventListener('change', handleWidthSelectChange);
+                    }
+
+                    var handleCustomWidthChange = function () {
+                        if (!customWidthInput.checkValidity()) {
+                            return;
+                        }
+                        applyCardWidth('custom', customWidthInput.value, true);
+                    };
+                    customWidthInput.addEventListener('input', handleCustomWidthChange);
+                    customWidthInput.addEventListener('change', function () {
+                        if (!customWidthInput.checkValidity()) {
+                            customWidthInput.reportValidity();
+                            return;
+                        }
+                        handleCustomWidthChange();
+                    });
+                });
+
                 document.querySelectorAll('[data-dashboard-static-widget="clock-in-out"]').forEach(function (widget) {
                     const statusTrack = widget.querySelector('[data-clock-in-out-status-track]');
                     const statusSlides = Array.from(widget.querySelectorAll('[data-clock-in-out-status-slide]'));

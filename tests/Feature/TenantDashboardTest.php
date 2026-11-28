@@ -33,7 +33,9 @@ class TenantDashboardTest extends TestCase
         Schema::create('users', function (Blueprint $table) {
             $table->id();
             $table->string('name')->nullable();
+            $table->string('code')->nullable();
             $table->string('email')->nullable();
+            $table->string('number')->nullable();
             $table->string('profile_pic')->nullable();
             $table->string('user_type')->nullable();
             $table->date('dob')->nullable();
@@ -320,9 +322,14 @@ class TenantDashboardTest extends TestCase
         $user->forceFill([
             'id' => 1,
             'name' => 'Aarav Patel',
+            'code' => 'EMP-001',
+            'email' => 'aarav@example.com',
+            'number' => '+91 98765 43210',
             'profile_pic' => 'employee-profiles/aarav.png',
             'dob' => '1990-03-10',
             'join_date' => '2020-06-15',
+            'department_id' => [1],
+            'designation_id' => [1],
         ]);
         Auth::guard('tenant')->setUser($user);
 
@@ -336,6 +343,16 @@ class TenantDashboardTest extends TestCase
         $this->assertSame('employee-profiles/aarav.png', $response->getData()['currentUserProfilePic']);
         $this->assertSame('1990-03-10', $response->getData()['currentUserDob']->toDateString());
         $this->assertSame('2020-06-15', $response->getData()['currentUserJoinDate']->toDateString());
+        $this->assertSame([
+            'name' => 'Aarav Patel',
+            'profile_pic_url' => tenant_asset('employee-profiles/aarav.png'),
+            'designation' => 'Designations',
+            'department' => 'HR',
+            'code' => 'EMP-001',
+            'phone' => '+91 98765 43210',
+            'email' => 'aarav@example.com',
+            'joined_on' => '15 Jun 2020',
+        ], $response->getData()['employeeProfile']);
         $this->assertSame('today', $response->getData()['employeeStatusPeriod']);
         $this->assertSame(['Employee 2'], $response->getData()['birthdaysToday']->pluck('name')->all());
         $this->assertSame(['Employee 3'], $response->getData()['birthdaysTomorrow']->pluck('name')->all());
