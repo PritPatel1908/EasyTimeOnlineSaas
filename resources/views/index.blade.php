@@ -59,7 +59,8 @@
     }
 
     #dashboard-widget-grid,
-    #dashboard-widget-grid-secondary {
+    #dashboard-widget-grid-secondary,
+    #dashboard-widget-grid-tertiary {
         display: grid;
         grid-template-columns: repeat(12, minmax(0, 1fr));
         align-items: start;
@@ -68,7 +69,8 @@
     }
 
     #dashboard-widget-grid > *,
-    #dashboard-widget-grid-secondary > * {
+    #dashboard-widget-grid-secondary > *,
+    #dashboard-widget-grid-tertiary > * {
         width: auto;
         max-width: 100%;
         min-width: 0;
@@ -600,7 +602,8 @@
 
     @media (max-width: 767.98px) {
         #dashboard-widget-grid > *,
-        #dashboard-widget-grid-secondary > * {
+        #dashboard-widget-grid-secondary > *,
+        #dashboard-widget-grid-tertiary > * {
             grid-column: 1 / -1 !important;
         }
 
@@ -1453,7 +1456,8 @@
 
         </div>
 
-        <div class="row">
+        <div class="row" id="dashboard-widget-grid-tertiary"
+            data-dashboard-layout-user="{{ $currentUserId }}">
 
             <!-- Employee Details -->
             <div class="col-xxl-3 col-xl-6 d-flex" data-dashboard-static-widget="employee-details"
@@ -1461,7 +1465,19 @@
                 data-dashboard-widget-label="Employee Details" data-dashboard-widget-width="3"
                 data-dashboard-widget-width-mode="custom" data-dashboard-layout-user="{{ $currentUserId }}">
                 <div class="card position-relative flex-fill">
-                    <div class="card-header">
+                    <div class="card-header dashboard-widget-positioned-header">
+                        <div class="dashboard-widget-position-controls">
+                            <button type="button" class="btn btn-white border btn-sm dashboard-widget-drag-handle"
+                                data-dashboard-drag-handle aria-label="Move Employee Details section"
+                                title="Drag to move">
+                                <i class="ti ti-grip-vertical"></i>
+                            </button>
+                            <button type="button" class="btn btn-white border btn-sm"
+                                data-dashboard-widget-lock aria-label="Lock Employee Details position"
+                                aria-pressed="false" title="Lock position">
+                                <i class="ti ti-lock-open"></i>
+                            </button>
+                        </div>
                         <div class="d-flex flex-column gap-2">
                             <div class="d-flex justify-content-start">
                                 <div class="dashboard-widget-width-select-container is-custom-width">
@@ -1526,7 +1542,19 @@
                 data-dashboard-widget-width="3" data-dashboard-widget-width-mode="custom"
                 data-dashboard-layout-user="{{ $currentUserId }}">
                 <div class="card flex-fill">
-                    <div class="card-header">
+                    <div class="card-header dashboard-widget-positioned-header">
+                        <div class="dashboard-widget-position-controls">
+                            <button type="button" class="btn btn-white border btn-sm dashboard-widget-drag-handle"
+                                data-dashboard-drag-handle aria-label="Move Leave Details section"
+                                title="Drag to move">
+                                <i class="ti ti-grip-vertical"></i>
+                            </button>
+                            <button type="button" class="btn btn-white border btn-sm"
+                                data-dashboard-widget-lock aria-label="Lock Leave Details position"
+                                aria-pressed="false" title="Lock position">
+                                <i class="ti ti-lock-open"></i>
+                            </button>
+                        </div>
                         <div class="d-flex flex-column gap-2">
                             <div class="d-flex justify-content-start">
                                 <div class="dashboard-widget-width-select-container is-custom-width">
@@ -2985,6 +3013,10 @@
         <script>
             document.addEventListener('DOMContentLoaded', function () {
                 document.querySelectorAll('[data-dashboard-resizable-card]').forEach(function (widget) {
+                    if (widget.closest('#dashboard-widget-grid-tertiary')) {
+                        return;
+                    }
+
                     var widthSelect = widget.querySelector('[data-dashboard-width-select]');
                     var customWidthInput = widget.querySelector('[data-dashboard-custom-width-input]');
                     var widthSelectContainer = widget.querySelector('.dashboard-widget-width-select-container');

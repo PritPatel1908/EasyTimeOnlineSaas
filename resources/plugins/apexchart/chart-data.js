@@ -2710,7 +2710,11 @@ if (document.getElementById('emp-department')) {
       renderEmployeeGrouping(activeEmployeeGrouping, metricSelect.value);
     });
 
-    var dashboardWidgetGridIds = ['dashboard-widget-grid', 'dashboard-widget-grid-secondary'];
+    var dashboardWidgetGridIds = [
+      'dashboard-widget-grid',
+      'dashboard-widget-grid-secondary',
+      'dashboard-widget-grid-tertiary'
+    ];
     var dashboardWidgetGrids = dashboardWidgetGridIds
       .map(function (gridId) {
         return document.getElementById(gridId);
@@ -2977,6 +2981,11 @@ if (document.getElementById('emp-department')) {
         dashboardResizableWidgets.forEach(function (widget) {
           var savedWidths = savedDashboardLayout.widths;
           var savedWidth = savedWidths && savedWidths[getDashboardWidgetToken(widget)];
+          if (!savedWidth && widget.dataset.dashboardResizableCard) {
+            var legacyWidthKey = 'dashboard-' + widget.dataset.dashboardResizableCard + '-width:'
+              + dashboardWidgetGrid.dataset.dashboardLayoutUser;
+            savedWidth = localStorage.getItem(legacyWidthKey);
+          }
           applyDashboardWidgetWidth(widget, savedWidth || widget.dataset.dashboardWidgetWidth || '6');
 
           var widthSelect = widget.querySelector('[data-dashboard-width-select]');
